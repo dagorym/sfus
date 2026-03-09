@@ -135,7 +135,7 @@ Below is a complete product and technical design for your sci‑fi role‑playin
 
 ## 6) System architecture
 
-**Deployment model:** Self‑hosted on local server using **Docker** containers behind **nginx‑proxy** with **Let's Encrypt** companion for automatic TLS certificate management. All services run on a single domain with **path‑based routing** (e.g., `example.com/` for frontend, `example.com/api` for backend).
+**Deployment model:** Self‑hosted on local server using **Docker** containers behind an **existing shared reverse‑proxy tier** (`nginx‑proxy` + `acme‑companion`) for TLS and routing. This project reuses those existing containers and does not recreate or manage them. All services run on a single domain with **path‑based routing** (e.g., `example.com/` for frontend, `example.com/api` for backend).
 
 **Recommended stack (TypeScript‑first)**
 - **Frontend:** Next.js (React) with SSR/ISR + App Router, TypeScript, Zod validation, Zustand/React Query.
@@ -145,7 +145,7 @@ Below is a complete product and technical design for your sci‑fi role‑playin
 - **Search:** OpenSearch/Elasticsearch for full‑text across posts/wiki/forums/characters.
 - **Storage:** Abstracted storage interface with local filesystem/volume implementation initially; designed for future S3‑compatible swap (MinIO, AWS S3, etc.).
 - **Realtime:** WebSockets (Socket.IO) or Server‑Sent Events.
-- **Reverse proxy:** nginx‑proxy with automated Let's Encrypt certificates.
+- **Reverse proxy integration:** Reuse existing `nginx‑proxy` + `acme‑companion` infrastructure for routing and automated Let's Encrypt certificates.
 - **CI/CD:** Docker Compose, GitHub Actions for build/test, local deployment scripts.
 
 **Alternative (Python)**
@@ -157,7 +157,7 @@ Below is a complete product and technical design for your sci‑fi role‑playin
 [Internet]
      │
      ▼
-[nginx-proxy + Let's Encrypt companion]  ← TLS termination, routing
+[existing nginx-proxy + acme-companion]  ← TLS termination, routing
      │  (example.com/* → frontend)
      │  (example.com/api/* → backend)
      ├──→ [Next.js SSR container]
@@ -168,7 +168,7 @@ Below is a complete product and technical design for your sci‑fi role‑playin
                ├──→ [OpenSearch container]
                └──→ [Local storage volume]  ← abstracted, swappable to S3
 
-All containers on internal Docker network; only nginx-proxy exposed on :80/:443.
+Application containers run on an internal Docker network; only the existing shared nginx-proxy is exposed on :80/:443.
 ```
 
 **Storage abstraction layer**
@@ -552,8 +552,10 @@ CREATE TABLE project_members (
 ### Self‑hosted Docker deployment
 
 **Docker Compose stack (production):**
-- `nginx-proxy`: jwilder/nginx-proxy or nginxproxy/nginx-proxy with volume-mounted `/etc/nginx/vhost.d` for custom configs.
-- `acme-companion`: nginxproxy/acme-companion for automatic Let's Encrypt certificate issuance and renewal.
+- **External prerequisites (already running, not created by this project):**
+  - `nginx-proxy`: jwilder/nginx-proxy or nginxproxy/nginx-proxy with volume-mounted `/etc/nginx/vhost.d` for custom configs.
+  - `acme-companion`: nginxproxy/acme-companion for automatic Let's Encrypt certificate issuance and renewal.
+- **Services defined by this project:**
 - `frontend`: Next.js container, env `VIRTUAL_HOST=example.com`, `VIRTUAL_PATH=/`, `LETSENCRYPT_HOST=example.com`.
 - `api`: NestJS container, env `VIRTUAL_HOST=example.com`, `VIRTUAL_PATH=/api`, `LETSENCRYPT_HOST=example.com`.
 - `mysql`: official MySQL 5.7.44 image with named volume for `/var/lib/mysql`.
@@ -561,16 +563,18 @@ CREATE TABLE project_members (
 - `opensearch`: OpenSearch container with data volume.
 - `storage-volume`: named Docker volume or bind mount for local file storage (user uploads, images, downloads).
 - Optional: `clamav` container for virus scanning.
+- `frontend` and `api` must join the existing proxy Docker network as external-network members.
 
 **Persistent volumes:**
-- `mysql_data`, `redis_data`, `opensearch_data`, `storage_files`, `letsencrypt_certs`, `nginx_conf`.
+- `mysql_data`, `redis_data`, `opensearch_data`, `storage_files`.
+- Proxy/certificate volumes (for `nginx-proxy` and `acme-companion`) remain owned by the existing shared proxy stack.
 - Regular offsite backup of all volumes (rsync, Restic, or tarball snapshots).
 
 **Secrets management:**
 - Use Docker secrets or `.env` files (not checked into Git); rotate database passwords, JWT secrets, OAuth client secrets regularly.
 
 **Certificate renewal:**
-- acme-companion handles Let's Encrypt renewal automatically; monitor logs for failures.
+- The existing shared `acme-companion` handles Let's Encrypt renewal automatically; monitor logs for failures.
 - Set up alerts if certs are <14 days from expiry.
 
 **Host responsibilities:**
