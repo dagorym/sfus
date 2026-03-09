@@ -1,0 +1,16 @@
+# Shared validation contract for local runners and GitHub Actions shims.
+# Empty command slots are valid and should produce warnings, not failures.
+version: 1
+defaults:
+  warn_on_missing_command: true
+validations:
+  - id: repo-structure-contract
+    description: Verify CI/CD assets stay under cicd/ and workflows remain thin entrypoints.
+    commands:
+      sh: ""
+      pwsh: ""
+  - id: local-parity-contract
+    description: Verify local validation and image workflows read the shared cicd/config inputs.
+    commands:
+      sh: ""
+      pwsh: ""
