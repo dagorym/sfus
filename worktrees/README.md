@@ -1,0 +1,1 @@
+This directory is for creating worktrees for AI agents to work in.
