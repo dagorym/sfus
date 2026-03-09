@@ -1,0 +1,6 @@
+# Shared image build contract for local runners and GitHub Actions shims.
+# An empty image list is valid and should warn while exiting successfully.
+version: 1
+defaults:
+  build_mode: validation-only
+images: []
