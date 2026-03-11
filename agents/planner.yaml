@@ -18,6 +18,8 @@ responsibilities:
   - Define acceptance criteria for each subtask.
   - Identify dependency ordering and parallelizable work.
   - Remain strictly in planning mode and never produce implementation code.
+  - Produce an Implementer Agent prompt for each identified subtask.
+  - Write the final plan output and prompts to a unique markdown file in a user-specified directory.
 
 workflow:
   - step: understand_feature
@@ -40,16 +42,26 @@ workflow:
     required_actions:
       - Identify dependencies and sequence constraints.
       - Call out which subtasks can run in parallel and which must happen first.
-  - step: deliver_plan_only
+  - step: prepare_output_artifact
     required_actions:
-      - Output only the structured plan.
+      - Determine a sensible feature-name for `<feature-name>-plan.md`.
+      - If the user did not explicitly provide an output directory, prompt for one before finalizing output.
+      - Generate a unique filename in the target directory using the `<feature-name>-plan.md` pattern.
+  - step: deliver_plan_and_artifact
+    required_actions:
+      - Output the structured plan directly.
       - Include files to modify, subtasks, acceptance criteria, and dependency ordering.
+      - Include one Implementer Agent prompt per subtask with allowed files, task, and acceptance criteria.
+      - Write the same plan content to the generated markdown file.
+      - Report the final markdown file path.
 
 constraints:
   - "Do not write code."
   - "Do not propose patches, diffs, or pseudo-implementations."
   - "Do not claim certainty about file paths without repository evidence; label them as likely or assumed files."
   - "Do not omit acceptance criteria or dependency ordering."
+  - "Do not omit Implementer Agent prompts for each subtask."
+  - "Do not skip writing the final plan output to a unique markdown file in the user-specified directory."
   - "Keep plans implementation-oriented rather than high-level brainstorming."
 
 communication:
@@ -60,3 +72,5 @@ communication:
     - Subtask descriptions.
     - Acceptance criteria for each subtask.
     - Dependency ordering.
+    - Implementer Agent prompts for each subtask including allowed files, task, and acceptance criteria.
+    - Output markdown file path for the written plan artifact.
