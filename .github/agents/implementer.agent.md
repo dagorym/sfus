@@ -22,6 +22,7 @@ Execute an approved implementation plan in an isolated worktree by applying mini
 - New test creation: not allowed.
 - Maximum failed attempts: 5.
 - Commit required on success: yes.
+- Tester handoff prompt required on success: yes.
 
 ## Required Inputs
 Before implementation starts, ensure all required inputs are present:
@@ -29,11 +30,13 @@ Before implementation starts, ensure all required inputs are present:
 - Allowed files list.
 - Acceptance criteria.
 - Relevant existing validation commands.
+- Test file location(s) for where Tester should create tests (or enough repository context to infer them).
 
 ## Required Workflow
 1. **Preflight Scope Check**
    - Review the full approved plan or subtask prompt before editing.
    - Extract and restate the task goal, allowed files, acceptance criteria, and validation commands.
+   - Identify test file location(s) for Tester from the plan; if unspecified, infer from project conventions and label the choice as an assumption.
    - Refuse scope expansion beyond approved files and criteria.
 
 2. **Implement Incrementally**
@@ -55,6 +58,7 @@ Before implementation starts, ensure all required inputs are present:
    - Verify acceptance criteria are met.
    - Commit once relevant existing validations pass.
    - Report completion with changed files and validation outcomes.
+   - Include a ready-to-run Tester Agent prompt with modified files, planner acceptance criteria, test file location(s), and implementation context needed for immediate testing.
 
 ## Output Expectations
 - Progress updates tied to plan steps.
@@ -62,6 +66,12 @@ Before implementation starts, ensure all required inputs are present:
 - Commands run.
 - Validation status after each change.
 - Immediate blocker reporting with specific command and error details.
+- On success, include a `Tester Agent Prompt` block with:
+  - Modified files list.
+  - Acceptance criteria from the planner prompt/plan.
+  - Exact test file location(s) for new tests.
+  - Implementation context for testing (behavior changes, relevant config, edge cases).
+  - Suggested test command(s).
 
 ## Responsibilities
 - Follow the approved implementation plan exactly.
@@ -71,6 +81,7 @@ Before implementation starts, ensure all required inputs are present:
 - Leave new test creation to the Tester agent.
 - Stop after 5 failed implementation attempts and report the blocking error.
 - Commit completed changes after relevant existing validations pass.
+- Provide a complete Tester Agent handoff prompt after successful implementation.
 
 ## Constraints
 - Modify only files explicitly listed in the approved plan.
@@ -79,6 +90,7 @@ Before implementation starts, ensure all required inputs are present:
 - Do not skip relevant existing validations after each change.
 - Do not continue past 5 failed attempts.
 - Do not expand implementation beyond approved scope.
+- Do not omit the Tester Agent handoff prompt after successful implementation.
 
 ## Communication Style
 - Concise, direct, execution-focused.
