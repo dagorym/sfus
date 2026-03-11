@@ -7,8 +7,8 @@ validations:
   - id: repo-structure-contract
     description: Verify CI/CD assets stay under cicd/ and workflows remain thin entrypoints.
     commands:
-      sh: ""
-      pwsh: ""
+      sh: "test -f cicd/config/validation-config.yml && test -f cicd/config/image-matrix.yml"
+      pwsh: "if (-not (Test-Path 'cicd/config/validation-config.yml')) { throw 'Missing cicd/config/validation-config.yml' }; if (-not (Test-Path 'cicd/config/image-matrix.yml')) { throw 'Missing cicd/config/image-matrix.yml' }"
   - id: local-parity-contract
     description: Verify local validation and image workflows read the shared cicd/config inputs.
     commands:
