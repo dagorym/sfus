@@ -107,4 +107,24 @@ assert_nonzero_status
 assert_stderr_contains "^Error: docker compose is required but neither 'docker compose' nor 'docker-compose' is available\\.$" \
   "Expected configured services to fail when docker compose is unavailable."
 
+echo "Checking inline-map services detection..."
+inline_service_compose="${scratch_dir}/compose.inline-service.yml"
+write_file "${inline_service_compose}" 'version: "3.9"
+services: {app: {image: busybox}}'
+run_capture inline-services env PATH="${scratch_dir}/minimal-bin" /usr/bin/bash "${runner}" "${inline_service_compose}" status
+assert_nonzero_status
+assert_stderr_contains "^Error: docker compose is required but neither 'docker compose' nor 'docker-compose' is available\\.$" \
+  "Expected inline-map services to be detected as configured services."
+
+echo "Checking non-fixed service indentation detection..."
+indented_service_compose="${scratch_dir}/compose.indented-service.yml"
+write_file "${indented_service_compose}" 'version: "3.9"
+services:
+    app:
+      image: busybox'
+run_capture indented-services env PATH="${scratch_dir}/minimal-bin" /usr/bin/bash "${runner}" "${indented_service_compose}" status
+assert_nonzero_status
+assert_stderr_contains "^Error: docker compose is required but neither 'docker compose' nor 'docker-compose' is available\\.$" \
+  "Expected block-style services with 4-space indentation to be detected as configured services."
+
 echo "PASS: Container runner coverage succeeded."
