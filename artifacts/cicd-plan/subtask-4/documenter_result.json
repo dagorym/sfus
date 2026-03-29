@@ -1,15 +1,17 @@
 {
   "status": "success",
   "task_id": "subtask-4",
-  "branch": "cicd-documenter-20260329",
-  "documentation_commit_hash": "d0dea42ccb3ad24e05009440fc4419d484007038",
+  "branch": "cicd-r1-documenter-20260329",
+  "documentation_commit_hash": "PENDING_COMMIT_HASH",
   "documentation_files": [
     "cicd/docs/cicd.md",
     "cicd/tests/README.md"
   ],
   "commands_run": [
-    "bash cicd/tests/run-validations.sh (baseline)",
-    "bash cicd/tests/run-validations.sh (post-documentation)"
+    "bash cicd/tests/run-validations.sh",
+    "bash cicd/tests/run-containers.sh",
+    "bash cicd/tests/run-validations.sh",
+    "bash cicd/tests/run-validations.sh (post-documentation validation)"
   ],
   "artifact_paths": [
     "artifacts/cicd-plan/subtask-4/documenter_report.md",

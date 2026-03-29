@@ -40,6 +40,8 @@ You can also pass a custom compose file:
 bash cicd/scripts/run-containers.sh path/to/compose.dev.yml start
 ```
 
+The runner treats a compose file as configured when `services` contains either an inline map such as `services: {app: {image: busybox}}` or block-style service keys indented beneath `services:`. That keeps custom compose files working even when their YAML uses inline definitions or service keys that are not indented with a fixed number of spaces.
+
 ### No-service behavior
 
 `cicd/docker/compose.dev.yml` is scaffolded with no services yet. When the selected compose file has no services, `bash cicd/scripts/run-containers.sh` writes this warning to stderr and exits `0` without requiring Docker:
