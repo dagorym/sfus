@@ -47,5 +47,6 @@ Validated behaviors:
 - Temporary test scratch data is removed via trap cleanup in `cicd/tests/build-images.sh` and `cicd/tests/run-validations.sh`.
 
 #### Commit Status
-- Pending commit of valid test changes.
+- Test changes committed: `469688f9317bd5d6257bf3859a198b812b847e8f`
+- Artifact follow-up commit: `2fea268b549c4738c41e408430da3b24a5dcafe2`.
 

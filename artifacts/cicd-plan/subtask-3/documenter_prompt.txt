@@ -32,14 +32,14 @@ Final outcomes:
 - Validated configured image parsing/build invocation, empty-matrix warning-only success, and docker-unavailable failure behavior.
 
 Commit context:
-- Test commit hash: 6a7f4e2c2de6abc5884e4879258f605481aefc87
+- Test commit hash: 469688f9317bd5d6257bf3859a198b812b847e8f
 
 Shared artifact directory to reuse (repository-root-relative):
 - `artifacts/cicd-plan/subtask-3`
 
 Tester artifacts written:
 - `artifacts/cicd-plan/subtask-3/tester_report.md`
-- `artifacts/cicd-plan/subtask-3/tester_result.json` (to be finalized with commit hash)
+- `artifacts/cicd-plan/subtask-3/tester_result.json`
 - `artifacts/cicd-plan/subtask-3/documenter_prompt.txt`
 
 Likely documentation impact:
