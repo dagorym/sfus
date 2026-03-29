@@ -2,7 +2,7 @@
   "status": "success",
   "task_id": "subtask-4",
   "branch": "cicd-r1-tester-20260329",
-  "test_commit_hash": "8f5ced086f3756a607321bb10a1dcd55e9188224",
+  "test_commit_hash": "4d1a19882731c899c4300a7529de1be9299f144b",
   "test_files": [
     "cicd/tests/run-containers.sh"
   ],
