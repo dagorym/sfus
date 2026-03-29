@@ -1,0 +1,47 @@
+You are the Documenter Agent.
+
+Task summary:
+- Implemented Subtask 6 CD thin shim: manual GitHub Actions CD workflow entrypoint and delegated stage operations to shared `cicd/scripts/build-images.sh` + `cicd/config/image-matrix.yml`.
+- Publish/deploy are explicitly gated off by default.
+
+Acceptance criteria validated:
+1. `.github/workflows/cd.yml` is manually triggerable for any branch/ref.
+2. Workflow calls only `cicd/scripts` and `cicd/config` assets.
+3. Publish/deploy remain gated off by default.
+
+Implementation context:
+- Worktree: `/home/tstephen/repos/sfus/worktrees/cicd-subtask6-tester-20260329`
+- Branch: `cicd-subtask6-tester-20260329`
+- Base branch: `cicd`
+- Implementer-modified files:
+  - `.github/workflows/cd.yml`
+  - `cicd/scripts/build-images.sh`
+  - `cicd/config/image-matrix.yml`
+
+Tester changes committed:
+- `cicd/tests/build-images.sh`
+- `cicd/tests/run-validations.sh`
+
+Test commit hash:
+- `798ff819059e0c52ee9e4ec5de7508fffb509cb3`
+
+Commands executed:
+- `bash cicd/tests/build-images.sh` (baseline)
+- `bash cicd/tests/run-validations.sh` (baseline)
+- `bash cicd/tests/build-images.sh` (post-change)
+- `bash cicd/tests/run-validations.sh` (post-change)
+
+Final test outcomes:
+- All executed test commands passed (4/4).
+- Acceptance criteria passed: 3/3.
+- No unmet acceptance criteria.
+
+Documentation-impact hints:
+- CD workflow is now `workflow_dispatch` with inputs `git_ref`, `run_publish`, and `run_deploy`.
+- Build stage always runs via shared script/config call.
+- Publish/deploy are guarded by boolean input conditions and remain no-op gated behavior by default.
+- `cicd/config/image-matrix.yml` now explicitly declares `publish_enabled: false` and `deploy_enabled: false`.
+- Test coverage now explicitly validates these gating and workflow-shim contracts.
+
+Reuse this shared artifact directory path (repository-root-relative):
+- `artifacts/cicd-plan/subtask-6`
