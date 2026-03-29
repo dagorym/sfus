@@ -10,8 +10,9 @@
 
 ## Assumptions
 1. Local run experience should use the same config sources as GitHub Actions.
-2. Local container run should be via Docker Compose (or equivalent script wrapper) with safe no-op behavior when no services exist yet.
+2. Local container run should be via Docker Compose (or equivalent bash wrapper) with safe no-op behavior when no services exist yet.
 3. GitHub Actions workflow definitions must remain in `.github/workflows/` as platform-required entrypoints.
+4. Local execution examples should use forward-slash paths and `bash`-centric commands only.
 
 ## Files To Modify
 1. `.github/workflows/ci.yml`
@@ -19,13 +20,11 @@
 3. `cicd/config/validation-config.yml`
 4. `cicd/config/image-matrix.yml`
 5. `cicd/scripts/run-validations.sh`
-6. `cicd/scripts/build-images.ps1`
-7. `cicd/scripts/build-images.sh`
-8. `cicd/scripts/run-containers.ps1`
-9. `cicd/scripts/run-containers.sh`
-10. `cicd/docker/compose.dev.yml`
-11. `cicd/docs/cicd.md`
-12. `README.md`
+6. `cicd/scripts/build-images.sh`
+7. `cicd/scripts/run-containers.sh`
+8. `cicd/docker/compose.dev.yml`
+9. `cicd/docs/cicd.md`
+10. `README.md`
 
 ## Subtasks And Acceptance Criteria
 1. Define shared CI/CD contracts.
@@ -35,10 +34,10 @@
    - Acceptance criteria: Linux-local `bash cicd/scripts/run-validations.sh` executes all configured checks from `cicd/config`; unimplemented checks emit warnings; warning-only runs exit successfully.
 
 3. Create shared local image build runner.
-   - Acceptance criteria: Local command builds images from `cicd/config/image-matrix.yml`; empty matrix emits warning and exits successfully.
+   - Acceptance criteria: Linux-local `bash cicd/scripts/build-images.sh` builds images from `cicd/config/image-matrix.yml`; empty matrix emits warning and exits successfully.
 
 4. Add local container run workflow scaffold.
-   - Acceptance criteria: Devs can run/start containers locally via `cicd/scripts` + `cicd/docker/compose.dev.yml`; behavior is documented when no services are defined yet.
+   - Acceptance criteria: Devs can run/start containers locally via `bash` scripts under `cicd/scripts` plus `cicd/docker/compose.dev.yml`; behavior is documented when no services are defined yet.
 
 5. Implement GitHub Actions CI entrypoint as a thin shim.
    - Acceptance criteria: `.github/workflows/ci.yml` triggers on push/PR to `main` and manual dispatch; it calls only `cicd/scripts` and `cicd/config` assets; warning semantics are preserved in CI logs.
@@ -50,7 +49,7 @@
    - Acceptance criteria: Docker Hub inputs/secrets and publish steps are documented in `cicd/docs/cicd.md` and/or commented workflow sections, but image publishing remains disabled.
 
 8. Document developer usage.
-   - Acceptance criteria: Docs include exact local commands for validate/build/run, warning behavior, and how to add new checks/services/images under `cicd/`.
+   - Acceptance criteria: Docs include exact local `bash` commands for validate/build/run, warning behavior, and how to add new checks/services/images under `cicd/`.
 
 9. Document repository structure constraints.
    - Acceptance criteria: Docs explicitly state that CI/CD logic lives in `cicd/` while `.github/workflows/` contains mandatory GitHub entrypoint shims only.
@@ -79,20 +78,18 @@
 
 3. Subtask 3 Prompt
    - Allowed files to change:
-     - `cicd/scripts/build-images.ps1`
      - `cicd/scripts/build-images.sh`
      - `cicd/config/image-matrix.yml`
    - Task to implement: Create a shared local image build runner that reads `cicd/config/image-matrix.yml` and builds configured images.
-   - Acceptance criteria: Local command builds images from `cicd/config/image-matrix.yml`; empty matrix emits warning and exits successfully.
+   - Acceptance criteria: Linux-local `bash cicd/scripts/build-images.sh` builds images from `cicd/config/image-matrix.yml`; empty matrix emits warning and exits successfully.
 
 4. Subtask 4 Prompt
    - Allowed files to change:
-     - `cicd/scripts/run-containers.ps1`
      - `cicd/scripts/run-containers.sh`
      - `cicd/docker/compose.dev.yml`
      - `cicd/docs/cicd.md`
-   - Task to implement: Add a local container run workflow scaffold using `cicd/scripts` and `cicd/docker/compose.dev.yml`, including documented no-service behavior.
-   - Acceptance criteria: Devs can run/start containers locally via `cicd/scripts` + `cicd/docker/compose.dev.yml`; behavior is documented when no services are defined yet.
+   - Task to implement: Add a local container run workflow scaffold using `bash` entrypoints under `cicd/scripts` and `cicd/docker/compose.dev.yml`, including documented no-service behavior.
+   - Acceptance criteria: Devs can run/start containers locally via `bash` scripts under `cicd/scripts` plus `cicd/docker/compose.dev.yml`; behavior is documented when no services are defined yet.
 
 5. Subtask 5 Prompt
    - Allowed files to change:
@@ -105,7 +102,6 @@
 6. Subtask 6 Prompt
    - Allowed files to change:
      - `.github/workflows/cd.yml`
-     - `cicd/scripts/build-images.ps1`
      - `cicd/scripts/build-images.sh`
      - `cicd/config/image-matrix.yml`
    - Task to implement: Implement GitHub Actions CD as a thin entrypoint shim that can be manually triggered for any branch/ref and delegates behavior to `cicd/scripts` and `cicd/config`.
@@ -123,7 +119,7 @@
      - `cicd/docs/cicd.md`
      - `README.md`
    - Task to implement: Document developer usage for validate/build/run flows and explain how to extend checks/services/images under `cicd/`.
-   - Acceptance criteria: Docs include exact local commands for validate/build/run, warning behavior, and how to add new checks/services/images under `cicd/`.
+   - Acceptance criteria: Docs include exact local `bash` commands for validate/build/run, warning behavior, and how to extend checks/services/images under `cicd/`.
 
 9. Subtask 9 Prompt
    - Allowed files to change:
