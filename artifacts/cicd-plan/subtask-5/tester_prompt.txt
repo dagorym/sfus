@@ -1,0 +1,30 @@
+You are the Tester Agent.
+
+Task summary:
+- Implemented Subtask 5 CI shim by adding `.github/workflows/ci.yml` with `push`/`pull_request` triggers on `main` plus `workflow_dispatch`, and delegating execution to `bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml`.
+- Updated `cicd/scripts/run-validations.sh` to preserve warning semantics and emit GitHub Actions warning annotations (`::warning::...`) when running in Actions (`GITHUB_ACTIONS=true`).
+
+Modified files:
+- .github/workflows/ci.yml
+- cicd/scripts/run-validations.sh
+
+Acceptance criteria to validate (from Planner):
+- `.github/workflows/ci.yml` triggers on push/PR to `main` and manual dispatch.
+- Workflow calls only `cicd/scripts` and `cicd/config` assets.
+- Warning semantics are preserved in CI logs.
+
+Create test files in:
+- Assumption based on project convention: `cicd/tests/*.sh`
+
+Implementation context for testing:
+- CI workflow is intentionally thin: one job, checkout + single script invocation.
+- Workflow command path is `bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml` (delegates all behavior to shared script/config).
+- Warnings from missing commands are still printed to stderr, and additionally surface as GitHub annotations when `GITHUB_ACTIONS=true`.
+- No changes were made to `cicd/config/validation-config.yml` content in this subtask.
+
+Suggested test command(s):
+- bash cicd/tests/run-validations.sh
+- GITHUB_ACTIONS=true bash cicd/scripts/run-validations.sh
+
+Shared artifact directory:
+- artifacts/cicd-plan/subtask-5
