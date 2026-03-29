@@ -148,4 +148,7 @@ assert_stderr_contains "Error: validation 'strict-missing-command' has no comman
 echo "Running image build runner tests..."
 bash "${script_dir}/build-images.sh"
 
+echo "Running container runner tests..."
+bash "${script_dir}/run-containers.sh"
+
 echo "PASS: Linux validation coverage succeeded."

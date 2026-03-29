@@ -44,4 +44,5 @@ bash cicd/tests/run-validations.sh
 - `bash cicd/tests/run-validations.sh`: validates that shared validation checks live under `cicd/config/validation-config.yml` and use the Linux-only `command` field
 - `bash cicd/tests/run-validations.sh`: validates that image targets live under `cicd/config/image-matrix.yml`
 - `bash cicd/tests/run-validations.sh`: invokes `bash cicd/tests/build-images.sh` so the shared validation coverage includes the image build runner contract
+- `bash cicd/tests/run-validations.sh`: invokes `bash cicd/tests/run-containers.sh` so shared validation coverage includes the local container runner scaffold behavior
 - `bash cicd/tests/run-validations.sh`: validates default-run success, warning-only success, missing-config failure, and strict missing-command failure
