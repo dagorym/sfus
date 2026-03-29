@@ -40,7 +40,7 @@ You can also pass a custom compose file:
 bash cicd/scripts/run-containers.sh path/to/compose.dev.yml start
 ```
 
-The runner treats a compose file as configured when `services` contains either an inline map such as `services: {app: {image: busybox}}` or block-style service keys indented beneath `services:`. That keeps custom compose files working even when their YAML uses inline definitions or service keys that are not indented with a fixed number of spaces.
+The runner treats a compose file as configured when `services` contains either an inline map such as `services: {app: {image: busybox}}` or block-style service keys indented beneath `services:`. Inline-map detection still works when the same `services:` line ends with a trailing YAML comment, for example `services: {app: {image: busybox}} # local override`. That keeps custom compose files working even when their YAML uses inline definitions, inline definitions with trailing comments, or service keys that are not indented with a fixed number of spaces.
 
 ### No-service behavior
 
