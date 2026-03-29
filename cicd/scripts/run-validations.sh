@@ -45,6 +45,14 @@ fi
 
 cd "$repo_root" || exit 1
 
+emit_warning() {
+  local message="$1"
+  echo "Warning: ${message}" >&2
+  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    echo "::warning::${message}" >&2
+  fi
+}
+
 warn_on_missing_command=true
 declare -a ids
 declare -a descriptions
@@ -89,7 +97,7 @@ done < "$config_path"
 
 total="${#ids[@]}"
 if (( total == 0 )); then
-  echo "Warning: no validations defined in $config_path" >&2
+  emit_warning "no validations defined in $config_path"
   exit 0
 fi
 
@@ -110,7 +118,7 @@ for ((i = 0; i < total; i += 1)); do
 
   if [[ -z "$command" ]]; then
     if [[ "$warn_on_missing_command" == "true" ]]; then
-      echo "Warning: validation '$id' has no command configured; skipping." >&2
+      emit_warning "validation '$id' has no command configured; skipping."
       ((warnings += 1))
       continue
     fi
