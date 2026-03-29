@@ -41,6 +41,7 @@ bash cicd/tests/run-validations.sh
 - `bash cicd/scripts/run-validations.sh`: canonical Linux validation runner
 - `bash cicd/scripts/build-images.sh`: reads `cicd/config/image-matrix.yml`, warns and exits successfully when `images: []`, and fails when images are configured but `docker` is unavailable
 - `bash cicd/tests/build-images.sh`: validates configured image parsing and build invocation, empty-matrix warning-only success, and docker-unavailable failure behavior
+- `bash cicd/tests/run-containers.sh`: validates action aliases, optional custom compose-file argument handling, warning-only no-service success, missing compose-file failure, and docker-required behavior when services exist
 - `bash cicd/tests/run-validations.sh`: validates that shared validation checks live under `cicd/config/validation-config.yml` and use the Linux-only `command` field
 - `bash cicd/tests/run-validations.sh`: validates that image targets live under `cicd/config/image-matrix.yml`
 - `bash cicd/tests/run-validations.sh`: invokes `bash cicd/tests/build-images.sh` so the shared validation coverage includes the image build runner contract

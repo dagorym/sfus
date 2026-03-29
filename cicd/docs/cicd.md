@@ -16,11 +16,13 @@ cicd/docker/compose.dev.yml
 
 Supported actions:
 
-- `start` or `up`: run in detached mode
-- `run`: run in foreground
-- `stop` or `down`: stop and remove containers
-- `status` or `ps`: list compose service status
-- `logs`: stream service logs
+- `start` or `up`: run `docker compose up -d`
+- `run`: run `docker compose up`
+- `stop` or `down`: run `docker compose down`
+- `status` or `ps`: run `docker compose ps`
+- `logs`: run `docker compose logs`
+
+If the first argument is not one of those actions, the runner treats it as a custom compose file path and keeps `start` as the default action unless you pass an action next.
 
 Examples:
 
@@ -40,4 +42,8 @@ bash cicd/scripts/run-containers.sh path/to/compose.dev.yml start
 
 ### No-service behavior
 
-`cicd/docker/compose.dev.yml` is scaffolded with no services yet. When no services are defined, `bash cicd/scripts/run-containers.sh` prints a warning and exits successfully without requiring Docker.
+`cicd/docker/compose.dev.yml` is scaffolded with no services yet. When the selected compose file has no services, `bash cicd/scripts/run-containers.sh` writes this warning to stderr and exits `0` without requiring Docker:
+
+```text
+Warning: no services are defined in <compose-file>; nothing to run.
+```
