@@ -1,0 +1,29 @@
+You are the Tester Agent.
+
+Task summary:
+- Added a shared local image build runner that reads `cicd/config/image-matrix.yml` and builds configured images, with explicit warning-only success behavior for an empty matrix.
+
+Modified files:
+- cicd/scripts/build-images.sh
+
+Acceptance criteria to validate (from Planner):
+- Linux-local `bash cicd/scripts/build-images.sh` builds images from `cicd/config/image-matrix.yml`.
+- Empty matrix emits warning and exits successfully.
+
+Create test files in:
+- cicd/tests/ (assumption from repository conventions; planner did not specify exact test file path)
+
+Implementation context for testing:
+- Entry point: `cicd/scripts/build-images.sh`.
+- Default config path: `cicd/config/image-matrix.yml`; optional config path argument supported.
+- Empty `images` list exits successfully with warning to stderr.
+- Non-empty image entries are parsed from YAML and built via `docker build`.
+- Supported per-image keys: `id`, `name`, `context`, `dockerfile`, `image`, `tag`.
+- If docker is unavailable while images are configured, script exits non-zero.
+
+Suggested test command(s):
+- bash cicd/scripts/build-images.sh
+- bash cicd/tests/run-validations.sh
+
+Shared artifact directory:
+- artifacts/cicd-plan/subtask-3
