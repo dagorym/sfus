@@ -82,7 +82,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     continue
   fi
 
-  if [[ "$line" =~ ^[[:space:]]*sh:[[:space:]]*(.*)$ ]]; then
+  if [[ "$line" =~ ^[[:space:]]*command:[[:space:]]*(.*)$ ]]; then
     sh_commands[$current_index]="$(parse_scalar "${BASH_REMATCH[1]}")"
   fi
 done < "$config_path"
@@ -110,12 +110,12 @@ for ((i = 0; i < total; i += 1)); do
 
   if [[ -z "$command" ]]; then
     if [[ "$warn_on_missing_command" == "true" ]]; then
-      echo "Warning: validation '$id' has no sh command configured; skipping." >&2
+      echo "Warning: validation '$id' has no command configured; skipping." >&2
       ((warnings += 1))
       continue
     fi
 
-    echo "Error: validation '$id' has no sh command configured." >&2
+    echo "Error: validation '$id' has no command configured." >&2
     ((failures += 1))
     continue
   fi

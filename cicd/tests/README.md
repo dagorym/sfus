@@ -1,37 +1,38 @@
 # CI/CD Test System
 
-This directory uses [Pester](https://pester.dev/), the PowerShell testing framework, for CI/CD contract validation.
+This directory contains CI/CD contract checks for the Linux-oriented workflow.
 
-Pester fits this part of the project because the CI/CD work is centered on PowerShell-friendly scripts and config files, and it is already available in the current development environment without adding new dependencies. The tests here validate shared CI/CD contracts such as the required config file locations and expected empty-matrix behavior.
+The supported validation entrypoints for this repository are:
+
+- `bash cicd/scripts/run-validations.sh` for the production validation runner
+- `bash cicd/tests/run-validations.sh` for Linux-native CI/CD contract coverage
+
+The test coverage in this directory focuses on shared CI/CD config contracts such as the Linux-only validation command shape, required config file locations, and expected empty-matrix behavior, along with runner success and failure semantics.
 
 ## Setup
 
-1. Use PowerShell on a machine with `Invoke-Pester` available.
+1. Use Linux.
 2. Work from the repository root or the relevant isolated worktree root.
-3. No additional package installation is currently required for the tests in this directory.
+3. No extra dependencies are required beyond the repository's Bash-based scripts and standard Linux command-line tools.
 
-You can verify the test runner is available with:
+You can verify the supported validation runner with:
 
-```powershell
-Get-Command Invoke-Pester
+```bash
+bash cicd/scripts/run-validations.sh
 ```
 
 ## Running the tests
 
-Run the CI/CD contract tests from the worktree or repository root:
+Run the Linux-native CI/CD contract tests from the worktree or repository root:
 
-```powershell
-Invoke-Pester -Path cicd\tests\shared-contracts.Tests.ps1 -PassThru
-```
-
-To run every Pester test placed in this directory in the future:
-
-```powershell
-Invoke-Pester -Path cicd\tests -PassThru
+```bash
+bash cicd/tests/run-validations.sh
 ```
 
 ## Current coverage
 
-- `shared-contracts.Tests.ps1`: validates that shared validation checks live under `cicd/config/validation-config.yml`
-- `shared-contracts.Tests.ps1`: validates that image targets live under `cicd/config/image-matrix.yml`
-- `shared-contracts.Tests.ps1`: validates that an empty image list is explicitly supported
+- `bash cicd/scripts/run-validations.sh`: canonical Linux validation runner
+- `bash cicd/tests/run-validations.sh`: validates that shared validation checks live under `cicd/config/validation-config.yml` and use the Linux-only `command` field
+- `bash cicd/tests/run-validations.sh`: validates that image targets live under `cicd/config/image-matrix.yml`
+- `bash cicd/tests/run-validations.sh`: validates that an empty image list is explicitly supported
+- `bash cicd/tests/run-validations.sh`: validates default-run success, warning-only success, missing-config failure, and strict missing-command failure

@@ -6,7 +6,7 @@
 3. Image builds are validation-only for now (future Docker Hub publish).
 4. Missing validation commands should `warn`.
 5. Image list is unknown initially and will be added incrementally.
-6. Devs need local parity for both validation and container build/run workflows.
+6. Devs need Linux-local parity for validation and container build/run workflows.
 
 ## Assumptions
 1. Local run experience should use the same config sources as GitHub Actions.
@@ -18,22 +18,21 @@
 2. `.github/workflows/cd.yml`
 3. `cicd/config/validation-config.yml`
 4. `cicd/config/image-matrix.yml`
-5. `cicd/scripts/run-validations.ps1`
-6. `cicd/scripts/run-validations.sh`
-7. `cicd/scripts/build-images.ps1`
-8. `cicd/scripts/build-images.sh`
-9. `cicd/scripts/run-containers.ps1`
-10. `cicd/scripts/run-containers.sh`
-11. `cicd/docker/compose.dev.yml`
-12. `cicd/docs/cicd.md`
-13. `README.md`
+5. `cicd/scripts/run-validations.sh`
+6. `cicd/scripts/build-images.ps1`
+7. `cicd/scripts/build-images.sh`
+8. `cicd/scripts/run-containers.ps1`
+9. `cicd/scripts/run-containers.sh`
+10. `cicd/docker/compose.dev.yml`
+11. `cicd/docs/cicd.md`
+12. `README.md`
 
 ## Subtasks And Acceptance Criteria
 1. Define shared CI/CD contracts.
    - Acceptance criteria: Validation checks and image targets are declared under `cicd/config`; empty image list is explicitly supported.
 
 2. Create shared local validation runner.
-   - Acceptance criteria: Local command executes all configured checks from `cicd/config`; unimplemented checks emit warnings; warning-only runs exit successfully.
+   - Acceptance criteria: Linux-local `bash cicd/scripts/run-validations.sh` executes all configured checks from `cicd/config`; unimplemented checks emit warnings; warning-only runs exit successfully.
 
 3. Create shared local image build runner.
    - Acceptance criteria: Local command builds images from `cicd/config/image-matrix.yml`; empty matrix emits warning and exits successfully.
@@ -73,11 +72,10 @@
 
 2. Subtask 2 Prompt
    - Allowed files to change:
-     - `cicd/scripts/run-validations.ps1`
-     - `cicd/scripts/run-validations.sh`
-     - `cicd/config/validation-config.yml`
-   - Task to implement: Create a shared local validation runner that loads configured checks from `cicd/config` and executes them consistently across shell environments.
-   - Acceptance criteria: Local command executes all configured checks from `cicd/config`; unimplemented checks emit warnings; warning-only runs exit successfully.
+      - `cicd/scripts/run-validations.sh`
+      - `cicd/config/validation-config.yml`
+    - Task to implement: Create a shared Linux validation runner that loads configured checks from `cicd/config` and executes a single bash-oriented command contract from the repo root.
+    - Acceptance criteria: `bash cicd/scripts/run-validations.sh` executes all configured checks from `cicd/config`; unimplemented checks emit warnings; warning-only runs exit successfully.
 
 3. Subtask 3 Prompt
    - Allowed files to change:
@@ -99,11 +97,10 @@
 5. Subtask 5 Prompt
    - Allowed files to change:
      - `.github/workflows/ci.yml`
-     - `cicd/scripts/run-validations.ps1`
-     - `cicd/scripts/run-validations.sh`
-     - `cicd/config/validation-config.yml`
-   - Task to implement: Implement GitHub Actions CI as a thin entrypoint shim that triggers on `main` push/PR and manual dispatch, delegating behavior to `cicd/scripts` and `cicd/config`.
-   - Acceptance criteria: `.github/workflows/ci.yml` triggers on push/PR to `main` and manual dispatch; it calls only `cicd/scripts` and `cicd/config` assets; warning semantics are preserved in CI logs.
+      - `cicd/scripts/run-validations.sh`
+      - `cicd/config/validation-config.yml`
+    - Task to implement: Implement GitHub Actions CI as a thin entrypoint shim that triggers on `main` push/PR and manual dispatch, delegating behavior to `cicd/scripts` and `cicd/config`.
+    - Acceptance criteria: `.github/workflows/ci.yml` triggers on push/PR to `main` and manual dispatch; it calls only `cicd/scripts` and `cicd/config` assets; warning semantics are preserved in CI logs.
 
 6. Subtask 6 Prompt
    - Allowed files to change:
