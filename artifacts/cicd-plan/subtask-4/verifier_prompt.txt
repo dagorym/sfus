@@ -11,6 +11,7 @@ Acceptance criteria validated:
 Implementation and test context:
 - Documentation worktree: `/home/tstephen/repos/sfus/worktrees/cicd-r1-documenter-20260329`
 - Documentation branch: `cicd-r1-documenter-20260329`
+- Documentation commit hash: `8376cce47344d8256e2e42fcaf6399d58d773e04`
 - Tester worktree: `/home/tstephen/repos/sfus/worktrees/cicd-r1-tester-20260329`
 - Tester branch: `cicd-r1-tester-20260329`
 - Base branch for comparison: `cicd`
