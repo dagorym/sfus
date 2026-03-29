@@ -2,12 +2,13 @@
 
 This directory contains CI/CD contract checks for the Linux-oriented workflow.
 
-The supported validation entrypoints for this repository are:
+The supported CI/CD entrypoints for this repository are:
 
 - `bash cicd/scripts/run-validations.sh` for the production validation runner
+- `bash cicd/scripts/build-images.sh` for the shared local image build runner
 - `bash cicd/tests/run-validations.sh` for Linux-native CI/CD contract coverage
 
-The test coverage in this directory focuses on shared CI/CD config contracts such as the Linux-only validation command shape, required config file locations, and expected empty-matrix behavior, along with runner success and failure semantics.
+The test coverage in this directory focuses on shared CI/CD config contracts such as the Linux-only validation command shape, required config file locations, and image-matrix behavior, along with runner success and failure semantics.
 
 ## Setup
 
@@ -21,6 +22,12 @@ You can verify the supported validation runner with:
 bash cicd/scripts/run-validations.sh
 ```
 
+You can verify the shared image build runner with:
+
+```bash
+bash cicd/scripts/build-images.sh
+```
+
 ## Running the tests
 
 Run the Linux-native CI/CD contract tests from the worktree or repository root:
@@ -32,7 +39,9 @@ bash cicd/tests/run-validations.sh
 ## Current coverage
 
 - `bash cicd/scripts/run-validations.sh`: canonical Linux validation runner
+- `bash cicd/scripts/build-images.sh`: reads `cicd/config/image-matrix.yml`, warns and exits successfully when `images: []`, and fails when images are configured but `docker` is unavailable
+- `bash cicd/tests/build-images.sh`: validates configured image parsing and build invocation, empty-matrix warning-only success, and docker-unavailable failure behavior
 - `bash cicd/tests/run-validations.sh`: validates that shared validation checks live under `cicd/config/validation-config.yml` and use the Linux-only `command` field
 - `bash cicd/tests/run-validations.sh`: validates that image targets live under `cicd/config/image-matrix.yml`
-- `bash cicd/tests/run-validations.sh`: validates that an empty image list is explicitly supported
+- `bash cicd/tests/run-validations.sh`: invokes `bash cicd/tests/build-images.sh` so the shared validation coverage includes the image build runner contract
 - `bash cicd/tests/run-validations.sh`: validates default-run success, warning-only success, missing-config failure, and strict missing-command failure
