@@ -7,6 +7,7 @@ repo_root="$(cd "${script_dir}/../.." && pwd)"
 runner="${repo_root}/cicd/scripts/run-validations.sh"
 validation_config="${repo_root}/cicd/config/validation-config.yml"
 image_matrix="${repo_root}/cicd/config/image-matrix.yml"
+cd_workflow="${repo_root}/.github/workflows/cd.yml"
 scratch_dir="${script_dir}/.scratch"
 
 cleanup() {
@@ -42,6 +43,14 @@ assert_file_not_contains() {
   if grep -Eq "${pattern}" "${path}"; then
     fail "${message}"
   fi
+}
+
+assert_file_contains_literal() {
+  local path="$1"
+  local expected="$2"
+  local message="$3"
+
+  grep -Fq "${expected}" "${path}" || fail "${message}"
 }
 
 run_capture() {
@@ -100,6 +109,34 @@ assert_file_not_contains "${validation_config}" '^[[:space:]]*commands:[[:space:
 assert_file_exists "${image_matrix}"
 assert_file_contains "${image_matrix}" '^[[:space:]]*images:[[:space:]]*\[[[:space:]]*\][[:space:]]*$' \
   "Expected cicd/config/image-matrix.yml to support an empty image list."
+assert_file_contains "${image_matrix}" '^[[:space:]]*publish_enabled:[[:space:]]*false[[:space:]]*$' \
+  "Expected cicd/config/image-matrix.yml to gate publish by default."
+assert_file_contains "${image_matrix}" '^[[:space:]]*deploy_enabled:[[:space:]]*false[[:space:]]*$' \
+  "Expected cicd/config/image-matrix.yml to gate deploy by default."
+
+assert_file_exists "${cd_workflow}"
+assert_file_contains "${cd_workflow}" '^[[:space:]]*workflow_dispatch:[[:space:]]*$' \
+  "Expected CD workflow to be manually triggerable."
+assert_file_contains "${cd_workflow}" '^[[:space:]]*git_ref:[[:space:]]*$' \
+  "Expected CD workflow to define git_ref input."
+assert_file_contains "${cd_workflow}" '^[[:space:]]*run_publish:[[:space:]]*$' \
+  "Expected CD workflow to define run_publish input."
+assert_file_contains "${cd_workflow}" '^[[:space:]]*run_deploy:[[:space:]]*$' \
+  "Expected CD workflow to define run_deploy input."
+assert_file_not_contains "${cd_workflow}" '^[[:space:]]*push:[[:space:]]*$' \
+  "Did not expect CD workflow to include push trigger."
+assert_file_not_contains "${cd_workflow}" '^[[:space:]]*pull_request:[[:space:]]*$' \
+  "Did not expect CD workflow to include pull_request trigger."
+assert_file_contains_literal "${cd_workflow}" "if: \${{ inputs.run_publish == true }}" \
+  "Expected publish job to be gated by run_publish input."
+assert_file_contains_literal "${cd_workflow}" "if: \${{ inputs.run_deploy == true }}" \
+  "Expected deploy job to be gated by run_deploy input."
+assert_file_contains_literal "${cd_workflow}" "run: bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build" \
+  "Expected build-images job to call shared script/config."
+assert_file_contains_literal "${cd_workflow}" "run: bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml publish" \
+  "Expected publish job to call shared script/config."
+assert_file_contains_literal "${cd_workflow}" "run: bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml deploy" \
+  "Expected deploy job to call shared script/config."
 
 echo "Running default validation config..."
 run_capture default-config bash "${runner}"

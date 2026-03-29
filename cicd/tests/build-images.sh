@@ -121,6 +121,15 @@ assert_file_contains_literal "${docker_log}" "build -f ${scratch_dir}/context-ap
 assert_file_contains_literal "${docker_log}" "build -f ${scratch_dir}/context-worker/Dockerfile -t worker:ci ${scratch_dir}/context-worker" \
   "Expected docker build command for worker image."
 
+echo "Checking validation operation behavior..."
+: > "${docker_log}"
+run_capture validation-build env PATH="${scratch_dir}/fake-bin:${PATH}" TEST_DOCKER_LOG="${docker_log}" /usr/bin/bash "${runner}" "${build_config}" validation
+assert_status 0
+assert_stdout_contains '^Build summary: total=2; built=2; failures=0$' \
+  "Expected validation operation to execute normal build behavior."
+assert_file_contains_literal "${docker_log}" "build -f ${scratch_dir}/context-api/Dockerfile.api -t ghcr.io/example/api:test ${scratch_dir}/context-api" \
+  "Expected validation operation to invoke docker build for api image."
+
 echo "Checking empty matrix warning-only behavior..."
 empty_config="${scratch_dir}/empty-images.yml"
 write_config "${empty_config}" "version: 1
@@ -130,10 +139,28 @@ assert_status 0
 assert_stderr_contains '^Warning: no images defined in .*empty-images\.yml$' \
   "Expected empty image matrix to emit warning and exit successfully."
 
+echo "Checking publish operation gate..."
+run_capture publish-gated env PATH="${scratch_dir}/empty-bin" /usr/bin/bash "${runner}" "${build_config}" publish
+assert_status 0
+assert_stderr_contains "^Warning: 'publish' mode is reserved for future CD stages and is gated off by default\\.$" \
+  "Expected publish operation to exit successfully with gate warning."
+
+echo "Checking deploy operation gate..."
+run_capture deploy-gated env PATH="${scratch_dir}/empty-bin" /usr/bin/bash "${runner}" "${build_config}" deploy
+assert_status 0
+assert_stderr_contains "^Warning: 'deploy' mode is reserved for future CD stages and is gated off by default\\.$" \
+  "Expected deploy operation to exit successfully with gate warning."
+
 echo "Checking docker-unavailable failure behavior..."
 run_capture missing-docker env PATH="${scratch_dir}/empty-bin" /usr/bin/bash "${runner}" "${build_config}"
 assert_nonzero_status
 assert_stderr_contains '^Error: docker command not found but 2 image build\(s\) are configured\.$' \
   "Expected configured images to fail when docker is unavailable."
+
+echo "Checking invalid operation handling..."
+run_capture invalid-operation /usr/bin/bash "${runner}" "${build_config}" unsupported
+assert_nonzero_status
+assert_stderr_contains "^Error: unsupported build-images operation 'unsupported'\\. Supported values: build, validation, publish, deploy\\.$" \
+  "Expected unsupported operation to fail with an explicit error."
 
 echo "PASS: Image build runner coverage succeeded."
