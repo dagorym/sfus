@@ -3,4 +3,6 @@
 version: 1
 defaults:
   build_mode: validation-only
+  publish_enabled: false
+  deploy_enabled: false
 images: []

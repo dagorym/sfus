@@ -1,0 +1,60 @@
+name: CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Branch, tag, or commit SHA to run CD against
+        required: false
+        type: string
+      run_publish:
+        description: Enable publish stage (disabled by default)
+        required: false
+        default: false
+        type: boolean
+      run_deploy:
+        description: Enable deploy stage (disabled by default)
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  build-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref || github.ref }}
+
+      - name: Build images from shared CD config
+        run: bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build
+
+  publish:
+    if: ${{ inputs.run_publish == true }}
+    needs: build-images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref || github.ref }}
+
+      - name: Publish stage placeholder via shared script
+        run: bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml publish
+
+  deploy:
+    if: ${{ inputs.run_deploy == true }}
+    needs: build-images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref || github.ref }}
+
+      - name: Deploy stage placeholder via shared script
+        run: bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml deploy

@@ -5,6 +5,20 @@ set -u -o pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
 config_path="${1:-${repo_root}/cicd/config/image-matrix.yml}"
+operation="${2:-build}"
+
+case "$operation" in
+  build|validation)
+    ;;
+  publish|deploy)
+    echo "Warning: '$operation' mode is reserved for future CD stages and is gated off by default." >&2
+    exit 0
+    ;;
+  *)
+    echo "Error: unsupported build-images operation '$operation'. Supported values: build, validation, publish, deploy." >&2
+    exit 1
+    ;;
+esac
 
 trim() {
   local value="$1"
