@@ -38,9 +38,50 @@ find_service_count() {
   local file="$1"
 
   awk '
-    /^[[:space:]]*services:[[:space:]]*$/ { in_services=1; next }
-    in_services && /^[^[:space:]]/ { in_services=0 }
-    in_services && /^[[:space:]]{2}[A-Za-z0-9_.-]+:[[:space:]]*$/ { count+=1 }
+    function indent_of(line,    m) {
+      match(line, /^[[:space:]]*/)
+      return RLENGTH
+    }
+
+    /^[[:space:]]*services:[[:space:]]*/ {
+      services_indent = indent_of($0)
+      inline_services = $0
+      sub(/^[[:space:]]*services:[[:space:]]*/, "", inline_services)
+      gsub(/[[:space:]]/, "", inline_services)
+      if (inline_services == "{}") {
+        in_services = 0
+        next
+      }
+      if (inline_services ~ /^\{.+\}$/) {
+        count += 1
+        in_services = 0
+        next
+      }
+      in_services = 1
+      child_indent = -1
+      next
+    }
+
+    in_services {
+      line_indent = indent_of($0)
+      if ($0 ~ /^[[:space:]]*$/ || $0 ~ /^[[:space:]]*#/) {
+        next
+      }
+      if (line_indent <= services_indent) {
+        in_services = 0
+        next
+      }
+      if ($0 !~ /^[[:space:]]*[A-Za-z0-9_.-]+:[[:space:]]*/) {
+        next
+      }
+      if (child_indent == -1) {
+        child_indent = line_indent
+      }
+      if (line_indent == child_indent) {
+        count += 1
+      }
+    }
+
     END { print count+0 }
   ' "$file"
 }
