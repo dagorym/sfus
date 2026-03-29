@@ -145,4 +145,7 @@ fi
 assert_stderr_contains "Error: validation 'strict-missing-command' has no command configured\\." \
   "Expected strict missing-command config to fail."
 
+echo "Running image build runner tests..."
+bash "${script_dir}/build-images.sh"
+
 echo "PASS: Linux validation coverage succeeded."
