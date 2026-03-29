@@ -47,6 +47,7 @@ find_service_count() {
       services_indent = indent_of($0)
       inline_services = $0
       sub(/^[[:space:]]*services:[[:space:]]*/, "", inline_services)
+      sub(/[[:space:]]+#.*$/, "", inline_services)
       gsub(/[[:space:]]/, "", inline_services)
       if (inline_services == "{}") {
         in_services = 0
