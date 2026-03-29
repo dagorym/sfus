@@ -1,7 +1,7 @@
 You are the Tester Agent.
 
 Task summary:
-- Remediated service detection in `cicd/scripts/run-containers.sh` so valid compose files are not misclassified as having no services.
+- Extra remediation cycle 2 for Subtask 4 fixed a blocking parser bug in `cicd/scripts/run-containers.sh` so inline-map `services` with a trailing YAML comment is detected as configured services.
 
 Modified files:
 - cicd/scripts/run-containers.sh
@@ -11,20 +11,16 @@ Acceptance criteria to validate (from Planner):
 - Behavior is documented when no services are defined yet.
 
 Create test files in:
-- cicd/tests/ (assumption from repository conventions; planner did not specify exact test file path)
+- cicd/tests/run-containers.sh
 
 Implementation context for testing:
-- Entry point: `bash cicd/scripts/run-containers.sh`.
-- `find_service_count()` now supports:
-  - inline map style: `services: {app: {image: busybox}}`
-  - non-fixed indentation for block style service keys under `services:`
-  - explicit empty services map (`services: {}`) as no-service warning path.
-- Existing no-service behavior should remain unchanged for truly empty services.
+- Parsing logic is in `find_service_count()` inside `cicd/scripts/run-containers.sh`.
+- New behavior strips trailing comments from inline `services:` values before inline-map detection.
+- Regression target: `services: {app: {image: busybox}} # trailing comment` must be treated as configured services (not no-service warning).
+- Existing no-service behavior should remain unchanged for truly empty service definitions.
 
-Suggested validation commands:
+Suggested test command(s):
 - bash cicd/tests/run-containers.sh
-- bash cicd/scripts/run-containers.sh <compose-with-inline-services.yml> status
-- bash cicd/scripts/run-containers.sh <compose-with-4-space-service-indent.yml> status
 
 Shared artifact directory:
 - artifacts/cicd-plan/subtask-4

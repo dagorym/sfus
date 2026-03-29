@@ -1,46 +1,48 @@
-# Implementer Report — Subtask 4 Remediation Cycle 1
+# Implementer Report — Subtask 4 extra remediation cycle 2
 
 ## Agent Resolution
 - Requested agent: `implementer`
-- Repository-local definition found: no (repo `AGENTS.md` points to shared lookup only)
+- Repository-local definition found: no (policy file only)
 - Shared definition found: yes
 - Definition path used: `/home/tstephen/repos/agents/agents/implementer.yaml`
-- Precedence decision: shared definition selected because no repository-local implementer definition exists.
+- Precedence decision: shared definition used because no repository-local implementer definition exists.
 
 ## Preflight Scope Check
-- Goal: remediate verifier finding in service detection so valid compose inputs are not misclassified as no-service.
-- Allowed files:
+- Goal: remediate remaining blocking bug in `run-containers.sh` where inline-map `services: {...}` with trailing YAML comment is misclassified as no services.
+- Allowed files for this cycle:
   - `cicd/scripts/run-containers.sh`
   - `cicd/docker/compose.dev.yml`
   - `cicd/docs/cicd.md`
-- Acceptance criteria:
-  - Devs can run/start containers locally via `bash` scripts under `cicd/scripts` plus `cicd/docker/compose.dev.yml`.
-  - Behavior is documented when no services are defined yet.
-- Verifier defect targeted exactly:
-  - Existing detector only recognized block-style `services:` entries with exactly two leading spaces.
-  - Inline map (`services: {app: {image: busybox}}`) and other valid indentation styles could be misclassified as no-service.
-- Validation commands used:
-  - `bash cicd/tests/run-containers.sh` (baseline)
-  - `bash cicd/tests/run-containers.sh` (post-change)
-  - `bash cicd/scripts/run-containers.sh artifacts/cicd-plan/subtask-4/.repro-inline.yml status`
-  - `bash cicd/scripts/run-containers.sh artifacts/cicd-plan/subtask-4/.repro-4space.yml status`
-- Tester file location assumption (plan did not specify exact file): `cicd/tests/`.
+- Scope guard applied: implementation change limited to `cicd/scripts/run-containers.sh` only.
+- Acceptance criteria anchor from Subtask 4 plan: local container runner scaffold works and no-service behavior remains documented.
+- Existing validation commands used:
+  - `bash cicd/tests/run-containers.sh`
+  - targeted shell invocation of `bash cicd/scripts/run-containers.sh <compose-with-inline-map-and-trailing-comment> status`
+- Tester file location for additional coverage: `cicd/tests/run-containers.sh`.
 
 ## Implementation Summary
-- Updated `cicd/scripts/run-containers.sh` service detection logic in `find_service_count()` to:
-  - Recognize inline `services` maps as configured services unless explicitly `{}`.
-  - Detect child service keys under `services:` based on relative indentation, not a fixed two-space prefix.
-  - Continue treating empty service scaffolds as no-service.
-- No changes were required in `cicd/docker/compose.dev.yml` or `cicd/docs/cicd.md` for this targeted remediation.
+- Updated inline `services:` parsing in `find_service_count()` to strip trailing YAML comments before whitespace normalization.
+- Change made:
+  - Added `sub(/[[:space:]]+#.*$/, "", inline_services)` between the existing `sub(...services...)` and `gsub(/[[:space:]]/, "", inline_services)` calls.
+- Effect:
+  - `services: {app: {image: busybox}} # trailing comment` is now recognized as configured services.
+  - No-service warning path remains unchanged for truly empty `services` definitions.
 
 ## Validation Outcomes
-1. `bash cicd/tests/run-containers.sh` (baseline): PASS
-2. `bash cicd/tests/run-containers.sh` (post-change): PASS
-3. `bash cicd/scripts/run-containers.sh artifacts/cicd-plan/subtask-4/.repro-inline.yml status`: service recognized; script invoked docker compose `ps` (no no-service warning)
-4. `bash cicd/scripts/run-containers.sh artifacts/cicd-plan/subtask-4/.repro-4space.yml status`: service recognized; script invoked docker compose `ps` (no no-service warning)
+1. Baseline before edit: `bash cicd/tests/run-containers.sh` → PASS
+2. Post-edit regression check: `bash cicd/tests/run-containers.sh` → PASS
+3. Targeted edge-case check (inline map + trailing comment, docker absent, minimal PATH):
+   - Command exited non-zero with docker-missing error (expected when services are detected)
+   - Confirms the file is no longer misclassified as no-services.
+
+## Plan Step Status
+- Preflight scope check: ✅ complete
+- Implement incrementally: ✅ complete
+- Validate after change: ✅ complete
+- Completion gate: ✅ complete
 
 ## Files Changed
 - `cicd/scripts/run-containers.sh`
 
 ## Commits
-- Implementation/code commit: `03146b6a04e7e7b1c88ee88762e901fd1dc62297`
+- Implementation/code commit: `b7f0c6db76424578e1a84b999647197381011589`
