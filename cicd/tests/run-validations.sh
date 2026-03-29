@@ -44,6 +44,15 @@ assert_file_not_contains() {
   fi
 }
 
+assert_stderr_not_contains() {
+  local pattern="$1"
+  local message="$2"
+
+  if grep -Eq "${pattern}" "${last_stderr}"; then
+    fail "${message}"
+  fi
+}
+
 run_capture() {
   local name="$1"
   shift
@@ -86,9 +95,40 @@ ${contents}
 EOF
 }
 
+assert_workflow_cicd_paths_limited() {
+  local path="$1"
+  local references
+
+  references="$(grep -oE 'cicd/[A-Za-z0-9._/-]+' "${path}" | sort -u || true)"
+  [[ -n "${references}" ]] || fail "Expected workflow to reference cicd assets."
+
+  while IFS= read -r ref; do
+    [[ -z "${ref}" ]] && continue
+    if [[ ! "${ref}" =~ ^cicd/(scripts|config)/ ]]; then
+      fail "Workflow references disallowed cicd path: ${ref}"
+    fi
+  done <<< "${references}"
+}
+
 mkdir -p "${scratch_dir}"
 
 echo "Checking shared config contracts..."
+workflow_file="${repo_root}/.github/workflows/ci.yml"
+assert_file_exists "${workflow_file}"
+assert_file_contains "${workflow_file}" '^[[:space:]]*name:[[:space:]]*CI[[:space:]]*$' \
+  "Expected .github/workflows/ci.yml to define the CI workflow."
+assert_file_contains "${workflow_file}" '^[[:space:]]*push:[[:space:]]*$' \
+  "Expected CI workflow to trigger on push."
+assert_file_contains "${workflow_file}" '^[[:space:]]*pull_request:[[:space:]]*$' \
+  "Expected CI workflow to trigger on pull requests."
+assert_file_contains "${workflow_file}" '^[[:space:]]*workflow_dispatch:[[:space:]]*$' \
+  "Expected CI workflow to support manual dispatch."
+assert_file_contains "${workflow_file}" '^[[:space:]]*-[[:space:]]main[[:space:]]*$' \
+  "Expected CI workflow push/PR trigger branch to include main."
+assert_file_contains "${workflow_file}" '^[[:space:]]*run:[[:space:]]*bash cicd/scripts/run-validations\.sh cicd/config/validation-config\.yml[[:space:]]*$' \
+  "Expected CI workflow to invoke the shared validation runner with shared config."
+assert_workflow_cicd_paths_limited "${workflow_file}"
+
 assert_file_exists "${validation_config}"
 assert_file_contains "${validation_config}" '^[[:space:]]*validations:[[:space:]]*$' \
   "Expected cicd/config/validation-config.yml to declare validations."
@@ -119,8 +159,20 @@ run_capture warning-only bash "${runner}" "${warning_only_config}"
 assert_status 0
 assert_stderr_contains "Warning: validation 'warning-only' has no command configured; skipping\\." \
   "Expected warning-only config to emit a missing-command warning."
+assert_stderr_not_contains "^::warning::" \
+  "Did not expect GitHub annotation when GITHUB_ACTIONS is unset."
 assert_stdout_contains '^Completed with warnings only\.$' \
   "Expected warning-only config to complete successfully."
+
+echo "Running warning-only config under GitHub Actions..."
+run_capture warning-only-actions env GITHUB_ACTIONS=true bash "${runner}" "${warning_only_config}"
+assert_status 0
+assert_stderr_contains "Warning: validation 'warning-only' has no command configured; skipping\\." \
+  "Expected warning text to remain in stderr when running in Actions."
+assert_stderr_contains "^::warning::validation 'warning-only' has no command configured; skipping\\.$" \
+  "Expected GitHub Actions annotation for missing-command warnings."
+assert_stdout_contains '^Completed with warnings only\.$' \
+  "Expected warning-only Actions run to complete successfully."
 
 echo "Checking missing config handling..."
 run_capture missing-config bash "${runner}" "${scratch_dir}/does-not-exist.yml"
