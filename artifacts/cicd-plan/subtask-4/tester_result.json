@@ -3,7 +3,7 @@
   "subtask": "subtask-4",
   "cycle": "extra-remediation-2",
   "branch": "cicd-r2-tester-20260329",
-  "test_commit_hash": "dec71d2",
+  "test_commit_hash": "676d4bc",
   "test_files": [
     "cicd/tests/run-containers.sh"
   ],

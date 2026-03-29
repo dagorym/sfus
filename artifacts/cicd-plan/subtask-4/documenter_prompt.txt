@@ -29,7 +29,7 @@ Final test outcome:
 - PASS (all checks in `cicd/tests/run-containers.sh` passed)
 
 Commit hash:
-- dec71d2
+- 676d4bc
 
 Shared artifact directory (repository-root-relative):
 - `artifacts/cicd-plan/subtask-4`
