@@ -36,7 +36,7 @@ Final test outcomes:
 - All acceptance criteria met.
 
 Test commit hash:
-- 126cc9a3fb9171d1fc837c0cf097fdcf1705da00
+- 9b48c3d7e787485b742e57ddfe0f1bbd9151861f
 
 Shared artifact directory (repository-root-relative) to reuse:
 - `artifacts/cicd-plan/subtask-6`
