@@ -1,0 +1,54 @@
+You are the Verifier Agent.
+
+Task summary:
+- Verify Subtask 8 documentation updates for developer usage and extension points across the CI/CD validate/build/run flows.
+
+Acceptance criteria:
+1. Documentation includes exact repository-root `bash` commands for validate/build/run flows.
+2. Documentation explains current warning-only success behavior for missing validation commands, empty image matrices, and no-service container scaffolds.
+3. Documentation explains how to extend `cicd/config/validation-config.yml`, `cicd/config/image-matrix.yml`, and `cicd/docker/compose.dev.yml` without implying behavior that is not yet implemented.
+4. Documentation does not refer readers to a root `README.md` that does not currently exist.
+
+Implementation/worktree context:
+- Base branch for comparison: `cicd`
+- Implementer branch base for the tester worktree: `cicd-subtask-8-implementer-20260330`
+- Tester branch: `cicd-subtask-8-tester-20260330`
+- Documenter branch: `cicd-subtask-8-documenter-20260330`
+- Documenter worktree: `/home/tstephen/repos/sfus/worktrees/cicd-subtask-8-documenter-20260330`
+- Documentation commit hash: `2f35ab7d60fc15da9c9831a631f97116cf9ba371`
+
+Implementation files added or modified:
+- None in this subtask beyond documentation scope.
+
+Test files added or modified:
+- None (regression-only validation).
+
+Documentation files added or modified:
+- `cicd/docs/cicd.md`
+- `cicd/tests/README.md`
+
+Commands executed:
+- `bash cicd/tests/run-validations.sh`
+- `bash cicd/tests/build-images.sh`
+- `bash cicd/tests/run-containers.sh`
+
+Final test outcomes:
+- `bash cicd/tests/run-validations.sh` -> PASS
+- `bash cicd/tests/build-images.sh` -> PASS
+- `bash cicd/tests/run-containers.sh` -> PASS
+- Regression evidence confirms no behavior regressions while validating the documentation-only changes.
+
+Shared artifact directory to reuse (repository-root-relative):
+- `artifacts/cicd-plan/subtask-8`
+
+Available artifacts:
+- `artifacts/cicd-plan/subtask-8/tester_report.md`
+- `artifacts/cicd-plan/subtask-8/tester_result.json`
+- `artifacts/cicd-plan/subtask-8/documenter_report.md`
+- `artifacts/cicd-plan/subtask-8/documenter_result.json`
+- `artifacts/cicd-plan/subtask-8/verifier_prompt.txt`
+
+Verification requirements:
+- Review the combined diff against `cicd`.
+- Verify the updated documentation files along with the implementation and regression-test evidence.
+- Confirm the docs match current implemented behavior without claiming unimplemented CI/CD functionality.
