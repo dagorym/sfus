@@ -1,0 +1,30 @@
+You are the Tester Agent.
+
+Task summary:
+- Validate Subtask 10 remediation for GitHub Actions warning annotation channel in the CI validation runner while preserving warning-only success semantics.
+
+Modified files:
+- cicd/scripts/run-validations.sh
+
+Acceptance criteria to validate (from Planner):
+- When GITHUB_ACTIONS=true, warning messages remain visible to humans and ::warning::... is emitted on the workflow-command channel GitHub Actions parses.
+- When GITHUB_ACTIONS is unset, no GitHub Actions annotation token is emitted.
+- Warning-only runs still exit successfully.
+- cicd/tests/run-validations.sh verifies the correct output channel behavior instead of only checking token presence on stderr.
+- cicd/docs/cicd.md and cicd/tests/README.md describe the corrected behavior accurately.
+
+Create test files in:
+- cicd/tests/run-validations.sh
+
+Implementation context for testing:
+- Entry point changed: emit_warning() in cicd/scripts/run-validations.sh.
+- Behavior change: when GITHUB_ACTIONS=true, script now emits ::warning::... to stdout (workflow-command channel) while preserving human warning text in stderr.
+- Compatibility note: implementation currently also emits ::warning::... to stderr so existing tests continue to pass until Tester updates channel assertions.
+- Warning-only success behavior is preserved (exit 0 with "Completed with warnings only.").
+
+Suggested test command(s):
+- bash cicd/tests/run-validations.sh
+- GITHUB_ACTIONS=true bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml
+
+Shared artifact directory:
+- artifacts/cicd-plan/subtask-10
