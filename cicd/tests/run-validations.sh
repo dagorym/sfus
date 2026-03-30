@@ -225,6 +225,8 @@ run_capture warning-only-actions env GITHUB_ACTIONS=true bash "${runner}" "${war
 assert_status 0
 assert_stderr_contains "Warning: validation 'warning-only' has no command configured; skipping\\." \
   "Expected warning text to remain in stderr when running in Actions."
+assert_stderr_not_contains "^::warning::" \
+  "Did not expect GitHub annotation token on stderr when running in Actions."
 assert_stdout_contains "^::warning::validation 'warning-only' has no command configured; skipping\\.$" \
   "Expected GitHub Actions annotation on workflow-command output when running in Actions."
 assert_stdout_contains '^Completed with warnings only\.$' \
