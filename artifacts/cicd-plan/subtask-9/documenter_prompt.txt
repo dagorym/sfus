@@ -1,0 +1,40 @@
+You are the Documenter Agent.
+
+Task summary:
+- Validated and documented repository structure constraints so CI/CD operational logic stays in `cicd/` and `.github/workflows/*.yml` remains thin platform entrypoints delegating to shared scripts/config.
+
+Acceptance criteria:
+- Documentation explicitly states that CI/CD operational logic belongs under `cicd/`.
+- Documentation explicitly states that `.github/workflows/*.yml` files are platform-required entrypoints and should stay thin.
+- The structure guidance points future maintainers to shared scripts/config instead of encouraging duplicated workflow logic.
+- Repository-wide guidance is updated only if needed and without duplicating detailed behavior already documented elsewhere.
+
+Implementation context:
+- Implementer branch: `cicd-subtask-9-implementer-20260330`
+- Tester branch/worktree: `cicd-subtask-9-tester-20260330` at `/home/tstephen/repos/sfus/worktrees/cicd-subtask-9-tester-20260330`
+- Modified implementation file: `cicd/docs/cicd.md`
+- Added section: `Repository structure constraints` near top of the document.
+- `AGENTS.md` intentionally unchanged to avoid unnecessary duplication.
+
+Testing performed:
+- Command executed: `bash cicd/tests/run-validations.sh`
+- Outcome: PASS
+  - PASS: Image build runner coverage succeeded.
+  - PASS: Container runner coverage succeeded.
+  - PASS: Linux validation coverage succeeded.
+
+Test files added/modified:
+- None (regression-only evidence from existing CI/CD tests)
+
+Commit details:
+- Test commit hash: `No Changes Made` (no test file changes were needed)
+
+Shared artifact directory to reuse (repository-root-relative):
+- `artifacts/cicd-plan/subtask-9`
+
+Tester artifacts available:
+- `artifacts/cicd-plan/subtask-9/tester_report.md`
+- `artifacts/cicd-plan/subtask-9/tester_result.json`
+- `artifacts/cicd-plan/subtask-9/documenter_prompt.txt`
+
+Please proceed with documentation handoff/update decisions using the above validated context.
