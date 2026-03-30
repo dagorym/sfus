@@ -1,5 +1,13 @@
 # CI/CD Developer Workflows
 
+## Repository structure constraints
+
+Keep CI/CD operational logic in `cicd/` (scripts, config, and related docs/tests). Treat `.github/workflows/*.yml` as platform-required entrypoints that stay intentionally thin.
+
+- Put executable CI/CD behavior in shared assets such as `cicd/scripts/*.sh` and `cicd/config/*.yml`.
+- Keep workflow files focused on GitHub Actions triggers, permissions, jobs, and delegating to shared `cicd/` runners.
+- Do not duplicate validation/build/publish/deploy logic inside workflow YAML; update shared scripts/config instead so local and CI/CD paths stay aligned.
+
 ## Repository-root commands for validate/build/run
 
 Run these commands from the repository root:
