@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -u -o pipefail
+set +e
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
@@ -100,7 +101,7 @@ current_index=-1
 
 while IFS= read -r line || [[ -n "$line" ]]; do
   if [[ "$line" =~ ^[[:space:]]*-[[:space:]]*([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]*:[[:space:]]*(.*)$ ]]; then
-    ((current_index += 1))
+    current_index=$((current_index + 1))
     ids[$current_index]=""
     contexts[$current_index]="."
     dockerfiles[$current_index]="Dockerfile"
