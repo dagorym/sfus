@@ -1,22 +1,24 @@
 {
   "status": "success",
-  "subtask": "10",
-  "branch": "cicd-subtask-10-tester-20260329",
-  "test_commit_hash": "1dc5586f1cbfe19b551538c1b0092dc3cdc54c58",
-  "test_files_added_or_modified": [
+  "task": "subtask-10",
+  "branch": "cicd-subtask10-r1-tester-20260329",
+  "base_branch": "cicd",
+  "test_commit_hash": "63861494da3c07164c5028afd0bbb1b65d90005b",
+  "test_files_modified": [
     "cicd/tests/run-validations.sh"
   ],
   "commands_run": [
     "bash cicd/tests/run-validations.sh",
-    "GITHUB_ACTIONS=true bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml"
+    "bash cicd/tests/run-validations.sh && GITHUB_ACTIONS=true bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml"
   ],
   "totals": {
-    "total": 5,
-    "passed": 5,
-    "failed": 0
+    "tests_written": 1,
+    "passed": 2,
+    "failed": 0,
+    "notes": "Pass/fail totals are command-level because the bash harness reports pass/fail status without numeric test-case counts."
   },
   "unmet_acceptance_criteria": [],
-  "artifact_files_written": [
+  "artifacts_written": [
     "artifacts/cicd-plan/subtask-10/tester_report.md",
     "artifacts/cicd-plan/subtask-10/tester_result.json",
     "artifacts/cicd-plan/subtask-10/documenter_prompt.txt"
