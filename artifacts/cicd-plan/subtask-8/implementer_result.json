@@ -1,0 +1,21 @@
+{
+  "status": "success",
+  "subtask": "8 - Document developer usage",
+  "branch": "cicd-subtask-8-implementer-20260330",
+  "implementation_commit_hash": "4331b99cd8ff2d29a259269cd84aee2a872d8953",
+  "changed_files": [
+    "cicd/docs/cicd.md",
+    "cicd/tests/README.md"
+  ],
+  "validation_commands_run": [
+    "bash cicd/tests/run-validations.sh",
+    "bash cicd/tests/build-images.sh",
+    "bash cicd/tests/run-containers.sh"
+  ],
+  "validation_outcome": "pass",
+  "artifact_files": [
+    "artifacts/cicd-plan/subtask-8/implementer_report.md",
+    "artifacts/cicd-plan/subtask-8/tester_prompt.txt",
+    "artifacts/cicd-plan/subtask-8/implementer_result.json"
+  ]
+}

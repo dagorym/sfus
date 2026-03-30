@@ -1,0 +1,40 @@
+You are the Tester Agent.
+
+Task summary:
+- Documentation-only update for Subtask 8 to make developer usage explicit for validate/build/run flows and extension points, aligned with current implemented CI/CD behavior.
+
+Modified files:
+- cicd/docs/cicd.md
+- cicd/tests/README.md
+
+Acceptance criteria to validate (from Planner):
+- Documentation includes exact repository-root `bash` commands for validate/build/run flows.
+- Documentation explains current warning-only success behavior for missing validation commands, empty image matrices, and no-service container scaffolds.
+- Documentation explains how to extend `cicd/config/validation-config.yml`, `cicd/config/image-matrix.yml`, and `cicd/docker/compose.dev.yml` without implying behavior that is not yet implemented.
+- Documentation does not refer readers to a root `README.md` that does not currently exist.
+
+Create test files in:
+- No new tests expected; reuse existing CI/CD tests as regression evidence only.
+
+Implementation context for testing:
+- No code/script/workflow/config logic changes were made; only docs were updated.
+- Added exact repository-root commands for:
+  - `bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml`
+  - `bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build`
+  - `bash cicd/scripts/run-containers.sh start`
+- Added explicit warning-only behavior notes for:
+  - missing validation `command`
+  - empty image matrix
+  - no-service container scaffold
+- Added extension guidance for:
+  - `cicd/config/validation-config.yml`
+  - `cicd/config/image-matrix.yml`
+  - `cicd/docker/compose.dev.yml`
+
+Suggested test command(s):
+- bash cicd/tests/run-validations.sh
+- bash cicd/tests/build-images.sh
+- bash cicd/tests/run-containers.sh
+
+Shared artifact directory:
+- artifacts/cicd-plan/subtask-8
