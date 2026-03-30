@@ -1,0 +1,33 @@
+You are the Tester Agent.
+
+Task summary:
+- Subtask 7 prepared an explicit future Docker Hub publish contract in the CD workflow/config without enabling publish/deploy behavior.
+
+Modified files:
+- .github/workflows/cd.yml
+- cicd/config/image-matrix.yml
+
+Acceptance criteria to validate (from Planner):
+- The CD workflow keeps publish disabled by default and still requires explicit manual enablement.
+- The future Docker Hub publish contract is explicit enough for a later enablement pass, including the intended secret/input names, login location, and image naming source of truth.
+- cicd/config/image-matrix.yml remains the single source of truth for image identifiers/tags that a future publish step would use.
+- Current publish behavior remains a gated placeholder and does not push images.
+
+Create test files in:
+- cicd/tests/run-validations.sh
+- cicd/tests/build-images.sh
+
+Implementation context for testing:
+- Publish/deploy remain manually gated by `workflow_dispatch` booleans; defaults remain false.
+- `.github/workflows/cd.yml` now defines future inputs `dockerhub_namespace` and `dockerhub_repository_prefix`.
+- Publish job now includes explicit future env/secret contract placeholders: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `DOCKERHUB_NAMESPACE`, `DOCKERHUB_REPOSITORY_PREFIX`, and `IMAGE_MATRIX_PATH`.
+- `cicd/config/image-matrix.yml` now documents that future publish image naming source of truth is `images[].tag` and that Docker Hub login belongs in the CD publish job before publish invocation.
+- Publish step still calls the existing gated placeholder script path and must not push images.
+
+Suggested test command(s):
+- bash cicd/tests/run-validations.sh
+- bash cicd/tests/build-images.sh
+- bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build
+
+Shared artifact directory:
+- artifacts/cicd-plan/subtask-7
