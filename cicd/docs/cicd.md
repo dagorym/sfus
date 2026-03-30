@@ -1,5 +1,31 @@
 # CI/CD Developer Workflows
 
+## Local pipeline quickstart on this computer
+
+If you only need the commands to exercise the current pipeline locally on this Linux machine, start in the repository root:
+
+```bash
+cd /home/tstephen/repos/sfus
+```
+
+Recommended local pass order:
+
+```bash
+bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml
+bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build
+bash cicd/scripts/run-containers.sh start
+bash cicd/tests/run-validations.sh
+```
+
+Current expected behavior on this branch:
+
+- `run-validations.sh` exits successfully and currently reports one executed validation plus one warning-only skipped validation.
+- `build-images.sh ... build` currently warns `no images defined in cicd/config/image-matrix.yml` and exits successfully.
+- `run-containers.sh start` currently warns that `cicd/docker/compose.dev.yml` has no services and exits successfully.
+- `cicd/tests/run-validations.sh` is the best end-to-end local contract check for the full CI/CD scaffold.
+
+For a more operator-focused local walkthrough, including prerequisites, expected results, and the local equivalents of the GitHub Actions entrypoints, see `cicd/docs/local-pipeline.md`.
+
 ## Repository structure constraints
 
 Keep CI/CD operational logic in `cicd/` (scripts, config, and related docs/tests). Treat `.github/workflows/*.yml` as platform-required entrypoints that stay intentionally thin.
