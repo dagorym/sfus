@@ -16,6 +16,8 @@ The workflow stays thin and delegates stage behavior to the shared image runner 
 bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build
 ```
 
+The shared runner is also safe to call from strict Bash entrypoints such as `bash -e`, so manual dispatches and local strict-shell invocations parse the image matrix the same way.
+
 When a manual dispatch explicitly enables a later stage, the workflow reuses the same entrypoint with `publish` or `deploy`. Those operations are still future-facing gates: they succeed with a warning and do not publish or deploy anything by default. The default image matrix keeps both gates explicit with:
 
 ```yaml
