@@ -23,6 +23,8 @@ GitHub Actions CD now starts from `.github/workflows/cd.yml` as a manual-only en
   - `git_ref`: optional branch, tag, or commit SHA to check out before running CD
   - `run_publish`: optional boolean, defaults to `false`
   - `run_deploy`: optional boolean, defaults to `false`
+  - `dockerhub_namespace`: future publish-only Docker Hub namespace or organization
+  - `dockerhub_repository_prefix`: future publish-only optional repository prefix
 
 The workflow stays thin and delegates stage behavior to the shared image runner plus shared config:
 
@@ -39,6 +41,23 @@ defaults:
   publish_enabled: false
   deploy_enabled: false
 ```
+
+### Future Docker Hub publish contract
+
+The current publish stage is still a placeholder. Even when `run_publish` is set to `true`, the active workflow only calls:
+
+```bash
+bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml publish
+```
+
+That means the current shim does **not** run `docker/login-action`, does **not** execute `docker push`, and still leaves publish disabled by default unless a manual dispatch explicitly enables the stage.
+
+The future Docker Hub enablement contract is now documented without activating it:
+
+- `.github/workflows/cd.yml` exposes `dockerhub_namespace` and optional `dockerhub_repository_prefix` as manual-dispatch inputs for a later publish pass.
+- The same publish job placeholder already reserves `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` as the intended future secret names.
+- Docker Hub login belongs in the `.github/workflows/cd.yml` `publish` job immediately before the shared `publish` runner invocation, but that login step is not active yet.
+- `cicd/config/image-matrix.yml` remains the single source of truth for future publish naming. A later enablement pass should derive Docker Hub image names from each `images[].tag` entry there instead of duplicating names inside the workflow.
 
 ## Local container scaffold
 
