@@ -1,5 +1,19 @@
 # CI/CD Developer Workflows
 
+## GitHub Actions CI shim
+
+GitHub Actions must keep its platform entrypoint in `.github/workflows/ci.yml`, but the workflow is intentionally thin. It triggers on `push` and `pull_request` for `main`, plus `workflow_dispatch` for manual runs, then delegates execution to the shared validation runner:
+
+```bash
+bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml
+```
+
+That keeps GitHub Actions aligned with the same `cicd/scripts` and `cicd/config` contract used for local validation runs instead of duplicating validation logic in the workflow file.
+
+### Warning behavior in Actions
+
+`bash cicd/scripts/run-validations.sh` still writes warning-only conditions to stderr without failing the run. When `GITHUB_ACTIONS=true`, the runner also emits the same warning as a GitHub Actions annotation in `::warning::...` format so CI logs surface the warning while preserving the existing warning-only success semantics.
+
 ## Local container scaffold
 
 Use the shared container runner from the repository root:
