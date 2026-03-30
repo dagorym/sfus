@@ -1,0 +1,28 @@
+You are the Tester Agent.
+
+Task summary:
+- Validated and documented repository structure constraints so CI/CD operational logic stays in `cicd/` and `.github/workflows/*.yml` remains thin platform entrypoints delegating to shared scripts/config.
+
+Modified files:
+- cicd/docs/cicd.md
+
+Acceptance criteria to validate (from Planner):
+- Documentation explicitly states that CI/CD operational logic belongs under `cicd/`.
+- Documentation explicitly states that `.github/workflows/*.yml` files are platform-required entrypoints and should stay thin.
+- The structure guidance points future maintainers to shared scripts/config instead of encouraging duplicated workflow logic.
+- Repository-wide guidance is updated only if needed and without duplicating detailed behavior already documented elsewhere.
+
+Create test files in:
+- No new tests expected; reuse existing CI/CD tests as regression evidence only.
+
+Implementation context for testing:
+- Added a new `Repository structure constraints` section at the top of `cicd/docs/cicd.md`.
+- Section explicitly directs operational CI/CD behavior to `cicd/scripts/*.sh` and `cicd/config/*.yml`.
+- Section explicitly states workflow YAML should remain thin GitHub Actions entrypoints and avoid duplicated logic.
+- `AGENTS.md` was intentionally not changed to avoid unnecessary repository-wide duplication.
+
+Suggested test command(s):
+- bash cicd/tests/run-validations.sh
+
+Shared artifact directory:
+- artifacts/cicd-plan/subtask-9
