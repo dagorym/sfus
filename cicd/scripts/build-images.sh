@@ -1,10 +1,25 @@
 #!/usr/bin/env bash
 
 set -u -o pipefail
+set +e
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
 config_path="${1:-${repo_root}/cicd/config/image-matrix.yml}"
+operation="${2:-build}"
+
+case "$operation" in
+  build|validation)
+    ;;
+  publish|deploy)
+    echo "Warning: '$operation' mode is reserved for future CD stages and is gated off by default." >&2
+    exit 0
+    ;;
+  *)
+    echo "Error: unsupported build-images operation '$operation'. Supported values: build, validation, publish, deploy." >&2
+    exit 1
+    ;;
+esac
 
 trim() {
   local value="$1"
@@ -86,7 +101,7 @@ current_index=-1
 
 while IFS= read -r line || [[ -n "$line" ]]; do
   if [[ "$line" =~ ^[[:space:]]*-[[:space:]]*([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]*:[[:space:]]*(.*)$ ]]; then
-    ((current_index += 1))
+    current_index=$((current_index + 1))
     ids[$current_index]=""
     contexts[$current_index]="."
     dockerfiles[$current_index]="Dockerfile"

@@ -1,0 +1,30 @@
+You are the Tester Agent.
+
+Task summary:
+- Remediated Subtask 6 verifier finding for strict-shell reliability in `build-images.sh`.
+- Script now explicitly disables inherited `errexit` and avoids arithmetic-command status traps while parsing image entries.
+
+Modified files:
+- cicd/scripts/build-images.sh
+
+Acceptance criteria to validate (from Planner):
+- `.github/workflows/cd.yml` is manually triggerable for any branch/ref.
+- Workflow calls only `cicd/scripts` and `cicd/config` assets.
+- Publish/deploy remain gated off by default.
+
+Create test files in:
+- cicd/tests/build-images.sh
+- cicd/tests/run-validations.sh
+
+Implementation context for testing:
+- `build-images.sh` now includes `set +e` so it does not inherit `-e` from strict parent runners.
+- Matrix parsing increment changed from `((current_index += 1))` to `current_index=$((current_index + 1))` to prevent pre-build abort when index transitions from `-1` to `0`.
+- Existing CD workflow inputs/jobs remain unchanged in this cycle.
+
+Suggested test command(s):
+- bash -e cicd/scripts/build-images.sh cicd/config/image-matrix.yml build
+- bash cicd/tests/build-images.sh
+- bash cicd/tests/run-validations.sh
+
+Shared artifact directory:
+- artifacts/cicd-plan/subtask-6

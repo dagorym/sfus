@@ -14,6 +14,32 @@ That keeps GitHub Actions aligned with the same `cicd/scripts` and `cicd/config`
 
 `bash cicd/scripts/run-validations.sh` still writes warning-only conditions to stderr without failing the run. When `GITHUB_ACTIONS=true`, the runner also emits the same warning as a GitHub Actions annotation in `::warning::...` format so CI logs surface the warning while preserving the existing warning-only success semantics.
 
+## Manual CD workflow shim
+
+GitHub Actions CD now starts from `.github/workflows/cd.yml` as a manual-only entrypoint:
+
+- trigger: `workflow_dispatch`
+- inputs:
+  - `git_ref`: optional branch, tag, or commit SHA to check out before running CD
+  - `run_publish`: optional boolean, defaults to `false`
+  - `run_deploy`: optional boolean, defaults to `false`
+
+The workflow stays thin and delegates stage behavior to the shared image runner plus shared config:
+
+```bash
+bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build
+```
+
+The shared runner is also safe to call from strict Bash entrypoints such as `bash -e`, so manual dispatches and local strict-shell invocations parse the image matrix the same way.
+
+When a manual dispatch explicitly enables a later stage, the workflow reuses the same entrypoint with `publish` or `deploy`. Those operations are still future-facing gates: they succeed with a warning and do not publish or deploy anything by default. The default image matrix keeps both gates explicit with:
+
+```yaml
+defaults:
+  publish_enabled: false
+  deploy_enabled: false
+```
+
 ## Local container scaffold
 
 Use the shared container runner from the repository root:
