@@ -163,6 +163,12 @@ assert_file_contains "${cd_workflow}" '^[[:space:]]*run_publish:[[:space:]]*$' \
   "Expected CD workflow to define run_publish input."
 assert_file_contains "${cd_workflow}" '^[[:space:]]*run_deploy:[[:space:]]*$' \
   "Expected CD workflow to define run_deploy input."
+assert_file_contains "${cd_workflow}" '^[[:space:]]*default:[[:space:]]*false[[:space:]]*$' \
+  "Expected CD workflow boolean stage gates to remain disabled by default."
+assert_file_contains "${cd_workflow}" '^[[:space:]]*dockerhub_namespace:[[:space:]]*$' \
+  "Expected CD workflow to define dockerhub_namespace input for future publish."
+assert_file_contains "${cd_workflow}" '^[[:space:]]*dockerhub_repository_prefix:[[:space:]]*$' \
+  "Expected CD workflow to define dockerhub_repository_prefix input for future publish."
 assert_file_not_contains "${cd_workflow}" '^[[:space:]]*push:[[:space:]]*$' \
   "Did not expect CD workflow to include push trigger."
 assert_file_not_contains "${cd_workflow}" '^[[:space:]]*pull_request:[[:space:]]*$' \
@@ -171,12 +177,37 @@ assert_file_contains_literal "${cd_workflow}" "if: \${{ inputs.run_publish == tr
   "Expected publish job to be gated by run_publish input."
 assert_file_contains_literal "${cd_workflow}" "if: \${{ inputs.run_deploy == true }}" \
   "Expected deploy job to be gated by run_deploy input."
+assert_file_contains_literal "${cd_workflow}" "DOCKERHUB_USERNAME: \${{ secrets.DOCKERHUB_USERNAME }}" \
+  "Expected publish placeholder to document DOCKERHUB_USERNAME secret contract."
+assert_file_contains_literal "${cd_workflow}" "DOCKERHUB_TOKEN: \${{ secrets.DOCKERHUB_TOKEN }}" \
+  "Expected publish placeholder to document DOCKERHUB_TOKEN secret contract."
+assert_file_contains_literal "${cd_workflow}" "DOCKERHUB_NAMESPACE: \${{ inputs.dockerhub_namespace }}" \
+  "Expected publish placeholder to document dockerhub_namespace input contract."
+assert_file_contains_literal "${cd_workflow}" "DOCKERHUB_REPOSITORY_PREFIX: \${{ inputs.dockerhub_repository_prefix }}" \
+  "Expected publish placeholder to document dockerhub_repository_prefix input contract."
+assert_file_contains_literal "${cd_workflow}" "IMAGE_MATRIX_PATH: cicd/config/image-matrix.yml" \
+  "Expected publish placeholder to document image matrix source-of-truth path."
+assert_file_not_contains "${cd_workflow}" 'docker/login-action' \
+  "Did not expect Docker Hub login to be enabled in the current publish placeholder."
+assert_file_not_contains "${cd_workflow}" 'docker push' \
+  "Did not expect the current publish placeholder to execute docker push."
 assert_file_contains_literal "${cd_workflow}" "run: bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build" \
   "Expected build-images job to call shared script/config."
 assert_file_contains_literal "${cd_workflow}" "run: bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml publish" \
   "Expected publish job to call shared script/config."
 assert_file_contains_literal "${cd_workflow}" "run: bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml deploy" \
   "Expected deploy job to call shared script/config."
+
+assert_file_contains "${image_matrix}" '^#[[:space:]]*- Source of truth for publish image naming remains this file'"'"'s images\[\]\.tag field\.$' \
+  "Expected image matrix to document images[].tag as publish naming source of truth."
+assert_file_contains "${image_matrix}" '^#[[:space:]]*- Future workflow input: dockerhub_namespace$' \
+  "Expected image matrix to document dockerhub_namespace future input."
+assert_file_contains "${image_matrix}" '^#[[:space:]]*- Future workflow input: dockerhub_repository_prefix \(optional\)$' \
+  "Expected image matrix to document dockerhub_repository_prefix future input."
+assert_file_contains "${image_matrix}" '^#[[:space:]]*- Future secrets: DOCKERHUB_USERNAME and DOCKERHUB_TOKEN$' \
+  "Expected image matrix to document future Docker Hub secret names."
+assert_file_contains "${image_matrix}" '^#[[:space:]]*- Future login location: \.github/workflows/cd\.yml publish job before invoking publish logic\.$' \
+  "Expected image matrix to document intended Docker Hub login location."
 
 echo "Checking CD workflow only references shared cicd/scripts and cicd/config assets..."
 while IFS= read -r cicd_asset; do
