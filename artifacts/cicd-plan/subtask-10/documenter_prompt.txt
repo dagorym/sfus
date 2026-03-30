@@ -1,0 +1,38 @@
+You are the Documenter Agent.
+
+Task summary:
+Validate and document Subtask 10 remediation retry: GitHub Actions warning annotations from run-validations emit on stdout only while human warning text remains on stderr.
+
+Acceptance criteria to reflect in documentation:
+1. When GITHUB_ACTIONS=true, warning messages remain visible to humans and ::warning::... is emitted on the workflow-command channel GitHub Actions parses.
+2. When GITHUB_ACTIONS is unset, no GitHub Actions annotation token is emitted.
+3. Warning-only runs still exit successfully.
+4. cicd/tests/run-validations.sh verifies the correct output channel behavior instead of only checking token presence on stderr.
+5. cicd/docs/cicd.md and cicd/tests/README.md describe the corrected behavior accurately.
+
+Implementation/worktree context:
+- Worktree: /home/tstephen/repos/sfus/worktrees/cicd-subtask10-r1-tester-20260329
+- Branch: cicd-subtask10-r1-tester-20260329
+- Base branch for comparison: cicd
+- Implementer branch origin: cicd-subtask10-r1-implementer-20260330
+
+Tester changes made:
+- Modified test file: cicd/tests/run-validations.sh
+- Added Actions-mode assertion ensuring stderr does not contain ::warning:: tokens.
+
+Test commit hash:
+- 63861494da3c07164c5028afd0bbb1b65d90005b
+
+Commands executed:
+- bash cicd/tests/run-validations.sh
+- bash cicd/tests/run-validations.sh && GITHUB_ACTIONS=true bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml
+
+Final test outcomes:
+- All executed validation checks passed.
+- Actions-mode behavior validated: human warning text on stderr; workflow annotation token on stdout only.
+- Non-Actions behavior validated: no annotation token emitted.
+- Warning-only runs still complete successfully.
+- Existing docs already match corrected behavior; update only if additional clarity is warranted.
+
+Shared artifact directory to reuse (repository-root-relative):
+- artifacts/cicd-plan/subtask-10

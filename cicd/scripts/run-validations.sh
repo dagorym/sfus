@@ -49,7 +49,7 @@ emit_warning() {
   local message="$1"
   echo "Warning: ${message}" >&2
   if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-    echo "::warning::${message}" >&2
+    echo "::warning::${message}"
   fi
 }
 

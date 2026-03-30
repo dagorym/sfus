@@ -12,7 +12,7 @@ That keeps GitHub Actions aligned with the same `cicd/scripts` and `cicd/config`
 
 ### Warning behavior in Actions
 
-`bash cicd/scripts/run-validations.sh` still writes warning-only conditions to stderr without failing the run. When `GITHUB_ACTIONS=true`, the runner also emits the same warning as a GitHub Actions annotation in `::warning::...` format so CI logs surface the warning while preserving the existing warning-only success semantics.
+`bash cicd/scripts/run-validations.sh` still writes warning-only conditions to stderr without failing the run, so the human-readable warning stays visible in local runs and in GitHub Actions logs. When `GITHUB_ACTIONS=true`, the runner also emits the same warning in `::warning::...` format on the workflow-command channel GitHub Actions parses. When `GITHUB_ACTIONS` is unset, no GitHub Actions annotation token is emitted, and warning-only runs still complete successfully.
 
 ## Manual CD workflow shim
 

@@ -88,6 +88,15 @@ assert_stdout_contains() {
   grep -Eq "${pattern}" "${last_stdout}" || fail "${message}"
 }
 
+assert_stdout_not_contains() {
+  local pattern="$1"
+  local message="$2"
+
+  if grep -Eq "${pattern}" "${last_stdout}"; then
+    fail "${message}"
+  fi
+}
+
 assert_stderr_contains() {
   local pattern="$1"
   local message="$2"
@@ -237,6 +246,8 @@ assert_stderr_contains "Warning: validation 'warning-only' has no command config
   "Expected warning-only config to emit a missing-command warning."
 assert_stderr_not_contains "^::warning::" \
   "Did not expect GitHub annotation when GITHUB_ACTIONS is unset."
+assert_stdout_not_contains "^::warning::" \
+  "Did not expect GitHub annotation when GITHUB_ACTIONS is unset."
 assert_stdout_contains '^Completed with warnings only\.$' \
   "Expected warning-only config to complete successfully."
 
@@ -245,8 +256,10 @@ run_capture warning-only-actions env GITHUB_ACTIONS=true bash "${runner}" "${war
 assert_status 0
 assert_stderr_contains "Warning: validation 'warning-only' has no command configured; skipping\\." \
   "Expected warning text to remain in stderr when running in Actions."
-assert_stderr_contains "^::warning::validation 'warning-only' has no command configured; skipping\\.$" \
-  "Expected GitHub Actions annotation for missing-command warnings."
+assert_stderr_not_contains "^::warning::" \
+  "Did not expect GitHub annotation token on stderr when running in Actions."
+assert_stdout_contains "^::warning::validation 'warning-only' has no command configured; skipping\\.$" \
+  "Expected GitHub Actions annotation on workflow-command output when running in Actions."
 assert_stdout_contains '^Completed with warnings only\.$' \
   "Expected warning-only Actions run to complete successfully."
 
