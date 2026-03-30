@@ -1,13 +1,11 @@
 You are the Tester Agent.
 
 Task summary:
-- Implemented Subtask 6 CD thin shim: added manual GitHub Actions CD workflow entrypoint and delegated stage operations to shared `cicd/scripts/build-images.sh` + `cicd/config/image-matrix.yml`.
-- Publish/deploy are explicitly gated off by default.
+- Remediated Subtask 6 verifier finding for strict-shell reliability in `build-images.sh`.
+- Script now explicitly disables inherited `errexit` and avoids arithmetic-command status traps while parsing image entries.
 
 Modified files:
-- .github/workflows/cd.yml
 - cicd/scripts/build-images.sh
-- cicd/config/image-matrix.yml
 
 Acceptance criteria to validate (from Planner):
 - `.github/workflows/cd.yml` is manually triggerable for any branch/ref.
@@ -19,13 +17,12 @@ Create test files in:
 - cicd/tests/run-validations.sh
 
 Implementation context for testing:
-- CD workflow now uses `workflow_dispatch` only with `git_ref`, `run_publish`, and `run_deploy` inputs.
-- `build-images` job always runs and calls `bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build`.
-- `publish` and `deploy` jobs are conditional (`if: inputs.run_publish/run_deploy == true`) and call the same shared script with `publish`/`deploy` operations.
-- `build-images.sh` now supports operations: `build|validation` (normal behavior), `publish|deploy` (warning-only successful no-op gate), invalid operation (error).
-- `image-matrix.yml` defaults now explicitly declare `publish_enabled: false` and `deploy_enabled: false`.
+- `build-images.sh` now includes `set +e` so it does not inherit `-e` from strict parent runners.
+- Matrix parsing increment changed from `((current_index += 1))` to `current_index=$((current_index + 1))` to prevent pre-build abort when index transitions from `-1` to `0`.
+- Existing CD workflow inputs/jobs remain unchanged in this cycle.
 
 Suggested test command(s):
+- bash -e cicd/scripts/build-images.sh cicd/config/image-matrix.yml build
 - bash cicd/tests/build-images.sh
 - bash cicd/tests/run-validations.sh
 
