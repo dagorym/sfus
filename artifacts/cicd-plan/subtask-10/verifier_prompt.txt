@@ -36,7 +36,7 @@ Final test outcome:
 Commits:
 - Tester implementation-test commit hash: 1dc5586f1cbfe19b551538c1b0092dc3cdc54c58
 - Tester artifact bookkeeping commit hash: 9da3553f5030fe4583f170dad3c43149bd33d283
-- Documenter documentation commit hash: to be read from artifacts/cicd-plan/subtask-10/documenter_result.json after documenter commit finalization
+- Documenter documentation commit hash: 078ebed461681b8976dccb36010a9de291bcbe4d
 
 Shared artifact directory to reuse (repository-root-relative):
 - artifacts/cicd-plan/subtask-10
