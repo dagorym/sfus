@@ -1,0 +1,52 @@
+You are the Verifier Agent.
+
+Task summary:
+- Verify Subtask 9 repository-structure documentation guidance so CI/CD operational logic stays in `cicd/` and `.github/workflows/*.yml` remains thin platform entrypoints delegating to shared scripts/config.
+
+Acceptance criteria:
+1. Documentation explicitly states that CI/CD operational logic belongs under `cicd/`.
+2. Documentation explicitly states that `.github/workflows/*.yml` files are platform-required entrypoints and should stay thin.
+3. The structure guidance points future maintainers to shared scripts/config instead of encouraging duplicated workflow logic.
+4. Repository-wide guidance is updated only if needed and without duplicating detailed behavior already documented elsewhere.
+
+Implementation/worktree context:
+- Base branch for comparison: `cicd`
+- Implementer branch base for the tester worktree: `cicd-subtask-9-implementer-20260330`
+- Tester branch: `cicd-subtask-9-tester-20260330`
+- Documenter branch: `cicd-subtask-9-documenter-20260330`
+- Documenter worktree: `/home/tstephen/repos/sfus/worktrees/cicd-subtask-9-documenter-20260330`
+- Documentation commit hash: `9989b252f098997cb63c2b41bf3441cbf54b88e1`
+
+Implementation files added or modified:
+- None beyond the documentation scope for this subtask.
+
+Test files added or modified:
+- None (regression-only validation).
+
+Documentation files added or modified:
+- `cicd/docs/cicd.md`
+
+Commands executed:
+- `bash cicd/tests/run-validations.sh`
+
+Final test outcomes:
+- `bash cicd/tests/run-validations.sh` -> PASS
+  - PASS: Image build runner coverage succeeded.
+  - PASS: Container runner coverage succeeded.
+  - PASS: Linux validation coverage succeeded.
+- Documenter review confirmed no further documentation edits were needed beyond the existing `cicd/docs/cicd.md` change.
+
+Shared artifact directory to reuse (repository-root-relative):
+- `artifacts/cicd-plan/subtask-9`
+
+Available artifacts:
+- `artifacts/cicd-plan/subtask-9/tester_report.md`
+- `artifacts/cicd-plan/subtask-9/tester_result.json`
+- `artifacts/cicd-plan/subtask-9/documenter_report.md`
+- `artifacts/cicd-plan/subtask-9/documenter_result.json`
+- `artifacts/cicd-plan/subtask-9/verifier_prompt.txt`
+
+Verification requirements:
+- Review the combined diff against `cicd`.
+- Verify the updated documentation files along with the implementation and regression-test evidence.
+- Confirm `cicd/docs/cicd.md` contains the repository structure constraints and that leaving `AGENTS.md` unchanged avoids unnecessary duplicated guidance.
