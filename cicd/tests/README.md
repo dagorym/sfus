@@ -7,6 +7,7 @@ The supported CI/CD entrypoints for this repository are:
 - `.github/workflows/ci.yml` for the GitHub Actions CI shim that delegates to `cicd/scripts/run-validations.sh` with `cicd/config/validation-config.yml`
 - `bash cicd/scripts/run-validations.sh` for the production validation runner
 - `bash cicd/scripts/build-images.sh` for the shared local image build runner
+- `bash cicd/scripts/run-containers.sh` for the shared local container scaffold runner
 - `bash cicd/tests/run-validations.sh` for Linux-native CI/CD contract coverage
 
 The test coverage in this directory focuses on shared CI/CD config contracts such as the Linux-only validation command shape, required config file locations, and image-matrix behavior, along with runner success and failure semantics.
@@ -27,6 +28,12 @@ You can verify the shared image build runner with:
 
 ```bash
 bash cicd/scripts/build-images.sh
+```
+
+You can verify the shared local container runner scaffold with:
+
+```bash
+bash cicd/scripts/run-containers.sh
 ```
 
 ## Running the tests

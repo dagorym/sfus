@@ -1,5 +1,19 @@
 # CI/CD Developer Workflows
 
+## Repository-root commands for validate/build/run
+
+Run these commands from the repository root:
+
+```bash
+bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml
+bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build
+bash cicd/scripts/run-containers.sh start
+```
+
+- `run-validations.sh` executes validation entries from `cicd/config/validation-config.yml`.
+- `build-images.sh ... build` builds image entries from `cicd/config/image-matrix.yml`.
+- `run-containers.sh start` uses `cicd/docker/compose.dev.yml` by default.
+
 ## GitHub Actions CI shim
 
 GitHub Actions must keep its platform entrypoint in `.github/workflows/ci.yml`, but the workflow is intentionally thin. It triggers on `push` and `pull_request` for `main`, plus `workflow_dispatch` for manual runs, then delegates execution to the shared validation runner:
@@ -13,6 +27,8 @@ That keeps GitHub Actions aligned with the same `cicd/scripts` and `cicd/config`
 ### Warning behavior in Actions
 
 `bash cicd/scripts/run-validations.sh` still writes warning-only conditions to stderr without failing the run, so the human-readable warning stays visible in local runs and in GitHub Actions logs. When `GITHUB_ACTIONS=true`, the runner also emits the same warning in `::warning::...` format on the workflow-command channel GitHub Actions parses. When `GITHUB_ACTIONS` is unset, no GitHub Actions annotation token is emitted, and warning-only runs still complete successfully.
+
+Missing validation commands are warning-only by default. If a validation entry has no `command`, the runner warns, skips that entry, and still exits successfully when there are no failures.
 
 ## Manual CD workflow shim
 
@@ -108,3 +124,24 @@ The runner treats a compose file as configured when `services` contains either a
 ```text
 Warning: no services are defined in <compose-file>; nothing to run.
 ```
+
+## Extending the CI/CD config files
+
+### Extend `cicd/config/validation-config.yml`
+
+- Add entries under `validations:` with `id`, optional `description`, and `command`.
+- Keep commands runnable from the repository root because the runner executes from that directory.
+- Current behavior is warning-first by default: when `defaults.warn_on_missing_command` is `true` (current default), empty `command` fields warn and do not fail the run.
+
+### Extend `cicd/config/image-matrix.yml`
+
+- Add image entries under `images:` using fields the runner already reads (`id`, `context`, `dockerfile`, `image`, `tag`).
+- Keep `defaults.publish_enabled: false` and `defaults.deploy_enabled: false` unless a later implementation pass enables real publish/deploy behavior.
+- Current behavior for an empty matrix is warning-only success (`Warning: no images defined ...`, exit `0`).
+- `publish` and `deploy` operations are currently gated placeholders that warn and exit successfully without pushing or deploying.
+
+### Extend `cicd/docker/compose.dev.yml`
+
+- Add real service definitions under `services:` when local containers are ready.
+- Until services are defined, the scaffold intentionally warns and exits successfully so developers can run the command without Docker installed.
+- The container runner currently supports `start|up`, `run`, `stop|down`, `status|ps`, and `logs` actions.
