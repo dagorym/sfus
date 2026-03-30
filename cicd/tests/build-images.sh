@@ -130,6 +130,17 @@ assert_stdout_contains '^Build summary: total=2; built=2; failures=0$' \
 assert_file_contains_literal "${docker_log}" "build -f ${scratch_dir}/context-api/Dockerfile.api -t ghcr.io/example/api:test ${scratch_dir}/context-api" \
   "Expected validation operation to invoke docker build for api image."
 
+echo "Checking strict-parent-shell compatibility..."
+: > "${docker_log}"
+run_capture strict-parent-build env PATH="${scratch_dir}/fake-bin:${PATH}" TEST_DOCKER_LOG="${docker_log}" /usr/bin/bash -e "${runner}" "${build_config}" build
+assert_status 0
+assert_stdout_contains '^Build summary: total=2; built=2; failures=0$' \
+  "Expected build-images to succeed when invoked from a strict parent shell."
+assert_file_contains_literal "${docker_log}" "build -f ${scratch_dir}/context-api/Dockerfile.api -t ghcr.io/example/api:test ${scratch_dir}/context-api" \
+  "Expected strict-parent invocation to build the first parsed image entry."
+assert_file_contains_literal "${docker_log}" "build -f ${scratch_dir}/context-worker/Dockerfile -t worker:ci ${scratch_dir}/context-worker" \
+  "Expected strict-parent invocation to build the second parsed image entry."
+
 echo "Checking empty matrix warning-only behavior..."
 empty_config="${scratch_dir}/empty-images.yml"
 write_config "${empty_config}" "version: 1

@@ -138,6 +138,14 @@ assert_file_contains_literal "${cd_workflow}" "run: bash cicd/scripts/build-imag
 assert_file_contains_literal "${cd_workflow}" "run: bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml deploy" \
   "Expected deploy job to call shared script/config."
 
+echo "Checking CD workflow only references shared cicd/scripts and cicd/config assets..."
+while IFS= read -r cicd_asset; do
+  [[ -z "${cicd_asset}" ]] && continue
+  if [[ ! "${cicd_asset}" =~ ^cicd/(scripts|config)/ ]]; then
+    fail "Expected CD workflow to reference only cicd/scripts or cicd/config assets, found: ${cicd_asset}"
+  fi
+done < <(grep -oE 'cicd/[[:alnum:]_./-]+' "${cd_workflow}" | sort -u)
+
 echo "Running default validation config..."
 run_capture default-config bash "${runner}"
 assert_status 0

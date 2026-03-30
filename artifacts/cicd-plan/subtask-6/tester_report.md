@@ -1,51 +1,48 @@
 ### Test Execution Report
 
 **Agent:** tester  
-**Definition path used:** `/home/tstephen/repos/agents/agents/tester.yaml` (repository-local tester definition not found; shared definition selected by precedence)  
-**Branch:** `cicd-subtask6-tester-20260329`  
-**Base branch:** `cicd`  
-**Attempt:** 1/3  
-**Final Status:** PASS
+**Definition Path:** /home/tstephen/repos/agents/agents/tester.md  
+**Attempt:** 2/3  
+**Branch:** cicd-subtask6-r1-tester-20260330  
+**Total Tests:** 7  
+**Passed:** 7  
+**Failed:** 0
 
-#### Scope validated
-1. `.github/workflows/cd.yml` is manually triggerable for any branch/ref.
-2. Workflow stage commands call only `cicd/scripts` and `cicd/config` assets.
-3. Publish/deploy remain gated off by default.
+#### Acceptance Criteria Validation
 
-#### Test files modified
-- `cicd/tests/build-images.sh`
-- `cicd/tests/run-validations.sh`
+1. **`.github/workflows/cd.yml` is manually triggerable for any branch/ref** — **MET**
+   - Verified `workflow_dispatch` with optional `git_ref` input.
+2. **Workflow calls only `cicd/scripts` and `cicd/config` assets** — **MET**
+   - Added/ran explicit asset-reference scan in `cicd/tests/run-validations.sh`; all `cicd/...` refs are under allowed directories.
+3. **Publish/deploy remain gated off by default** — **MET**
+   - Verified `run_publish` and `run_deploy` default `false`; jobs gated with `if: ${{ inputs.run_publish == true }}` and `if: ${{ inputs.run_deploy == true }}`.
 
-#### Commands run
-- `bash cicd/tests/build-images.sh` (baseline)
-- `bash cicd/tests/run-validations.sh` (baseline)
-- `bash cicd/tests/build-images.sh` (post-change)
-- `bash cicd/tests/run-validations.sh` (post-change)
+#### Commands Run
 
-#### Structured results
-- **Total test commands executed:** 4
-- **Passed:** 4
-- **Failed:** 0
-- **Acceptance criteria passed:** 3/3
-- **Acceptance criteria failed:** 0
+- `bash -e cicd/scripts/build-images.sh cicd/config/image-matrix.yml build`
+- `bash cicd/tests/build-images.sh`
+- `bash cicd/tests/run-validations.sh`
+- `bash cicd/tests/build-images.sh` (after test update)
+- `bash cicd/tests/run-validations.sh` (after test update)
 
-#### Evidence summary
-- `cicd/tests/run-validations.sh` now asserts `workflow_dispatch` plus `git_ref`, `run_publish`, and `run_deploy` inputs in `.github/workflows/cd.yml`.
-- The same test asserts `if: ${{ inputs.run_publish == true }}` and `if: ${{ inputs.run_deploy == true }}` are present.
-- The same test asserts stage commands invoke only `bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml <operation>`.
-- The same test asserts `publish_enabled: false` and `deploy_enabled: false` in `cicd/config/image-matrix.yml`.
-- `cicd/tests/build-images.sh` now validates `validation` operation behavior, publish/deploy warning-only success gates, and invalid-operation error handling in `cicd/scripts/build-images.sh`.
+#### Outcomes
 
-#### Unmet acceptance criteria
-- None.
+- Baseline suggested commands: all passed.
+- Added strict-parent-shell regression coverage for `build-images.sh` in `cicd/tests/build-images.sh`.
+- Added explicit workflow asset-scope assertion in `cicd/tests/run-validations.sh`.
+- Final test run passed for all assertions.
 
-#### Commit status
-- Test commit created: `798ff819059e0c52ee9e4ec5de7508fffb509cb3`
+#### Commit Status
 
-#### Artifact paths written
+- Test changes committed with required tester artifacts.
+- `documenter_prompt.txt` written because testing succeeded.
+
+#### Temporary Byproducts Cleanup
+
+- No persistent temporary byproducts retained; test scratch dirs are trap-cleaned by test scripts.
+
+#### Artifact Paths Written
+
 - `artifacts/cicd-plan/subtask-6/tester_report.md`
 - `artifacts/cicd-plan/subtask-6/tester_result.json`
 - `artifacts/cicd-plan/subtask-6/documenter_prompt.txt`
-
-#### Cleanup
-- No temporary non-handoff byproducts remain; test scratch directories are cleaned by trap handlers.

@@ -1,47 +1,47 @@
 You are the Documenter Agent.
 
 Task summary:
-- Implemented Subtask 6 CD thin shim: manual GitHub Actions CD workflow entrypoint and delegated stage operations to shared `cicd/scripts/build-images.sh` + `cicd/config/image-matrix.yml`.
-- Publish/deploy are explicitly gated off by default.
+- Remediated Subtask 6 verifier finding for strict-shell reliability in `build-images.sh`.
+- Script explicitly disables inherited `errexit` and avoids arithmetic-command status traps while parsing image entries.
 
 Acceptance criteria validated:
-1. `.github/workflows/cd.yml` is manually triggerable for any branch/ref.
-2. Workflow calls only `cicd/scripts` and `cicd/config` assets.
-3. Publish/deploy remain gated off by default.
+- `.github/workflows/cd.yml` is manually triggerable for any branch/ref.
+- Workflow calls only `cicd/scripts` and `cicd/config` assets.
+- Publish/deploy remain gated off by default.
 
 Implementation context:
-- Worktree: `/home/tstephen/repos/sfus/worktrees/cicd-subtask6-tester-20260329`
-- Branch: `cicd-subtask6-tester-20260329`
+- Worktree: `/home/tstephen/repos/sfus/worktrees/cicd-subtask6-r1-tester-20260330`
+- Branch: `cicd-subtask6-r1-tester-20260330`
 - Base branch: `cicd`
-- Implementer-modified files:
-  - `.github/workflows/cd.yml`
-  - `cicd/scripts/build-images.sh`
-  - `cicd/config/image-matrix.yml`
+- Implementation file under test: `cicd/scripts/build-images.sh`
 
-Tester changes committed:
+Tester files added/modified:
 - `cicd/tests/build-images.sh`
+  - Added strict-parent-shell regression coverage by invoking `/usr/bin/bash -e cicd/scripts/build-images.sh ... build` and asserting successful parsed-image builds.
 - `cicd/tests/run-validations.sh`
-
-Test commit hash:
-- `798ff819059e0c52ee9e4ec5de7508fffb509cb3`
+  - Added explicit check that all `cicd/...` references in `.github/workflows/cd.yml` are limited to `cicd/scripts` or `cicd/config`.
 
 Commands executed:
-- `bash cicd/tests/build-images.sh` (baseline)
-- `bash cicd/tests/run-validations.sh` (baseline)
-- `bash cicd/tests/build-images.sh` (post-change)
-- `bash cicd/tests/run-validations.sh` (post-change)
+- `bash -e cicd/scripts/build-images.sh cicd/config/image-matrix.yml build`
+- `bash cicd/tests/build-images.sh`
+- `bash cicd/tests/run-validations.sh`
+- Re-ran updated tests:
+  - `bash cicd/tests/build-images.sh`
+  - `bash cicd/tests/run-validations.sh`
 
 Final test outcomes:
-- All executed test commands passed (4/4).
-- Acceptance criteria passed: 3/3.
-- No unmet acceptance criteria.
+- Total tests/assertion groups: 7
+- Passed: 7
+- Failed: 0
+- All acceptance criteria met.
 
-Documentation-impact hints:
-- CD workflow is now `workflow_dispatch` with inputs `git_ref`, `run_publish`, and `run_deploy`.
-- Build stage always runs via shared script/config call.
-- Publish/deploy are guarded by boolean input conditions and remain no-op gated behavior by default.
-- `cicd/config/image-matrix.yml` now explicitly declares `publish_enabled: false` and `deploy_enabled: false`.
-- Test coverage now explicitly validates these gating and workflow-shim contracts.
+Test commit hash:
+- 126cc9a3fb9171d1fc837c0cf097fdcf1705da00
 
-Reuse this shared artifact directory path (repository-root-relative):
+Shared artifact directory (repository-root-relative) to reuse:
 - `artifacts/cicd-plan/subtask-6`
+
+Artifacts present from tester stage:
+- `artifacts/cicd-plan/subtask-6/tester_report.md`
+- `artifacts/cicd-plan/subtask-6/tester_result.json`
+- `artifacts/cicd-plan/subtask-6/documenter_prompt.txt`
