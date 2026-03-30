@@ -1,5 +1,29 @@
 # CI/CD Developer Workflows
 
+## Manual CD workflow shim
+
+GitHub Actions CD now starts from `.github/workflows/cd.yml` as a manual-only entrypoint:
+
+- trigger: `workflow_dispatch`
+- inputs:
+  - `git_ref`: optional branch, tag, or commit SHA to check out before running CD
+  - `run_publish`: optional boolean, defaults to `false`
+  - `run_deploy`: optional boolean, defaults to `false`
+
+The workflow stays thin and delegates stage behavior to the shared image runner plus shared config:
+
+```bash
+bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build
+```
+
+When a manual dispatch explicitly enables a later stage, the workflow reuses the same entrypoint with `publish` or `deploy`. Those operations are still future-facing gates: they succeed with a warning and do not publish or deploy anything by default. The default image matrix keeps both gates explicit with:
+
+```yaml
+defaults:
+  publish_enabled: false
+  deploy_enabled: false
+```
+
 ## Local container scaffold
 
 Use the shared container runner from the repository root:
