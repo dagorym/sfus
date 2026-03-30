@@ -5,9 +5,9 @@ This directory contains CI/CD contract checks for the Linux-oriented workflow.
 The supported CI/CD entrypoints for this repository are:
 
 - `.github/workflows/ci.yml` for the GitHub Actions CI shim that delegates to `cicd/scripts/run-validations.sh` with `cicd/config/validation-config.yml`
-- `bash cicd/scripts/run-validations.sh` for the production validation runner
-- `bash cicd/scripts/build-images.sh` for the shared local image build runner
-- `bash cicd/scripts/run-containers.sh` for the shared local container scaffold runner
+- `bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml` for the production validation runner
+- `bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build` for the shared local image build runner
+- `bash cicd/scripts/run-containers.sh start` for the shared local container scaffold runner
 - `bash cicd/tests/run-validations.sh` for Linux-native CI/CD contract coverage
 
 The test coverage in this directory focuses on shared CI/CD config contracts such as the Linux-only validation command shape, required config file locations, and image-matrix behavior, along with runner success and failure semantics.
@@ -21,20 +21,22 @@ The test coverage in this directory focuses on shared CI/CD config contracts suc
 You can verify the supported validation runner with:
 
 ```bash
-bash cicd/scripts/run-validations.sh
+bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml
 ```
 
 You can verify the shared image build runner with:
 
 ```bash
-bash cicd/scripts/build-images.sh
+bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build
 ```
 
 You can verify the shared local container runner scaffold with:
 
 ```bash
-bash cicd/scripts/run-containers.sh
+bash cicd/scripts/run-containers.sh start
 ```
+
+`bash cicd/scripts/run-containers.sh` is equivalent because `start` is the default action.
 
 ## Running the tests
 

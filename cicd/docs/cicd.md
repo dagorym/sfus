@@ -12,7 +12,7 @@ bash cicd/scripts/run-containers.sh start
 
 - `run-validations.sh` executes validation entries from `cicd/config/validation-config.yml`.
 - `build-images.sh ... build` builds image entries from `cicd/config/image-matrix.yml`.
-- `run-containers.sh start` uses `cicd/docker/compose.dev.yml` by default.
+- `run-containers.sh start` uses `cicd/docker/compose.dev.yml` by default. `bash cicd/scripts/run-containers.sh` is equivalent because `start` is the default action.
 
 ## GitHub Actions CI shim
 
