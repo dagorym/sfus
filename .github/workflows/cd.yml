@@ -17,6 +17,14 @@ on:
         required: false
         default: false
         type: boolean
+      dockerhub_namespace:
+        description: Future publish input: Docker Hub namespace/organization
+        required: false
+        type: string
+      dockerhub_repository_prefix:
+        description: Future publish input: optional Docker Hub repository prefix
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -44,6 +52,12 @@ jobs:
           ref: ${{ inputs.git_ref || github.ref }}
 
       - name: Publish stage placeholder via shared script
+        env:
+          IMAGE_MATRIX_PATH: cicd/config/image-matrix.yml
+          DOCKERHUB_NAMESPACE: ${{ inputs.dockerhub_namespace }}
+          DOCKERHUB_REPOSITORY_PREFIX: ${{ inputs.dockerhub_repository_prefix }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml publish
 
   deploy:

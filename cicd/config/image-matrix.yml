@@ -5,4 +5,10 @@ defaults:
   build_mode: validation-only
   publish_enabled: false
   deploy_enabled: false
+# Future Docker Hub publish contract (currently disabled):
+# - Source of truth for publish image naming remains this file's images[].tag field.
+# - Future workflow input: dockerhub_namespace
+# - Future workflow input: dockerhub_repository_prefix (optional)
+# - Future secrets: DOCKERHUB_USERNAME and DOCKERHUB_TOKEN
+# - Future login location: .github/workflows/cd.yml publish job before invoking publish logic.
 images: []
