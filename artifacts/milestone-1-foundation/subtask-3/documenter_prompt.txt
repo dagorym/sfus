@@ -1,0 +1,58 @@
+You are the Documenter Agent.
+
+Document Milestone 1 Foundation, Subtask 3: API foundation and migration baseline.
+
+Original task summary:
+- Validate and document the NestJS API foundation for strict environment validation, structured JSON logs, correlation IDs, global `/api` prefix, `/api/health/live`, `/api/health/ready`, `/api/docs`, standardized JSON errors, TypeORM MySQL configuration, and the reviewed baseline migration with readiness checks tied to DB and migration state.
+
+Acceptance criteria validated by testing:
+- The API boots only with valid env configuration and fails fast on invalid/missing required values.
+- Swagger is served at `/api/docs` locally and is production-gated by config.
+- Health endpoints return JSON and readiness fails on unavailable DB or missing required migrations.
+- TypeORM is configured for local MySQL and the documented external production MySQL contract.
+- Migration execution is explicit and not performed automatically on normal app startup.
+
+Implementation/worktree context:
+- Repo/worktree: `/home/tstephen/.copilot/session-state/2d6da700-f689-47d7-9d20-d8fed7053e82/files/worktrees/ms1s3-tester-20260331`
+- Tester branch: `ms1s3-tester-20260331`
+- Implementer branch preserved: `ms1s3-implementer-20260331`
+- Implementation commit tested: `e9007626a13c3d313cf5a13722f1bba99db46f52`
+- Test commit: `492a90e21adca22b3fb68b31c072c0ecb814da73`
+- Shared artifact directory to reuse: `artifacts/milestone-1-foundation/subtask-3`
+
+Behavior confirmed by tests:
+- `loadEnvironment` enforces required env vars and rejects invalid `NODE_ENV`, `API_PORT`, `DB_CONNECT_TIMEOUT_MS`, and invalid migration table names.
+- Swagger bootstrap is mounted at `api/docs` when enabled and skipped when config disables it.
+- Liveness returns JSON `{ status: "ok", service: "api", timestamp }`.
+- Readiness returns JSON and sets HTTP 503 when DB connectivity fails or reviewed migrations are missing.
+- TypeORM config targets MySQL with `utf8mb4`, reviewed migration registration, explicit migration table configuration, and `migrationsRun: false`.
+- Normal bootstrap does not run migrations automatically.
+
+Test files added:
+- `apps/api/src/config/environment.test.ts`
+- `apps/api/src/database/database.config.test.ts`
+- `apps/api/src/health/health.controller.test.ts`
+- `apps/api/src/health/readiness.service.test.ts`
+- `apps/api/src/index.test.ts`
+
+Commands executed:
+- `npx --yes pnpm@10.0.0 install --frozen-lockfile`
+- `npx --yes pnpm@10.0.0 --filter @sfus/api run lint`
+- `npx --yes pnpm@10.0.0 --filter @sfus/api run typecheck`
+- `npx --yes pnpm@10.0.0 --filter @sfus/api run test`
+- `npx --yes pnpm@10.0.0 --filter @sfus/api run build`
+- Final passing validation: `npx --yes pnpm@10.0.0 --filter @sfus/api run test && npx --yes pnpm@10.0.0 --filter @sfus/api run typecheck && npx --yes pnpm@10.0.0 --filter @sfus/api run lint && npx --yes pnpm@10.0.0 --filter @sfus/api run build`
+
+Final test outcome:
+- PASS
+- 5 test files passed
+- 14 tests passed
+- lint/typecheck/build all passed
+- Existing automated coverage had been insufficient because the API workspace initially had zero test files; the added tests now cover the accepted baseline behavior.
+
+Documentation impact likely needed:
+- API runtime and env contract
+- Swagger availability and production gating
+- Health/readiness semantics including migration baseline expectation
+- Explicit migration workflow (`migration:run`, `migration:show`)
+- Testing additions for the API baseline
