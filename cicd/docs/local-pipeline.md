@@ -82,8 +82,8 @@ The migration service is decoupled from app startup so it can run before `web`/`
 
 The API runtime contract after migration is:
 
-- `GET /api/health/live` for liveness JSON
-- `GET /api/health/ready` for DB plus reviewed-migration readiness JSON
+- `GET /api/health/live` for process liveness JSON with no dependency checks
+- `GET /api/health/ready` for DB plus reviewed-migration readiness JSON, returning HTTP `503` when either dependency is not ready
 - `GET /api/docs` for local Swagger when `API_SWAGGER_ENABLED=true`
 
 Normal API startup never runs migrations automatically; the one-off migration command remains the only supported schema application path for Milestone 1.

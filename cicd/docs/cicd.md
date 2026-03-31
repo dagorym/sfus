@@ -67,7 +67,7 @@ In hybrid mode, the frontend still targets `/api`, and local rewrites forward tr
 
 Run production migrations as a separate one-off step before rollout instead of relying on app startup side effects. The `migrate` service is intentionally independent (no `depends_on` on long-lived app services) so it can be executed before bringing up `web` and `api`.
 
-The API image now boots a NestJS service that exposes `/api/health/live`, `/api/health/ready`, and `/api/docs` (Swagger remains production-gated by `API_SWAGGER_ENABLED`). Readiness must only be considered healthy after the external MySQL connection succeeds and the reviewed baseline migration is present in the configured migration table.
+The API image boots a NestJS service that exposes `/api/health/live`, `/api/health/ready`, and `/api/docs` (Swagger remains production-gated by `API_SWAGGER_ENABLED`). `/api/health/live` is a process-only liveness probe. `/api/health/ready` validates the external MySQL connection and the reviewed migration baseline before reporting ready.
 
 ## Existing shared runners
 
