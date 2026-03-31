@@ -1,0 +1,44 @@
+You are the Verifier Agent.
+
+Context
+- Task: Remediation cycle 1 for Milestone 1 Subtask 2 runtime contracts.
+- Documenter worktree: `/home/tstephen/.copilot/session-state/2d6da700-f689-47d7-9d20-d8fed7053e82/files/worktrees/ms1s2r1-documenter-20260331`
+- Documenter branch: `ms1s2r1-documenter-20260331`
+- Tester branch preserved below this branch: `ms1s2r1-tester-20260331`
+- Implementer base branch: `ms1s2r1-implementer-20260331`
+- Shared artifact directory to reuse (repo-root-relative): `artifacts/milestone-1-foundation/subtask-2`
+
+Original remediation summary
+- Remediate Milestone 1 Subtask 2 runtime contract gaps by making production `web` and `api` long-lived and making `migrate` independently runnable before app rollout.
+- Update in-scope runtime validations/docs to verify and describe corrected behavior.
+
+Acceptance criteria to verify
+1. Root plus app-specific env example files exist and document variable ownership.
+2. `web`, `api`, and `mysql` naming is consistent where applicable.
+3. Production Compose uses one file, long-lived `web`/`api`, no host port binding, and reverse-proxy metadata.
+4. Migration path is explicit one-off service/container, independent from implicit app startup.
+
+Implementation and test scope already validated
+- Implementation files in scope:
+  - `apps/web/Dockerfile`
+  - `apps/api/Dockerfile`
+  - `cicd/docker/compose.prod.yml`
+  - `cicd/tests/run-validations.sh`
+- Test files added/modified: none.
+- Documentation files added/modified by Documenter:
+  - `cicd/docs/local-pipeline.md`
+
+Documentation update made
+- `cicd/docs/local-pipeline.md` now shows the validated production migration command with `docker compose --profile migration run --rm --no-deps migrate` and states that the migration run does not start long-lived app services as dependencies.
+
+Commands executed
+- `bash cicd/tests/run-validations.sh`
+
+Final test outcome
+- PASS. Tester validated long-lived production `web`/`api` behavior and the independently runnable migration path, including `docker compose --profile migration run --rm --no-deps migrate ...`.
+
+Verification requirements
+- Verify the implementation, tests, and the updated documentation together.
+- Confirm the updated documentation matches the shipped runtime behavior and does not make aspirational claims.
+- Confirm the documentation remains aligned with Milestone 1 architecture decisions and acceptance criteria.
+- Reuse the shared artifact directory above for verifier outputs.
