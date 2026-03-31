@@ -1,0 +1,61 @@
+You are the Verifier Agent.
+
+Context
+- Task: Milestone 1 Foundation, Subtask 3: API foundation and migration baseline.
+- Documenter worktree: `/home/tstephen/.copilot/session-state/2d6da700-f689-47d7-9d20-d8fed7053e82/files/worktrees/ms1s3-documenter-20260331`
+- Documenter branch: `ms1s3-documenter-20260331`
+- Tester branch preserved below this branch: `ms1s3-tester-20260331`
+- Implementer branch preserved below tester: `ms1s3-implementer-20260331`
+- Shared artifact directory to reuse (repo-root-relative): `artifacts/milestone-1-foundation/subtask-3`
+
+Original task summary
+- Validate and document the NestJS API foundation for strict environment validation, structured JSON logs, correlation IDs, global `/api` prefix, `/api/health/live`, `/api/health/ready`, `/api/docs`, standardized JSON errors, TypeORM MySQL configuration, and the reviewed baseline migration with readiness checks tied to DB and migration state.
+
+Acceptance criteria to verify
+1. The API boots only with valid env configuration and fails fast on invalid/missing required values.
+2. Swagger is served at `/api/docs` locally and is production-gated by config.
+3. Health endpoints return JSON and readiness fails on unavailable DB or missing required migrations.
+4. TypeORM is configured for local MySQL and the documented external production MySQL contract.
+5. Migration execution is explicit and not performed automatically on normal app startup.
+
+Implementation and test scope already validated
+- Implementation commit: `e9007626a13c3d313cf5a13722f1bba99db46f52`
+- Tester commit: `492a90e21adca22b3fb68b31c072c0ecb814da73`
+- Documentation commit: `abf999e40023bfe15efd82ae421266a0f9f7c12e`
+- Test files added/modified:
+  - `apps/api/src/config/environment.test.ts`
+  - `apps/api/src/database/database.config.test.ts`
+  - `apps/api/src/health/health.controller.test.ts`
+  - `apps/api/src/health/readiness.service.test.ts`
+  - `apps/api/src/index.test.ts`
+- Documentation files added/modified by Documenter:
+  - `apps/api/README.md`
+  - `cicd/docs/cicd.md`
+  - `cicd/docs/local-pipeline.md`
+
+Documentation update made
+- `apps/api/README.md` now documents the shipped runtime contract for `/api/docs/openapi.json`, liveness and readiness behavior, correlation ID handling, JSON error payload shape, explicit migration commands, and the reviewed baseline migration semantics.
+- `cicd/docs/local-pipeline.md` now states that `/api/health/live` is process-only liveness and `/api/health/ready` returns HTTP 503 when database or reviewed migration state is not ready.
+- `cicd/docs/cicd.md` now describes the API image behavior in normative terms and distinguishes liveness from readiness for production operations.
+
+Commands executed
+- `npx --yes pnpm@10.0.0 install --frozen-lockfile`
+- `npx --yes pnpm@10.0.0 --filter @sfus/api run test`
+- `npx --yes pnpm@10.0.0 --filter @sfus/api run typecheck`
+- `npx --yes pnpm@10.0.0 --filter @sfus/api run lint`
+- `npx --yes pnpm@10.0.0 --filter @sfus/api run build`
+
+Final test outcome
+- PASS
+- 5 test files passed
+- 14 tests passed
+- API typecheck passed
+- API lint passed
+- API build passed
+
+Verification requirements
+- Verify the implementation, tests, and updated documentation together.
+- Verify the updated documentation files along with the implementation and tests.
+- Confirm the docs match the shipped API behavior and do not document planned-but-unimplemented behavior.
+- Confirm the docs remain aligned with the Milestone 1 architecture decisions and acceptance criteria.
+- Reuse the shared artifact directory above for verifier outputs.
