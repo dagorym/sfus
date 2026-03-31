@@ -75,10 +75,10 @@ It defines long-lived `web` and `api` services, includes reverse-proxy metadata 
 The migration path is explicit and one-off via service `migrate`:
 
 ```bash
-docker compose --env-file /path/to/host/runtime.env -f cicd/docker/compose.prod.yml --profile migration run --rm migrate
+docker compose --env-file /path/to/host/runtime.env -f cicd/docker/compose.prod.yml --profile migration run --rm --no-deps migrate
 ```
 
-The migration service is decoupled from app startup so it can run before `web`/`api` rollout.
+The migration service is decoupled from app startup so it can run before `web`/`api` rollout without starting any long-lived app services as dependencies.
 
 Use a host-managed env file path for production operations rather than creating `.env` inside the repository checkout. The production API env file values point at the external MySQL 5.7.44 instance documented for Milestone 1.
 
