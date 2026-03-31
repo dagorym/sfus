@@ -70,5 +70,10 @@ The example files are templates only. Production secrets and the external produc
 ## Deployment And Validation References
 
 - `cicd/docs/local-pipeline.md` - hybrid local development, full-stack Compose validation, and explicit production migration flow
-- `cicd/docs/cicd.md` - CI/CD entrypoints, runtime contract artifacts, and production topology expectations
+- `cicd/docs/cicd.md` - CI validation entrypoints, smoke validation usage, and runtime contract artifacts
 - `docs/architecture/milestone-1-foundation-decisions.md` - locked Milestone 1 architecture and deployment decisions
+
+## Operational Validation Commands
+
+- `bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml` - lint, typecheck, test, smoke validation, and shared CI/CD contract checks
+- `bash cicd/scripts/smoke-validate.sh` - build the apps, start the full local stack, run the explicit migration command, and verify homepage plus API health

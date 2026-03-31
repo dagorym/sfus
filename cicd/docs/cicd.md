@@ -16,16 +16,23 @@ cp apps/web/.env.example apps/web/.env
 cp apps/api/.env.example apps/api/.env
 ```
 
+Install workspace dependencies before invoking the shared validation runner:
+
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+```
+
 Recommended local pass order:
 
 ```bash
 bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml
-bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build
-bash cicd/scripts/run-containers.sh start
-bash cicd/tests/run-validations.sh
+bash cicd/scripts/smoke-validate.sh
 ```
 
-For hybrid/full-stack and production topology details, see `cicd/docs/local-pipeline.md`.
+`run-validations.sh` now covers repo linting, typechecking, the baseline frontend/API Vitest suites, the full-stack smoke flow, and the Bash-based CI/CD contract checks. `smoke-validate.sh` remains available when you only want the build/startup/migration/homepage/API-health runtime pass.
+
+For hybrid/full-stack and production topology details, including deploy and rollback operations, see `cicd/docs/local-pipeline.md`.
 
 ## Runtime contract artifacts in this repo
 
@@ -75,10 +82,12 @@ Run these commands from repository root:
 
 ```bash
 bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml
+bash cicd/scripts/smoke-validate.sh
 bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build
 bash cicd/scripts/run-containers.sh start
 ```
 
-- `run-validations.sh` executes validation entries from `cicd/config/validation-config.yml`.
+- `run-validations.sh` executes validation entries from `cicd/config/validation-config.yml`, including workspace lint/typecheck/test coverage and the smoke validation entrypoint.
+- `smoke-validate.sh` builds the workspaces, brings up the full local stack, runs the explicit migration command, and checks homepage plus API health reachability.
 - `build-images.sh ... build` builds image entries from `cicd/config/image-matrix.yml`.
 - `run-containers.sh start` uses `cicd/docker/compose.dev.yml` by default.

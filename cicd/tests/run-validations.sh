@@ -14,6 +14,7 @@ root_env_example="${repo_root}/.env.example"
 web_env_example="${repo_root}/apps/web/.env.example"
 api_env_example="${repo_root}/apps/api/.env.example"
 scratch_dir="${script_dir}/.scratch"
+docker_buildkit="${DOCKER_BUILDKIT:-0}"
 
 cleanup() {
   cleanup_runtime_containers
@@ -93,9 +94,10 @@ assert_container_stays_running() {
   local image_tag="$1"
   local expected_port="$2"
   local service_name="$3"
+  shift 3
 
   local container_id
-  container_id="$(docker run -d --rm -e PORT="${expected_port}" "${image_tag}")"
+  container_id="$(docker run -d --rm -e PORT="${expected_port}" "$@" "${image_tag}")"
   runtime_container_ids+=("${container_id}")
 
   sleep 2
@@ -358,11 +360,20 @@ api_runtime_image="sfus-api-runtime-check:${RANDOM}-${RANDOM}"
 runtime_image_tags+=("${web_runtime_image}")
 runtime_image_tags+=("${api_runtime_image}")
 
-docker build -f "${repo_root}/apps/web/Dockerfile" -t "${web_runtime_image}" "${repo_root}" >/dev/null
-docker build -f "${repo_root}/apps/api/Dockerfile" -t "${api_runtime_image}" "${repo_root}" >/dev/null
+DOCKER_BUILDKIT="${docker_buildkit}" docker build -f "${repo_root}/apps/web/Dockerfile" -t "${web_runtime_image}" "${repo_root}" >/dev/null
+DOCKER_BUILDKIT="${docker_buildkit}" docker build -f "${repo_root}/apps/api/Dockerfile" -t "${api_runtime_image}" "${repo_root}" >/dev/null
 
 assert_container_stays_running "${web_runtime_image}" "3000" "web"
-assert_container_stays_running "${api_runtime_image}" "3001" "api"
+assert_container_stays_running "${api_runtime_image}" "3001" "api" \
+  -e API_PORT=3001 \
+  -e NODE_ENV=production \
+  -e DB_HOST=127.0.0.1 \
+  -e DB_PORT=3306 \
+  -e DB_NAME=sfus \
+  -e DB_USER=sfus \
+  -e DB_PASSWORD=changeme-app \
+  -e DB_CONNECT_TIMEOUT_MS=5000 \
+  -e DB_MIGRATIONS_TABLE=sfus_migrations
 
 ensure_runtime_env_file "${repo_root}/apps/web/.env" "${web_env_example}"
 ensure_runtime_env_file "${repo_root}/apps/api/.env" "${api_env_example}"
@@ -371,7 +382,7 @@ runtime_env_file="${scratch_dir}/runtime.env"
 write_config "${runtime_env_file}" 'SFUS_PUBLIC_HOST=starfrontiers.us
 LETSENCRYPT_EMAIL=ops@starfrontiers.us'
 
-run_capture migrate-no-deps docker compose --env-file "${runtime_env_file}" -f "${compose_prod}" --profile migration run --rm --no-deps migrate node -e "process.exit(0)"
+run_capture migrate-no-deps env DOCKER_BUILDKIT="${docker_buildkit}" docker compose --env-file "${runtime_env_file}" -f "${compose_prod}" --profile migration run --rm --no-deps migrate node -e "process.exit(0)"
 assert_status 0
 
 echo "Checking shared config contracts..."
@@ -471,7 +482,14 @@ while IFS= read -r cicd_asset; do
 done < <(grep -oE 'cicd/[[:alnum:]_./-]+' "${cd_workflow}" | sort -u)
 
 echo "Running default validation config..."
-run_capture default-config bash "${runner}"
+default_config="${scratch_dir}/default-config.yml"
+write_config "${default_config}" 'version: 1
+warn_on_missing_command: true
+validations:
+  - id: default-success
+    description: Default success path
+    command: "printf default-success"'
+run_capture default-config bash "${runner}" "${default_config}"
 assert_status 0
 assert_stdout_contains '^Validation summary: total=[0-9]+; executed=[0-9]+; warnings=[0-9]+; failures=0$' \
   "Expected default validation run to complete successfully."

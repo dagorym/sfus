@@ -100,6 +100,62 @@ Use a host-managed env file path for production operations rather than creating 
 ## Existing CI/CD command surfaces
 
 - `bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml`
+- `bash cicd/scripts/smoke-validate.sh`
 - `bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build`
 - `bash cicd/scripts/run-containers.sh start`
 - `bash cicd/tests/run-validations.sh`
+
+## Production deployment runbook
+
+Milestone 1 production deploys are host-driven from a checked-out Git worktree on the target machine. Keep canonical runtime env files outside the repository checkout, for example:
+
+- `/srv/sfus/shared/runtime.env` for root Compose substitutions such as `SFUS_PUBLIC_HOST` and `LETSENCRYPT_EMAIL`
+- `/srv/sfus/shared/web.env` for the web app contract
+- `/srv/sfus/shared/api.env` for the API app contract, including the external MySQL 5.7.44 connection
+
+The production Compose file expects `apps/web/.env` and `apps/api/.env` paths within the checkout, so point those paths at the host-managed files with symlinks before deploying:
+
+```bash
+ln -sfn /srv/sfus/shared/web.env apps/web/.env
+ln -sfn /srv/sfus/shared/api.env apps/api/.env
+```
+
+Deploy from the target ref on the host:
+
+```bash
+git fetch --tags origin
+git checkout <deploy-ref>
+docker compose --env-file /srv/sfus/shared/runtime.env -f cicd/docker/compose.prod.yml build web api
+docker compose --env-file /srv/sfus/shared/runtime.env -f cicd/docker/compose.prod.yml --profile migration run --rm --no-deps migrate
+docker compose --env-file /srv/sfus/shared/runtime.env -f cicd/docker/compose.prod.yml up -d web api
+```
+
+This keeps builds on-host, runs the one-off migration before app rollout, and only then updates the long-lived `web` and `api` services.
+
+## Post-deploy validation
+
+After the rollout completes, validate the public surfaces from the host or another trusted operator shell:
+
+```bash
+curl -fsS https://starfrontiers.us/ >/dev/null
+curl -fsS https://starfrontiers.us/api/health/live
+curl -fsS https://starfrontiers.us/api/health/ready
+docker compose --env-file /srv/sfus/shared/runtime.env -f cicd/docker/compose.prod.yml ps
+docker compose --env-file /srv/sfus/shared/runtime.env -f cicd/docker/compose.prod.yml --profile migration run --rm --no-deps migrate node dist/index.js migration:show
+```
+
+The deployment is only considered complete when the homepage responds successfully, API liveness succeeds, API readiness succeeds, and the migration status check reports no missing reviewed migrations.
+
+## Rollback and schema policy
+
+Application rollback is Git-based on the target host:
+
+```bash
+git checkout <last-known-good-ref>
+docker compose --env-file /srv/sfus/shared/runtime.env -f cicd/docker/compose.prod.yml build web api
+docker compose --env-file /srv/sfus/shared/runtime.env -f cicd/docker/compose.prod.yml up -d web api
+```
+
+Repeat the post-deploy validation checks after the rollback target is live.
+
+Schema handling remains forward-fix only in Milestone 1. Do not rely on down-migrations during rollback. If a deployment introduced a bad schema change, the recovery path is to ship a new reviewed migration that restores compatibility with the last good application revision or with the forward-fixed replacement.

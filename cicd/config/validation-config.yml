@@ -6,9 +6,21 @@ defaults:
   warn_on_missing_command: true
   execution_shell: bash
 validations:
+  - id: workspace-lint
+    description: Run shared ESLint checks for the Milestone 1 workspaces.
+    command: "npx --yes pnpm@10.0.0 lint"
+  - id: workspace-typecheck
+    description: Run strict TypeScript validation for frontend and API workspaces.
+    command: "npx --yes pnpm@10.0.0 typecheck"
+  - id: workspace-test
+    description: Run the baseline frontend and API Vitest suites.
+    command: "npx --yes pnpm@10.0.0 test"
+  - id: stack-smoke
+    description: Build the stack, start the full local runtime, run migrations, and verify homepage plus API health.
+    command: "bash cicd/scripts/smoke-validate.sh"
   - id: repo-structure-contract
     description: Verify CI/CD assets stay under cicd/ and workflows remain thin entrypoints.
     command: "test -f cicd/config/validation-config.yml && test -f cicd/config/image-matrix.yml"
   - id: local-parity-contract
-    description: Verify Linux validation and image workflows read the shared cicd/config inputs.
-    command: ""
+    description: Verify the shared CI/CD runner scripts and contract tests remain present.
+    command: "test -f cicd/scripts/run-validations.sh && test -x cicd/scripts/smoke-validate.sh && test -f cicd/tests/run-validations.sh && test -f cicd/tests/build-images.sh && test -f cicd/tests/run-containers.sh"
