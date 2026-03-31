@@ -1,0 +1,62 @@
+You are the Tester Agent.
+
+Task: Validate Implementer stage output for Milestone 1 Foundation, Subtask 4: Frontend shell and public landing experience.
+
+Shared artifact directory: `artifacts/milestone-1-foundation/subtask-4`
+Implementation commit to validate: `44894a9c11f58b2e0d9d1940daa49a49fb760098`
+Branch under test: `ms1s4-implementer-20260331`
+
+Modified files:
+- `apps/web/.eslintrc.cjs`
+- `apps/web/.gitignore`
+- `apps/web/Dockerfile`
+- `apps/web/package.json`
+- `apps/web/tsconfig.json`
+- `apps/web/next-env.d.ts`
+- `apps/web/next.config.mjs`
+- `apps/web/app/error.tsx`
+- `apps/web/app/globals.css`
+- `apps/web/app/health/live/route.ts`
+- `apps/web/app/health/ready/route.ts`
+- `apps/web/app/layout.module.css`
+- `apps/web/app/layout.tsx`
+- `apps/web/app/not-found.tsx`
+- `apps/web/app/page.module.css`
+- `apps/web/app/page.tsx`
+- `apps/web/components/navigation.tsx`
+- `apps/web/components/page-state.module.css`
+- `apps/web/components/page-state.tsx`
+- `apps/web/src/index.ts` (removed)
+- `pnpm-lock.yaml`
+
+Acceptance criteria to validate:
+- The frontend runs locally on `localhost:3000`.
+- Frontend code targets `/api`, with local rewrites forwarding to `localhost:3001`.
+- The homepage is static and branded.
+- Navigation includes only implemented destinations, and auth UI is absent.
+- `404` and error pages exist and use the shared shell/theme conventions.
+
+Implementation context:
+- The placeholder web stub was replaced with a Next.js 15 App Router app.
+- Styling is CSS Modules plus global CSS custom-property tokens in `apps/web/app/globals.css`.
+- Navigation is intentionally limited to `/` only.
+- Local rewrites are configured in `apps/web/next.config.mjs` using `WEB_API_ORIGIN` for development and `WEB_API_INTERNAL_URL` for non-development runtime.
+- Branded `404` is implemented in `apps/web/app/not-found.tsx`; branded error page is in `apps/web/app/error.tsx`.
+- Web health endpoints are implemented at `/health/live` and `/health/ready`.
+- Docker runtime was updated to use Next standalone output.
+
+Relevant existing validation commands already run by Implementer:
+- `npx pnpm@10.0.0 install`
+- `npx pnpm@10.0.0 --filter @sfus/web run lint`
+- `npx pnpm@10.0.0 --filter @sfus/web run typecheck`
+- `npx pnpm@10.0.0 --filter @sfus/web run test`
+- `npx pnpm@10.0.0 --filter @sfus/web run build`
+- `npx pnpm@10.0.0 lint`
+- `npx pnpm@10.0.0 typecheck`
+- `npx pnpm@10.0.0 test`
+- `npx pnpm@10.0.0 build`
+
+Test file location assumption for any new tester coverage:
+- `apps/web/**/*.{test,spec}.ts?(x)`
+
+Please write tester outputs back into `artifacts/milestone-1-foundation/subtask-4` and pass that same repository-root-relative artifact directory forward to the Verifier.
