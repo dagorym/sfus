@@ -8,6 +8,11 @@ runner="${repo_root}/cicd/scripts/run-validations.sh"
 validation_config="${repo_root}/cicd/config/validation-config.yml"
 image_matrix="${repo_root}/cicd/config/image-matrix.yml"
 cd_workflow="${repo_root}/.github/workflows/cd.yml"
+compose_dev="${repo_root}/cicd/docker/compose.dev.yml"
+compose_prod="${repo_root}/cicd/docker/compose.prod.yml"
+root_env_example="${repo_root}/.env.example"
+web_env_example="${repo_root}/apps/web/.env.example"
+api_env_example="${repo_root}/apps/api/.env.example"
 scratch_dir="${script_dir}/.scratch"
 
 cleanup() {
@@ -50,6 +55,47 @@ assert_stderr_not_contains() {
   local message="$2"
 
   if grep -Eq "${pattern}" "${last_stderr}"; then
+    fail "${message}"
+  fi
+}
+
+assert_service_has_no_ports() {
+  local path="$1"
+  local service="$2"
+  local message="$3"
+
+  if ! awk -v svc="${service}" '
+    function indent_of(line,    m) {
+      match(line, /^[[:space:]]*/)
+      return RLENGTH
+    }
+
+    $0 ~ ("^[[:space:]]{2}" svc ":[[:space:]]*$") {
+      in_service = 1
+      service_indent = indent_of($0)
+      next
+    }
+
+    in_service {
+      if ($0 ~ /^[[:space:]]*$/ || $0 ~ /^[[:space:]]*#/) {
+        next
+      }
+
+      line_indent = indent_of($0)
+      if (line_indent <= service_indent) {
+        in_service = 0
+      } else if ($0 ~ /^[[:space:]]+ports:[[:space:]]*$/) {
+        found_ports = 1
+        exit 1
+      }
+    }
+
+    END {
+      if (found_ports) {
+        exit 1
+      }
+    }
+  ' "${path}"; then
     fail "${message}"
   fi
 }
@@ -129,6 +175,77 @@ assert_workflow_cicd_paths_limited() {
 }
 
 mkdir -p "${scratch_dir}"
+
+echo "Checking Milestone 1 Subtask 2 runtime contract artifacts..."
+assert_file_exists "${root_env_example}"
+assert_file_contains "${root_env_example}" '^#[[:space:]]*Ownership:[[:space:]]*platform/deployment\.[[:space:]]*$' \
+  "Expected root env example to document platform/deployment ownership."
+assert_file_contains "${root_env_example}" '^SFUS_PUBLIC_HOST=' \
+  "Expected root env example to include SFUS_PUBLIC_HOST."
+assert_file_contains "${root_env_example}" '^LETSENCRYPT_EMAIL=' \
+  "Expected root env example to include LETSENCRYPT_EMAIL."
+assert_file_contains "${root_env_example}" '^MYSQL_ROOT_PASSWORD=' \
+  "Expected root env example to include MYSQL_ROOT_PASSWORD."
+assert_file_contains "${root_env_example}" '^MYSQL_DATABASE=' \
+  "Expected root env example to include MYSQL_DATABASE."
+assert_file_contains "${root_env_example}" '^MYSQL_USER=' \
+  "Expected root env example to include MYSQL_USER."
+assert_file_contains "${root_env_example}" '^MYSQL_PASSWORD=' \
+  "Expected root env example to include MYSQL_PASSWORD."
+
+assert_file_exists "${web_env_example}"
+assert_file_contains "${web_env_example}" '^#[[:space:]]*Ownership:[[:space:]]*web application\.[[:space:]]*$' \
+  "Expected web env example to document web ownership."
+assert_file_contains "${web_env_example}" '^NEXT_PUBLIC_API_BASE_PATH=/api$' \
+  "Expected web env example to define NEXT_PUBLIC_API_BASE_PATH=/api."
+assert_file_contains "${web_env_example}" '^WEB_API_INTERNAL_URL=http://api:3001$' \
+  "Expected web env example to define internal api service URL."
+
+assert_file_exists "${api_env_example}"
+assert_file_contains "${api_env_example}" '^#[[:space:]]*Ownership:[[:space:]]*API application\.[[:space:]]*$' \
+  "Expected API env example to document API ownership."
+assert_file_contains "${api_env_example}" '^DB_HOST=mysql$' \
+  "Expected API env example to use mysql service naming."
+assert_file_contains "${api_env_example}" '^DB_PORT=3306$' \
+  "Expected API env example to define DB_PORT=3306."
+
+assert_file_exists "${compose_dev}"
+assert_file_contains "${compose_dev}" '^[[:space:]]{2}mysql:[[:space:]]*$' \
+  "Expected local compose to define mysql service."
+assert_file_contains "${compose_dev}" '^[[:space:]]{2}api:[[:space:]]*$' \
+  "Expected local compose to define api service."
+assert_file_contains "${compose_dev}" '^[[:space:]]{2}web:[[:space:]]*$' \
+  "Expected local compose to define web service."
+assert_file_contains "${compose_dev}" 'DB_HOST:[[:space:]]*mysql$' \
+  "Expected local compose api env override to use mysql hostname."
+assert_file_contains "${compose_dev}" 'WEB_API_INTERNAL_URL:[[:space:]]*http://api:3001$' \
+  "Expected local compose web env override to use api service URL."
+
+assert_file_exists "${compose_prod}"
+assert_file_contains "${compose_prod}" '^[[:space:]]{2}web:[[:space:]]*$' \
+  "Expected production compose to define web service."
+assert_file_contains "${compose_prod}" '^[[:space:]]{2}api:[[:space:]]*$' \
+  "Expected production compose to define api service."
+assert_file_contains "${compose_prod}" '^[[:space:]]{2}migrate:[[:space:]]*$' \
+  "Expected production compose to define explicit migrate service."
+assert_file_contains "${compose_prod}" 'profiles:[[:space:]]*\["migration"\]' \
+  "Expected migrate service to be gated behind migration profile."
+assert_file_contains "${compose_prod}" 'command:[[:space:]]*\["node",[[:space:]]*"dist/index\.js",[[:space:]]*"migration:run"\]' \
+  "Expected migrate service to run explicit migration command."
+assert_file_contains_literal "${compose_prod}" 'VIRTUAL_HOST: ${SFUS_PUBLIC_HOST:?set in host env}' \
+  "Expected production compose reverse-proxy VIRTUAL_HOST metadata."
+assert_file_contains "${compose_prod}" 'VIRTUAL_PORT:[[:space:]]*"3000"' \
+  "Expected production compose web VIRTUAL_PORT metadata."
+assert_file_contains "${compose_prod}" 'VIRTUAL_PATH:[[:space:]]*/api' \
+  "Expected production compose api VIRTUAL_PATH metadata."
+assert_file_contains_literal "${compose_prod}" 'LETSENCRYPT_HOST: ${SFUS_PUBLIC_HOST:?set in host env}' \
+  "Expected production compose LetsEncrypt host metadata."
+assert_file_contains_literal "${compose_prod}" 'LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?set in host env}' \
+  "Expected production compose LetsEncrypt email metadata."
+assert_service_has_no_ports "${compose_prod}" 'web' \
+  "Did not expect host port bindings under production web service."
+assert_service_has_no_ports "${compose_prod}" 'api' \
+  "Did not expect host port bindings under production api service."
 
 echo "Checking shared config contracts..."
 workflow_file="${repo_root}/.github/workflows/ci.yml"

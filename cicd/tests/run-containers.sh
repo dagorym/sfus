@@ -58,24 +58,35 @@ EOF_FILE
 }
 
 mkdir -p "${scratch_dir}" "${scratch_dir}/minimal-bin"
+ln -sf /usr/bin/awk "${scratch_dir}/minimal-bin/awk"
+ln -sf /usr/bin/dirname "${scratch_dir}/minimal-bin/dirname"
+no_service_compose="${scratch_dir}/compose.no-services.yml"
+write_file "${no_service_compose}" 'version: "3.9"
+services: {}'
 
-echo "Checking default no-service behavior..."
-run_capture default /usr/bin/bash "${runner}"
-assert_status 0
-assert_stderr_contains '^Warning: no services are defined in .*/cicd/docker/compose\.dev\.yml; nothing to run\.$' \
-  "Expected default run to warn and exit successfully when no services are defined."
+echo "Checking default compose service behavior..."
+run_capture default-service-detection env PATH="${scratch_dir}/minimal-bin" /usr/bin/bash "${runner}" status
+assert_nonzero_status
+assert_stderr_contains "^Error: docker compose is required but neither 'docker compose' nor 'docker-compose' is available\\.$" \
+  "Expected default compose file to contain services and require docker compose."
+
+echo "Checking default action alias behavior..."
+run_capture default-action env PATH="${scratch_dir}/minimal-bin" /usr/bin/bash "${runner}"
+assert_nonzero_status
+assert_stderr_contains "^Error: docker compose is required but neither 'docker compose' nor 'docker-compose' is available\\.$" \
+  "Expected default action to map to start and require docker compose when services exist."
 
 echo "Checking no-service status action..."
-run_capture status /usr/bin/bash "${runner}" status
+run_capture status /usr/bin/bash "${runner}" "${no_service_compose}" status
 assert_status 0
-assert_stderr_contains '^Warning: no services are defined in .*/cicd/docker/compose\.dev\.yml; nothing to run\.$' \
+assert_stderr_contains "^Warning: no services are defined in ${no_service_compose//\//\\/}; nothing to run\\.$" \
   "Expected status action to warn and exit successfully when no services are defined."
 
 echo "Checking supported action aliases with no-service compose..."
 for action in start up run stop down status ps logs; do
-  run_capture "action-${action}" /usr/bin/bash "${runner}" "${action}"
+  run_capture "action-${action}" /usr/bin/bash "${runner}" "${no_service_compose}" "${action}"
   assert_status 0
-  assert_stderr_contains '^Warning: no services are defined in .*/cicd/docker/compose\.dev\.yml; nothing to run\.$' \
+  assert_stderr_contains "^Warning: no services are defined in ${no_service_compose//\//\\/}; nothing to run\\.$" \
     "Expected action '${action}' to be accepted and no-op when no services are defined."
 done
 
@@ -100,8 +111,6 @@ write_file "${service_compose}" 'version: "3.9"
 services:
   app:
     image: busybox'
-ln -sf /usr/bin/awk "${scratch_dir}/minimal-bin/awk"
-ln -sf /usr/bin/dirname "${scratch_dir}/minimal-bin/dirname"
 run_capture missing-docker env PATH="${scratch_dir}/minimal-bin" /usr/bin/bash "${runner}" "${service_compose}" status
 assert_nonzero_status
 assert_stderr_contains "^Error: docker compose is required but neither 'docker compose' nor 'docker-compose' is available\\.$" \
