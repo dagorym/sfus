@@ -22,6 +22,10 @@ RUN pnpm --filter @sfus/web run build
 FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /workspace/apps/web/dist ./dist
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+COPY --from=build /workspace/apps/web/.next/standalone ./
+COPY --from=build /workspace/apps/web/.next/static ./apps/web/.next/static
+WORKDIR /app
 EXPOSE 3000
-CMD ["node", "-e", "const http = require('node:http'); const { webBootstrap } = require('./dist/index.js'); const service = typeof webBootstrap === 'function' ? webBootstrap() : 'web'; const port = Number(process.env.PORT || 3000); http.createServer((req, res) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ service, path: req.url })); }).listen(port, '0.0.0.0');"]
+CMD ["node", "apps/web/server.js"]

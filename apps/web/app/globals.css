@@ -1,0 +1,80 @@
+:root {
+  color-scheme: dark;
+  --color-background: #07111f;
+  --color-background-elevated: rgba(10, 23, 41, 0.9);
+  --color-background-panel: rgba(12, 28, 49, 0.88);
+  --color-border: rgba(126, 170, 255, 0.22);
+  --color-border-strong: rgba(145, 190, 255, 0.38);
+  --color-text: #edf4ff;
+  --color-text-muted: #b2c5ea;
+  --color-text-subtle: #88a0c7;
+  --color-accent: #7aa2ff;
+  --color-accent-strong: #9fc0ff;
+  --color-success: #7ce3b1;
+  --color-shadow: rgba(1, 7, 17, 0.42);
+  --surface-shell-width: min(1120px, calc(100vw - 2rem));
+  --surface-radius-large: 28px;
+  --surface-radius-medium: 18px;
+  --surface-radius-small: 12px;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+  --font-body: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --shadow-soft: 0 24px 60px var(--color-shadow);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top, rgba(122, 162, 255, 0.18), transparent 32%),
+    linear-gradient(180deg, #091321 0%, #050b16 52%, #04070d 100%);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  background: transparent;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px),
+    radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px),
+    radial-gradient(circle at 60% 70%, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px);
+  background-size: 220px 220px, 280px 280px, 320px 320px;
+  opacity: 0.75;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+}
+
+main {
+  display: block;
+}
+
+::selection {
+  color: #03111f;
+  background: var(--color-accent-strong);
+}
