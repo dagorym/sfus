@@ -1,0 +1,40 @@
+You are the Documenter Agent.
+
+Context
+- Task: Remediation cycle 1 for Milestone 1 Subtask 2 runtime contracts.
+- Tester worktree: `/home/tstephen/.copilot/session-state/2d6da700-f689-47d7-9d20-d8fed7053e82/files/worktrees/ms1s2r1-tester-20260331`
+- Tester branch: `ms1s2r1-tester-20260331`
+- Implementer base branch: `ms1s2r1-implementer-20260331` (ancestor check passed; HEAD aligned at test start).
+- Shared artifact directory to reuse (repo-root-relative): `artifacts/milestone-1-foundation/subtask-2`
+
+Original remediation summary
+- Remediate Milestone 1 Subtask 2 runtime contract gaps by making production `web` and `api` long-lived and making `migrate` independently runnable before app rollout.
+- Update in-scope runtime validations/docs to verify and describe corrected behavior.
+
+Acceptance criteria validated
+1. Root plus app-specific env example files exist and document variable ownership.
+2. `web`, `api`, and `mysql` naming is consistent where applicable.
+3. Production Compose uses one file, long-lived `web`/`api`, no host port binding, and reverse-proxy metadata.
+4. Migration path is explicit one-off service/container, independent from implicit app startup.
+
+Implementation files in scope (from handoff)
+- `apps/web/Dockerfile`
+- `apps/api/Dockerfile`
+- `cicd/docker/compose.prod.yml`
+- `cicd/tests/run-validations.sh`
+- `README.md`
+- `cicd/docs/cicd.md`
+- `cicd/docs/local-pipeline.md`
+
+Tests executed
+- `bash cicd/tests/run-validations.sh`
+- Validation passed, including runtime checks for long-lived app containers and independent migration run path (`docker compose --profile migration run --rm --no-deps migrate ...`).
+
+Test changes and commit
+- Test files added/modified: none.
+- Test commit hash: `No Changes Made`.
+
+Outcome
+- Final tester status: PASS.
+- No unmet acceptance criteria.
+- Documentation should now reflect validated behavior (not aspirational claims), especially around long-lived production services and migration independence.
