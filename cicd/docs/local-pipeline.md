@@ -24,9 +24,11 @@ cp apps/api/.env.example apps/api/.env
 
 Ownership of variables:
 
-- `.env.example`: platform/deployment-owned variables used by Compose topology (public host and MySQL container settings).
-- `apps/web/.env.example`: web-owned variables.
-- `apps/api/.env.example`: API-owned variables.
+- `.env.example`: platform/deployment-owned variables used by Compose topology, reverse-proxy metadata, and local MySQL scaffolding.
+- `apps/web/.env.example`: web-owned variables for `/api` path targeting, host-run rewrites, and the internal `api` service URL used by the containerized web app.
+- `apps/api/.env.example`: API-owned variables for the API port and database contract used by both the long-lived API service and the explicit migration service.
+
+These files are local templates. Production env files and secrets stay on the deployment host outside the repository checkout, including the external MySQL connection values used in production.
 
 ## Hybrid local development (default)
 
@@ -44,6 +46,8 @@ Host-run defaults:
 - api on `localhost:3001`
 - MySQL in Compose on `localhost:3306`
 
+In this mode the frontend still targets `/api`; local rewrites forward those requests to the host-run API on port `3001`.
+
 ## Full-stack container validation path
 
 Use the same local Compose file with the `fullstack` profile to run `web`, `api`, and `mysql` together:
@@ -51,6 +55,8 @@ Use the same local Compose file with the `fullstack` profile to run `web`, `api`
 ```bash
 docker compose --env-file .env -f cicd/docker/compose.dev.yml --profile fullstack up -d --build
 ```
+
+The containerized web service reaches the containerized API through `WEB_API_INTERNAL_URL=http://api:3001`, while the API service reaches MySQL through `DB_HOST=mysql`.
 
 Stop the stack:
 
@@ -69,8 +75,10 @@ It defines long-lived `web` and `api` services, includes reverse-proxy metadata 
 The migration path is explicit and one-off via service `migrate`:
 
 ```bash
-docker compose --env-file .env -f cicd/docker/compose.prod.yml --profile migration run --rm migrate
+docker compose --env-file /path/to/host/runtime.env -f cicd/docker/compose.prod.yml --profile migration run --rm migrate
 ```
+
+Use a host-managed env file path for production operations rather than creating `.env` inside the repository checkout. The production API env file values point at the external MySQL 5.7.44 instance documented for Milestone 1.
 
 ## Existing CI/CD command surfaces
 

@@ -37,6 +37,8 @@ For hybrid/full-stack and production topology details, see `cicd/docs/local-pipe
 - Local Compose (hybrid/full validation): `cicd/docker/compose.dev.yml`
 - Production Compose (single-file topology): `cicd/docker/compose.prod.yml`
 
+The example env files are safe templates. Production secrets, reverse-proxy env values, and the external production MySQL connection stay host-managed outside the repository checkout.
+
 ## Service naming contract
 
 Use service names consistently:
@@ -44,6 +46,15 @@ Use service names consistently:
 - `web`
 - `api`
 - `mysql` (where applicable locally)
+
+## Local runtime expectations
+
+`cicd/docker/compose.dev.yml` supports both Milestone 1 local modes:
+
+- default hybrid mode: Compose-managed `mysql` with host-run `web` and `api`
+- full-stack validation mode: `web`, `api`, and `mysql` together under the `fullstack` profile
+
+In hybrid mode, the frontend still targets `/api`, and local rewrites forward traffic to the host-run API at `localhost:3001`. In full-stack validation, the web container uses the internal `api` service URL and the API container uses the internal `mysql` hostname.
 
 ## Production Compose expectations
 
@@ -53,6 +64,8 @@ Use service names consistently:
 - no host port bindings
 - reverse-proxy metadata present for proxy integration
 - explicit one-off migration service: `migrate`
+
+Run production migrations as a separate one-off step before rollout instead of relying on app startup side effects.
 
 ## Existing shared runners
 
