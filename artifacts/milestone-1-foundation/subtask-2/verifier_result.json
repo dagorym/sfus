@@ -19,5 +19,5 @@
     "git --no-pager diff --stat ms1s2r1-implementer-20260331..HEAD",
     "git --no-pager diff ms1s2r1-implementer-20260331..HEAD -- cicd/docker/compose.prod.yml cicd/tests/run-validations.sh apps/web/Dockerfile apps/api/Dockerfile cicd/docs/local-pipeline.md .env.example apps/web/.env.example apps/api/.env.example"
   ],
-  "commit_hash": "77a6635bfb47c13e60b76c47376d032e363aa34a"
+  "commit_hash": null
 }
