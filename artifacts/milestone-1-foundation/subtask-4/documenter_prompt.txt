@@ -1,0 +1,54 @@
+You are the Documenter Agent.
+
+Task: document Milestone 1 Foundation, Subtask 4: Frontend shell and public landing experience.
+
+Original task summary:
+- Validate and describe the new Next.js 15 App Router frontend shell in `apps/web`.
+- Scope covers the static branded homepage, responsive shared shell, `/api` client path contract with local rewrites, minimal navigation, and branded `404`/error surfaces.
+
+Acceptance criteria validated:
+- The frontend runs locally on `localhost:3000`.
+- Frontend code targets `/api`, with local rewrites forwarding to `localhost:3001`.
+- The homepage is static and branded.
+- Navigation includes only implemented destinations, and auth UI is absent.
+- `404` and error pages exist and use the shared shell/theme conventions.
+
+Implementation context:
+- Branch under test: `ms1s4-implementer-20260331`
+- Implementation commit validated: `44894a9c11f58b2e0d9d1940daa49a49fb760098`
+- Tester branch/worktree: `ms1s4-tester-20260331`
+- Shared artifact directory to reuse: `artifacts/milestone-1-foundation/subtask-4`
+- Styling baseline uses global CSS custom-property tokens in `apps/web/app/globals.css` with CSS Modules in `app/*.module.css` and `components/*.module.css`.
+- Navigation is intentionally limited to `/` only, with no auth controls or future-feature placeholders.
+- Local rewrites are configured in `apps/web/next.config.mjs` using `WEB_API_ORIGIN` for development and `WEB_API_INTERNAL_URL` outside development.
+- Branded fallback pages are implemented in `apps/web/app/not-found.tsx` and `apps/web/app/error.tsx` via the shared `PageState` component.
+- Frontend health endpoints exist at `/health/live` and `/health/ready`.
+- Docker runtime targets Next standalone output; runtime command uses `node apps/web/server.js` inside the copied standalone tree.
+
+Test files added or modified:
+- `apps/web/app/public-shell.spec.ts`
+- `apps/web/next.config.spec.ts`
+
+Test commit:
+- `53331ad`
+
+Commands executed:
+- `npx pnpm@10.0.0 install`
+- `npx pnpm@10.0.0 --filter @sfus/web run test`
+- `npx pnpm@10.0.0 --filter @sfus/web run lint`
+- `npx pnpm@10.0.0 --filter @sfus/web run typecheck`
+- `npx pnpm@10.0.0 --filter @sfus/web run build`
+- Runtime verification with curl against `/`, `/health/live`, `/health/ready`, and a missing route on `http://127.0.0.1:3000`
+
+Final test outcomes:
+- PASS
+- 2 test files, 6 tests passed, 0 failed
+- Lint passed
+- Typecheck passed
+- Build passed
+- Runtime checks confirmed homepage branding, 404 branding, and frontend health endpoints
+
+Likely documentation impact:
+- Update frontend/setup docs to describe the Next.js shell, token ownership in `apps/web/app/globals.css`, and the limited public route scope.
+- Document the `/api` frontend path contract and how local rewrites forward to `localhost:3001` while production stays on the canonical domain path.
+- Note the branded 404/error handling and frontend health endpoints as part of the Milestone 1 public shell behavior.

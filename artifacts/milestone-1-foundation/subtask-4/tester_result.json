@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "subtask": "Milestone 1 Foundation - Subtask 4: Frontend shell and public landing experience",
+  "branch": "ms1s4-tester-20260331",
+  "implementation_commit": "44894a9c11f58b2e0d9d1940daa49a49fb760098",
+  "test_commit": "53331ad",
+  "test_files_changed": [
+    "apps/web/app/public-shell.spec.ts",
+    "apps/web/next.config.spec.ts"
+  ],
+  "commands_run": [
+    "npx pnpm@10.0.0 install",
+    "npx pnpm@10.0.0 --filter @sfus/web run test",
+    "npx pnpm@10.0.0 --filter @sfus/web run lint",
+    "npx pnpm@10.0.0 --filter @sfus/web run typecheck",
+    "npx pnpm@10.0.0 --filter @sfus/web run build",
+    "curl -I --max-time 10 http://127.0.0.1:3000/",
+    "curl --silent --show-error --max-time 10 http://127.0.0.1:3000/health/live",
+    "curl --silent --show-error --max-time 10 http://127.0.0.1:3000/health/ready",
+    "curl -I --max-time 10 http://127.0.0.1:3000/missing-sector",
+    "curl --silent --show-error --max-time 10 http://127.0.0.1:3000/",
+    "curl --silent --show-error --max-time 10 http://127.0.0.1:3000/missing-sector"
+  ],
+  "totals": {
+    "test_files": 2,
+    "tests": 6,
+    "passed": 6,
+    "failed": 0
+  },
+  "existing_coverage_sufficient": false,
+  "artifact_files": [
+    "artifacts/milestone-1-foundation/subtask-4/tester_report.md",
+    "artifacts/milestone-1-foundation/subtask-4/tester_result.json",
+    "artifacts/milestone-1-foundation/subtask-4/documenter_prompt.txt"
+  ]
+}
