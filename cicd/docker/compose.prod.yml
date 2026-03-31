@@ -39,8 +39,6 @@ services:
       - ../../apps/api/.env
     command: ["node", "dist/index.js", "migration:run"]
     restart: "no"
-    depends_on:
-      - api
     networks:
       - sfus
 

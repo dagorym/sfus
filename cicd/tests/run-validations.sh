@@ -16,6 +16,7 @@ api_env_example="${repo_root}/apps/api/.env.example"
 scratch_dir="${script_dir}/.scratch"
 
 cleanup() {
+  cleanup_runtime_containers
   rm -rf "${scratch_dir}"
 }
 
@@ -59,6 +60,60 @@ assert_stderr_not_contains() {
   fi
 }
 
+ensure_runtime_env_file() {
+  local target="$1"
+  local source="$2"
+
+  if [[ -f "${target}" ]]; then
+    return 0
+  fi
+
+  cp "${source}" "${target}"
+  created_runtime_env_files+=("${target}")
+}
+
+cleanup_runtime_containers() {
+  for container_id in "${runtime_container_ids[@]:-}"; do
+    [[ -n "${container_id}" ]] || continue
+    docker rm -f "${container_id}" >/dev/null 2>&1 || true
+  done
+
+  for image_tag in "${runtime_image_tags[@]:-}"; do
+    [[ -n "${image_tag}" ]] || continue
+    docker image rm -f "${image_tag}" >/dev/null 2>&1 || true
+  done
+
+  for created_file in "${created_runtime_env_files[@]:-}"; do
+    [[ -n "${created_file}" ]] || continue
+    rm -f "${created_file}"
+  done
+}
+
+assert_container_stays_running() {
+  local image_tag="$1"
+  local expected_port="$2"
+  local service_name="$3"
+
+  local container_id
+  container_id="$(docker run -d --rm -e PORT="${expected_port}" "${image_tag}")"
+  runtime_container_ids+=("${container_id}")
+
+  sleep 2
+  local running_state
+  running_state="$(docker inspect -f '{{.State.Running}}' "${container_id}")"
+  [[ "${running_state}" == "true" ]] || fail "${service_name} container exited unexpectedly; expected long-lived service."
+
+  docker rm -f "${container_id}" >/dev/null
+
+  local remaining=()
+  for existing_id in "${runtime_container_ids[@]:-}"; do
+    if [[ "${existing_id}" != "${container_id}" ]]; then
+      remaining+=("${existing_id}")
+    fi
+  done
+  runtime_container_ids=("${remaining[@]:-}")
+}
+
 assert_service_has_no_ports() {
   local path="$1"
   local service="$2"
@@ -92,6 +147,47 @@ assert_service_has_no_ports() {
 
     END {
       if (found_ports) {
+        exit 1
+      }
+    }
+  ' "${path}"; then
+    fail "${message}"
+  fi
+}
+
+assert_service_has_no_depends_on() {
+  local path="$1"
+  local service="$2"
+  local message="$3"
+
+  if ! awk -v svc="${service}" '
+    function indent_of(line,    m) {
+      match(line, /^[[:space:]]*/)
+      return RLENGTH
+    }
+
+    $0 ~ ("^[[:space:]]{2}" svc ":[[:space:]]*$") {
+      in_service = 1
+      service_indent = indent_of($0)
+      next
+    }
+
+    in_service {
+      if ($0 ~ /^[[:space:]]*$/ || $0 ~ /^[[:space:]]*#/) {
+        next
+      }
+
+      line_indent = indent_of($0)
+      if (line_indent <= service_indent) {
+        in_service = 0
+      } else if ($0 ~ /^[[:space:]]+depends_on:[[:space:]]*$/) {
+        has_depends_on = 1
+        exit 1
+      }
+    }
+
+    END {
+      if (has_depends_on) {
         exit 1
       }
     }
@@ -175,6 +271,9 @@ assert_workflow_cicd_paths_limited() {
 }
 
 mkdir -p "${scratch_dir}"
+created_runtime_env_files=()
+runtime_container_ids=()
+runtime_image_tags=()
 
 echo "Checking Milestone 1 Subtask 2 runtime contract artifacts..."
 assert_file_exists "${root_env_example}"
@@ -232,6 +331,8 @@ assert_file_contains "${compose_prod}" 'profiles:[[:space:]]*\["migration"\]' \
   "Expected migrate service to be gated behind migration profile."
 assert_file_contains "${compose_prod}" 'command:[[:space:]]*\["node",[[:space:]]*"dist/index\.js",[[:space:]]*"migration:run"\]' \
   "Expected migrate service to run explicit migration command."
+assert_service_has_no_depends_on "${compose_prod}" 'migrate' \
+  "Expected migrate service to be independently runnable without app dependencies."
 assert_file_contains_literal "${compose_prod}" 'VIRTUAL_HOST: ${SFUS_PUBLIC_HOST:?set in host env}' \
   "Expected production compose reverse-proxy VIRTUAL_HOST metadata."
 assert_file_contains "${compose_prod}" 'VIRTUAL_PORT:[[:space:]]*"3000"' \
@@ -246,6 +347,32 @@ assert_service_has_no_ports "${compose_prod}" 'web' \
   "Did not expect host port bindings under production web service."
 assert_service_has_no_ports "${compose_prod}" 'api' \
   "Did not expect host port bindings under production api service."
+
+echo "Checking runtime process contracts for production services..."
+if ! command -v docker >/dev/null 2>&1; then
+  fail "Docker is required to validate long-lived service and migration runtime contracts."
+fi
+
+web_runtime_image="sfus-web-runtime-check:${RANDOM}-${RANDOM}"
+api_runtime_image="sfus-api-runtime-check:${RANDOM}-${RANDOM}"
+runtime_image_tags+=("${web_runtime_image}")
+runtime_image_tags+=("${api_runtime_image}")
+
+docker build -f "${repo_root}/apps/web/Dockerfile" -t "${web_runtime_image}" "${repo_root}" >/dev/null
+docker build -f "${repo_root}/apps/api/Dockerfile" -t "${api_runtime_image}" "${repo_root}" >/dev/null
+
+assert_container_stays_running "${web_runtime_image}" "3000" "web"
+assert_container_stays_running "${api_runtime_image}" "3001" "api"
+
+ensure_runtime_env_file "${repo_root}/apps/web/.env" "${web_env_example}"
+ensure_runtime_env_file "${repo_root}/apps/api/.env" "${api_env_example}"
+
+runtime_env_file="${scratch_dir}/runtime.env"
+write_config "${runtime_env_file}" 'SFUS_PUBLIC_HOST=starfrontiers.us
+LETSENCRYPT_EMAIL=ops@starfrontiers.us'
+
+run_capture migrate-no-deps docker compose --env-file "${runtime_env_file}" -f "${compose_prod}" --profile migration run --rm --no-deps migrate node -e "process.exit(0)"
+assert_status 0
 
 echo "Checking shared config contracts..."
 workflow_file="${repo_root}/.github/workflows/ci.yml"

@@ -38,6 +38,7 @@ Milestone 1 local development is hybrid by default:
 - `mysql` runs through `cicd/docker/compose.dev.yml`
 
 The same local Compose file also supports full-stack container validation with the `fullstack` profile, while `cicd/docker/compose.prod.yml` is the single production Compose definition for long-lived `web` and `api` services. Production routing stays behind the existing reverse-proxy integration, so production-oriented Compose does not bind host ports for either app service.
+The production `migrate` service is independently runnable as a one-off pre-rollout step and does not depend on starting `api`.
 
 ## Environment Ownership
 

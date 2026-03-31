@@ -78,6 +78,8 @@ The migration path is explicit and one-off via service `migrate`:
 docker compose --env-file /path/to/host/runtime.env -f cicd/docker/compose.prod.yml --profile migration run --rm migrate
 ```
 
+The migration service is decoupled from app startup so it can run before `web`/`api` rollout.
+
 Use a host-managed env file path for production operations rather than creating `.env` inside the repository checkout. The production API env file values point at the external MySQL 5.7.44 instance documented for Milestone 1.
 
 ## Existing CI/CD command surfaces

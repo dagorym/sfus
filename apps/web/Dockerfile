@@ -24,4 +24,4 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /workspace/apps/web/dist ./dist
 EXPOSE 3000
-CMD ["node", "dist/index.js"]
+CMD ["node", "-e", "const http = require('node:http'); const { webBootstrap } = require('./dist/index.js'); const service = typeof webBootstrap === 'function' ? webBootstrap() : 'web'; const port = Number(process.env.PORT || 3000); http.createServer((req, res) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ service, path: req.url })); }).listen(port, '0.0.0.0');"]

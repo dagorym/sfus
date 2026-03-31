@@ -65,7 +65,7 @@ In hybrid mode, the frontend still targets `/api`, and local rewrites forward tr
 - reverse-proxy metadata present for proxy integration
 - explicit one-off migration service: `migrate`
 
-Run production migrations as a separate one-off step before rollout instead of relying on app startup side effects.
+Run production migrations as a separate one-off step before rollout instead of relying on app startup side effects. The `migrate` service is intentionally independent (no `depends_on` on long-lived app services) so it can be executed before bringing up `web` and `api`.
 
 ## Existing shared runners
 
