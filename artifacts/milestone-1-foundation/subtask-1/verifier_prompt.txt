@@ -1,0 +1,79 @@
+You are the Verifier Agent.
+
+Task summary:
+- Remediation for Milestone 1 Subtask 1 addressed verifier failures by replacing placeholder script surfaces with executable workspace tooling and wiring shared TypeScript/ESLint/Prettier config into active consumption.
+
+Acceptance criteria validated by tester:
+1. The repo is a working `pnpm` monorepo with `apps/web`, `apps/api`, and `packages/config`.
+2. Shared TypeScript, lint, and format config are centralized in `packages/config`.
+3. No speculative future packages or feature placeholders are created.
+4. The milestone decision document reflects the locked architectural decisions without unresolved architecture questions.
+
+Implementation/worktree context:
+- Documenter worktree: `/home/tstephen/.copilot/session-state/2d6da700-f689-47d7-9d20-d8fed7053e82/files/worktrees/ms1-documenter-remed1-20260330`
+- Documenter branch: `ms1-documenter-remed1-20260330`
+- Tester worktree: `/home/tstephen/.copilot/session-state/2d6da700-f689-47d7-9d20-d8fed7053e82/files/worktrees/ms1-tester-remed1-20260330`
+- Tester branch: `ms1-tester-remed1-20260330`
+- Base implementer branch confirmed: `ms1-implementer-remed1-20260330`
+- Documentation commit hash: `368f160cddc6ffc74ef4d8d0490f45a6081c8a58`
+
+Implementation files modified during remediation stage:
+- `.gitignore`
+- `.eslintrc.cjs`
+- `.prettierrc.cjs`
+- `README.md`
+- `package.json`
+- `pnpm-workspace.yaml`
+- `tsconfig.json`
+- `pnpm-lock.yaml`
+- `apps/web/package.json`
+- `apps/web/tsconfig.json`
+- `apps/web/.eslintrc.cjs`
+- `apps/web/.prettierrc.cjs`
+- `apps/web/src/index.ts`
+- `apps/api/package.json`
+- `apps/api/tsconfig.json`
+- `apps/api/.eslintrc.cjs`
+- `apps/api/.prettierrc.cjs`
+- `apps/api/src/index.ts`
+- `packages/config/package.json`
+- `packages/config/tsconfig.base.json`
+- `packages/config/eslint.base.cjs`
+- `packages/config/prettier.base.cjs`
+
+Test files added or modified:
+- None
+
+Documentation files added or modified:
+- `README.md`
+
+Commands executed and outcomes:
+- `npx --yes pnpm@10.0.0 install --ignore-scripts` (pass)
+- `npx --yes pnpm@10.0.0 lint` (pass)
+- `npx --yes pnpm@10.0.0 typecheck` (pass)
+- `npx --yes pnpm@10.0.0 build` (pass)
+- `npx --yes pnpm@10.0.0 test` (pass; `vitest --passWithNoTests` behavior in app workspaces)
+- `npx --yes pnpm@10.0.0 format:check` (pass)
+
+Additional explicit verification performed:
+- Confirmed root and app scripts invoke real tooling (not `node -e` placeholders).
+- Confirmed root and app ESLint/Prettier files actively extend/require shared config from `packages/config`.
+- Confirmed architecture decision doc remains locked and has no unresolved architecture placeholders/questions.
+- Confirmed `README.md` now documents the executable root/app command surface and shared config consumption accurately.
+
+Final test outcome:
+- PASS (attempt 1/3)
+- All acceptance criteria met for this remediation cycle.
+
+Shared artifact directory to reuse (repository-root-relative):
+- `artifacts/milestone-1-foundation/subtask-1`
+
+Artifacts written and available for review:
+- `artifacts/milestone-1-foundation/subtask-1/tester_report.md`
+- `artifacts/milestone-1-foundation/subtask-1/tester_result.json`
+- `artifacts/milestone-1-foundation/subtask-1/documenter_prompt.txt`
+- `artifacts/milestone-1-foundation/subtask-1/documenter_report.md`
+- `artifacts/milestone-1-foundation/subtask-1/documenter_result.json`
+- `artifacts/milestone-1-foundation/subtask-1/verifier_prompt.txt`
+
+Verification must include the updated documentation files along with the implementation and tests, with specific attention to whether `README.md` accurately reflects the remediated monorepo tooling baseline and shared config consumption.
