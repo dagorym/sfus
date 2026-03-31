@@ -1,0 +1,51 @@
+services:
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../../apps/web/.env
+    environment:
+      VIRTUAL_HOST: ${SFUS_PUBLIC_HOST:?set in host env}
+      VIRTUAL_PORT: "3000"
+      LETSENCRYPT_HOST: ${SFUS_PUBLIC_HOST:?set in host env}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?set in host env}
+    networks:
+      - sfus
+      - nginx-proxy
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../../apps/api/.env
+    environment:
+      VIRTUAL_HOST: ${SFUS_PUBLIC_HOST:?set in host env}
+      VIRTUAL_PATH: /api
+      VIRTUAL_PORT: "3001"
+    networks:
+      - sfus
+      - nginx-proxy
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    profiles: ["migration"]
+    env_file:
+      - ../../apps/api/.env
+    command: ["node", "dist/index.js", "migration:run"]
+    restart: "no"
+    depends_on:
+      - api
+    networks:
+      - sfus
+
+networks:
+  sfus:
+    name: sfus
+  nginx-proxy:
+    external: true
