@@ -1,0 +1,87 @@
+You are the Verifier Agent.
+
+Task summary:
+- Verify Milestone 1 Foundation Subtask 4: Frontend shell and public landing experience.
+- Scope covers the shipped Next.js 15 App Router frontend in `apps/web`, including the static branded homepage, responsive shared shell, limited navigation, branded `404` and error surfaces, frontend health endpoints, and the `/api` client path contract with hybrid and containerized routing.
+
+Acceptance criteria validated by tester:
+1. The frontend runs locally on `localhost:3000`.
+2. Frontend code targets `/api`, with local rewrites forwarding to `localhost:3001`.
+3. The homepage is static and branded.
+4. Navigation includes only implemented destinations, and auth UI is absent.
+5. `404` and error pages exist and use the shared shell/theme conventions.
+
+Implementation/worktree context:
+- Implementer branch: `ms1s4-implementer-20260331`
+- Implementer commit validated by tester: `44894a9c11f58b2e0d9d1940daa49a49fb760098`
+- Tester branch: `ms1s4-tester-20260331`
+- Documenter branch: `ms1s4-documenter-20260331`
+- Documenter worktree: `/home/tstephen/.copilot/session-state/2d6da700-f689-47d7-9d20-d8fed7053e82/files/worktrees/ms1s4-documenter-20260331`
+- Documentation commit hash: `5cadf7b9139cfe6e94ab4eb53b3671d1cfdc4da5`
+- Shared artifact directory to reuse (repository-root-relative): `artifacts/milestone-1-foundation/subtask-4`
+
+Implementation files added or modified:
+- `apps/web/.eslintrc.cjs`
+- `apps/web/.gitignore`
+- `apps/web/Dockerfile`
+- `apps/web/package.json`
+- `apps/web/tsconfig.json`
+- `apps/web/next-env.d.ts`
+- `apps/web/next.config.mjs`
+- `apps/web/app/error.tsx`
+- `apps/web/app/globals.css`
+- `apps/web/app/health/live/route.ts`
+- `apps/web/app/health/ready/route.ts`
+- `apps/web/app/layout.module.css`
+- `apps/web/app/layout.tsx`
+- `apps/web/app/not-found.tsx`
+- `apps/web/app/page.module.css`
+- `apps/web/app/page.tsx`
+- `apps/web/components/navigation.tsx`
+- `apps/web/components/page-state.module.css`
+- `apps/web/components/page-state.tsx`
+- `pnpm-lock.yaml`
+
+Test files added or modified:
+- `apps/web/app/public-shell.spec.ts`
+- `apps/web/next.config.spec.ts`
+
+Documentation files added or modified:
+- `README.md`
+- `cicd/docs/local-pipeline.md`
+
+Commands executed:
+- `npx pnpm@10.0.0 install`
+- `npx pnpm@10.0.0 --filter @sfus/web run test`
+- `npx pnpm@10.0.0 --filter @sfus/web run lint`
+- `npx pnpm@10.0.0 --filter @sfus/web run typecheck`
+- `npx pnpm@10.0.0 --filter @sfus/web run build`
+- `curl -I --max-time 10 http://127.0.0.1:3000/`
+- `curl --silent --show-error --max-time 10 http://127.0.0.1:3000/health/live`
+- `curl --silent --show-error --max-time 10 http://127.0.0.1:3000/health/ready`
+- `curl -I --max-time 10 http://127.0.0.1:3000/missing-sector`
+- `curl --silent --show-error --max-time 10 http://127.0.0.1:3000/`
+- `curl --silent --show-error --max-time 10 http://127.0.0.1:3000/missing-sector`
+
+Final test outcomes:
+- PASS
+- 2 test files, 6 tests passed, 0 failed
+- Lint passed
+- Typecheck passed
+- Build passed
+- Runtime checks confirmed homepage branding, branded `404`, and frontend health endpoints
+
+Artifacts available for review:
+- `artifacts/milestone-1-foundation/subtask-4/implementer_report.md`
+- `artifacts/milestone-1-foundation/subtask-4/implementer_result.json`
+- `artifacts/milestone-1-foundation/subtask-4/tester_report.md`
+- `artifacts/milestone-1-foundation/subtask-4/tester_result.json`
+- `artifacts/milestone-1-foundation/subtask-4/documenter_report.md`
+- `artifacts/milestone-1-foundation/subtask-4/documenter_result.json`
+- `artifacts/milestone-1-foundation/subtask-4/verifier_prompt.txt`
+
+Verification requirements:
+- Review the combined diff against the milestone base branch and confirm the shipped frontend behavior matches the Milestone 1 architecture decisions.
+- Verify the updated documentation files along with the implementation and tests.
+- Confirm the docs describe only implemented behavior: static branded homepage, implemented-links-only navigation, branded fallback pages, frontend health endpoints, token ownership in `apps/web/app/globals.css`, and the `/api` rewrite contract.
+- Confirm the documentation does not imply auth UI, extra public routes, or dynamic homepage API dependencies.
