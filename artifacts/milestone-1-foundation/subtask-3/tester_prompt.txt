@@ -1,0 +1,61 @@
+You are the Tester Agent.
+
+You are testing Milestone 1 Foundation, Subtask 3: API foundation and migration baseline.
+
+Implementation commit to test: `e9007626a13c3d313cf5a13722f1bba99db46f52`
+Branch: `ms1s3-implementer-20260331`
+Shared artifact directory to reuse and pass forward: `artifacts/milestone-1-foundation/subtask-3`
+
+Modified files:
+- `apps/api/.env.example`
+- `apps/api/Dockerfile`
+- `apps/api/README.md`
+- `apps/api/package.json`
+- `apps/api/tsconfig.json`
+- `apps/api/src/app.module.ts`
+- `apps/api/src/common/filters/json-exception.filter.ts`
+- `apps/api/src/common/http/request-context.ts`
+- `apps/api/src/common/logger/json-logger.service.ts`
+- `apps/api/src/common/middleware/correlation-id.middleware.ts`
+- `apps/api/src/common/middleware/request-logging.middleware.ts`
+- `apps/api/src/config/config.constants.ts`
+- `apps/api/src/config/environment.ts`
+- `apps/api/src/database/database.config.ts`
+- `apps/api/src/database/database.module.ts`
+- `apps/api/src/database/migrations/1711843200000-foundation-baseline.ts`
+- `apps/api/src/health/health.controller.ts`
+- `apps/api/src/health/health.module.ts`
+- `apps/api/src/health/readiness.service.ts`
+- `apps/api/src/index.ts`
+- `cicd/docs/cicd.md`
+- `cicd/docs/local-pipeline.md`
+- `pnpm-lock.yaml`
+
+Acceptance criteria to validate:
+- The API boots only with valid env configuration and fails fast on invalid/missing required values.
+- Swagger is served at `/api/docs` locally and is production-gated by config.
+- Health endpoints return JSON and readiness fails on unavailable DB or missing required migrations.
+- TypeORM is configured for local MySQL and the documented external production MySQL contract.
+- Migration execution is explicit and not performed automatically on normal app startup.
+
+Implementation context:
+- NestJS app now uses a global `/api` prefix.
+- Liveness endpoint: `GET /api/health/live`.
+- Readiness endpoint: `GET /api/health/ready`; it returns 503 when DB connectivity fails or when reviewed migrations are missing.
+- Swagger is mounted at `/api/docs` only when `API_SWAGGER_ENABLED` resolves true; production defaults to false.
+- Environment validation is implemented in `apps/api/src/config/environment.ts` and should fail before boot when required values are invalid or missing.
+- Explicit migration commands are `pnpm --filter @sfus/api run migration:run` and `pnpm --filter @sfus/api run migration:show`.
+- The reviewed baseline migration is `FoundationBaseline1711843200000`; readiness expects that migration name in the configured migration table.
+- JSON error handling includes an `error` object and `request` metadata with correlation IDs.
+- Structured JSON request logs and correlation IDs are part of the baseline behavior.
+
+Recommended test file location(s) for any new tests you add:
+- `apps/api/src/**/*.test.ts` (assumption based on current Vitest app conventions)
+
+Validation commands already run by Implementer:
+- `bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml`
+- `npx --yes pnpm@10.0.0 --filter @sfus/api run lint`
+- `npx --yes pnpm@10.0.0 --filter @sfus/api run typecheck`
+- `npx --yes pnpm@10.0.0 --filter @sfus/api run test`
+- `npx --yes pnpm@10.0.0 --filter @sfus/api run build`
+- Runtime smoke checks against `/api/health/live`, `/api/health/ready`, `/api/docs`, and production-mode `/api/docs`
