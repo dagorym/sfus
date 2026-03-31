@@ -1,0 +1,37 @@
+You are the Tester Agent.
+
+Task summary:
+- Remediate Milestone 1 Subtask 2 runtime contract gaps by making production `web` and `api` long-lived and making `migrate` independently runnable before app rollout.
+- Update in-scope runtime validations/docs to verify and describe the corrected behavior.
+
+Modified files:
+- apps/web/Dockerfile
+- apps/api/Dockerfile
+- cicd/docker/compose.prod.yml
+- cicd/tests/run-validations.sh
+- README.md
+- cicd/docs/cicd.md
+- cicd/docs/local-pipeline.md
+
+Acceptance criteria to validate (from Planner):
+- Root plus app-specific env example files exist and document variable ownership.
+- `web`, `api`, and `mysql` service naming is used consistently where applicable.
+- Production Compose uses a single file, long-lived `web` and `api` services, no host port binding, and reverse-proxy metadata.
+- The migration path is represented as an explicit one-off container/service rather than implicit app startup logic.
+
+Create test files in:
+- cicd/tests/
+
+Implementation context for testing:
+- Dockerfiles for `web` and `api` now run a foreground Node HTTP server in runtime images so containers remain alive as long-lived services.
+- `cicd/docker/compose.prod.yml` `migrate` service no longer has `depends_on` on `api`.
+- `cicd/tests/run-validations.sh` now includes runtime assertions:
+  - builds web/api images and checks containers stay running;
+  - executes `docker compose --profile migration run --rm --no-deps migrate ...`.
+- Docs were updated to explicitly describe migration independence from app rollout.
+
+Suggested test command(s):
+- bash cicd/tests/run-validations.sh
+
+Shared artifact directory:
+- artifacts/milestone-1-foundation/subtask-2
