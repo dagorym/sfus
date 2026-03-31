@@ -48,6 +48,13 @@ Host-run defaults:
 
 In this mode the frontend still targets `/api`; local rewrites forward those requests to the host-run API on port `3001`.
 
+Frontend runtime surfaces available in hybrid mode:
+
+- homepage: `http://localhost:3000/`
+- web liveness: `http://localhost:3000/health/live`
+- web readiness: `http://localhost:3000/health/ready`
+- branded missing-route handling through the Next.js `404` page
+
 ## Full-stack container validation path
 
 Use the same local Compose file with the `fullstack` profile to run `web`, `api`, and `mysql` together:

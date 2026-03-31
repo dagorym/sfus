@@ -29,6 +29,15 @@ This repository now includes the Milestone 1 foundation baseline for the monorep
 - `apps/web` and `apps/api` each expose `build`, `lint`, `typecheck`, `test`, `format`, and `format:check`.
 - Each app inherits shared TypeScript, ESLint, and Prettier settings from `packages/config` while executing its own local source-file commands.
 
+## Frontend Shell Baseline
+
+- `apps/web` is a Next.js App Router frontend shell for the Milestone 1 public landing experience.
+- Styling stays within the Milestone 1 architecture baseline: CSS Modules for component/page styles plus shared global CSS custom-property tokens in `apps/web/app/globals.css`.
+- Current public pages are intentionally limited to the static branded homepage (`/`), a branded `404`, and a branded runtime error surface. Navigation only links to implemented destinations, so the shell currently exposes `Home` only.
+- Auth controls and future-feature placeholder routes are intentionally absent from the Milestone 1 shell.
+- Frontend health endpoints are available at `/health/live` and `/health/ready`.
+- Frontend code targets the shared `/api` path contract. `NEXT_PUBLIC_API_BASE_PATH` defaults to `/api`, development rewrites forward to `WEB_API_ORIGIN` (`http://localhost:3001` by default), and non-development containerized routing can target `WEB_API_INTERNAL_URL`.
+
 ## Runtime Contract Overview
 
 Milestone 1 local development is hybrid by default:
