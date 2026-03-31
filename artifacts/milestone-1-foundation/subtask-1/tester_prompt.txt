@@ -1,0 +1,54 @@
+You are the Tester Agent.
+
+Task summary:
+- Remediated Milestone 1 Subtask 1 verifier failures by replacing placeholder script surfaces with executable workspace tooling and wiring shared TypeScript/ESLint/Prettier config into active use.
+
+Modified files:
+- .gitignore
+- .eslintrc.cjs
+- .prettierrc.cjs
+- README.md
+- package.json
+- pnpm-workspace.yaml
+- tsconfig.json
+- pnpm-lock.yaml
+- apps/web/package.json
+- apps/web/tsconfig.json
+- apps/web/.eslintrc.cjs
+- apps/web/.prettierrc.cjs
+- apps/web/src/index.ts
+- apps/api/package.json
+- apps/api/tsconfig.json
+- apps/api/.eslintrc.cjs
+- apps/api/.prettierrc.cjs
+- apps/api/src/index.ts
+- packages/config/package.json
+- packages/config/tsconfig.base.json
+- packages/config/eslint.base.cjs
+- packages/config/prettier.base.cjs
+
+Acceptance criteria to validate (from Planner):
+- The repo is a working `pnpm` monorepo with `apps/web`, `apps/api`, and `packages/config`.
+- Shared TypeScript, lint, and format config are centralized in `packages/config`.
+- No speculative future packages or feature placeholders are created.
+- The milestone decision document reflects the locked architectural decisions without unresolved architecture questions.
+
+Create test files in:
+- No new tests are required for this wiring-only remediation cycle. If needed, use existing project test conventions under `apps/web` and `apps/api`.
+
+Implementation context for testing:
+- Root command surface is now executable and non-placeholder for `build`, `lint`, `typecheck`, `test`, and formatting checks.
+- `packages/config` is actively consumed by root and app-level ESLint/Prettier/TypeScript configuration.
+- README claims were aligned to actual integration.
+- This remediation intentionally stays in Subtask 1 scope only.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 install --ignore-scripts
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 build
+- npx --yes pnpm@10.0.0 test
+- npx --yes pnpm@10.0.0 format:check
+
+Shared artifact directory:
+- artifacts/milestone-1-foundation/subtask-1
