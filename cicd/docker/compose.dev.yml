@@ -1,7 +1,6 @@
 services:
   mysql:
     image: mysql:5.7.44
-    container_name: sfus-mysql-dev
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set in .env}
       MYSQL_DATABASE: ${MYSQL_DATABASE:?set in .env}
@@ -10,7 +9,7 @@ services:
     volumes:
       - sfus_mysql_data:/var/lib/mysql
     ports:
-      - "3306:3306"
+      - "${MYSQL_HOST_PORT:-3306}:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p$$MYSQL_ROOT_PASSWORD"]
       interval: 10s
@@ -22,7 +21,6 @@ services:
     build:
       context: ../..
       dockerfile: apps/api/Dockerfile
-    container_name: sfus-api-dev
     env_file:
       - ../../apps/api/.env
     environment:
@@ -32,14 +30,13 @@ services:
       mysql:
         condition: service_healthy
     ports:
-      - "3001:3001"
+      - "${API_HOST_PORT:-3001}:3001"
 
   web:
     profiles: ["fullstack"]
     build:
       context: ../..
       dockerfile: apps/web/Dockerfile
-    container_name: sfus-web-dev
     env_file:
       - ../../apps/web/.env
     environment:
@@ -47,7 +44,7 @@ services:
     depends_on:
       - api
     ports:
-      - "3000:3000"
+      - "${WEB_HOST_PORT:-3000}:3000"
 
 volumes:
   sfus_mysql_data:

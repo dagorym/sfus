@@ -321,6 +321,14 @@ assert_file_contains "${compose_dev}" 'DB_HOST:[[:space:]]*mysql$' \
   "Expected local compose api env override to use mysql hostname."
 assert_file_contains "${compose_dev}" 'WEB_API_INTERNAL_URL:[[:space:]]*http://api:3001$' \
   "Expected local compose web env override to use api service URL."
+assert_file_not_contains "${compose_dev}" '^[[:space:]]*container_name:[[:space:]]*' \
+  "Did not expect local compose services to pin fixed container names that break per-project isolation."
+assert_file_contains "${compose_dev}" '\$\{MYSQL_HOST_PORT:-3306\}:3306' \
+  "Expected local compose mysql port binding to support host-port overrides."
+assert_file_contains "${compose_dev}" '\$\{API_HOST_PORT:-3001\}:3001' \
+  "Expected local compose api port binding to support host-port overrides."
+assert_file_contains "${compose_dev}" '\$\{WEB_HOST_PORT:-3000\}:3000' \
+  "Expected local compose web port binding to support host-port overrides."
 
 assert_file_exists "${compose_prod}"
 assert_file_contains "${compose_prod}" '^[[:space:]]{2}web:[[:space:]]*$' \
@@ -409,6 +417,8 @@ assert_file_contains "${validation_config}" '^[[:space:]]*command:[[:space:]]*' 
   "Expected cicd/config/validation-config.yml to use the Linux-only command field."
 assert_file_not_contains "${validation_config}" '^[[:space:]]*commands:[[:space:]]*$' \
   "Did not expect legacy per-shell command blocks in cicd/config/validation-config.yml."
+assert_file_contains "${validation_config}" 'bash cicd/scripts/smoke-validate\.sh' \
+  "Expected shared validation config to include the smoke validation runner."
 
 assert_file_exists "${image_matrix}"
 assert_file_contains "${image_matrix}" '^[[:space:]]*images:[[:space:]]*\[[[:space:]]*\][[:space:]]*$' \

@@ -64,6 +64,7 @@ docker compose --env-file .env -f cicd/docker/compose.dev.yml --profile fullstac
 ```
 
 The containerized web service reaches the containerized API through `WEB_API_INTERNAL_URL=http://api:3001`, while the API service reaches MySQL through `DB_HOST=mysql`.
+For repeatable parallel runs, the local Compose file leaves container names project-scoped and accepts optional host-port overrides via `WEB_HOST_PORT`, `API_HOST_PORT`, and `MYSQL_HOST_PORT`.
 
 Stop the stack:
 
