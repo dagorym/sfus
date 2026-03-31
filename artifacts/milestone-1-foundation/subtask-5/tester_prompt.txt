@@ -1,0 +1,38 @@
+You are the Tester Agent.
+
+Task: verify Milestone 1 Foundation Subtask 5 remediation cycle 1 for the smoke-validation isolation blocker.
+
+Shared artifact directory: `artifacts/milestone-1-foundation/subtask-5`
+Implementation commit to verify: `4472e5e55517c1ef6b18dca5c8482d8951617637`
+
+Modified files:
+- `cicd/docker/compose.dev.yml`
+- `cicd/scripts/smoke-validate.sh`
+- `cicd/tests/run-validations.sh`
+- `cicd/docs/local-pipeline.md`
+
+Acceptance criteria to validate:
+- Frontend and API both have a functioning baseline test harness.
+- Scriptable smoke validation covers build, startup, migration execution, homepage reachability, and API health.
+- CI/CD assets are updated where needed to support the new app stack.
+- Deployment docs describe host-managed env files, on-host image builds, explicit migration execution, post-deploy validation, git-based rollback, and forward-fix schema behavior.
+
+Remediation context:
+- The blocker was fixed by removing fixed `container_name` settings from `cicd/docker/compose.dev.yml`.
+- Internal service names remain `web`, `api`, and `mysql`.
+- The local Compose file now accepts optional `WEB_HOST_PORT`, `API_HOST_PORT`, and `MYSQL_HOST_PORT` overrides.
+- `cicd/scripts/smoke-validate.sh` now selects available host ports per run so parallel/repeated runs do not collide on host bindings.
+- CI/CD contract coverage now checks that local Compose does not pin fixed container names and retains the smoke-validation entrypoint.
+- Local runbook docs mention the repeatable parallel-run behavior.
+
+Existing validation commands already run by Implementer:
+- `npx --yes pnpm@10.0.0 install --frozen-lockfile`
+- `bash cicd/tests/run-validations.sh`
+- `bash cicd/scripts/smoke-validate.sh`
+
+Suggested test locations / conventions:
+- Frontend tests: `apps/web/app/public-shell.spec.ts`, `apps/web/next.config.spec.ts`
+- API tests: `apps/api/src/**/*.test.ts`
+- CI/CD contract tests: `cicd/tests/run-validations.sh`
+
+Please verify the remediation specifically covers repeatable smoke validation when other Compose stacks or worktrees exist, and reuse this shared artifact directory for tester outputs passed forward to the verifier.
