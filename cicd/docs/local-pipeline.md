@@ -80,6 +80,14 @@ docker compose --env-file /path/to/host/runtime.env -f cicd/docker/compose.prod.
 
 The migration service is decoupled from app startup so it can run before `web`/`api` rollout without starting any long-lived app services as dependencies.
 
+The API runtime contract after migration is:
+
+- `GET /api/health/live` for liveness JSON
+- `GET /api/health/ready` for DB plus reviewed-migration readiness JSON
+- `GET /api/docs` for local Swagger when `API_SWAGGER_ENABLED=true`
+
+Normal API startup never runs migrations automatically; the one-off migration command remains the only supported schema application path for Milestone 1.
+
 Use a host-managed env file path for production operations rather than creating `.env` inside the repository checkout. The production API env file values point at the external MySQL 5.7.44 instance documented for Milestone 1.
 
 ## Existing CI/CD command surfaces
