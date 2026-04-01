@@ -1,38 +1,37 @@
 You are the Tester Agent.
 
-Task: verify Milestone 1 Foundation Subtask 5 remediation cycle 1 for the smoke-validation isolation blocker.
+Task: verify Milestone 1 Foundation Subtask 5 remediation cycle 2 for same-worktree smoke-validation repeatability.
 
 Shared artifact directory: `artifacts/milestone-1-foundation/subtask-5`
-Implementation commit to verify: `4472e5e55517c1ef6b18dca5c8482d8951617637`
+Implementation commit to verify: `0f971c82358488eca2923b74ed4e901a9ef25f1c`
 
 Modified files:
-- `cicd/docker/compose.dev.yml`
 - `cicd/scripts/smoke-validate.sh`
-- `cicd/tests/run-validations.sh`
 - `cicd/docs/local-pipeline.md`
 
 Acceptance criteria to validate:
-- Frontend and API both have a functioning baseline test harness.
 - Scriptable smoke validation covers build, startup, migration execution, homepage reachability, and API health.
-- CI/CD assets are updated where needed to support the new app stack.
-- Deployment docs describe host-managed env files, on-host image builds, explicit migration execution, post-deploy validation, git-based rollback, and forward-fix schema behavior.
+- The smoke flow is repeatable and safe for repeated or parallel execution from the same worktree.
+- Existing CI/CD validation assets still support the Milestone 1 stack after the remediation.
+- Deployment/operations documentation remains aligned with the implemented runtime behavior.
 
 Remediation context:
-- The blocker was fixed by removing fixed `container_name` settings from `cicd/docker/compose.dev.yml`.
-- Internal service names remain `web`, `api`, and `mysql`.
-- The local Compose file now accepts optional `WEB_HOST_PORT`, `API_HOST_PORT`, and `MYSQL_HOST_PORT` overrides.
-- `cicd/scripts/smoke-validate.sh` now selects available host ports per run so parallel/repeated runs do not collide on host bindings.
-- CI/CD contract coverage now checks that local Compose does not pin fixed container names and retains the smoke-validation entrypoint.
-- Local runbook docs mention the repeatable parallel-run behavior.
+- Prior remediation already removed fixed Compose `container_name` values and added overridable host ports.
+- Remaining failures came from shared mutable worktree state (`.env`, `apps/web/.env`, `apps/api/.env`) and shared build/runtime interference during concurrent smoke runs.
+- `cicd/scripts/smoke-validate.sh` now copies root/web/api env input into a per-run runtime area under `git rev-parse --git-path smoke-validate`, generates a per-run Compose file that points to those isolated env copies, and cleans them up on exit.
+- The script also reserves host ports through locked reservation files so concurrent runs from the same worktree cannot choose the same ports.
+- The smoke build/startup/migration flow remains otherwise unchanged.
+- `cicd/docs/local-pipeline.md` now documents the isolated per-run smoke runtime behavior.
 
 Existing validation commands already run by Implementer:
-- `npx --yes pnpm@10.0.0 install --frozen-lockfile`
-- `bash cicd/tests/run-validations.sh`
+- `bash -n cicd/scripts/smoke-validate.sh`
 - `bash cicd/scripts/smoke-validate.sh`
+- `bash cicd/scripts/smoke-validate.sh` in two concurrent shells
+- `bash cicd/tests/run-validations.sh`
+- `bash cicd/tests/run-validations.sh && bash cicd/scripts/smoke-validate.sh`
 
 Suggested test locations / conventions:
-- Frontend tests: `apps/web/app/public-shell.spec.ts`, `apps/web/next.config.spec.ts`
-- API tests: `apps/api/src/**/*.test.ts`
 - CI/CD contract tests: `cicd/tests/run-validations.sh`
+- Smoke runtime script under test: `cicd/scripts/smoke-validate.sh`
 
-Please verify the remediation specifically covers repeatable smoke validation when other Compose stacks or worktrees exist, and reuse this shared artifact directory for tester outputs passed forward to the verifier.
+Please verify especially that concurrent smoke runs from this same worktree no longer delete each other's env files or collide on reserved ports, and reuse this shared artifact directory for tester outputs passed forward to the verifier.

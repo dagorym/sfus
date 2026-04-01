@@ -1,17 +1,27 @@
 {
   "status": "completed",
-  "subtask": "Milestone 1 Foundation - Subtask 5 remediation cycle 1",
-  "branch": "ms1s5r1-implementer-20260331",
-  "implementation_commit": "4472e5e55517c1ef6b18dca5c8482d8951617637",
+  "subtask": "Milestone 1 Foundation - Subtask 5 remediation cycle 2",
+  "branch": "ms1s5r2-implementer-20260331",
+  "implementation_commit": "0f971c82358488eca2923b74ed4e901a9ef25f1c",
   "changed_files": [
-    "cicd/docker/compose.dev.yml",
     "cicd/scripts/smoke-validate.sh",
-    "cicd/tests/run-validations.sh",
     "cicd/docs/local-pipeline.md"
   ],
   "validation_commands": [
     {
-      "command": "npx --yes pnpm@10.0.0 install --frozen-lockfile",
+      "command": "bash -n cicd/scripts/smoke-validate.sh",
+      "outcome": "passed"
+    },
+    {
+      "command": "bash cicd/scripts/smoke-validate.sh",
+      "outcome": "passed"
+    },
+    {
+      "command": "bash cicd/scripts/smoke-validate.sh (parallel run A)",
+      "outcome": "passed"
+    },
+    {
+      "command": "bash cicd/scripts/smoke-validate.sh (parallel run B)",
       "outcome": "passed"
     },
     {
@@ -19,7 +29,7 @@
       "outcome": "passed"
     },
     {
-      "command": "bash cicd/scripts/smoke-validate.sh",
+      "command": "bash cicd/tests/run-validations.sh && bash cicd/scripts/smoke-validate.sh",
       "outcome": "passed"
     }
   ],
