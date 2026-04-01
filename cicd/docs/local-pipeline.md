@@ -106,6 +106,8 @@ Use a host-managed env file path for production operations rather than creating 
 - `bash cicd/scripts/run-containers.sh start`
 - `bash cicd/tests/run-validations.sh`
 
+`bash cicd/scripts/smoke-validate.sh` now stages its own per-run Compose env copies and validation-specific Compose file under the Git worktree-local runtime area returned by `git rev-parse --git-path smoke-validate`, then removes them on exit. That keeps repeated and parallel smoke runs from mutating the shared `.env`, `apps/web/.env`, or `apps/api/.env` paths in the worktree.
+
 ## Production deployment runbook
 
 Milestone 1 production deploys are host-driven from a checked-out Git worktree on the target machine. Keep canonical runtime env files outside the repository checkout, for example:
