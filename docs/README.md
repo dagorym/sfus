@@ -71,6 +71,7 @@ The example files are templates only. Production secrets and the external produc
 
 - `cicd/docs/local-pipeline.md` - hybrid local development, full-stack Compose validation, and explicit production migration flow
 - `cicd/docs/cicd.md` - CI validation entrypoints, smoke validation usage, and runtime contract artifacts
+- `docs/website-launch-guide.md` - website container startup, required local env files, runtime URLs, migrations, and test commands
 - `docs/architecture/milestone-1-foundation-decisions.md` - locked Milestone 1 architecture and deployment decisions
 
 ## Operational Validation Commands

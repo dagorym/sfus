@@ -13,4 +13,9 @@ If neither global nor local `myteam` execution is working,
 This repository uses `.myteam/` as its active instruction system.
 Treat the loaded `myteam` role and skill content as the operative repository policy.
 
-When needed project architecture and design notes are in the `docs/README.md` file.  When changes are made, this file should be updated to reflect the current state of the system. 
+## Project documentation
+When needed read the following files.  When changes are made to the repository, these files should all be checked and updated as appropriate.  This is typically the job of the documenter role.
+
+* Project architecture and design notes: `docs/README.md` file.
+* Website configuration and launch instructions: `docs/website-launch-guide.md` 
+* Deferred work register: `docs/deferred-tasks.md` file. Future planners should read it during planning and append new deferred-scope items when decisions intentionally postpone work.
