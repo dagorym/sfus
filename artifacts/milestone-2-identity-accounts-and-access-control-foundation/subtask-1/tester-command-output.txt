@@ -1,0 +1,52 @@
+===== RUNNING: npx --yes pnpm@10.0.0 --filter @sfus/api run typecheck
+
+> @sfus/api@0.1.0 typecheck /home/tstephen/.copilot/session-state/980e354c-b84f-4a6e-bf11-2d080f8d01fc/files/worktrees/ms2-subtask-1-tester-20260525/apps/api
+> tsc -p tsconfig.json --noEmit
+
+===== EXIT CODE: 0
+
+===== RUNNING: npx --yes pnpm@10.0.0 --filter @sfus/api run lint
+
+> @sfus/api@0.1.0 lint /home/tstephen/.copilot/session-state/980e354c-b84f-4a6e-bf11-2d080f8d01fc/files/worktrees/ms2-subtask-1-tester-20260525/apps/api
+> eslint "src/**/*.ts" --max-warnings=0
+
+===== EXIT CODE: 0
+
+===== RUNNING: npx --yes pnpm@10.0.0 --filter @sfus/api run test
+
+> @sfus/api@0.1.0 test /home/tstephen/.copilot/session-state/980e354c-b84f-4a6e-bf11-2d080f8d01fc/files/worktrees/ms2-subtask-1-tester-20260525/apps/api
+> vitest run --passWithNoTests
+
+
+ RUN  v3.2.4 /home/tstephen/.copilot/session-state/980e354c-b84f-4a6e-bf11-2d080f8d01fc/files/worktrees/ms2-subtask-1-tester-20260525/apps/api
+
+ ✓ src/index.test.ts (2 tests) 22ms
+ ✓ src/config/environment.test.ts (3 tests) 6ms
+ ✓ src/health/health.controller.test.ts (3 tests) 5ms
+ ✓ src/database/database.config.test.ts (3 tests) 35ms
+ ✓ src/health/readiness.service.test.ts (3 tests) 6ms
+
+ Test Files  5 passed (5)
+      Tests  14 passed (14)
+   Start at  09:25:16
+   Duration  865ms (transform 223ms, setup 0ms, collect 1.11s, tests 75ms, environment 1ms, prepare 417ms)
+
+===== EXIT CODE: 0
+
+===== RUNNING: npx --yes pnpm@10.0.0 --filter @sfus/api run build
+
+> @sfus/api@0.1.0 build /home/tstephen/.copilot/session-state/980e354c-b84f-4a6e-bf11-2d080f8d01fc/files/worktrees/ms2-subtask-1-tester-20260525/apps/api
+> tsc -p tsconfig.json
+
+===== EXIT CODE: 0
+
+===== RUNNING: AUTH_PASSWORD_PEPPER=development-pepper-value AUTH_PASSWORD_BCRYPT_ROUNDS=12 AUTH_SESSION_TTL_MINUTES=1440 AUTH_SESSION_IDLE_TIMEOUT_MINUTES=120 AUTH_TOTP_ISSUER='SFUS Development' AUTH_RECOVERY_CODE_COUNT=10 AUTH_RECOVERY_CODE_LENGTH=12 npx --yes pnpm@10.0.0 --filter @sfus/api run migration:show
+
+> @sfus/api@0.1.0 migration:show /home/tstephen/.copilot/session-state/980e354c-b84f-4a6e-bf11-2d080f8d01fc/files/worktrees/ms2-subtask-1-tester-20260525/apps/api
+> node dist/index.js migration:show
+
+/home/tstephen/.copilot/session-state/980e354c-b84f-4a6e-bf11-2d080f8d01fc/files/worktrees/ms2-subtask-1-tester-20260525/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @sfus/api@0.1.0 migration:show: `node dist/index.js migration:show`
+Exit status 1
+===== EXIT CODE: 1
+

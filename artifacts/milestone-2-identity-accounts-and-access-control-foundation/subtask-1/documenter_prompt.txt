@@ -1,0 +1,12 @@
+Document Milestone 2 Subtask 1 (identity/authz persistence foundation) based on implemented and validated API changes.
+
+Include:
+- New persistence tables/entities introduced for users, auth identities, password authenticators, sessions, email verifications, TOTP secrets/recovery codes, and authorization grants.
+- Module boundary overview (`UsersModule`, `AuthModule`, `AuthorizationModule`) and how `AppModule` composes them.
+- Auth environment contract additions and validation rules (pepper length, bcrypt rounds range, session TTL vs idle timeout relation, TOTP issuer, recovery code count/length).
+- Operational note that migration inspection commands depend on MySQL availability.
+
+Likely docs to review/update if needed:
+- docs/README.md
+- docs/website-launch-guide.md
+- docs/deferred-tasks.md (only if any scope was intentionally deferred)
