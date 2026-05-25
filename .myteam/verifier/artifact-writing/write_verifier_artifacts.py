@@ -156,6 +156,7 @@ def main() -> int:
         "status": payload["status"],
         "task_id": payload.get("task_id"),
         "branch_name": payload["branch_name"],
+        "pass_label": payload.get("pass_label"),
         "verdict": payload["verdict"],
         "blocking_finding_count": counts["BLOCKING"],
         "warning_finding_count": counts["WARNING"],

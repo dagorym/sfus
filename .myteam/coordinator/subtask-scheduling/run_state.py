@@ -32,10 +32,12 @@ def main() -> int:
     set_subtask.add_argument("--status")
     set_subtask.add_argument("--stage")
     set_subtask.add_argument("--artifact-dir")
+    set_subtask.add_argument("--artifact-history-dir")
     set_subtask.add_argument("--worktree")
     set_subtask.add_argument("--branch")
     set_subtask.add_argument("--merge-status")
     set_subtask.add_argument("--remediation-count", type=int)
+    set_subtask.add_argument("--current-pass-label")
 
     set_meta = subparsers.add_parser("set-meta")
     set_meta.add_argument("key")
@@ -53,10 +55,12 @@ def main() -> int:
                 "status": "pending",
                 "stage": None,
                 "artifact_dir": None,
+                "artifact_history_dir": None,
                 "worktree": None,
                 "branch": None,
                 "merge_status": "not-started",
                 "remediation_count": 0,
+                "current_pass_label": None,
             }
             for subtask_id in args.subtask
         }
@@ -73,7 +77,17 @@ def main() -> int:
         assert isinstance(subtasks, dict)
         entry = subtasks.setdefault(args.subtask_id, {})
         assert isinstance(entry, dict)
-        for key in ["status", "stage", "artifact_dir", "worktree", "branch", "merge_status", "remediation_count"]:
+        for key in [
+            "status",
+            "stage",
+            "artifact_dir",
+            "artifact_history_dir",
+            "worktree",
+            "branch",
+            "merge_status",
+            "remediation_count",
+            "current_pass_label",
+        ]:
             value = getattr(args, key)
             if value is not None:
                 entry[key] = value

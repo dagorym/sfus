@@ -150,6 +150,7 @@ def main() -> int:
         "status": payload["status"],
         "task_id": payload.get("task_id"),
         "branch_name": payload["branch_name"],
+        "pass_label": payload.get("pass_label"),
         "documentation_commit_hash": payload["documentation_commit_hash"],
         "documentation_files_changed": [str(item) for item in payload.get("documentation_files_changed", [])],
         "artifact_file_paths": artifact_paths,

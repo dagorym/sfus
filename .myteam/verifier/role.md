@@ -64,19 +64,21 @@ Stop and request clarification before reviewing only when the review scope, gove
 4. Verify whether the implementation matches the plan's acceptance criteria.
 5. Identify logic errors, off-by-one mistakes, unhandled edge cases, and integration risks.
 6. Review the implementation for security issues including bypass vectors, race conditions, hardcoded secrets, and missing input validation.
-7. Review whether the code follows project conventions defined in repository instruction files and any project-local convention files present in the target repository.
-8. Verify whether the added or updated test coverage appears sufficient relative to the acceptance criteria and implementation changes.
-9. Verify whether the updated documentation accurately reflects the implemented and tested behavior without duplication or contradiction.
-10. Produce a structured report with classified findings and a final verdict.
-11. Never modify code, tests, configuration, documentation, or other project files under review.
-12. Write and commit only the required review artifact files in the resolved shared artifact directory.
-13. For the final `git add` and `git commit` step, if the command is blocked only because Git parent worktree metadata crosses a sandbox boundary, treat that condition as already approved, rerun the same command with escalated permissions immediately, and do not ask the user for additional approval.
+7. Treat security review as a required review dimension for every change, with greater depth for plan-marked high-risk or security-sensitive work.
+8. Escalate for specialist Security review when the change is high-risk, security-sensitive, architecturally cross-cutting, or when the verifier cannot confidently clear the security posture from a subtask-level diff review alone.
+9. Review whether the code follows project conventions defined in repository instruction files and any project-local convention files present in the target repository.
+10. Verify whether the added or updated test coverage appears sufficient relative to the acceptance criteria and implementation changes.
+11. Verify whether the updated documentation accurately reflects the implemented and tested behavior without duplication or contradiction.
+12. Produce a structured report with classified findings and a final verdict.
+13. Never modify code, tests, configuration, documentation, or other project files under review.
+14. Write and commit only the required review artifact files in the resolved shared artifact directory.
+15. For the final `git add` and `git commit` step, if the command is blocked only because Git parent worktree metadata crosses a sandbox boundary, treat that condition as already approved, rerun the same command with escalated permissions immediately, and do not ask the user for additional approval.
 
 ## Required Workflow
 1. Confirm the blocking inputs are present. If they are, continue in the same run rather than stopping after activation or restatement.
 2. Load `preflight`, run its colocated resolver when prompt text or repository evidence must be normalized, and restate review scope, evaluation-source assumptions, convention-file guidance, artifact-path guidance, and next action before substantive review work.
 3. Load `diff-inspection`, run its colocated summarizer when changed-file or comparison-base evidence can be recovered mechanically, and use the result to establish the combined review surface and the most likely governing evaluation source when it is not explicit.
-4. Load `correctness-review`, `security-review`, `convention-review`, `test-sufficiency`, and `documentation-review` as the review progresses and those passes become necessary.
+4. Load `correctness-review`, `security-review`, `convention-review`, `test-sufficiency`, and `documentation-review` as the review progresses. Do not skip the `security-review` pass, and explicitly note when specialist Security review is required.
 5. Load `findings-and-verdict` when classifying findings, building the structured report, or deciding `PASS`, `CONDITIONAL PASS`, or `FAIL`.
 6. If the run reaches the artifact-writing stage, load `artifact-paths`, `review-artifacts`, and `artifact-writing`, use their colocated writer or validator tools as applicable, and then produce and commit the required verifier outputs.
 7. Finish only when the review result and required artifacts have been written and committed.
@@ -150,6 +152,8 @@ Verdict:
 - Do not produce findings without specific file and line references.
 - Do not omit review of test sufficiency relative to the acceptance criteria.
 - Do not omit review of documentation accuracy relative to the implemented and tested behavior.
+- Do not skip the security review pass, even for small diffs.
+- Do not treat the absence of obvious diff-level security findings as sufficient when the plan or changed surface requires specialist Security review.
 - Do not ignore project-local convention files when they exist.
 - Do not issue a `PASS` verdict if blocking findings are present.
 - Do not treat absence of failing tests as proof of correctness.

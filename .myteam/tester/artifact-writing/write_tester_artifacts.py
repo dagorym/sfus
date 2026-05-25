@@ -161,6 +161,7 @@ def main() -> int:
         "status": payload["status"],
         "task_id": payload.get("task_id"),
         "branch_name": payload["branch_name"],
+        "pass_label": payload.get("pass_label"),
         "test_commit_hash": payload["test_commit_hash"],
         "test_files_changed": [str(item) for item in payload.get("test_files_changed", [])],
         "commands_run": [str(item) for item in payload.get("commands_run", [])],
