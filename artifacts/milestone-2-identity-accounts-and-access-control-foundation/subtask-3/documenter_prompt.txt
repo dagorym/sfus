@@ -1,0 +1,81 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Validated provider-agnostic Google/GitHub auth flows, deterministic account linking, and onboarding gating behavior.
+
+Acceptance criteria validated:
+- Google and GitHub sign-in work end to end.
+- Provider-specific code is isolated behind an adapter or registry boundary that is ready for additive future providers.
+- First-login external users must complete username onboarding before normal authenticated use.
+- Account linking avoids duplicate-account creation for the same external identity.
+
+Implementation branch or worktree context:
+- Tester branch: ms2-subtask-3-tester-20260525 (worktree: /home/tstephen/.copilot/session-state/980e354c-b84f-4a6e-bf11-2d080f8d01fc/files/worktrees/ms2-subtask-3-tester-20260525).
+- Parent implementer branch: ms2-subtask-3-implementer-20260525.
+- Coordination base branch: ms2.
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/.env.example
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.controller.ts
+- apps/api/src/auth/auth.module.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/auth/auth.service.ts
+- apps/api/src/auth/external-auth-provider.registry.ts
+- apps/api/src/config/config.constants.ts
+- apps/api/src/config/environment.test.ts
+- apps/api/src/config/environment.ts
+- apps/api/src/database/database.config.test.ts
+- apps/api/src/health/readiness.service.test.ts
+- apps/api/src/index.test.ts
+- apps/web/app/app/page.tsx
+- apps/web/app/auth-client.ts
+- apps/web/app/auth-shell.module.css
+- apps/web/app/login/page.tsx
+- apps/web/app/onboarding/username/page.tsx
+- apps/web/app/public-shell.spec.ts
+- docs/README.md
+- docs/website-launch-guide.md
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/tester_report.md
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/tester_result.json
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/documenter_prompt.txt
+
+Test commit:
+- No Changes Made
+
+Commands executed:
+- npx --yes pnpm@10.0.0 install
+- npx --yes pnpm@10.0.0 --filter @sfus/api lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --filter @sfus/web lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web test
+
+Final test outcomes:
+- API lint, typecheck, and test suite passed.
+- Web lint, typecheck, and test suite passed.
+- Auth service/controller tests cover provider start+callback, onboarding-required gating, onboarding completion, and deterministic email-based identity linking.
+- Web source-contract tests cover login external-start path, /app onboarding redirect gate, and onboarding username completion path back to /app.
+- No implementation defects observed against provided acceptance criteria.
+
+Documentation context:
+- External auth now supports provider-agnostic Google and GitHub adapters through a registry boundary.
+- External callback path enforces deterministic linking order: provider+subject, then normalized email, otherwise onboarding-required user creation.
+- Session payload and web shell now gate onboarding-required users to /onboarding/username until username completion.
+- API and web tests confirm the updated routing and onboarding flow contracts.
+
+Plan and diff context:
+- Plan path: plans/milestone-2-identity-accounts-and-access-control-foundation-plan.md.
+- Compare tester branch against parent implementer branch (ms2-subtask-3-implementer-20260525) for tester-stage outputs and against ms2 for full change narrative.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
