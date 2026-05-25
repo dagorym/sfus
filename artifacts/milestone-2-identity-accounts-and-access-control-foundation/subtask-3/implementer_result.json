@@ -6,29 +6,13 @@
   ],
   "branch_name": "ms2-subtask-3-implementer-20260525",
   "changed_files": [
-    "apps/api/.env.example",
     "apps/api/src/auth/auth.controller.test.ts",
     "apps/api/src/auth/auth.controller.ts",
-    "apps/api/src/auth/auth.module.ts",
     "apps/api/src/auth/auth.service.test.ts",
     "apps/api/src/auth/auth.service.ts",
-    "apps/api/src/auth/external-auth-provider.registry.ts",
-    "apps/api/src/config/config.constants.ts",
-    "apps/api/src/config/environment.test.ts",
-    "apps/api/src/config/environment.ts",
-    "apps/api/src/database/database.config.test.ts",
-    "apps/api/src/health/readiness.service.test.ts",
-    "apps/api/src/index.test.ts",
-    "apps/web/app/app/page.tsx",
-    "apps/web/app/auth-client.ts",
-    "apps/web/app/auth-shell.module.css",
-    "apps/web/app/login/page.tsx",
-    "apps/web/app/onboarding/username/page.tsx",
-    "apps/web/app/public-shell.spec.ts",
-    "docs/README.md",
-    "docs/website-launch-guide.md"
+    "apps/api/src/auth/external-auth-provider.registry.ts"
   ],
-  "code_commit_hash": "dbb855ed3fb056b1b77e14513ca9028ee4f57b75",
+  "code_commit_hash": "15d79a32e75493a0f51e6706d4e47b80ed76cd57",
   "status": "completed",
   "task_id": "subtask-3",
   "validation_commands": [
@@ -39,5 +23,5 @@
     "npx --yes pnpm@10.0.0 --filter @sfus/web typecheck",
     "npx --yes pnpm@10.0.0 --filter @sfus/web test"
   ],
-  "validation_outcome": "All API and web lint/typecheck/test commands passed after implementing provider callbacks, onboarding gating, and account-linking coverage."
+  "validation_outcome": "API and web lint/typecheck/test all passed after the remediation changes."
 }

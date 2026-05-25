@@ -4,30 +4,14 @@ Status:
 - completed
 
 Task summary:
-- Implemented provider-agnostic Google/GitHub authentication with deterministic account linking and first-login username onboarding gating.
+- Remediated verifier findings by browser-binding and one-time consuming OAuth callback state, and by disallowing unverified-email account linking during external auth.
 
 Changed files:
-- apps/api/.env.example
 - apps/api/src/auth/auth.controller.test.ts
 - apps/api/src/auth/auth.controller.ts
-- apps/api/src/auth/auth.module.ts
 - apps/api/src/auth/auth.service.test.ts
 - apps/api/src/auth/auth.service.ts
 - apps/api/src/auth/external-auth-provider.registry.ts
-- apps/api/src/config/config.constants.ts
-- apps/api/src/config/environment.test.ts
-- apps/api/src/config/environment.ts
-- apps/api/src/database/database.config.test.ts
-- apps/api/src/health/readiness.service.test.ts
-- apps/api/src/index.test.ts
-- apps/web/app/app/page.tsx
-- apps/web/app/auth-client.ts
-- apps/web/app/auth-shell.module.css
-- apps/web/app/login/page.tsx
-- apps/web/app/onboarding/username/page.tsx
-- apps/web/app/public-shell.spec.ts
-- docs/README.md
-- docs/website-launch-guide.md
 
 Validation commands run:
 - npx --yes pnpm@10.0.0 --filter @sfus/api lint
@@ -38,10 +22,10 @@ Validation commands run:
 - npx --yes pnpm@10.0.0 --filter @sfus/web test
 
 Validation outcome:
-- All API and web lint/typecheck/test commands passed after implementing provider callbacks, onboarding gating, and account-linking coverage.
+- API and web lint/typecheck/test all passed after the remediation changes.
 
 Implementation/code commit hash:
-- dbb855ed3fb056b1b77e14513ca9028ee4f57b75
+- 15d79a32e75493a0f51e6706d4e47b80ed76cd57
 
 Artifacts written:
 - artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/implementer_report.md
@@ -49,12 +33,12 @@ Artifacts written:
 - artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/implementer_result.json
 
 Implementation context:
-- Added an external-auth provider registry with Google and GitHub adapters, moving provider-specific OAuth token/profile logic behind a provider-agnostic interface.
-- Added /api/auth/external/:provider/start and /api/auth/external/:provider/callback plus signed callback-state validation and deterministic account-linking rules (provider+subject, then normalized email, else create pending onboarding user).
-- Extended session user payloads with onboardingRequired and added /api/auth/onboarding/username to complete first-login username selection.
-- Added focused API tests for callback handling, onboarding completion, and account-linking behavior.
-- Added web login, authenticated shell, and onboarding routes where /app redirects onboarding-required users to /onboarding/username until username selection succeeds.
-- Updated web auth/navigation source-contract tests and launch/docs environment guidance for external provider configuration.
+- Bound external callback state to an HTTP-only sfus_external_auth_state cookie and validated cookie-state equality before callback processing.
+- Added one-time state consumption in AuthService so replayed OAuth state is rejected even with a valid signature.
+- Updated callback controller flow to always clear the external state cookie and set the session cookie only after successful callback completion.
+- Hardened deterministic linking so email-based linking is only allowed when identity.emailVerified is true; otherwise a synthetic external email is used and providerEmail is stored as null.
+- Restricted GitHub adapter email extraction to verified email records only (no unverified profile-email fallback).
+- Expanded API tests to cover cross-browser state mismatch rejection, replayed state rejection, and refusal of unverified-email linking to existing local accounts.
 
 Expected validation failures carried forward:
 - None
