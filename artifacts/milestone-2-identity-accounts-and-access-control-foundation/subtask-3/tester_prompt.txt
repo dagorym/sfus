@@ -1,0 +1,67 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Implemented provider-agnostic Google/GitHub authentication with deterministic account linking and first-login username onboarding gating.
+
+Modified files:
+- apps/api/.env.example
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.controller.ts
+- apps/api/src/auth/auth.module.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/auth/auth.service.ts
+- apps/api/src/auth/external-auth-provider.registry.ts
+- apps/api/src/config/config.constants.ts
+- apps/api/src/config/environment.test.ts
+- apps/api/src/config/environment.ts
+- apps/api/src/database/database.config.test.ts
+- apps/api/src/health/readiness.service.test.ts
+- apps/api/src/index.test.ts
+- apps/web/app/app/page.tsx
+- apps/web/app/auth-client.ts
+- apps/web/app/auth-shell.module.css
+- apps/web/app/login/page.tsx
+- apps/web/app/onboarding/username/page.tsx
+- apps/web/app/public-shell.spec.ts
+- docs/README.md
+- docs/website-launch-guide.md
+
+Acceptance criteria to validate (from Planner):
+- Google and GitHub sign-in work end to end.
+- Provider-specific code is isolated behind an adapter or registry boundary that is ready for additive future providers.
+- First-login external users must complete username onboarding before normal authenticated use.
+- Account linking avoids duplicate-account creation for the same external identity.
+
+Create test files in:
+- apps/api/src/**/*.test.ts (focus auth controller/service callback and linking coverage)
+- apps/web/app/public-shell.spec.ts and onboarding/auth route source contracts under apps/web/app/**
+
+Implementation context for testing:
+- Added an external-auth provider registry with Google and GitHub adapters, moving provider-specific OAuth token/profile logic behind a provider-agnostic interface.
+- Added /api/auth/external/:provider/start and /api/auth/external/:provider/callback plus signed callback-state validation and deterministic account-linking rules (provider+subject, then normalized email, else create pending onboarding user).
+- Extended session user payloads with onboardingRequired and added /api/auth/onboarding/username to complete first-login username selection.
+- Added focused API tests for callback handling, onboarding completion, and account-linking behavior.
+- Added web login, authenticated shell, and onboarding routes where /app redirects onboarding-required users to /onboarding/username until username selection succeeds.
+- Updated web auth/navigation source-contract tests and launch/docs environment guidance for external provider configuration.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/api lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --filter @sfus/web lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
