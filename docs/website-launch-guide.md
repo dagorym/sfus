@@ -48,9 +48,10 @@ The default local config contracts are:
 - `apps/api/.env`
   - `API_PORT=3001`
   - `AUTH_PASSWORD_PEPPER=changeme-auth-pepper` (required, minimum 16 characters)
-  - `AUTH_PASSWORD_BCRYPT_ROUNDS=12` (integer 8-15)
+  - `AUTH_SESSION_TOKEN_PEPPER=changeme-session-token-pepper` (required, minimum 16 characters, used to hash stored session and verification tokens)
   - `AUTH_SESSION_TTL_MINUTES=1440` (integer 5-43200)
   - `AUTH_SESSION_IDLE_TIMEOUT_MINUTES=120` (integer 5-10080 and must be less than or equal to the session TTL)
+  - `AUTH_EMAIL_VERIFICATION_TTL_MINUTES=60` (integer 5-10080, controls verification-token expiry)
   - `AUTH_TOTP_ISSUER=SFUS Development` (required issuer label presented to authenticator apps)
   - `AUTH_RECOVERY_CODE_COUNT=10` (integer 6-20)
   - `AUTH_RECOVERY_CODE_LENGTH=12` (integer 8-16)
@@ -97,6 +98,22 @@ Useful local URLs after startup:
 - web readiness: `http://localhost:3000/health/ready`
 - API liveness: `http://localhost:3001/api/health/live`
 - API readiness: `http://localhost:3001/api/health/ready`
+
+The current local auth API surface is available under `/api/auth`:
+
+- `POST /api/auth/register` creates a local account, stores the password with Argon2id plus the configured password pepper, and returns an email-verification requirement.
+- `POST /api/auth/verify-email` consumes a single-use verification token before the user can log in successfully.
+- `POST /api/auth/login` issues the `sfus_session` HTTP-only cookie and returns `{ user, session }`.
+- `POST /api/auth/logout` revokes the current session and clears the cookie.
+- `GET /api/auth/session` returns the same stable `{ user, session }` contract while the session remains active.
+
+Session-cookie behavior is intentionally deployment-aware:
+
+- the cookie is always `HttpOnly`, `SameSite=Lax`, and scoped to `/`
+- the cookie becomes `Secure` in production deployments
+- session resolution revokes records that hit either the absolute TTL or idle-timeout boundary
+
+For local development and tests, registration responses may include the raw verification token so the flow can be exercised without a real mail provider. Production behavior still stores only the hashed token and requires verification before login succeeds.
 
 Current user-facing website behavior is intentionally narrow:
 

@@ -21,9 +21,10 @@ const state = vi.hoisted(() => {
     swaggerEnabled: true,
     auth: {
       passwordPepper: "development-pepper-value",
-      passwordBcryptRounds: 12,
+      sessionTokenPepper: "development-session-token-pepper",
       sessionTtlMinutes: 1440,
       sessionIdleTimeoutMinutes: 120,
+      emailVerificationTtlMinutes: 60,
       totpIssuer: "SFUS Development",
       recoveryCodeCount: 10,
       recoveryCodeLength: 12

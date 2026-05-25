@@ -18,7 +18,7 @@ export class AppModule implements NestModule {
       imports: [
         DatabaseModule.register(environment),
         UsersModule,
-        AuthModule,
+        AuthModule.register(environment),
         AuthorizationModule,
         HealthModule.register(environment)
       ],

@@ -1,0 +1,55 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Document Milestone 2 Subtask 2 implementation and tester validation for local account registration/login/logout, email verification enforcement, secure session lifecycle, and stable authenticated-session API contract.
+
+Branches and context:
+- Base branch: `ms2`
+- Implementer branch: `ms2-subtask-2-implementer-20260525`
+- Tester branch: `ms2-subtask-2-tester-20260525`
+- Shared artifact directory (repository-root-relative): `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2`
+- Plan path: `plans/milestone-2-identity-accounts-and-access-control-foundation-plan.md`
+
+Validated outcomes to reflect in docs:
+- Argon2id password hashing with peppering is used for local password authenticators.
+- Email verification tokens are generated, hashed, expiry-checked, consumed once, and login is blocked until verification.
+- Session cookie lifecycle is enforced (issue, resolve, idle/expiry checks, revoke on logout).
+- Auth routes now include `/api/auth/register`, `/api/auth/verify-email`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/session` with stable `{ user, session }` contract on authenticated session responses.
+- Environment contract includes `AUTH_SESSION_TOKEN_PEPPER` and `AUTH_EMAIL_VERIFICATION_TTL_MINUTES`.
+
+Full modified-file context to review:
+- Implementer-modified files:
+  - `apps/api/.env.example`
+  - `apps/api/package.json`
+  - `apps/api/src/app.module.ts`
+  - `apps/api/src/auth/auth.controller.test.ts`
+  - `apps/api/src/auth/auth.controller.ts`
+  - `apps/api/src/auth/auth.module.ts`
+  - `apps/api/src/auth/auth.service.test.ts`
+  - `apps/api/src/auth/auth.service.ts`
+  - `apps/api/src/config/environment.test.ts`
+  - `apps/api/src/config/environment.ts`
+  - `apps/api/src/database/database.config.test.ts`
+  - `apps/api/src/health/readiness.service.test.ts`
+  - `apps/api/src/index.test.ts`
+  - `docs/README.md`
+  - `docs/website-launch-guide.md`
+  - `pnpm-lock.yaml`
+- Tester-modified files:
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2/tester_report.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2/tester_result.json`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2/documenter_prompt.txt`
+
+Tester evidence summary:
+- API: lint/typecheck/test/build passed (`7` files, `21` tests passed)
+- Web: lint/typecheck/test passed (`2` files, `6` tests passed)
+
+Documentation targets (update as needed):
+- `docs/README.md`
+- `docs/website-launch-guide.md`
+- `docs/deferred-tasks.md` (only if scope was intentionally deferred)
+
+Operational requirements:
+- Continue through the full documenter workflow; do not stop after activation metadata, scope restatement, or diff review when blocking inputs are present.
+- Write and commit `documenter_report.md` and `documenter_result.json` in the shared artifact directory.
+- Completion gate: **Do not report success unless all required artifacts exist and all changes are committed.**

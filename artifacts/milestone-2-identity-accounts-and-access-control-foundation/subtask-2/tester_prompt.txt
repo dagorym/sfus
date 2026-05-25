@@ -1,0 +1,53 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Completed verifier-driven remediation for Milestone 2 Subtask 2 by hardening auth body handling, making registration transactional, and expanding auth/session edge-case tests.
+
+Modified files:
+- apps/api/src/auth/auth.controller.ts
+- apps/api/src/auth/auth.service.ts
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.service.test.ts
+
+Acceptance criteria to validate (from Planner):
+- Users can register and log in with email and password, and passwords are hashed with Argon2id.
+- Email verification is implemented and enforced according to the milestone flow.
+- Secure session cookies are issued, validated, and cleared correctly.
+- A stable authenticated-user API contract exists for the frontend to consume.
+
+Create test files in:
+- apps/api/src/**/*.test.ts (inspect auth coverage, especially auth.service.test.ts and auth.controller.test.ts)
+- apps/web/** (inspect only auth-related frontend tests if present)
+
+Implementation context for testing:
+- Auth controller endpoints now accept unknown bodies and delegate parsing to service-level runtime validators, preventing TypeError-driven 500s for malformed payloads.
+- Registration persistence now runs inside a TypeORM transaction context so partial user/account rows are rolled back on mid-flow failures.
+- Auth service tests now cover malformed request bodies, transactional rollback behavior, expired verification tokens, replayed consumed verification tokens, and idle/absolute session-expiry revocation branches.
+- Auth controller tests include malformed verification request handling to ensure raw bodies are forwarded without pre-access crashes.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/api lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --filter @sfus/api build
+- npx --yes pnpm@10.0.0 --filter @sfus/web lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web test
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+- npx --yes pnpm@10.0.0 build
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
