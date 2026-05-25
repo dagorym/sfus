@@ -1,0 +1,85 @@
+Task summary:
+- Verify Milestone 2 Subtask 3 implementation, tester validation, and documentation coverage for provider-agnostic Google/GitHub external auth, deterministic account linking, and first-login username onboarding gating.
+
+Acceptance criteria to verify:
+1. Google and GitHub sign-in work end to end.
+2. Provider-specific code is isolated behind an adapter or registry boundary that is ready for additive future providers.
+3. First-login external users must complete username onboarding before normal authenticated use.
+4. Account linking avoids duplicate-account creation for the same external identity.
+5. Documentation accurately reflects the shipped login, callback, callback-URL, and onboarding route behavior.
+
+Implementation and branch context:
+- Base branch for comparison: `ms2`
+- Implementer branch: `ms2-subtask-3-implementer-20260525`
+- Tester branch: `ms2-subtask-3-tester-20260525`
+- Documenter branch: `ms2-subtask-3-documenter-20260525`
+- Parent tester branch: `ms2-subtask-3-tester-20260525`
+- Base implementer branch: `ms2-subtask-3-implementer-20260525`
+- Documenter worktree: `/home/tstephen/.copilot/session-state/980e354c-b84f-4a6e-bf11-2d080f8d01fc/files/worktrees/ms2-subtask-3-documenter-20260525`
+- Plan path: `plans/milestone-2-identity-accounts-and-access-control-foundation-plan.md`
+- Shared artifact directory: `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3`
+- Documentation commit hash to preserve in artifacts: `acaeab588259569977eeab5ac19c669ad6c08af9`
+
+Files in review scope:
+- Implementer-modified files:
+  - `apps/api/.env.example`
+  - `apps/api/src/auth/auth.controller.test.ts`
+  - `apps/api/src/auth/auth.controller.ts`
+  - `apps/api/src/auth/auth.module.ts`
+  - `apps/api/src/auth/auth.service.test.ts`
+  - `apps/api/src/auth/auth.service.ts`
+  - `apps/api/src/auth/external-auth-provider.registry.ts`
+  - `apps/api/src/config/config.constants.ts`
+  - `apps/api/src/config/environment.test.ts`
+  - `apps/api/src/config/environment.ts`
+  - `apps/api/src/database/database.config.test.ts`
+  - `apps/api/src/health/readiness.service.test.ts`
+  - `apps/api/src/index.test.ts`
+  - `apps/web/app/app/page.tsx`
+  - `apps/web/app/auth-client.ts`
+  - `apps/web/app/auth-shell.module.css`
+  - `apps/web/app/login/page.tsx`
+  - `apps/web/app/onboarding/username/page.tsx`
+  - `apps/web/app/public-shell.spec.ts`
+  - `docs/README.md`
+  - `docs/website-launch-guide.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/implementer_report.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/implementer_result.json`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/tester_prompt.txt`
+- Tester-modified files:
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/documenter_prompt.txt`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/tester_report.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/tester_result.json`
+- Documenter-modified files:
+  - `docs/README.md`
+  - `docs/website-launch-guide.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/documenter_report.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/documenter_result.json`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-3/verifier_prompt.txt`
+
+Commands executed:
+- Tester: `npx --yes pnpm@10.0.0 install`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/api lint`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/api typecheck`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/api test`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/web lint`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/web typecheck`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/web test`
+- Documenter: `npx --yes pnpm@10.0.0 install`
+- Documenter: `npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/auth/auth.controller.test.ts src/auth/auth.service.test.ts`
+- Documenter: `npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts`
+
+Validated outcomes so far:
+- Tester reported PASS with API lint/typecheck/test and web lint/typecheck/test all passing.
+- Tester confirmed auth controller/service coverage for provider start+callback, onboarding-required gating, onboarding completion, and deterministic email-based identity linking.
+- Tester confirmed web source-contract coverage for the external-start login path, `/app` onboarding redirect gate, and onboarding completion path back to `/app`.
+- Documenter updated `docs/README.md` and `docs/website-launch-guide.md` to align the route inventory, callback URL guidance, and onboarding gate narrative with the shipped behavior.
+
+Verification requirements:
+- Continue through the full verifier workflow in the same run when blocking inputs are present; do not stop after activation, review-scope establishment, convention discovery, or diff inspection.
+- Infer any missing but recoverable repository context from repository evidence before treating it as a blocker.
+- Review the combined diff against `ms2` for implementation, tester, and documenter changes together, and compare against `ms2-subtask-3-implementer-20260525` as needed for tester/documenter-stage outputs.
+- Explicitly inspect `docs/README.md` and `docs/website-launch-guide.md` alongside the auth implementation and tests.
+- Confirm `documenter_result.json` records documentation commit hash `acaeab588259569977eeab5ac19c669ad6c08af9`, not the later artifact commit hash.
+- Confirm this branch HEAD is exactly one artifact commit ahead of documentation commit `acaeab588259569977eeab5ac19c669ad6c08af9` after the artifact commit is created.
+- Completion gate: do not report success unless all required artifacts exist and all changes are committed.
