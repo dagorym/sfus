@@ -198,8 +198,7 @@ class GitHubAuthProviderAdapter implements ExternalAuthProviderAdapter {
       emailCandidates.find((candidate) => candidate.verified === true) ||
       null;
 
-    const email =
-      normalizeEmail(primaryVerifiedEmail?.email) || normalizeEmail(userProfile.email) || null;
+    const email = normalizeEmail(primaryVerifiedEmail?.email) || null;
     const emailVerified = Boolean(primaryVerifiedEmail?.verified);
 
     return {

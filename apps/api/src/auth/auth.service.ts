@@ -27,6 +27,7 @@ import type {
 const localIdentityProvider = "local-password";
 const onboardingPendingStatus = "onboarding_required";
 const sessionCookieName = "sfus_session";
+const externalAuthStateCookieName = "sfus_external_auth_state";
 const minimumPasswordLength = 12;
 const usernamePattern = /^[A-Za-z0-9_.-]{3,32}$/;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -95,6 +96,8 @@ export interface AuthenticatedSessionResult {
 
 export interface ExternalAuthStartResult {
   authorizationUrl: string;
+  stateCookieValue: string;
+  stateCookieExpiresAt: string;
 }
 
 export interface ExternalCallbackResult extends AuthenticatedSessionResult {
@@ -111,6 +114,8 @@ type PersistenceContext = {
 
 @Injectable()
 export class AuthService {
+  private readonly consumedExternalAuthStateHashes = new Map<string, number>();
+
   constructor(
     @InjectRepository(UserEntity)
     private readonly usersRepository: Repository<UserEntity>,
@@ -243,7 +248,9 @@ export class AuthService {
       nextPath: normalizeNextPath(nextPathInput)
     });
     return {
-      authorizationUrl: adapter.getAuthorizationUrl(state)
+      authorizationUrl: adapter.getAuthorizationUrl(state.value),
+      stateCookieValue: state.value,
+      stateCookieExpiresAt: state.expiresAt.toISOString()
     };
   }
 
@@ -252,7 +259,9 @@ export class AuthService {
     requestContext: SessionRequestContext
   ): Promise<ExternalCallbackResult> {
     const callbackInput = parseExternalCallbackInput(input);
+    this.assertExternalAuthStateBoundToRequest(callbackInput.state, requestContext);
     const statePayload = this.parseExternalAuthState(callbackInput.state, callbackInput.provider);
+    this.consumeExternalAuthState(callbackInput.state, statePayload.expiresAt);
     const adapter = this.externalProviderRegistry.resolve(callbackInput.provider);
     const identity = await adapter.exchangeCodeForIdentity(callbackInput.code);
 
@@ -406,6 +415,10 @@ export class AuthService {
     return sessionCookieName;
   }
 
+  getExternalAuthStateCookieName(): string {
+    return externalAuthStateCookieName;
+  }
+
   private async createSession(
     user: UserEntity,
     requestContext: SessionRequestContext
@@ -488,6 +501,8 @@ export class AuthService {
     identity: ExternalIdentityProfile,
     context: PersistenceContext
   ): Promise<UserEntity> {
+    const normalizedEmail = normalizeEmail(identity.email);
+    const canLinkByEmail = Boolean(identity.emailVerified && normalizedEmail);
     const existingIdentity = await context.authIdentitiesRepository.findOne({
       where: {
         provider: identity.provider,
@@ -504,8 +519,7 @@ export class AuthService {
       return existingUser;
     }
 
-    const normalizedEmail = normalizeEmail(identity.email);
-    const userByEmail = normalizedEmail
+    const userByEmail = canLinkByEmail
       ? await context.usersRepository.findOne({
           where: { email: normalizedEmail }
         })
@@ -518,15 +532,15 @@ export class AuthService {
         context.usersRepository.create({
           id: crypto.randomUUID(),
           username: createPendingUsername(),
-          email: normalizedEmail || createSyntheticExternalEmail(identity),
+          email: canLinkByEmail ? normalizedEmail : createSyntheticExternalEmail(identity),
           displayName: identity.displayName,
           status: onboardingPendingStatus,
           globalRole: "user",
-          emailVerifiedAt: identity.emailVerified ? now : null
+          emailVerifiedAt: canLinkByEmail ? now : null
         })
       ));
 
-    if (userByEmail && identity.emailVerified && !user.emailVerifiedAt) {
+    if (userByEmail && !user.emailVerifiedAt) {
       user.emailVerifiedAt = now;
       await context.usersRepository.save(user);
     }
@@ -537,18 +551,23 @@ export class AuthService {
         userId: user.id,
         provider: identity.provider,
         providerSubject: identity.subject,
-        providerEmail: normalizedEmail
+        providerEmail: canLinkByEmail ? normalizedEmail : null
       })
     );
     return user;
   }
 
-  private createExternalAuthState(payload: { provider: string; nextPath: string }): string {
+  private createExternalAuthState(payload: {
+    provider: string;
+    nextPath: string;
+  }): { value: string; expiresAt: Date } {
+    const now = Date.now();
+    const expiresAt = new Date(now + this.environment.auth.externalStateTtlMinutes * 60_000);
     const statePayload = {
       v: externalAuthStateVersion,
       p: payload.provider,
       n: payload.nextPath,
-      iat: Date.now(),
+      iat: now,
       nonce: createToken()
     };
     const encodedPayload = Buffer.from(JSON.stringify(statePayload)).toString("base64url");
@@ -556,13 +575,16 @@ export class AuthService {
       .createHmac("sha256", this.environment.auth.sessionTokenPepper)
       .update(encodedPayload)
       .digest("base64url");
-    return `${encodedPayload}.${signature}`;
+    return {
+      value: `${encodedPayload}.${signature}`,
+      expiresAt
+    };
   }
 
   private parseExternalAuthState(
     stateInput: string,
     expectedProvider: string
-  ): { nextPath: string } {
+  ): { nextPath: string; expiresAt: number } {
     const [encodedPayload, signature] = stateInput.split(".");
     if (!encodedPayload || !signature) {
       throw new BadRequestException("Invalid authentication callback state.");
@@ -572,7 +594,7 @@ export class AuthService {
       .createHmac("sha256", this.environment.auth.sessionTokenPepper)
       .update(encodedPayload)
       .digest("base64url");
-    if (expectedSignature !== signature) {
+    if (!timingSafeEqual(expectedSignature, signature)) {
       throw new BadRequestException("Invalid authentication callback state.");
     }
 
@@ -601,8 +623,42 @@ export class AuthService {
     }
 
     return {
-      nextPath: normalizeNextPath(payload.n)
+      nextPath: normalizeNextPath(payload.n),
+      expiresAt
     };
+  }
+
+  private assertExternalAuthStateBoundToRequest(
+    state: string,
+    requestContext: SessionRequestContext
+  ): void {
+    const cookieHeader = requestContext.cookieHeader || "";
+    const parsedCookies = parseCookieHeader(cookieHeader);
+    const stateCookie = parsedCookies[externalAuthStateCookieName];
+    if (!stateCookie || !timingSafeEqual(stateCookie, state)) {
+      throw new BadRequestException("Invalid authentication callback state.");
+    }
+  }
+
+  private consumeExternalAuthState(state: string, expiresAt: number): void {
+    this.pruneConsumedExternalAuthStates();
+
+    const stateHash = this.hashToken(`external-auth-state:${state}`);
+    const existingExpiry = this.consumedExternalAuthStateHashes.get(stateHash);
+    if (existingExpiry && existingExpiry > Date.now()) {
+      throw new BadRequestException("Invalid authentication callback state.");
+    }
+
+    this.consumedExternalAuthStateHashes.set(stateHash, expiresAt);
+  }
+
+  private pruneConsumedExternalAuthStates(): void {
+    const now = Date.now();
+    for (const [stateHash, expiresAt] of this.consumedExternalAuthStateHashes.entries()) {
+      if (expiresAt <= now) {
+        this.consumedExternalAuthStateHashes.delete(stateHash);
+      }
+    }
   }
 }
 
@@ -763,4 +819,14 @@ const parseCookieHeader = (cookieHeader: string): Record<string, string> => {
       accumulator[key] = value;
       return accumulator;
     }, {});
+};
+
+const timingSafeEqual = (left: string, right: string): boolean => {
+  const leftBuffer = Buffer.from(left, "utf8");
+  const rightBuffer = Buffer.from(right, "utf8");
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 };

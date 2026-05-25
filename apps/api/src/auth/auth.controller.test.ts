@@ -164,7 +164,9 @@ describe("AuthController", () => {
   it("redirects to provider auth urls and handles callback redirects", async () => {
     const authService = {
       startExternalAuth: vi.fn().mockReturnValue({
-        authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth?state=abc"
+        authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth?state=abc",
+        stateCookieValue: "state-token",
+        stateCookieExpiresAt: new Date(Date.now() + 60_000).toISOString()
       }),
       loginWithExternalProvider: vi.fn().mockResolvedValue({
         user: {
@@ -186,21 +188,32 @@ describe("AuthController", () => {
         sessionToken: "session-token",
         redirectPath: "/onboarding/username"
       }),
-      getSessionCookieName: vi.fn().mockReturnValue("sfus_session")
+      getSessionCookieName: vi.fn().mockReturnValue("sfus_session"),
+      getExternalAuthStateCookieName: vi.fn().mockReturnValue("sfus_external_auth_state")
     } as unknown as AuthService;
     const controller = new AuthController(authService, createEnvironment());
     const redirectResponse = {
+      cookie: vi.fn(),
       redirect: vi.fn()
     };
 
-    await controller.startExternalAuth("google", "/app", redirectResponse as never);
+    await controller.startExternalAuth("google", "/app", {} as never, redirectResponse as never);
     expect(authService.startExternalAuth).toHaveBeenCalledWith("google", "/app");
+    expect(redirectResponse.cookie).toHaveBeenCalledWith(
+      "sfus_external_auth_state",
+      "state-token",
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: "lax"
+      })
+    );
     expect(redirectResponse.redirect).toHaveBeenCalledWith(
       "https://accounts.google.com/o/oauth2/v2/auth?state=abc"
     );
 
     const callbackResponse = {
       cookie: vi.fn(),
+      clearCookie: vi.fn(),
       redirect: vi.fn()
     };
     await controller.externalAuthCallback(
@@ -209,7 +222,7 @@ describe("AuthController", () => {
       "state-token",
       {
         headers: {
-          cookie: "sfus_session=session-token",
+          cookie: "sfus_external_auth_state=state-token; sfus_session=session-token",
           "user-agent": "vitest"
         },
         ip: "127.0.0.1"
@@ -223,8 +236,12 @@ describe("AuthController", () => {
         state: "state-token"
       },
       expect.objectContaining({
-        cookieHeader: "sfus_session=session-token"
+        cookieHeader: "sfus_external_auth_state=state-token; sfus_session=session-token"
       })
+    );
+    expect(callbackResponse.clearCookie).toHaveBeenCalledWith(
+      "sfus_external_auth_state",
+      expect.objectContaining({ httpOnly: true })
     );
     expect(callbackResponse.cookie).toHaveBeenCalledWith(
       "sfus_session",

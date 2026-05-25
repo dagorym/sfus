@@ -465,7 +465,9 @@ describe("AuthService", () => {
         code: "auth-code",
         state: start.authorizationUrl.split("state=")[1]
       },
-      {}
+      {
+        cookieHeader: `${service.getExternalAuthStateCookieName()}=${start.stateCookieValue}`
+      }
     );
 
     expect(callback.redirectPath).toBe("/onboarding/username");
@@ -517,7 +519,9 @@ describe("AuthService", () => {
         code: "auth-code",
         state: start.authorizationUrl.split("state=")[1]
       },
-      {}
+      {
+        cookieHeader: `${service.getExternalAuthStateCookieName()}=${start.stateCookieValue}`
+      }
     );
     expect(callback.user.email).toBe("linked@example.com");
     expect(callback.user.status).toBe("active");
@@ -528,6 +532,132 @@ describe("AuthService", () => {
         (identity) => identity.provider === "github" && identity.userId === callback.user.id
       )
     ).toHaveLength(1);
+  });
+
+  it("rejects external callbacks that are not bound to the initiating browser state cookie", async () => {
+    const { service } = createService({
+      resolve: (provider: string) => ({
+        provider,
+        getAuthorizationUrl: (state: string) => `https://example.test/${provider}/auth?state=${state}`,
+        exchangeCodeForIdentity: async () => ({
+          provider,
+          subject: "provider-subject",
+          email: "external@example.com",
+          emailVerified: true,
+          displayName: "External User"
+        })
+      })
+    });
+
+    const start = service.startExternalAuth("google", "/app");
+    const state = start.authorizationUrl.split("state=")[1]!;
+
+    await expect(
+      service.loginWithExternalProvider(
+        {
+          provider: "google",
+          code: "auth-code",
+          state
+        },
+        {
+          cookieHeader: `${service.getExternalAuthStateCookieName()}=different-state`
+        }
+      )
+    ).rejects.toThrowError("Invalid authentication callback state.");
+  });
+
+  it("rejects replayed external callback state tokens", async () => {
+    const { service } = createService({
+      resolve: (provider: string) => ({
+        provider,
+        getAuthorizationUrl: (state: string) => `https://example.test/${provider}/auth?state=${state}`,
+        exchangeCodeForIdentity: async () => ({
+          provider,
+          subject: "provider-subject",
+          email: "external@example.com",
+          emailVerified: true,
+          displayName: "External User"
+        })
+      })
+    });
+
+    const start = service.startExternalAuth("google", "/app");
+    const state = start.authorizationUrl.split("state=")[1]!;
+    const cookieHeader = `${service.getExternalAuthStateCookieName()}=${start.stateCookieValue}`;
+
+    await service.loginWithExternalProvider(
+      {
+        provider: "google",
+        code: "auth-code",
+        state
+      },
+      {
+        cookieHeader
+      }
+    );
+
+    await expect(
+      service.loginWithExternalProvider(
+        {
+          provider: "google",
+          code: "auth-code-2",
+          state
+        },
+        {
+          cookieHeader
+        }
+      )
+    ).rejects.toThrowError("Invalid authentication callback state.");
+  });
+
+  it("does not link unverified external emails to existing local accounts", async () => {
+    const { service, authIdentitiesRepository, usersRepository } = createService({
+      resolve: (provider: string) => ({
+        provider,
+        getAuthorizationUrl: (state: string) => `https://example.test/${provider}?state=${state}`,
+        exchangeCodeForIdentity: async () => ({
+          provider,
+          subject: "github-unverified-subject",
+          email: "linked@example.com",
+          emailVerified: false,
+          displayName: "Unverified Linked User"
+        })
+      })
+    });
+    const registration = await service.registerAccount({
+      email: "linked@example.com",
+      username: "linked_local",
+      password: "super-secure-password"
+    });
+    await service.verifyEmailToken(registration.emailVerification.token!);
+
+    const start = service.startExternalAuth("github", "/app");
+    const callback = await service.loginWithExternalProvider(
+      {
+        provider: "github",
+        code: "auth-code",
+        state: start.authorizationUrl.split("state=")[1]
+      },
+      {
+        cookieHeader: `${service.getExternalAuthStateCookieName()}=${start.stateCookieValue}`
+      }
+    );
+
+    expect(callback.user.id).not.toBe(registration.user.id);
+    expect(callback.user.email).toBe("github_github-unverified-subject@users.noreply.sfus.local");
+    expect(callback.user.emailVerified).toBe(false);
+    expect(callback.redirectPath).toBe("/onboarding/username");
+    expect(usersRepository.data).toHaveLength(2);
+    expect(
+      authIdentitiesRepository.data.filter(
+        (identity) => identity.provider === "github" && identity.userId === callback.user.id
+      )
+    ).toHaveLength(1);
+    expect(
+      authIdentitiesRepository.data.find(
+        (identity) => identity.provider === "github" && identity.providerSubject === "github-unverified-subject"
+      )?.providerEmail
+    ).toBeNull();
   });
 
   it("rejects invalid verification tokens", async () => {

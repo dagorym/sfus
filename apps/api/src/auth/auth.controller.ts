@@ -108,9 +108,11 @@ export class AuthController {
   async startExternalAuth(
     @Param("provider") provider: string,
     @Query("next") nextPath: string | undefined,
+    @Req() _request: Request,
     @Res() response: Response
   ): Promise<void> {
     const result = this.authService.startExternalAuth(provider, nextPath);
+    this.setExternalAuthStateCookie(response, result.stateCookieValue, result.stateCookieExpiresAt);
     response.redirect(result.authorizationUrl);
   }
 
@@ -123,18 +125,24 @@ export class AuthController {
     @Req() request: Request,
     @Res() response: Response
   ): Promise<void> {
-    const result = await this.authService.loginWithExternalProvider(
-      {
-        provider,
-        code,
-        state
-      },
-      {
-        cookieHeader: request.headers.cookie,
-        ipAddress: request.ip || null,
-        userAgent: request.headers["user-agent"] || null
-      }
-    );
+    const requestContext = {
+      cookieHeader: request.headers.cookie,
+      ipAddress: request.ip || null,
+      userAgent: request.headers["user-agent"] || null
+    };
+    let result: Awaited<ReturnType<AuthService["loginWithExternalProvider"]>>;
+    try {
+      result = await this.authService.loginWithExternalProvider(
+        {
+          provider,
+          code,
+          state
+        },
+        requestContext
+      );
+    } finally {
+      this.clearExternalAuthStateCookie(response);
+    }
     this.setSessionCookie(response, result.sessionToken, result.session.expiresAt);
     response.redirect(result.redirectPath);
   }
@@ -168,6 +176,25 @@ export class AuthController {
 
   private clearSessionCookie(response: Response): void {
     response.clearCookie(this.authService.getSessionCookieName(), {
+      httpOnly: true,
+      secure: this.environment.nodeEnv === "production",
+      sameSite: "lax",
+      path: "/"
+    });
+  }
+
+  private setExternalAuthStateCookie(response: Response, state: string, expiresAt: string): void {
+    response.cookie(this.authService.getExternalAuthStateCookieName(), state, {
+      httpOnly: true,
+      secure: this.environment.nodeEnv === "production",
+      sameSite: "lax",
+      path: "/",
+      expires: new Date(expiresAt)
+    });
+  }
+
+  private clearExternalAuthStateCookie(response: Response): void {
+    response.clearCookie(this.authService.getExternalAuthStateCookieName(), {
       httpOnly: true,
       secure: this.environment.nodeEnv === "production",
       sameSite: "lax",
