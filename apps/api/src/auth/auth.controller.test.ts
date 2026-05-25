@@ -121,4 +121,28 @@ describe("AuthController", () => {
       })
     );
   });
+
+  it("forwards raw verification request bodies without throwing type errors", async () => {
+    const authService = {
+      verifyEmailToken: vi.fn().mockResolvedValue({
+        user: {
+          id: "user-1",
+          username: "user",
+          email: "user@example.com",
+          displayName: null,
+          globalRole: "user",
+          status: "active",
+          emailVerified: true,
+          emailVerifiedAt: new Date().toISOString()
+        }
+      })
+    } as unknown as AuthService;
+    const controller = new AuthController(authService, createEnvironment());
+
+    await expect(controller.verifyEmail(null as never)).resolves.toEqual({
+      user: expect.objectContaining({ email: "user@example.com" }),
+      verified: true
+    });
+    expect(authService.verifyEmailToken).toHaveBeenCalledWith(null);
+  });
 });

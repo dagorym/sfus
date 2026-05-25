@@ -79,6 +79,14 @@ export interface AuthenticatedSessionResult {
   sessionToken: string;
 }
 
+type PersistenceContext = {
+  usersRepository: Repository<UserEntity>;
+  authIdentitiesRepository: Repository<AuthIdentityEntity>;
+  passwordAuthenticatorsRepository: Repository<PasswordAuthenticatorEntity>;
+  authSessionsRepository: Repository<AuthSessionEntity>;
+  emailVerificationsRepository: Repository<EmailVerificationEntity>;
+};
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -96,71 +104,75 @@ export class AuthService {
     private readonly environment: ApplicationEnvironment
   ) {}
 
-  async registerAccount(input: RegisterInput): Promise<RegistrationResult> {
-    const email = normalizeEmail(input.email);
-    const username = input.username.trim();
-    const password = input.password;
-    validateRegistrationInput(email, username, password);
-
-    const existingByEmail = await this.usersRepository.findOne({ where: { email } });
-    if (existingByEmail) {
-      throw new BadRequestException("An account with this email already exists.");
-    }
-
-    const existingByUsername = await this.usersRepository.findOne({ where: { username } });
-    if (existingByUsername) {
-      throw new BadRequestException("This username is already in use.");
-    }
-
+  async registerAccount(input: RegisterInput | unknown): Promise<RegistrationResult> {
+    const registrationInput = parseRegistrationInput(input);
     const now = new Date();
     const verificationToken = createToken();
-    const user = await this.usersRepository.save(
-      this.usersRepository.create({
-        id: crypto.randomUUID(),
-        username,
-        email,
-        displayName: null,
-        status: "active",
-        globalRole: "user",
-        emailVerifiedAt: null
-      })
-    );
-
-    await this.authIdentitiesRepository.save(
-      this.authIdentitiesRepository.create({
-        id: crypto.randomUUID(),
-        userId: user.id,
-        provider: localIdentityProvider,
-        providerSubject: user.id,
-        providerEmail: email
-      })
-    );
-
-    const passwordHash = await argon2.hash(this.withPasswordPepper(password), {
-      type: argon2.argon2id
-    });
-
-    await this.passwordAuthenticatorsRepository.save(
-      this.passwordAuthenticatorsRepository.create({
-        id: crypto.randomUUID(),
-        userId: user.id,
-        passwordHash,
-        passwordVersion: 1,
-        passwordUpdatedAt: now
-      })
-    );
-
     const verificationExpiresAt = addMinutes(now, this.environment.auth.emailVerificationTtlMinutes);
-    await this.emailVerificationsRepository.save(
-      this.emailVerificationsRepository.create({
-        id: crypto.randomUUID(),
-        userId: user.id,
-        purpose: "primary_email",
-        tokenHash: this.hashToken(verificationToken),
-        expiresAt: verificationExpiresAt,
-        consumedAt: null
-      })
-    );
+    const user = await this.withPersistenceContext(async (context) => {
+      const existingByEmail = await context.usersRepository.findOne({
+        where: { email: registrationInput.email }
+      });
+      if (existingByEmail) {
+        throw new BadRequestException("An account with this email already exists.");
+      }
+
+      const existingByUsername = await context.usersRepository.findOne({
+        where: { username: registrationInput.username }
+      });
+      if (existingByUsername) {
+        throw new BadRequestException("This username is already in use.");
+      }
+
+      const createdUser = await context.usersRepository.save(
+        context.usersRepository.create({
+          id: crypto.randomUUID(),
+          username: registrationInput.username,
+          email: registrationInput.email,
+          displayName: null,
+          status: "active",
+          globalRole: "user",
+          emailVerifiedAt: null
+        })
+      );
+
+      await context.authIdentitiesRepository.save(
+        context.authIdentitiesRepository.create({
+          id: crypto.randomUUID(),
+          userId: createdUser.id,
+          provider: localIdentityProvider,
+          providerSubject: createdUser.id,
+          providerEmail: registrationInput.email
+        })
+      );
+
+      const passwordHash = await argon2.hash(this.withPasswordPepper(registrationInput.password), {
+        type: argon2.argon2id
+      });
+
+      await context.passwordAuthenticatorsRepository.save(
+        context.passwordAuthenticatorsRepository.create({
+          id: crypto.randomUUID(),
+          userId: createdUser.id,
+          passwordHash,
+          passwordVersion: 1,
+          passwordUpdatedAt: now
+        })
+      );
+
+      await context.emailVerificationsRepository.save(
+        context.emailVerificationsRepository.create({
+          id: crypto.randomUUID(),
+          userId: createdUser.id,
+          purpose: "primary_email",
+          tokenHash: this.hashToken(verificationToken),
+          expiresAt: verificationExpiresAt,
+          consumedAt: null
+        })
+      );
+
+      return createdUser;
+    });
 
     return {
       user: mapUser(user),
@@ -172,11 +184,8 @@ export class AuthService {
     };
   }
 
-  async verifyEmailToken(token: string): Promise<VerificationResult> {
-    const normalizedToken = token.trim();
-    if (!normalizedToken) {
-      throw new BadRequestException("Verification token is required.");
-    }
+  async verifyEmailToken(tokenInput: unknown): Promise<VerificationResult> {
+    const normalizedToken = parseVerificationToken(tokenInput);
 
     const verification = await this.emailVerificationsRepository.findOne({
       where: { tokenHash: this.hashToken(normalizedToken) }
@@ -203,14 +212,10 @@ export class AuthService {
   }
 
   async loginWithPassword(
-    input: LoginInput,
+    input: LoginInput | unknown,
     requestContext: SessionRequestContext
   ): Promise<AuthenticatedSessionResult> {
-    const email = normalizeEmail(input.email);
-    const password = input.password;
-    if (!emailPattern.test(email) || !password) {
-      throw new BadRequestException("Email and password are required.");
-    }
+    const { email, password } = parseLoginInput(input);
 
     const user = await this.usersRepository.findOne({ where: { email } });
     if (!user) {
@@ -322,6 +327,33 @@ export class AuthService {
     return sessionCookieName;
   }
 
+  private async withPersistenceContext<T>(
+    operation: (context: PersistenceContext) => Promise<T>
+  ): Promise<T> {
+    const manager = this.usersRepository.manager;
+    if (manager && typeof manager.transaction === "function") {
+      return manager.transaction(async (entityManager) => {
+        const context: PersistenceContext = {
+          usersRepository: entityManager.getRepository(UserEntity),
+          authIdentitiesRepository: entityManager.getRepository(AuthIdentityEntity),
+          passwordAuthenticatorsRepository: entityManager.getRepository(PasswordAuthenticatorEntity),
+          authSessionsRepository: entityManager.getRepository(AuthSessionEntity),
+          emailVerificationsRepository: entityManager.getRepository(EmailVerificationEntity)
+        };
+
+        return operation(context);
+      });
+    }
+
+    return operation({
+      usersRepository: this.usersRepository,
+      authIdentitiesRepository: this.authIdentitiesRepository,
+      passwordAuthenticatorsRepository: this.passwordAuthenticatorsRepository,
+      authSessionsRepository: this.authSessionsRepository,
+      emailVerificationsRepository: this.emailVerificationsRepository
+    });
+  }
+
   private withPasswordPepper(password: string): string {
     return `${password}${this.environment.auth.passwordPepper}`;
   }
@@ -367,9 +399,10 @@ const mapSession = (session: AuthSessionEntity): AuthenticatedSessionPayload => 
   lastSeenAt: session.lastSeenAt.toISOString()
 });
 
-const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+const normalizeEmail = (email: unknown): string =>
+  typeof email === "string" ? email.trim().toLowerCase() : "";
 
-const validateRegistrationInput = (email: string, username: string, password: string): void => {
+const validateRegistrationInput = (email: string, username: string, password: unknown): void => {
   if (!emailPattern.test(email)) {
     throw new BadRequestException("A valid email address is required.");
   }
@@ -380,10 +413,51 @@ const validateRegistrationInput = (email: string, username: string, password: st
     );
   }
 
-  if (password.length < minimumPasswordLength) {
+  if (typeof password !== "string" || password.length < minimumPasswordLength) {
     throw new BadRequestException(`Password must be at least ${minimumPasswordLength} characters.`);
   }
 };
+
+const parseRegistrationInput = (input: unknown): RegisterInput => {
+  const record = asRecord(input);
+  const email = normalizeEmail(record.email);
+  const username = typeof record.username === "string" ? record.username.trim() : "";
+  const password = typeof record.password === "string" ? record.password : "";
+
+  validateRegistrationInput(email, username, password);
+
+  return {
+    email,
+    username,
+    password
+  };
+};
+
+const parseLoginInput = (input: unknown): LoginInput => {
+  const record = asRecord(input);
+  const email = normalizeEmail(record.email);
+  const password = typeof record.password === "string" ? record.password : "";
+
+  if (!emailPattern.test(email) || !password) {
+    throw new BadRequestException("Email and password are required.");
+  }
+
+  return { email, password };
+};
+
+const parseVerificationToken = (tokenInput: unknown): string => {
+  const record = asRecord(tokenInput);
+  const token = typeof tokenInput === "string" ? tokenInput : typeof record.token === "string" ? record.token : "";
+  const normalizedToken = token.trim();
+  if (!normalizedToken) {
+    throw new BadRequestException("Verification token is required.");
+  }
+
+  return normalizedToken;
+};
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 
 const createToken = (): string => crypto.randomBytes(32).toString("base64url");
 

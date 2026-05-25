@@ -10,21 +10,6 @@ import {
   AuthService
 } from "./auth.service";
 
-interface RegisterRequestBody {
-  email: string;
-  username: string;
-  password: string;
-}
-
-interface LoginRequestBody {
-  email: string;
-  password: string;
-}
-
-interface VerifyEmailRequestBody {
-  token: string;
-}
-
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
@@ -38,7 +23,7 @@ export class AuthController {
   @ApiOperation({ summary: "Register a local account with email and password." })
   @ApiOkResponse({ description: "Registration succeeded and email verification is required." })
   async register(
-    @Body() body: RegisterRequestBody
+    @Body() body: unknown
   ): Promise<{
     user: AuthenticatedUserPayload;
     emailVerification: { required: true; expiresAt: string; token?: string };
@@ -49,11 +34,11 @@ export class AuthController {
   @Post("verify-email")
   @ApiOperation({ summary: "Verify the primary email address with a verification token." })
   @ApiOkResponse({ description: "Email verification succeeded." })
-  async verifyEmail(@Body() body: VerifyEmailRequestBody): Promise<{
+  async verifyEmail(@Body() body: unknown): Promise<{
     user: AuthenticatedUserPayload;
     verified: true;
   }> {
-    const result = await this.authService.verifyEmailToken(body.token);
+    const result = await this.authService.verifyEmailToken(body);
     return {
       user: result.user,
       verified: true
@@ -64,7 +49,7 @@ export class AuthController {
   @ApiOperation({ summary: "Authenticate and start an HTTP-only session." })
   @ApiOkResponse({ description: "Login succeeded and a secure session cookie was issued." })
   async login(
-    @Body() body: LoginRequestBody,
+    @Body() body: unknown,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response
   ): Promise<{ user: AuthenticatedUserPayload; session: AuthenticatedSessionPayload }> {
