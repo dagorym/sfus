@@ -47,6 +47,13 @@ The default local config contracts are:
   - `WEB_API_INTERNAL_URL=http://api:3001`
 - `apps/api/.env`
   - `API_PORT=3001`
+  - `AUTH_PASSWORD_PEPPER=changeme-auth-pepper` (required, minimum 16 characters)
+  - `AUTH_PASSWORD_BCRYPT_ROUNDS=12` (integer 8-15)
+  - `AUTH_SESSION_TTL_MINUTES=1440` (integer 5-43200)
+  - `AUTH_SESSION_IDLE_TIMEOUT_MINUTES=120` (integer 5-10080 and must be less than or equal to the session TTL)
+  - `AUTH_TOTP_ISSUER=SFUS Development` (required issuer label presented to authenticator apps)
+  - `AUTH_RECOVERY_CODE_COUNT=10` (integer 6-20)
+  - `AUTH_RECOVERY_CODE_LENGTH=12` (integer 8-16)
   - `DB_HOST=mysql`
   - `DB_PORT=3306`
   - `DB_NAME=sfus`
@@ -105,6 +112,8 @@ The API image does not run migrations automatically on startup. After the stack 
 ```bash
 docker compose --env-file .env -f cicd/docker/compose.dev.yml --profile fullstack run --rm api node dist/index.js migration:run
 ```
+
+Migration inspection commands such as `npx --yes pnpm@10.0.0 --filter @sfus/api run migration:show` use the same API environment contract and also require reachable MySQL connectivity. In a worktree without a running `mysql` service, those inspection commands are expected to fail at the connection step until MySQL is available.
 
 After that, verify readiness:
 
