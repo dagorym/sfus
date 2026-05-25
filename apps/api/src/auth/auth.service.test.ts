@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import argon2 from "argon2";
 import { describe, expect, it } from "vitest";
 
@@ -8,6 +9,8 @@ import { AuthIdentityEntity } from "./entities/auth-identity.entity";
 import { AuthSessionEntity } from "./entities/auth-session.entity";
 import { EmailVerificationEntity } from "./entities/email-verification.entity";
 import { PasswordAuthenticatorEntity } from "./entities/password-authenticator.entity";
+import { TotpRecoveryCodeEntity } from "./entities/totp-recovery-code.entity";
+import { TotpSecretEntity } from "./entities/totp-secret.entity";
 import { UserEntity } from "../users/entities/user.entity";
 
 type EntityClass =
@@ -15,13 +18,16 @@ type EntityClass =
   | typeof AuthIdentityEntity
   | typeof PasswordAuthenticatorEntity
   | typeof AuthSessionEntity
-  | typeof EmailVerificationEntity;
+  | typeof EmailVerificationEntity
+  | typeof TotpSecretEntity
+  | typeof TotpRecoveryCodeEntity;
 
 type RepositoryLike<T extends { id: string }> = {
   data: T[];
   create: (entityLike: Partial<T>) => T;
-  save: (entity: T) => Promise<T>;
+  save: (entity: T | T[]) => Promise<T | T[]>;
   findOne: (input: { where: Partial<T> }) => Promise<T | null>;
+  delete: (input: Partial<T>) => Promise<void>;
   failNextSave: (error: Error) => void;
   manager?: {
     transaction: <TResult>(
@@ -37,18 +43,21 @@ const createRepository = <T extends { id: string }>(): RepositoryLike<T> => {
   return {
     data,
     create: (entityLike: Partial<T>) => entityLike as T,
-    save: async (entity: T): Promise<T> => {
+    save: async (entity: T | T[]): Promise<T | T[]> => {
+      const entities = Array.isArray(entity) ? entity : [entity];
       if (nextSaveError) {
         const error = nextSaveError;
         nextSaveError = null;
         throw error;
       }
 
-      const existingIndex = data.findIndex((current) => current.id === entity.id);
-      if (existingIndex >= 0) {
-        data[existingIndex] = entity;
-      } else {
-        data.push(entity);
+      for (const entry of entities) {
+        const existingIndex = data.findIndex((current) => current.id === entry.id);
+        if (existingIndex >= 0) {
+          data[existingIndex] = entry;
+        } else {
+          data.push(entry);
+        }
       }
 
       return entity;
@@ -59,6 +68,18 @@ const createRepository = <T extends { id: string }>(): RepositoryLike<T> => {
         keys.every((key) => candidate[key] === input.where[key])
       );
       return found || null;
+    },
+    delete: async (input: Partial<T>): Promise<void> => {
+      const keys = Object.keys(input) as Array<keyof T>;
+      if (!keys.length) {
+        data.length = 0;
+        return;
+      }
+      const retained = data.filter(
+        (candidate) => !keys.every((key) => candidate[key] === input[key])
+      );
+      data.length = 0;
+      data.push(...retained);
     },
     failNextSave: (error: Error): void => {
       nextSaveError = error;
@@ -104,6 +125,38 @@ const createEnvironment = (): ApplicationEnvironment => ({
   }
 });
 
+const decodeBase32Secret = (secret: string): Buffer => {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const normalized = secret.replace(/=+$/g, "");
+  let bits = 0;
+  let current = 0;
+  const bytes: number[] = [];
+  for (const char of normalized) {
+    const index = alphabet.indexOf(char);
+    current = (current << 5) | index;
+    bits += 5;
+    if (bits >= 8) {
+      bytes.push((current >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(bytes);
+};
+
+const createTotpCode = (secret: string): string => {
+  const key = decodeBase32Secret(secret);
+  const counterBuffer = Buffer.alloc(8);
+  counterBuffer.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000)));
+  const digest = crypto.createHmac("sha1", key).update(counterBuffer).digest();
+  const offset = digest[digest.length - 1]! & 0x0f;
+  const binary =
+    ((digest[offset]! & 0x7f) << 24) |
+    ((digest[offset + 1]! & 0xff) << 16) |
+    ((digest[offset + 2]! & 0xff) << 8) |
+    (digest[offset + 3]! & 0xff);
+  return (binary % 1_000_000).toString().padStart(6, "0");
+};
+
 const createService = (
   providerRegistry: ExternalAuthProviderRegistry = {
     resolve: (provider: string) => {
@@ -116,6 +169,8 @@ const createService = (
   const passwordAuthenticatorsRepository = createRepository<PasswordAuthenticatorEntity>();
   const authSessionsRepository = createRepository<AuthSessionEntity>();
   const emailVerificationsRepository = createRepository<EmailVerificationEntity>();
+  const totpSecretsRepository = createRepository<TotpSecretEntity>();
+  const totpRecoveryCodesRepository = createRepository<TotpRecoveryCodeEntity>();
 
   const repositoryByEntity = new Map<EntityClass, RepositoryLike<{ id: string }>>([
     [UserEntity, usersRepository as unknown as RepositoryLike<{ id: string }>],
@@ -125,7 +180,9 @@ const createService = (
       passwordAuthenticatorsRepository as unknown as RepositoryLike<{ id: string }>
     ],
     [AuthSessionEntity, authSessionsRepository as unknown as RepositoryLike<{ id: string }>],
-    [EmailVerificationEntity, emailVerificationsRepository as unknown as RepositoryLike<{ id: string }>]
+    [EmailVerificationEntity, emailVerificationsRepository as unknown as RepositoryLike<{ id: string }>],
+    [TotpSecretEntity, totpSecretsRepository as unknown as RepositoryLike<{ id: string }>],
+    [TotpRecoveryCodeEntity, totpRecoveryCodesRepository as unknown as RepositoryLike<{ id: string }>]
   ]);
 
   const cloneRepositoryData = () =>
@@ -174,6 +231,8 @@ const createService = (
   passwordAuthenticatorsRepository.manager = manager;
   authSessionsRepository.manager = manager;
   emailVerificationsRepository.manager = manager;
+  totpSecretsRepository.manager = manager;
+  totpRecoveryCodesRepository.manager = manager;
 
   const service = new AuthService(
     usersRepository as never,
@@ -181,6 +240,8 @@ const createService = (
     passwordAuthenticatorsRepository as never,
     authSessionsRepository as never,
     emailVerificationsRepository as never,
+    totpSecretsRepository as never,
+    totpRecoveryCodesRepository as never,
     createEnvironment(),
     providerRegistry
   );
@@ -192,8 +253,28 @@ const createService = (
     passwordAuthenticatorsRepository,
     authSessionsRepository,
     emailVerificationsRepository,
+    totpSecretsRepository,
+    totpRecoveryCodesRepository,
     providerRegistry
   };
+};
+
+const expectPasswordSession = (
+  result: Awaited<ReturnType<AuthService["loginWithPassword"]>>
+): Exclude<Awaited<ReturnType<AuthService["loginWithPassword"]>>, { mfa: unknown }> => {
+  if ("mfa" in result) {
+    throw new Error("Expected direct session login, but MFA challenge was returned.");
+  }
+  return result;
+};
+
+const expectExternalSession = (
+  result: Awaited<ReturnType<AuthService["loginWithExternalProvider"]>>
+): Exclude<Awaited<ReturnType<AuthService["loginWithExternalProvider"]>>, { mfa: unknown }> => {
+  if ("mfa" in result) {
+    throw new Error("Expected external session login, but MFA challenge was returned.");
+  }
+  return result;
 };
 
 describe("AuthService", () => {
@@ -318,7 +399,8 @@ describe("AuthService", () => {
       }
     });
 
-    const login = await service.loginWithPassword(
+    const login = expectPasswordSession(
+      await service.loginWithPassword(
       {
         email: "flow@example.com",
         password: "super-secure-password"
@@ -327,6 +409,7 @@ describe("AuthService", () => {
         ipAddress: "127.0.0.1",
         userAgent: "vitest"
       }
+      )
     );
     expect(login.sessionToken).toBeTruthy();
     await expect(
@@ -395,12 +478,14 @@ describe("AuthService", () => {
     });
 
     await service.verifyEmailToken(registration.emailVerification.token!);
-    const login = await service.loginWithPassword(
+    const login = expectPasswordSession(
+      await service.loginWithPassword(
       {
         email: "absolute-expiry@example.com",
         password: "super-secure-password"
       },
       {}
+      )
     );
 
     authSessionsRepository.data[0]!.expiresAt = new Date(Date.now() - 1_000);
@@ -422,12 +507,14 @@ describe("AuthService", () => {
     });
 
     await service.verifyEmailToken(registration.emailVerification.token!);
-    const login = await service.loginWithPassword(
+    const login = expectPasswordSession(
+      await service.loginWithPassword(
       {
         email: "idle-expiry@example.com",
         password: "super-secure-password"
       },
       {}
+      )
     );
 
     authSessionsRepository.data[0]!.lastSeenAt = new Date(Date.now() - 121 * 60_000);
@@ -459,7 +546,8 @@ describe("AuthService", () => {
     const start = service.startExternalAuth("google", "/app");
     expect(start.authorizationUrl).toContain("https://example.test/google/auth?state=");
 
-    const callback = await service.loginWithExternalProvider(
+    const callback = expectExternalSession(
+      await service.loginWithExternalProvider(
       {
         provider: "google",
         code: "auth-code",
@@ -468,6 +556,7 @@ describe("AuthService", () => {
       {
         cookieHeader: `${service.getExternalAuthStateCookieName()}=${start.stateCookieValue}`
       }
+      )
     );
 
     expect(callback.redirectPath).toBe("/onboarding/username");
@@ -513,7 +602,8 @@ describe("AuthService", () => {
     await service.verifyEmailToken(registration.emailVerification.token!);
 
     const start = service.startExternalAuth("github", "/app");
-    const callback = await service.loginWithExternalProvider(
+    const callback = expectExternalSession(
+      await service.loginWithExternalProvider(
       {
         provider: "github",
         code: "auth-code",
@@ -522,6 +612,7 @@ describe("AuthService", () => {
       {
         cookieHeader: `${service.getExternalAuthStateCookieName()}=${start.stateCookieValue}`
       }
+      )
     );
     expect(callback.user.email).toBe("linked@example.com");
     expect(callback.user.status).toBe("active");
@@ -632,7 +723,8 @@ describe("AuthService", () => {
     await service.verifyEmailToken(registration.emailVerification.token!);
 
     const start = service.startExternalAuth("github", "/app");
-    const callback = await service.loginWithExternalProvider(
+    const callback = expectExternalSession(
+      await service.loginWithExternalProvider(
       {
         provider: "github",
         code: "auth-code",
@@ -641,6 +733,7 @@ describe("AuthService", () => {
       {
         cookieHeader: `${service.getExternalAuthStateCookieName()}=${start.stateCookieValue}`
       }
+      )
     );
 
     expect(callback.user.id).not.toBe(registration.user.id);
@@ -658,6 +751,155 @@ describe("AuthService", () => {
         (identity) => identity.provider === "github" && identity.providerSubject === "github-unverified-subject"
       )?.providerEmail
     ).toBeNull();
+  });
+
+  it("supports MFA enrollment, challenge verification, and one-time recovery code use", async () => {
+    const { service, totpSecretsRepository, totpRecoveryCodesRepository } = createService();
+    const registration = await service.registerAccount({
+      email: "mfa-user@example.com",
+      username: "mfa_user",
+      password: "super-secure-password"
+    });
+    await service.verifyEmailToken(registration.emailVerification.token!);
+
+    const login = expectPasswordSession(
+      await service.loginWithPassword(
+      {
+        email: "mfa-user@example.com",
+        password: "super-secure-password"
+      },
+      {}
+      )
+    );
+
+    const enrollment = await service.startMfaEnrollment({
+      cookieHeader: `sfus_session=${login.sessionToken}`
+    });
+    expect(enrollment.secret).toMatch(/^[A-Z2-7]+$/);
+    expect(enrollment.otpauthUrl).toContain("otpauth://totp/");
+
+    const expectedCode = createTotpCode(enrollment.secret);
+
+    const verified = await service.verifyMfaEnrollment(
+      { code: expectedCode },
+      {
+        cookieHeader: `sfus_session=${login.sessionToken}`
+      }
+    );
+    expect(verified.enabled).toBe(true);
+    expect(verified.recoveryCodes).toHaveLength(10);
+    expect(totpSecretsRepository.data[0]?.verifiedAt).toBeInstanceOf(Date);
+    expect(totpRecoveryCodesRepository.data).toHaveLength(10);
+
+    const secondLogin = await service.loginWithPassword(
+      {
+        email: "mfa-user@example.com",
+        password: "super-secure-password"
+      },
+      {}
+    );
+    expect("mfa" in secondLogin).toBe(true);
+    if (!("mfa" in secondLogin)) {
+      throw new Error("Expected MFA challenge after enrollment.");
+    }
+
+    const challengeByRecovery = await service.verifyMfaChallenge(
+      {
+        challengeToken: secondLogin.mfa.challengeToken,
+        recoveryCode: verified.recoveryCodes[0]
+      },
+      {}
+    );
+    expect(challengeByRecovery.sessionToken).toBeTruthy();
+    const consumed = totpRecoveryCodesRepository.data.find((code) => code.consumedAt !== null);
+    expect(consumed).toBeTruthy();
+
+    const thirdLogin = await service.loginWithPassword(
+      {
+        email: "mfa-user@example.com",
+        password: "super-secure-password"
+      },
+      {}
+    );
+    if (!("mfa" in thirdLogin)) {
+      throw new Error("Expected third login MFA challenge.");
+    }
+    await expect(
+      service.verifyMfaChallenge(
+        {
+          challengeToken: thirdLogin.mfa.challengeToken,
+          recoveryCode: verified.recoveryCodes[0]
+        },
+        {}
+      )
+    ).rejects.toThrowError("Invalid MFA verification code.");
+  });
+
+  it("regenerates recovery codes and disables MFA with authenticated MFA proof", async () => {
+    const { service } = createService();
+    const registration = await service.registerAccount({
+      email: "mfa-admin@example.com",
+      username: "mfa_admin",
+      password: "super-secure-password"
+    });
+    await service.verifyEmailToken(registration.emailVerification.token!);
+    const login = expectPasswordSession(
+      await service.loginWithPassword(
+      {
+        email: "mfa-admin@example.com",
+        password: "super-secure-password"
+      },
+      {}
+      )
+    );
+
+    const enrollment = await service.startMfaEnrollment({
+      cookieHeader: `sfus_session=${login.sessionToken}`
+    });
+    const enrollmentCode = createTotpCode(enrollment.secret);
+    const verified = await service.verifyMfaEnrollment(
+      {
+        code: enrollmentCode
+      },
+      {
+        cookieHeader: `sfus_session=${login.sessionToken}`
+      }
+    );
+
+    const regeneration = await service.regenerateMfaRecoveryCodes(
+      {
+        recoveryCode: verified.recoveryCodes[0]
+      },
+      {
+        cookieHeader: `sfus_session=${login.sessionToken}`
+      }
+    );
+    expect(regeneration.regenerated).toBe(true);
+    expect(regeneration.recoveryCodes).toHaveLength(10);
+    expect(regeneration.recoveryCodes).not.toContain(verified.recoveryCodes[0]);
+
+    await expect(
+      service.disableMfa(
+        {
+          recoveryCode: regeneration.recoveryCodes[0]
+        },
+        {
+          cookieHeader: `sfus_session=${login.sessionToken}`
+        }
+      )
+    ).resolves.toEqual({ disabled: true });
+
+    await expect(
+      service.loginWithPassword(
+        {
+          email: "mfa-admin@example.com",
+          password: "super-secure-password"
+        },
+        {}
+      )
+    ).resolves.toMatchObject({
+      sessionToken: expect.any(String)
+    });
   });
 
   it("rejects invalid verification tokens", async () => {

@@ -95,6 +95,7 @@ describe("AuthController", () => {
         id: "session-1"
       }
     });
+
     expect(response.cookie).toHaveBeenCalledWith(
       "sfus_session",
       "session-token",
@@ -104,6 +105,43 @@ describe("AuthController", () => {
         secure: false
       })
     );
+  });
+
+  it("returns MFA challenge payload without issuing a session cookie when MFA is required", async () => {
+    const authService = {
+      loginWithPassword: vi.fn().mockResolvedValue({
+        mfa: {
+          required: true,
+          challengeToken: "challenge-token",
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          nextPath: "/app"
+        }
+      })
+    } as unknown as AuthService;
+    const controller = new AuthController(authService, createEnvironment());
+    const response = {
+      cookie: vi.fn()
+    };
+
+    await expect(
+      controller.login(
+        {
+          email: "user@example.com",
+          password: "super-secure-password"
+        },
+        {
+          headers: {},
+          ip: "127.0.0.1"
+        } as never,
+        response as never
+      )
+    ).resolves.toEqual({
+      mfa: expect.objectContaining({
+        challengeToken: "challenge-token",
+        required: true
+      })
+    });
+    expect(response.cookie).not.toHaveBeenCalled();
   });
 
   it("clears the session cookie on logout", async () => {
@@ -249,5 +287,158 @@ describe("AuthController", () => {
       expect.objectContaining({ httpOnly: true })
     );
     expect(callbackResponse.redirect).toHaveBeenCalledWith("/onboarding/username");
+  });
+
+  it("redirects callback responses to MFA challenge flow when external login requires MFA", async () => {
+    const authService = {
+      loginWithExternalProvider: vi.fn().mockResolvedValue({
+        mfa: {
+          required: true,
+          challengeToken: "challenge-token",
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          nextPath: "/app"
+        }
+      }),
+      getExternalAuthStateCookieName: vi.fn().mockReturnValue("sfus_external_auth_state")
+    } as unknown as AuthService;
+    const controller = new AuthController(authService, createEnvironment());
+    const callbackResponse = {
+      clearCookie: vi.fn(),
+      cookie: vi.fn(),
+      redirect: vi.fn()
+    };
+
+    await controller.externalAuthCallback(
+      "google",
+      "auth-code",
+      "state-token",
+      {
+        headers: {
+          cookie: "sfus_external_auth_state=state-token",
+          "user-agent": "vitest"
+        },
+        ip: "127.0.0.1"
+      } as never,
+      callbackResponse as never
+    );
+
+    expect(callbackResponse.redirect).toHaveBeenCalledWith(
+      expect.stringContaining("/login?mfa=required")
+    );
+    expect(callbackResponse.cookie).not.toHaveBeenCalled();
+  });
+
+  it("exposes enrollment, recovery regeneration, disable, and challenge endpoints", async () => {
+    const authService = {
+      startMfaEnrollment: vi.fn().mockResolvedValue({
+        secret: "ABCDEF123456",
+        otpauthUrl: "otpauth://totp/SFUS:test@example.com",
+        issuer: "SFUS"
+      }),
+      verifyMfaEnrollment: vi.fn().mockResolvedValue({
+        enabled: true,
+        recoveryCodes: ["AAAA-BBBB-CCCC"]
+      }),
+      regenerateMfaRecoveryCodes: vi.fn().mockResolvedValue({
+        regenerated: true,
+        recoveryCodes: ["DDDD-EEEE-FFFF"]
+      }),
+      disableMfa: vi.fn().mockResolvedValue({
+        disabled: true
+      }),
+      verifyMfaChallenge: vi.fn().mockResolvedValue({
+        user: {
+          id: "user-1",
+          username: "user",
+          email: "user@example.com",
+          displayName: null,
+          globalRole: "user",
+          status: "active",
+          emailVerified: true,
+          emailVerifiedAt: new Date().toISOString(),
+          onboardingRequired: false
+        },
+        session: {
+          id: "session-1",
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          lastSeenAt: new Date().toISOString()
+        },
+        sessionToken: "session-token",
+        redirectPath: "/app"
+      }),
+      getSessionCookieName: vi.fn().mockReturnValue("sfus_session")
+    } as unknown as AuthService;
+    const controller = new AuthController(authService, createEnvironment());
+
+    await expect(
+      controller.startMfaEnrollment({
+        headers: {}
+      } as never)
+    ).resolves.toMatchObject({
+      secret: "ABCDEF123456"
+    });
+
+    await expect(
+      controller.verifyMfaEnrollment(
+        {
+          code: "123456"
+        },
+        {
+          headers: {}
+        } as never
+      )
+    ).resolves.toMatchObject({
+      enabled: true
+    });
+
+    await expect(
+      controller.regenerateRecoveryCodes(
+        {
+          totpCode: "123456"
+        },
+        {
+          headers: {}
+        } as never
+      )
+    ).resolves.toMatchObject({
+      regenerated: true
+    });
+
+    await expect(
+      controller.disableMfa(
+        {
+          totpCode: "123456"
+        },
+        {
+          headers: {}
+        } as never
+      )
+    ).resolves.toEqual({
+      disabled: true
+    });
+
+    const response = {
+      cookie: vi.fn()
+    };
+    await expect(
+      controller.verifyMfaChallenge(
+        {
+          challengeToken: "challenge-token",
+          totpCode: "123456"
+        },
+        {
+          headers: {},
+          ip: "127.0.0.1"
+        } as never,
+        response as never
+      )
+    ).resolves.toMatchObject({
+      redirectPath: "/app"
+    });
+    expect(response.cookie).toHaveBeenCalledWith(
+      "sfus_session",
+      "session-token",
+      expect.objectContaining({ httpOnly: true })
+    );
   });
 });

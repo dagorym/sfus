@@ -19,6 +19,8 @@ import { AuthIdentityEntity } from "./entities/auth-identity.entity";
 import { AuthSessionEntity } from "./entities/auth-session.entity";
 import { EmailVerificationEntity } from "./entities/email-verification.entity";
 import { PasswordAuthenticatorEntity } from "./entities/password-authenticator.entity";
+import { TotpRecoveryCodeEntity } from "./entities/totp-recovery-code.entity";
+import { TotpSecretEntity } from "./entities/totp-secret.entity";
 import type {
   ExternalAuthProviderRegistry,
   ExternalIdentityProfile
@@ -32,6 +34,9 @@ const minimumPasswordLength = 12;
 const usernamePattern = /^[A-Za-z0-9_.-]{3,32}$/;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const externalAuthStateVersion = 1;
+const mfaChallengeVersion = 1;
+const totpWindow = 1;
+const mfaChallengePurpose = "mfa-challenge";
 
 export interface SessionRequestContext {
   cookieHeader?: string;
@@ -94,13 +99,48 @@ export interface AuthenticatedSessionResult {
   sessionToken: string;
 }
 
+export interface MfaChallengePayload {
+  required: true;
+  challengeToken: string;
+  expiresAt: string;
+  nextPath: string;
+}
+
+export interface MfaEnrollmentStartResult {
+  secret: string;
+  otpauthUrl: string;
+  issuer: string;
+}
+
+export interface MfaEnrollmentVerificationResult {
+  enabled: true;
+  recoveryCodes: string[];
+}
+
+export interface MfaRecoveryRegenerationResult {
+  regenerated: true;
+  recoveryCodes: string[];
+}
+
+export interface MfaDisableResult {
+  disabled: true;
+}
+
 export interface ExternalAuthStartResult {
   authorizationUrl: string;
   stateCookieValue: string;
   stateCookieExpiresAt: string;
 }
 
-export interface ExternalCallbackResult extends AuthenticatedSessionResult {
+export type PasswordLoginResult = AuthenticatedSessionResult | { mfa: MfaChallengePayload };
+
+export type ExternalCallbackResult =
+  | (AuthenticatedSessionResult & {
+      redirectPath: string;
+    })
+  | { mfa: MfaChallengePayload };
+
+export interface MfaChallengeVerificationResult extends AuthenticatedSessionResult {
   redirectPath: string;
 }
 
@@ -110,11 +150,14 @@ type PersistenceContext = {
   passwordAuthenticatorsRepository: Repository<PasswordAuthenticatorEntity>;
   authSessionsRepository: Repository<AuthSessionEntity>;
   emailVerificationsRepository: Repository<EmailVerificationEntity>;
+  totpSecretsRepository: Repository<TotpSecretEntity>;
+  totpRecoveryCodesRepository: Repository<TotpRecoveryCodeEntity>;
 };
 
 @Injectable()
 export class AuthService {
   private readonly consumedExternalAuthStateHashes = new Map<string, number>();
+  private readonly consumedMfaChallengeHashes = new Map<string, number>();
 
   constructor(
     @InjectRepository(UserEntity)
@@ -127,6 +170,10 @@ export class AuthService {
     private readonly authSessionsRepository: Repository<AuthSessionEntity>,
     @InjectRepository(EmailVerificationEntity)
     private readonly emailVerificationsRepository: Repository<EmailVerificationEntity>,
+    @InjectRepository(TotpSecretEntity)
+    private readonly totpSecretsRepository: Repository<TotpSecretEntity>,
+    @InjectRepository(TotpRecoveryCodeEntity)
+    private readonly totpRecoveryCodesRepository: Repository<TotpRecoveryCodeEntity>,
     @Inject(API_ENVIRONMENT)
     private readonly environment: ApplicationEnvironment,
     @Inject(AUTH_EXTERNAL_PROVIDER_REGISTRY)
@@ -272,13 +319,23 @@ export class AuthService {
     const user = await this.withPersistenceContext((context) =>
       this.resolveExternalIdentityUser(identity, context)
     );
+    const redirectPath =
+      user.status === onboardingPendingStatus ? "/onboarding/username" : statePayload.nextPath;
+
+    const mfaChallenge = await this.createMfaChallengeForUser(user.id, redirectPath);
+    if (mfaChallenge) {
+      return {
+        mfa: mfaChallenge
+      };
+    }
+
     const session = await this.createSession(user, requestContext);
 
     return {
       user: mapUser(user),
       session: mapSession(session.session),
       sessionToken: session.sessionToken,
-      redirectPath: user.status === onboardingPendingStatus ? "/onboarding/username" : statePayload.nextPath
+      redirectPath
     };
   }
 
@@ -319,7 +376,7 @@ export class AuthService {
   async loginWithPassword(
     input: LoginInput | unknown,
     requestContext: SessionRequestContext
-  ): Promise<AuthenticatedSessionResult> {
+  ): Promise<PasswordLoginResult> {
     const { email, password } = parseLoginInput(input);
 
     const user = await this.usersRepository.findOne({ where: { email } });
@@ -346,12 +403,120 @@ export class AuthService {
       throw new ForbiddenException("Email verification required before login.");
     }
 
+    const mfaChallenge = await this.createMfaChallengeForUser(user.id, "/app");
+    if (mfaChallenge) {
+      return {
+        mfa: mfaChallenge
+      };
+    }
+
     const session = await this.createSession(user, requestContext);
     return {
       user: mapUser(user),
       session: mapSession(session.session),
       sessionToken: session.sessionToken
     };
+  }
+
+  async startMfaEnrollment(requestContext: SessionRequestContext): Promise<MfaEnrollmentStartResult> {
+    const resolvedSession = await this.resolveSession(requestContext);
+    const totpSecret = await this.upsertTotpSecretForEnrollment(resolvedSession.user.id);
+    const secret = this.decryptTotpSecret(totpSecret.secretEncrypted);
+    const accountName = resolvedSession.user.email;
+
+    return {
+      secret,
+      issuer: this.environment.auth.totpIssuer,
+      otpauthUrl: this.createOtpAuthUri(secret, accountName, totpSecret)
+    };
+  }
+
+  async verifyMfaEnrollment(
+    input: unknown,
+    requestContext: SessionRequestContext
+  ): Promise<MfaEnrollmentVerificationResult> {
+    const mfaInput = parseTotpCodeInput(input);
+    const resolvedSession = await this.resolveSession(requestContext);
+    const totpSecret = await this.totpSecretsRepository.findOne({
+      where: {
+        userId: resolvedSession.user.id
+      }
+    });
+    if (!totpSecret) {
+      throw new BadRequestException("MFA enrollment has not been started.");
+    }
+
+    const secret = this.decryptTotpSecret(totpSecret.secretEncrypted);
+    if (!this.verifyTotpCode(secret, mfaInput.code, new Date(), totpSecret)) {
+      throw new UnauthorizedException("Invalid authenticator code.");
+    }
+
+    totpSecret.verifiedAt = new Date();
+    await this.totpSecretsRepository.save(totpSecret);
+
+    const recoveryCodes = await this.replaceRecoveryCodes(resolvedSession.user.id);
+    return {
+      enabled: true,
+      recoveryCodes
+    };
+  }
+
+  async verifyMfaChallenge(
+    input: unknown,
+    requestContext: SessionRequestContext
+  ): Promise<MfaChallengeVerificationResult> {
+    const challengeInput = parseMfaChallengeInput(input);
+    const challengePayload = this.parseMfaChallengeToken(challengeInput.challengeToken);
+    this.consumeMfaChallenge(challengeInput.challengeToken, challengePayload.expiresAt);
+    const user = await this.usersRepository.findOne({ where: { id: challengePayload.userId } });
+    if (!user) {
+      throw new UnauthorizedException("Authentication required.");
+    }
+
+    await this.validateMfaProof({
+      userId: user.id,
+      totpCode: challengeInput.totpCode,
+      recoveryCode: challengeInput.recoveryCode
+    });
+
+    const session = await this.createSession(user, requestContext);
+    return {
+      user: mapUser(user),
+      session: mapSession(session.session),
+      sessionToken: session.sessionToken,
+      redirectPath: challengePayload.nextPath
+    };
+  }
+
+  async regenerateMfaRecoveryCodes(
+    input: unknown,
+    requestContext: SessionRequestContext
+  ): Promise<MfaRecoveryRegenerationResult> {
+    const mfaInput = parseMfaProofInput(input);
+    const resolvedSession = await this.resolveSession(requestContext);
+    await this.validateMfaProof({
+      userId: resolvedSession.user.id,
+      totpCode: mfaInput.totpCode,
+      recoveryCode: mfaInput.recoveryCode
+    });
+    const recoveryCodes = await this.replaceRecoveryCodes(resolvedSession.user.id);
+    return {
+      regenerated: true,
+      recoveryCodes
+    };
+  }
+
+  async disableMfa(input: unknown, requestContext: SessionRequestContext): Promise<MfaDisableResult> {
+    const mfaInput = parseMfaProofInput(input);
+    const resolvedSession = await this.resolveSession(requestContext);
+    await this.validateMfaProof({
+      userId: resolvedSession.user.id,
+      totpCode: mfaInput.totpCode,
+      recoveryCode: mfaInput.recoveryCode
+    });
+    await this.totpSecretsRepository.delete({ userId: resolvedSession.user.id });
+    await this.totpRecoveryCodesRepository.delete({ userId: resolvedSession.user.id });
+    return { disabled: true };
   }
 
   async resolveSession(requestContext: SessionRequestContext): Promise<AuthenticatedSessionResult> {
@@ -454,7 +619,9 @@ export class AuthService {
           authIdentitiesRepository: entityManager.getRepository(AuthIdentityEntity),
           passwordAuthenticatorsRepository: entityManager.getRepository(PasswordAuthenticatorEntity),
           authSessionsRepository: entityManager.getRepository(AuthSessionEntity),
-          emailVerificationsRepository: entityManager.getRepository(EmailVerificationEntity)
+          emailVerificationsRepository: entityManager.getRepository(EmailVerificationEntity),
+          totpSecretsRepository: entityManager.getRepository(TotpSecretEntity),
+          totpRecoveryCodesRepository: entityManager.getRepository(TotpRecoveryCodeEntity)
         };
 
         return operation(context);
@@ -466,7 +633,9 @@ export class AuthService {
       authIdentitiesRepository: this.authIdentitiesRepository,
       passwordAuthenticatorsRepository: this.passwordAuthenticatorsRepository,
       authSessionsRepository: this.authSessionsRepository,
-      emailVerificationsRepository: this.emailVerificationsRepository
+      emailVerificationsRepository: this.emailVerificationsRepository,
+      totpSecretsRepository: this.totpSecretsRepository,
+      totpRecoveryCodesRepository: this.totpRecoveryCodesRepository
     });
   }
 
@@ -660,6 +829,289 @@ export class AuthService {
       }
     }
   }
+
+  private async createMfaChallengeForUser(
+    userId: string,
+    nextPath: string
+  ): Promise<MfaChallengePayload | null> {
+    const verifiedTotpSecret = await this.totpSecretsRepository.findOne({
+      where: {
+        userId
+      }
+    });
+    if (!verifiedTotpSecret?.verifiedAt) {
+      return null;
+    }
+
+    const challenge = this.createMfaChallengeToken({ userId, nextPath });
+    return {
+      required: true,
+      challengeToken: challenge.value,
+      expiresAt: challenge.expiresAt.toISOString(),
+      nextPath
+    };
+  }
+
+  private async upsertTotpSecretForEnrollment(userId: string): Promise<TotpSecretEntity> {
+    const existing = await this.totpSecretsRepository.findOne({
+      where: {
+        userId
+      }
+    });
+    if (existing?.verifiedAt) {
+      throw new BadRequestException("MFA is already enabled.");
+    }
+
+    const secret = generateBase32Secret();
+    const encryptedSecret = this.encryptTotpSecret(secret);
+    const baseRecord = {
+      userId,
+      secretEncrypted: encryptedSecret,
+      algorithm: "SHA1",
+      digits: 6,
+      periodSeconds: 30,
+      verifiedAt: null
+    };
+
+    if (existing) {
+      Object.assign(existing, baseRecord);
+      return this.totpSecretsRepository.save(existing);
+    }
+
+    return this.totpSecretsRepository.save(
+      this.totpSecretsRepository.create({
+        id: crypto.randomUUID(),
+        ...baseRecord
+      })
+    );
+  }
+
+  private createOtpAuthUri(secret: string, accountName: string, totpSecret: TotpSecretEntity): string {
+    const label = encodeURIComponent(`${this.environment.auth.totpIssuer}:${accountName}`);
+    const issuer = encodeURIComponent(this.environment.auth.totpIssuer);
+    const algorithm = encodeURIComponent(totpSecret.algorithm);
+    return `otpauth://totp/${label}?secret=${encodeURIComponent(secret)}&issuer=${issuer}&algorithm=${algorithm}&digits=${totpSecret.digits}&period=${totpSecret.periodSeconds}`;
+  }
+
+  private async validateMfaProof(input: {
+    userId: string;
+    totpCode: string | null;
+    recoveryCode: string | null;
+  }): Promise<void> {
+    const totpSecret = await this.totpSecretsRepository.findOne({
+      where: {
+        userId: input.userId
+      }
+    });
+    if (!totpSecret?.verifiedAt) {
+      throw new BadRequestException("MFA is not enabled for this account.");
+    }
+
+    const secret = this.decryptTotpSecret(totpSecret.secretEncrypted);
+    if (input.totpCode && this.verifyTotpCode(secret, input.totpCode, new Date(), totpSecret)) {
+      return;
+    }
+
+    if (input.recoveryCode) {
+      const consumed = await this.consumeRecoveryCode(input.userId, input.recoveryCode);
+      if (consumed) {
+        return;
+      }
+    }
+
+    throw new UnauthorizedException("Invalid MFA verification code.");
+  }
+
+  private async consumeRecoveryCode(userId: string, recoveryCode: string): Promise<boolean> {
+    const recoveryCodeHash = this.hashToken(`recovery-code:${normalizeRecoveryCode(recoveryCode)}`);
+    const match = await this.totpRecoveryCodesRepository.findOne({
+      where: {
+        userId,
+        codeHash: recoveryCodeHash
+      }
+    });
+    if (!match || match.consumedAt) {
+      return false;
+    }
+
+    match.consumedAt = new Date();
+    await this.totpRecoveryCodesRepository.save(match);
+    return true;
+  }
+
+  private async replaceRecoveryCodes(userId: string): Promise<string[]> {
+    const recoveryCodes = generateRecoveryCodes(
+      this.environment.auth.recoveryCodeCount,
+      this.environment.auth.recoveryCodeLength
+    );
+    await this.totpRecoveryCodesRepository.delete({ userId });
+    await this.totpRecoveryCodesRepository.save(
+      recoveryCodes.map((recoveryCode) =>
+        this.totpRecoveryCodesRepository.create({
+          id: crypto.randomUUID(),
+          userId,
+          codeHash: this.hashToken(`recovery-code:${normalizeRecoveryCode(recoveryCode)}`),
+          consumedAt: null
+        })
+      )
+    );
+    return recoveryCodes;
+  }
+
+  private verifyTotpCode(
+    secret: string,
+    code: string,
+    now: Date,
+    totpSecret: Pick<TotpSecretEntity, "algorithm" | "digits" | "periodSeconds">
+  ): boolean {
+    const normalizedCode = normalizeTotpCode(code);
+    if (!normalizedCode || normalizedCode.length !== totpSecret.digits) {
+      return false;
+    }
+
+    const secretBytes = decodeBase32(secret);
+    const currentStep = Math.floor(now.getTime() / (totpSecret.periodSeconds * 1_000));
+    for (let offset = -totpWindow; offset <= totpWindow; offset += 1) {
+      const candidateStep = currentStep + offset;
+      if (candidateStep < 0) {
+        continue;
+      }
+      const expected = generateTotpCode(secretBytes, candidateStep, totpSecret.digits, totpSecret.algorithm);
+      if (timingSafeEqual(expected, normalizedCode)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private encryptTotpSecret(secret: string): string {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv("aes-256-gcm", this.getTotpEncryptionKey(), iv);
+    const encrypted = Buffer.concat([cipher.update(secret, "utf8"), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    return `${iv.toString("base64url")}.${encrypted.toString("base64url")}.${authTag.toString("base64url")}`;
+  }
+
+  private decryptTotpSecret(secretEncrypted: string): string {
+    const [ivInput, encryptedInput, authTagInput] = secretEncrypted.split(".");
+    if (!ivInput || !encryptedInput || !authTagInput) {
+      throw new BadRequestException("Stored MFA secret is invalid.");
+    }
+
+    const decipher = crypto.createDecipheriv(
+      "aes-256-gcm",
+      this.getTotpEncryptionKey(),
+      Buffer.from(ivInput, "base64url")
+    );
+    decipher.setAuthTag(Buffer.from(authTagInput, "base64url"));
+    return Buffer.concat([
+      decipher.update(Buffer.from(encryptedInput, "base64url")),
+      decipher.final()
+    ]).toString("utf8");
+  }
+
+  private getTotpEncryptionKey(): Buffer {
+    return crypto
+      .createHash("sha256")
+      .update(`${this.environment.auth.sessionTokenPepper}:${this.environment.auth.passwordPepper}`)
+      .digest();
+  }
+
+  private createMfaChallengeToken(payload: {
+    userId: string;
+    nextPath: string;
+  }): { value: string; expiresAt: Date } {
+    const now = Date.now();
+    const expiresAt = new Date(now + this.environment.auth.externalStateTtlMinutes * 60_000);
+    const challengePayload = {
+      v: mfaChallengeVersion,
+      p: mfaChallengePurpose,
+      u: payload.userId,
+      n: payload.nextPath,
+      iat: now,
+      nonce: createToken()
+    };
+    const encodedPayload = Buffer.from(JSON.stringify(challengePayload)).toString("base64url");
+    const signature = crypto
+      .createHmac("sha256", this.environment.auth.sessionTokenPepper)
+      .update(encodedPayload)
+      .digest("base64url");
+    return {
+      value: `${encodedPayload}.${signature}`,
+      expiresAt
+    };
+  }
+
+  private parseMfaChallengeToken(tokenInput: string): {
+    userId: string;
+    nextPath: string;
+    expiresAt: number;
+  } {
+    const [encodedPayload, signature] = tokenInput.split(".");
+    if (!encodedPayload || !signature) {
+      throw new UnauthorizedException("Invalid MFA challenge.");
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", this.environment.auth.sessionTokenPepper)
+      .update(encodedPayload)
+      .digest("base64url");
+    if (!timingSafeEqual(expectedSignature, signature)) {
+      throw new UnauthorizedException("Invalid MFA challenge.");
+    }
+
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as Record<
+        string,
+        unknown
+      >;
+    } catch {
+      throw new UnauthorizedException("Invalid MFA challenge.");
+    }
+
+    if (
+      payload.v !== mfaChallengeVersion ||
+      payload.p !== mfaChallengePurpose ||
+      typeof payload.u !== "string" ||
+      typeof payload.n !== "string" ||
+      typeof payload.iat !== "number"
+    ) {
+      throw new UnauthorizedException("Invalid MFA challenge.");
+    }
+
+    const expiresAt = payload.iat + this.environment.auth.externalStateTtlMinutes * 60_000;
+    if (expiresAt <= Date.now()) {
+      throw new UnauthorizedException("MFA challenge has expired.");
+    }
+
+    return {
+      userId: payload.u,
+      nextPath: normalizeNextPath(payload.n),
+      expiresAt
+    };
+  }
+
+  private consumeMfaChallenge(challengeToken: string, expiresAt: number): void {
+    this.pruneConsumedMfaChallenges();
+    const challengeHash = this.hashToken(`mfa-challenge:${challengeToken}`);
+    const existingExpiry = this.consumedMfaChallengeHashes.get(challengeHash);
+    if (existingExpiry && existingExpiry > Date.now()) {
+      throw new UnauthorizedException("MFA challenge has already been used.");
+    }
+
+    this.consumedMfaChallengeHashes.set(challengeHash, expiresAt);
+  }
+
+  private pruneConsumedMfaChallenges(): void {
+    const now = Date.now();
+    for (const [challengeHash, expiresAt] of this.consumedMfaChallengeHashes.entries()) {
+      if (expiresAt <= now) {
+        this.consumedMfaChallengeHashes.delete(challengeHash);
+      }
+    }
+  }
 }
 
 const mapUser = (user: UserEntity): AuthenticatedUserPayload => ({
@@ -771,6 +1223,47 @@ const parseVerificationToken = (tokenInput: unknown): string => {
   return normalizedToken;
 };
 
+const parseTotpCodeInput = (input: unknown): { code: string } => {
+  const record = asRecord(input);
+  const code = normalizeTotpCode(record.code);
+  if (!code) {
+    throw new BadRequestException("Authenticator code is required.");
+  }
+
+  return { code };
+};
+
+const parseMfaProofInput = (input: unknown): { totpCode: string | null; recoveryCode: string | null } => {
+  const record = asRecord(input);
+  const totpCode = normalizeTotpCode(record.totpCode || record.code);
+  const recoveryCode = normalizeRecoveryCode(record.recoveryCode || record.recovery);
+  if (!totpCode && !recoveryCode) {
+    throw new BadRequestException("Provide an authenticator code or a recovery code.");
+  }
+
+  return {
+    totpCode: totpCode || null,
+    recoveryCode: recoveryCode || null
+  };
+};
+
+const parseMfaChallengeInput = (input: unknown): {
+  challengeToken: string;
+  totpCode: string | null;
+  recoveryCode: string | null;
+} => {
+  const record = asRecord(input);
+  const challengeToken = typeof record.challengeToken === "string" ? record.challengeToken.trim() : "";
+  if (!challengeToken) {
+    throw new BadRequestException("MFA challenge token is required.");
+  }
+
+  return {
+    challengeToken,
+    ...parseMfaProofInput(input)
+  };
+};
+
 const normalizeNextPath = (value: unknown): string => {
   if (typeof value !== "string") {
     return "/app";
@@ -786,6 +1279,100 @@ const asRecord = (value: unknown): Record<string, unknown> =>
   typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 
 const createToken = (): string => crypto.randomBytes(32).toString("base64url");
+
+const base32Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+const generateBase32Secret = (): string => encodeBase32(crypto.randomBytes(20));
+
+const encodeBase32 = (input: Buffer): string => {
+  let bits = 0;
+  let value = 0;
+  let output = "";
+  for (const byte of input.values()) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      output += base32Alphabet[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) {
+    output += base32Alphabet[(value << (5 - bits)) & 31];
+  }
+  return output;
+};
+
+const decodeBase32 = (value: string): Buffer => {
+  const normalized = value.replace(/=+$/g, "").replace(/[^A-Z2-7]/gi, "").toUpperCase();
+  let bits = 0;
+  let current = 0;
+  const bytes: number[] = [];
+  for (const char of normalized) {
+    const index = base32Alphabet.indexOf(char);
+    if (index < 0) {
+      throw new BadRequestException("Stored MFA secret is invalid.");
+    }
+    current = (current << 5) | index;
+    bits += 5;
+    if (bits >= 8) {
+      bytes.push((current >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(bytes);
+};
+
+const generateTotpCode = (
+  secretBytes: Buffer,
+  counter: number,
+  digits: number,
+  algorithm: string
+): string => {
+  const counterBuffer = Buffer.alloc(8);
+  counterBuffer.writeBigUInt64BE(BigInt(counter));
+  const hmac = crypto.createHmac(algorithm.toLowerCase(), secretBytes).update(counterBuffer).digest();
+  const offset = hmac[hmac.length - 1]! & 0x0f;
+  const binary =
+    ((hmac[offset]! & 0x7f) << 24) |
+    ((hmac[offset + 1]! & 0xff) << 16) |
+    ((hmac[offset + 2]! & 0xff) << 8) |
+    (hmac[offset + 3]! & 0xff);
+  const otp = binary % 10 ** digits;
+  return otp.toString().padStart(digits, "0");
+};
+
+const normalizeTotpCode = (value: unknown): string => {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const normalized = value.replace(/\s+/g, "").trim();
+  return /^\d{6,8}$/.test(normalized) ? normalized : "";
+};
+
+const normalizeRecoveryCode = (value: unknown): string => {
+  if (typeof value !== "string") {
+    return "";
+  }
+  return value.replace(/[\s-]+/g, "").trim().toUpperCase();
+};
+
+const generateRecoveryCodes = (count: number, length: number): string[] => {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const normalizedLength = Math.max(8, Math.min(32, length));
+  const codes = new Set<string>();
+
+  while (codes.size < count) {
+    const random = crypto.randomBytes(normalizedLength);
+    let code = "";
+    for (let index = 0; index < normalizedLength; index += 1) {
+      code += alphabet[random[index]! % alphabet.length];
+    }
+    const grouped = code.match(/.{1,4}/g)?.join("-") ?? code;
+    codes.add(grouped);
+  }
+
+  return [...codes];
+};
 
 const createPendingUsername = (): string => {
   const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
