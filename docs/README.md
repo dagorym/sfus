@@ -43,9 +43,15 @@ This repository now includes the Milestone 1 foundation baseline for the monorep
 - Milestone 2 Subtask 1 adds the first persistence-layer identity and authorization foundation to `apps/api` while keeping the current frontend shell public-only.
 - Reviewed migration `1714435200000-identity-authorization-foundation.ts` introduces the `users`, `auth_identities`, `password_authenticators`, `auth_sessions`, `email_verifications`, `totp_secrets`, `totp_recovery_codes`, and `authorization_grants` tables with MySQL 5.7-compatible DDL.
 - `UsersModule` owns user persistence through `UserEntity` and `UsersService`.
-- `AuthModule` imports `UsersModule` and owns auth persistence through `AuthIdentityEntity`, `PasswordAuthenticatorEntity`, `AuthSessionEntity`, `EmailVerificationEntity`, `TotpSecretEntity`, `TotpRecoveryCodeEntity`, and `AuthService`.
+- `AuthModule` imports `UsersModule` and owns auth persistence through `AuthIdentityEntity`, `PasswordAuthenticatorEntity`, `AuthSessionEntity`, `EmailVerificationEntity`, `TotpSecretEntity`, `TotpRecoveryCodeEntity`, plus `AuthController` and `AuthService` for local registration, login/logout, email verification, and current-session APIs.
 - `AuthorizationModule` owns reusable authorization grant persistence through `AuthorizationGrantEntity` and `AuthorizationService`.
 - `AppModule` now composes `DatabaseModule`, `UsersModule`, `AuthModule`, `AuthorizationModule`, and `HealthModule` so the API can bootstrap the shared identity/authz foundation as one application surface.
+- Auth API contract for frontend session-awareness:
+  - `POST /api/auth/register`
+  - `POST /api/auth/verify-email`
+  - `POST /api/auth/login`
+  - `POST /api/auth/logout`
+  - `GET /api/auth/session`
 
 ## Runtime Contract Overview
 
@@ -72,14 +78,15 @@ Ownership is split by runtime boundary:
 
 - `.env.example` - platform/deployment-owned values used by Compose metadata and local MySQL scaffolding
 - `apps/web/.env.example` - web-owned values, including `/api` path targeting and container-internal API routing
-- `apps/api/.env.example` - API-owned values, including the database contract plus auth foundation inputs for password peppering, bcrypt cost, session lifetime, TOTP issuer naming, and recovery-code generation used by the API container and explicit migration flow
+- `apps/api/.env.example` - API-owned values, including the database contract plus auth foundation inputs for password peppering, session-token hashing, verification/session lifetimes, TOTP issuer naming, and recovery-code generation used by the API container and explicit migration flow
 
 The API environment contract now validates these auth settings at startup:
 
 - `AUTH_PASSWORD_PEPPER` is required and must be at least 16 characters.
-- `AUTH_PASSWORD_BCRYPT_ROUNDS` must be an integer from 8 to 15.
+- `AUTH_SESSION_TOKEN_PEPPER` is required and must be at least 16 characters.
 - `AUTH_SESSION_TTL_MINUTES` must be an integer from 5 to 43200.
 - `AUTH_SESSION_IDLE_TIMEOUT_MINUTES` must be an integer from 5 to 10080 and cannot exceed `AUTH_SESSION_TTL_MINUTES`.
+- `AUTH_EMAIL_VERIFICATION_TTL_MINUTES` must be an integer from 5 to 10080.
 - `AUTH_TOTP_ISSUER` is required and names the issuer presented by TOTP authenticators.
 - `AUTH_RECOVERY_CODE_COUNT` must be an integer from 6 to 20.
 - `AUTH_RECOVERY_CODE_LENGTH` must be an integer from 8 to 16.

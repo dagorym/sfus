@@ -48,9 +48,10 @@ The default local config contracts are:
 - `apps/api/.env`
   - `API_PORT=3001`
   - `AUTH_PASSWORD_PEPPER=changeme-auth-pepper` (required, minimum 16 characters)
-  - `AUTH_PASSWORD_BCRYPT_ROUNDS=12` (integer 8-15)
+  - `AUTH_SESSION_TOKEN_PEPPER=changeme-session-token-pepper` (required, minimum 16 characters)
   - `AUTH_SESSION_TTL_MINUTES=1440` (integer 5-43200)
   - `AUTH_SESSION_IDLE_TIMEOUT_MINUTES=120` (integer 5-10080 and must be less than or equal to the session TTL)
+  - `AUTH_EMAIL_VERIFICATION_TTL_MINUTES=60` (integer 5-10080)
   - `AUTH_TOTP_ISSUER=SFUS Development` (required issuer label presented to authenticator apps)
   - `AUTH_RECOVERY_CODE_COUNT=10` (integer 6-20)
   - `AUTH_RECOVERY_CODE_LENGTH=12` (integer 8-16)

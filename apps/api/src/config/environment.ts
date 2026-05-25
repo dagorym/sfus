@@ -11,9 +11,10 @@ export interface ApplicationEnvironment {
   swaggerEnabled: boolean;
   auth: {
     passwordPepper: string;
-    passwordBcryptRounds: number;
+    sessionTokenPepper: string;
     sessionTtlMinutes: number;
     sessionIdleTimeoutMinutes: number;
+    emailVerificationTtlMinutes: number;
     totpIssuer: string;
     recoveryCodeCount: number;
     recoveryCodeLength: number;
@@ -52,10 +53,9 @@ export const loadEnvironment = (
   );
 
   const authPasswordPepper = readRequiredString(source.AUTH_PASSWORD_PEPPER, "AUTH_PASSWORD_PEPPER", errors);
-  const authPasswordBcryptRounds = parseInteger(
-    source.AUTH_PASSWORD_BCRYPT_ROUNDS,
-    "AUTH_PASSWORD_BCRYPT_ROUNDS",
-    { min: 8, max: 15 },
+  const authSessionTokenPepper = readRequiredString(
+    source.AUTH_SESSION_TOKEN_PEPPER,
+    "AUTH_SESSION_TOKEN_PEPPER",
     errors
   );
   const authSessionTtlMinutes = parseInteger(
@@ -67,6 +67,12 @@ export const loadEnvironment = (
   const authSessionIdleTimeoutMinutes = parseInteger(
     source.AUTH_SESSION_IDLE_TIMEOUT_MINUTES,
     "AUTH_SESSION_IDLE_TIMEOUT_MINUTES",
+    { min: 5, max: 10080 },
+    errors
+  );
+  const authEmailVerificationTtlMinutes = parseInteger(
+    source.AUTH_EMAIL_VERIFICATION_TTL_MINUTES,
+    "AUTH_EMAIL_VERIFICATION_TTL_MINUTES",
     { min: 5, max: 10080 },
     errors
   );
@@ -86,6 +92,10 @@ export const loadEnvironment = (
 
   if (authPasswordPepper.length > 0 && authPasswordPepper.length < 16) {
     errors.push("AUTH_PASSWORD_PEPPER must be at least 16 characters long.");
+  }
+
+  if (authSessionTokenPepper.length > 0 && authSessionTokenPepper.length < 16) {
+    errors.push("AUTH_SESSION_TOKEN_PEPPER must be at least 16 characters long.");
   }
 
   if (authSessionIdleTimeoutMinutes > authSessionTtlMinutes) {
@@ -123,9 +133,10 @@ export const loadEnvironment = (
     swaggerEnabled,
     auth: {
       passwordPepper: authPasswordPepper,
-      passwordBcryptRounds: authPasswordBcryptRounds,
+      sessionTokenPepper: authSessionTokenPepper,
       sessionTtlMinutes: authSessionTtlMinutes,
       sessionIdleTimeoutMinutes: authSessionIdleTimeoutMinutes,
+      emailVerificationTtlMinutes: authEmailVerificationTtlMinutes,
       totpIssuer: authTotpIssuer,
       recoveryCodeCount: authRecoveryCodeCount,
       recoveryCodeLength: authRecoveryCodeLength
