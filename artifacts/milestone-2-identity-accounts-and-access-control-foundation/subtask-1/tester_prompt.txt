@@ -1,0 +1,67 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Implement Milestone 2 identity and authorization persistence foundation in the API.
+
+Modified files:
+- apps/api/.env.example
+- apps/api/src/app.module.ts
+- apps/api/src/auth/auth.module.ts
+- apps/api/src/auth/auth.service.ts
+- apps/api/src/auth/entities/auth-identity.entity.ts
+- apps/api/src/auth/entities/auth-session.entity.ts
+- apps/api/src/auth/entities/email-verification.entity.ts
+- apps/api/src/auth/entities/password-authenticator.entity.ts
+- apps/api/src/auth/entities/totp-recovery-code.entity.ts
+- apps/api/src/auth/entities/totp-secret.entity.ts
+- apps/api/src/authorization/authorization.module.ts
+- apps/api/src/authorization/authorization.service.ts
+- apps/api/src/authorization/entities/authorization-grant.entity.ts
+- apps/api/src/config/environment.test.ts
+- apps/api/src/config/environment.ts
+- apps/api/src/database/database.config.test.ts
+- apps/api/src/database/database.config.ts
+- apps/api/src/database/migrations/1714435200000-identity-authorization-foundation.ts
+- apps/api/src/health/readiness.service.test.ts
+- apps/api/src/index.test.ts
+- apps/api/src/users/entities/user.entity.ts
+- apps/api/src/users/users.module.ts
+- apps/api/src/users/users.service.ts
+
+Acceptance criteria to validate (from Planner):
+- Schema and reviewed migrations cover local auth, external auth identities, sessions, MFA, and recovery codes while remaining MySQL 5.7.44 compatible.
+- Backend module structure separates auth orchestration, user/profile persistence, and reusable authorization concerns.
+- Auth-related environment variables are validated explicitly at startup.
+
+Create test files in:
+- apps/api/src/**/*.test.ts
+- Any relevant frontend test files added later (if integration requires web coverage).
+
+Implementation context for testing:
+- Added reviewed migration IdentityAuthorizationFoundation1714435200000 creating users, auth identities, password authenticators, sessions, email verifications, TOTP secrets, recovery codes, and authorization grants tables with MySQL 5.7-compatible DDL.
+- Added TypeORM entity models for all new identity/auth/MFA/authz persistence tables and registered them in database config.
+- Added module boundaries: UsersModule for user persistence, AuthModule for auth orchestration persistence scope, AuthorizationModule for reusable authorization grants support.
+- AppModule now composes DatabaseModule + UsersModule + AuthModule + AuthorizationModule + HealthModule.
+- Extended loadEnvironment() to require and validate auth settings (pepper, bcrypt rounds, session TTL/idle timeout relation, TOTP issuer, recovery code count/length).
+- Updated .env.example and unit tests for new environment contract and reviewed migration list.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/api run typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/api run lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api run test
+- npx --yes pnpm@10.0.0 --filter @sfus/api run build
+- AUTH_PASSWORD_PEPPER=development-pepper-value AUTH_PASSWORD_BCRYPT_ROUNDS=12 AUTH_SESSION_TTL_MINUTES=1440 AUTH_SESSION_IDLE_TIMEOUT_MINUTES=120 AUTH_TOTP_ISSUER='SFUS Development' AUTH_RECOVERY_CODE_COUNT=10 AUTH_RECOVERY_CODE_LENGTH=12 npx --yes pnpm@10.0.0 --filter @sfus/api run migration:show
+
+Existing validations expected to fail only because approved behavior changed:
+- migration:show fails with getaddrinfo EAI_AGAIN mysql in this worktree because no MySQL service is running; this is an environment dependency, not an implementation regression.
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
