@@ -1,0 +1,78 @@
+You are the Verifier Agent.
+
+Task summary:
+- Verify Milestone 2 Subtask 2 implementation, tester validation, and documentation coverage for local account registration/login/logout, email verification enforcement, secure session lifecycle, and the stable authenticated-session API contract.
+
+Acceptance criteria to verify:
+1. Local password authenticators use Argon2id hashing with password peppering.
+2. Email verification tokens are generated, hashed before persistence, expiry-checked, consumed once, and login is blocked until verification succeeds.
+3. Session cookie lifecycle is enforced: login issues the cookie, session resolution enforces idle and absolute expiry, and logout revokes the session and clears the cookie.
+4. Auth routes include `/api/auth/register`, `/api/auth/verify-email`, `/api/auth/login`, `/api/auth/logout`, and `/api/auth/session`.
+5. Authenticated `login` and `session` responses expose a stable `{ user, session }` contract.
+6. The environment contract includes `AUTH_SESSION_TOKEN_PEPPER` and `AUTH_EMAIL_VERIFICATION_TTL_MINUTES` and the updated docs describe their operational meaning accurately.
+
+Implementation and branch context:
+- Base branch for comparison: `ms2`
+- Implementer branch: `ms2-subtask-2-implementer-20260525`
+- Tester branch: `ms2-subtask-2-tester-20260525`
+- Documenter branch: `ms2-subtask-2-documenter-20260525`
+- Documenter worktree: `/home/tstephen/.copilot/session-state/980e354c-b84f-4a6e-bf11-2d080f8d01fc/files/worktrees/ms2-subtask-2-documenter-20260525`
+- Documentation commit hash to preserve in artifacts: `387eff27cd18692f64974fda9dbd485c03950df7`
+
+Files in review scope:
+- Implementer-modified files:
+  - `apps/api/.env.example`
+  - `apps/api/package.json`
+  - `apps/api/src/app.module.ts`
+  - `apps/api/src/auth/auth.controller.test.ts`
+  - `apps/api/src/auth/auth.controller.ts`
+  - `apps/api/src/auth/auth.module.ts`
+  - `apps/api/src/auth/auth.service.test.ts`
+  - `apps/api/src/auth/auth.service.ts`
+  - `apps/api/src/config/environment.test.ts`
+  - `apps/api/src/config/environment.ts`
+  - `apps/api/src/database/database.config.test.ts`
+  - `apps/api/src/health/readiness.service.test.ts`
+  - `apps/api/src/index.test.ts`
+  - `docs/README.md`
+  - `docs/website-launch-guide.md`
+  - `pnpm-lock.yaml`
+- Tester-modified files:
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2/tester_report.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2/tester_result.json`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2/documenter_prompt.txt`
+- Documenter-modified files:
+  - `docs/README.md`
+  - `docs/website-launch-guide.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2/documenter_report.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2/documenter_result.json`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2/verifier_prompt.txt`
+
+Commands executed:
+- Tester: `npx --yes pnpm@10.0.0 install`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/api lint`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/api typecheck`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/api test`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/api build`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/web lint`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/web typecheck`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/web test`
+- Documenter: `npx --yes pnpm@10.0.0 install`
+- Documenter: `npx --yes pnpm@10.0.0 --filter @sfus/api test`
+- Documenter: `npx --yes pnpm@10.0.0 --filter @sfus/web test`
+
+Validated outcomes so far:
+- Tester reported PASS with API lint/typecheck/test/build and web lint/typecheck/test all passing.
+- Documenter updated the architecture and launch docs to describe the implemented local auth routes, verification gate, token hashing/consumption semantics, session cookie lifecycle, and new auth environment variables.
+
+Shared artifact directory to reuse (repository-root-relative):
+- `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2`
+
+Verification requirements:
+- Continue through the full verifier workflow in the same run when blocking inputs are present; do not stop after activation, scope restatement, convention discovery, or diff inspection.
+- Infer any missing but recoverable repository context from repository evidence before treating it as a blocker.
+- Review the combined diff against `ms2` for implementation, tester, and documenter changes together.
+- Explicitly inspect `docs/README.md` and `docs/website-launch-guide.md` alongside the auth implementation and tests.
+- Confirm `documenter_result.json` records documentation commit hash `387eff27cd18692f64974fda9dbd485c03950df7`, not the later artifact commit hash.
+- Confirm this branch HEAD is exactly one artifact commit ahead of documentation commit `387eff27cd18692f64974fda9dbd485c03950df7` after the artifact commit is created.
+- Completion gate: do not report success unless all required artifacts exist and all changes are committed.
