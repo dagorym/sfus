@@ -8,6 +8,15 @@ const environment: ApplicationEnvironment = {
   nodeEnv: "development",
   apiPort: 3001,
   swaggerEnabled: true,
+  auth: {
+    passwordPepper: "development-pepper-value",
+    passwordBcryptRounds: 12,
+    sessionTtlMinutes: 1440,
+    sessionIdleTimeoutMinutes: 120,
+    totpIssuer: "SFUS Development",
+    recoveryCodeCount: 10,
+    recoveryCodeLength: 12
+  },
   db: {
     host: "mysql",
     port: 3306,

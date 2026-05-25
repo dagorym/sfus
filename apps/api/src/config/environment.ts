@@ -9,6 +9,15 @@ export interface ApplicationEnvironment {
   nodeEnv: NodeEnvironment;
   apiPort: number;
   swaggerEnabled: boolean;
+  auth: {
+    passwordPepper: string;
+    passwordBcryptRounds: number;
+    sessionTtlMinutes: number;
+    sessionIdleTimeoutMinutes: number;
+    totpIssuer: string;
+    recoveryCodeCount: number;
+    recoveryCodeLength: number;
+  };
   db: {
     host: string;
     port: number;
@@ -42,6 +51,47 @@ export const loadEnvironment = (
     errors
   );
 
+  const authPasswordPepper = readRequiredString(source.AUTH_PASSWORD_PEPPER, "AUTH_PASSWORD_PEPPER", errors);
+  const authPasswordBcryptRounds = parseInteger(
+    source.AUTH_PASSWORD_BCRYPT_ROUNDS,
+    "AUTH_PASSWORD_BCRYPT_ROUNDS",
+    { min: 8, max: 15 },
+    errors
+  );
+  const authSessionTtlMinutes = parseInteger(
+    source.AUTH_SESSION_TTL_MINUTES,
+    "AUTH_SESSION_TTL_MINUTES",
+    { min: 5, max: 43200 },
+    errors
+  );
+  const authSessionIdleTimeoutMinutes = parseInteger(
+    source.AUTH_SESSION_IDLE_TIMEOUT_MINUTES,
+    "AUTH_SESSION_IDLE_TIMEOUT_MINUTES",
+    { min: 5, max: 10080 },
+    errors
+  );
+  const authTotpIssuer = readRequiredString(source.AUTH_TOTP_ISSUER, "AUTH_TOTP_ISSUER", errors);
+  const authRecoveryCodeCount = parseInteger(
+    source.AUTH_RECOVERY_CODE_COUNT,
+    "AUTH_RECOVERY_CODE_COUNT",
+    { min: 6, max: 20 },
+    errors
+  );
+  const authRecoveryCodeLength = parseInteger(
+    source.AUTH_RECOVERY_CODE_LENGTH,
+    "AUTH_RECOVERY_CODE_LENGTH",
+    { min: 8, max: 16 },
+    errors
+  );
+
+  if (authPasswordPepper.length > 0 && authPasswordPepper.length < 16) {
+    errors.push("AUTH_PASSWORD_PEPPER must be at least 16 characters long.");
+  }
+
+  if (authSessionIdleTimeoutMinutes > authSessionTtlMinutes) {
+    errors.push("AUTH_SESSION_IDLE_TIMEOUT_MINUTES must be less than or equal to AUTH_SESSION_TTL_MINUTES.");
+  }
+
   const dbHost = readRequiredString(source.DB_HOST, "DB_HOST", errors);
   const dbPort = parseInteger(source.DB_PORT, "DB_PORT", { min: 1, max: 65535 }, errors);
   const dbName = readRequiredString(source.DB_NAME, "DB_NAME", errors);
@@ -71,6 +121,15 @@ export const loadEnvironment = (
     nodeEnv,
     apiPort,
     swaggerEnabled,
+    auth: {
+      passwordPepper: authPasswordPepper,
+      passwordBcryptRounds: authPasswordBcryptRounds,
+      sessionTtlMinutes: authSessionTtlMinutes,
+      sessionIdleTimeoutMinutes: authSessionIdleTimeoutMinutes,
+      totpIssuer: authTotpIssuer,
+      recoveryCodeCount: authRecoveryCodeCount,
+      recoveryCodeLength: authRecoveryCodeLength
+    },
     db: {
       host: dbHost,
       port: dbPort,

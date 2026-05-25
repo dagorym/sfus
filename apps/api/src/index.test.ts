@@ -19,6 +19,15 @@ const state = vi.hoisted(() => {
     nodeEnv: "development",
     apiPort: 3001,
     swaggerEnabled: true,
+    auth: {
+      passwordPepper: "development-pepper-value",
+      passwordBcryptRounds: 12,
+      sessionTtlMinutes: 1440,
+      sessionIdleTimeoutMinutes: 120,
+      totpIssuer: "SFUS Development",
+      recoveryCodeCount: 10,
+      recoveryCodeLength: 12
+    },
     db: {
       host: "mysql",
       port: 3306,
@@ -97,7 +106,10 @@ vi.mock("./config/environment", () => ({
 
 vi.mock("./database/database.config", () => ({
   createMigrationDataSource: state.createMigrationDataSource,
-  reviewedMigrationNames: ["FoundationBaseline1711843200000"]
+  reviewedMigrationNames: [
+    "FoundationBaseline1711843200000",
+    "IdentityAuthorizationFoundation1714435200000"
+  ]
 }));
 
 describe("apiBootstrap", () => {

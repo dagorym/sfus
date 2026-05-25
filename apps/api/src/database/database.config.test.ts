@@ -12,6 +12,15 @@ const environment: ApplicationEnvironment = {
   nodeEnv: "development",
   apiPort: 3001,
   swaggerEnabled: true,
+  auth: {
+    passwordPepper: "development-pepper-value",
+    passwordBcryptRounds: 12,
+    sessionTtlMinutes: 1440,
+    sessionIdleTimeoutMinutes: 120,
+    totpIssuer: "SFUS Development",
+    recoveryCodeCount: 10,
+    recoveryCodeLength: 12
+  },
   db: {
     host: "mysql",
     port: 3306,
@@ -38,13 +47,17 @@ describe("database config", () => {
       synchronize: false,
       migrationsRun: false,
       migrationsTableName: "sfus_migrations",
-      entities: [],
       extra: {
         connectionLimit: 5,
         connectTimeout: 5000
       }
     });
-    expect(reviewedMigrationNames).toEqual(["FoundationBaseline1711843200000"]);
+    expect(Array.isArray(options.entities)).toBe(true);
+    expect((options.entities as unknown[]).length).toBeGreaterThan(0);
+    expect(reviewedMigrationNames).toEqual([
+      "FoundationBaseline1711843200000",
+      "IdentityAuthorizationFoundation1714435200000"
+    ]);
   });
 
   it("creates Nest TypeORM options with manual initialization and no retries", () => {
