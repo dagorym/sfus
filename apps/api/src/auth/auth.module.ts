@@ -1,11 +1,12 @@
 import { DynamicModule, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
-import { API_ENVIRONMENT } from "../config/config.constants";
+import { API_ENVIRONMENT, AUTH_EXTERNAL_PROVIDER_REGISTRY } from "../config/config.constants";
 import type { ApplicationEnvironment } from "../config/environment";
 import { UsersModule } from "../users/users.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { createExternalAuthProviderRegistry } from "./external-auth-provider.registry";
 import { AuthIdentityEntity } from "./entities/auth-identity.entity";
 import { AuthSessionEntity } from "./entities/auth-session.entity";
 import { EmailVerificationEntity } from "./entities/email-verification.entity";
@@ -35,6 +36,10 @@ export class AuthModule {
         {
           provide: API_ENVIRONMENT,
           useValue: environment
+        },
+        {
+          provide: AUTH_EXTERNAL_PROVIDER_REGISTRY,
+          useFactory: () => createExternalAuthProviderRegistry(environment)
         }
       ],
       exports: [TypeOrmModule, AuthService]

@@ -25,7 +25,20 @@ const state = vi.hoisted(() => {
       sessionTtlMinutes: 1440,
       sessionIdleTimeoutMinutes: 120,
       emailVerificationTtlMinutes: 60,
+      externalStateTtlMinutes: 10,
       totpIssuer: "SFUS Development",
+      externalProviders: {
+        google: {
+          clientId: "google-client-id",
+          clientSecret: "google-client-secret",
+          callbackUrl: "http://localhost:3001/api/auth/external/google/callback"
+        },
+        github: {
+          clientId: "github-client-id",
+          clientSecret: "github-client-secret",
+          callbackUrl: "http://localhost:3001/api/auth/external/github/callback"
+        }
+      },
       recoveryCodeCount: 10,
       recoveryCodeLength: 12
     },

@@ -14,7 +14,20 @@ const createEnvironment = (): ApplicationEnvironment => ({
     sessionTtlMinutes: 1440,
     sessionIdleTimeoutMinutes: 120,
     emailVerificationTtlMinutes: 60,
+    externalStateTtlMinutes: 10,
     totpIssuer: "SFUS Development",
+    externalProviders: {
+      google: {
+        clientId: "google-client-id",
+        clientSecret: "google-client-secret",
+        callbackUrl: "http://localhost:3001/api/auth/external/google/callback"
+      },
+      github: {
+        clientId: "github-client-id",
+        clientSecret: "github-client-secret",
+        callbackUrl: "http://localhost:3001/api/auth/external/github/callback"
+      }
+    },
     recoveryCodeCount: 10,
     recoveryCodeLength: 12
   },
@@ -41,7 +54,8 @@ describe("AuthController", () => {
           globalRole: "user",
           status: "active",
           emailVerified: true,
-          emailVerifiedAt: new Date().toISOString()
+          emailVerifiedAt: new Date().toISOString(),
+          onboardingRequired: false
         },
         session: {
           id: "session-1",
@@ -133,7 +147,8 @@ describe("AuthController", () => {
           globalRole: "user",
           status: "active",
           emailVerified: true,
-          emailVerifiedAt: new Date().toISOString()
+          emailVerifiedAt: new Date().toISOString(),
+          onboardingRequired: false
         }
       })
     } as unknown as AuthService;
@@ -144,5 +159,78 @@ describe("AuthController", () => {
       verified: true
     });
     expect(authService.verifyEmailToken).toHaveBeenCalledWith(null);
+  });
+
+  it("redirects to provider auth urls and handles callback redirects", async () => {
+    const authService = {
+      startExternalAuth: vi.fn().mockReturnValue({
+        authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth?state=abc"
+      }),
+      loginWithExternalProvider: vi.fn().mockResolvedValue({
+        user: {
+          id: "user-1",
+          username: "pending_user",
+          email: "user@example.com",
+          displayName: null,
+          globalRole: "user",
+          status: "onboarding_required",
+          emailVerified: true,
+          emailVerifiedAt: new Date().toISOString(),
+          onboardingRequired: true
+        },
+        session: {
+          id: "session-1",
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          lastSeenAt: new Date().toISOString()
+        },
+        sessionToken: "session-token",
+        redirectPath: "/onboarding/username"
+      }),
+      getSessionCookieName: vi.fn().mockReturnValue("sfus_session")
+    } as unknown as AuthService;
+    const controller = new AuthController(authService, createEnvironment());
+    const redirectResponse = {
+      redirect: vi.fn()
+    };
+
+    await controller.startExternalAuth("google", "/app", redirectResponse as never);
+    expect(authService.startExternalAuth).toHaveBeenCalledWith("google", "/app");
+    expect(redirectResponse.redirect).toHaveBeenCalledWith(
+      "https://accounts.google.com/o/oauth2/v2/auth?state=abc"
+    );
+
+    const callbackResponse = {
+      cookie: vi.fn(),
+      redirect: vi.fn()
+    };
+    await controller.externalAuthCallback(
+      "google",
+      "auth-code",
+      "state-token",
+      {
+        headers: {
+          cookie: "sfus_session=session-token",
+          "user-agent": "vitest"
+        },
+        ip: "127.0.0.1"
+      } as never,
+      callbackResponse as never
+    );
+    expect(authService.loginWithExternalProvider).toHaveBeenCalledWith(
+      {
+        provider: "google",
+        code: "auth-code",
+        state: "state-token"
+      },
+      expect.objectContaining({
+        cookieHeader: "sfus_session=session-token"
+      })
+    );
+    expect(callbackResponse.cookie).toHaveBeenCalledWith(
+      "sfus_session",
+      "session-token",
+      expect.objectContaining({ httpOnly: true })
+    );
+    expect(callbackResponse.redirect).toHaveBeenCalledWith("/onboarding/username");
   });
 });

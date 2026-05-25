@@ -1,5 +1,10 @@
-import { Body, Controller, Get, Inject, Post, Req, Res } from "@nestjs/common";
-import { ApiOkResponse, ApiOperation, ApiTags, ApiUnauthorizedResponse } from "@nestjs/swagger";
+import { Body, Controller, Get, Inject, Param, Post, Query, Req, Res } from "@nestjs/common";
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse
+} from "@nestjs/swagger";
 import type { Request, Response } from "express";
 
 import { API_ENVIRONMENT } from "../config/config.constants";
@@ -88,6 +93,59 @@ export class AuthController {
     @Req() request: Request
   ): Promise<{ user: AuthenticatedUserPayload; session: AuthenticatedSessionPayload }> {
     const result = await this.authService.resolveSession({
+      cookieHeader: request.headers.cookie,
+      ipAddress: request.ip || null,
+      userAgent: request.headers["user-agent"] || null
+    });
+    return {
+      user: result.user,
+      session: result.session
+    };
+  }
+
+  @Get("external/:provider/start")
+  @ApiOperation({ summary: "Start Google/GitHub authentication by redirecting to the provider." })
+  async startExternalAuth(
+    @Param("provider") provider: string,
+    @Query("next") nextPath: string | undefined,
+    @Res() response: Response
+  ): Promise<void> {
+    const result = this.authService.startExternalAuth(provider, nextPath);
+    response.redirect(result.authorizationUrl);
+  }
+
+  @Get("external/:provider/callback")
+  @ApiOperation({ summary: "Handle provider callback, link accounts, and start a session." })
+  async externalAuthCallback(
+    @Param("provider") provider: string,
+    @Query("code") code: string | undefined,
+    @Query("state") state: string | undefined,
+    @Req() request: Request,
+    @Res() response: Response
+  ): Promise<void> {
+    const result = await this.authService.loginWithExternalProvider(
+      {
+        provider,
+        code,
+        state
+      },
+      {
+        cookieHeader: request.headers.cookie,
+        ipAddress: request.ip || null,
+        userAgent: request.headers["user-agent"] || null
+      }
+    );
+    this.setSessionCookie(response, result.sessionToken, result.session.expiresAt);
+    response.redirect(result.redirectPath);
+  }
+
+  @Post("onboarding/username")
+  @ApiOperation({ summary: "Complete first-login external onboarding by choosing a username." })
+  async completeOnboarding(
+    @Body() body: unknown,
+    @Req() request: Request
+  ): Promise<{ user: AuthenticatedUserPayload; session: AuthenticatedSessionPayload }> {
+    const result = await this.authService.completeExternalOnboarding(body, {
       cookieHeader: request.headers.cookie,
       ipAddress: request.ip || null,
       userAgent: request.headers["user-agent"] || null

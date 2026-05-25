@@ -52,9 +52,12 @@ The default local config contracts are:
   - `AUTH_SESSION_TTL_MINUTES=1440` (integer 5-43200)
   - `AUTH_SESSION_IDLE_TIMEOUT_MINUTES=120` (integer 5-10080 and must be less than or equal to the session TTL)
   - `AUTH_EMAIL_VERIFICATION_TTL_MINUTES=60` (integer 5-10080, controls verification-token expiry)
+  - `AUTH_EXTERNAL_STATE_TTL_MINUTES=10` (integer 5-60, controls external callback-state expiry)
   - `AUTH_TOTP_ISSUER=SFUS Development` (required issuer label presented to authenticator apps)
   - `AUTH_RECOVERY_CODE_COUNT=10` (integer 6-20)
   - `AUTH_RECOVERY_CODE_LENGTH=12` (integer 8-16)
+  - `AUTH_GOOGLE_CLIENT_ID` / `AUTH_GOOGLE_CLIENT_SECRET` / `AUTH_GOOGLE_CALLBACK_URL` (required for Google sign-in)
+  - `AUTH_GITHUB_CLIENT_ID` / `AUTH_GITHUB_CLIENT_SECRET` / `AUTH_GITHUB_CALLBACK_URL` (required for GitHub sign-in)
   - `DB_HOST=mysql`
   - `DB_PORT=3306`
   - `DB_NAME=sfus`
@@ -105,7 +108,10 @@ The current local auth API surface is available under `/api/auth`:
 - `POST /api/auth/verify-email` consumes a single-use verification token before the user can log in successfully.
 - `POST /api/auth/login` issues the `sfus_session` HTTP-only cookie and returns `{ user, session }`.
 - `POST /api/auth/logout` revokes the current session and clears the cookie.
-- `GET /api/auth/session` returns the same stable `{ user, session }` contract while the session remains active.
+- `GET /api/auth/session` returns the same stable `{ user, session }` contract while the session remains active, including `user.onboardingRequired`.
+- `GET /api/auth/external/google/start` and `GET /api/auth/external/github/start` initiate provider redirects.
+- `GET /api/auth/external/:provider/callback` handles callback code/state exchange, deterministic account linking, and session issuance.
+- `POST /api/auth/onboarding/username` completes first-login external onboarding by setting the final username.
 
 Session-cookie behavior is intentionally deployment-aware:
 
@@ -120,7 +126,8 @@ Current user-facing website behavior is intentionally narrow:
 - branded homepage at `/`
 - branded `404` handling for unknown routes
 - branded runtime error surface
-- navigation currently limited to `Home`
+- external sign-in entry page at `/login`
+- authenticated shell route at `/app` that redirects first-login users into `/onboarding/username`
 
 ## Run The Database Migration
 

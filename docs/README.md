@@ -43,18 +43,23 @@ This repository now includes the Milestone 1 foundation baseline for the monorep
 - Milestone 2 Subtask 1 adds the first persistence-layer identity and authorization foundation to `apps/api` while keeping the current frontend shell public-only.
 - Reviewed migration `1714435200000-identity-authorization-foundation.ts` introduces the `users`, `auth_identities`, `password_authenticators`, `auth_sessions`, `email_verifications`, `totp_secrets`, `totp_recovery_codes`, and `authorization_grants` tables with MySQL 5.7-compatible DDL.
 - `UsersModule` owns user persistence through `UserEntity` and `UsersService`.
-- `AuthModule` imports `UsersModule` and owns auth persistence through `AuthIdentityEntity`, `PasswordAuthenticatorEntity`, `AuthSessionEntity`, `EmailVerificationEntity`, `TotpSecretEntity`, `TotpRecoveryCodeEntity`, plus `AuthController` and `AuthService` for local registration, login/logout, email verification, and current-session APIs.
+- `AuthModule` imports `UsersModule` and owns auth persistence through `AuthIdentityEntity`, `PasswordAuthenticatorEntity`, `AuthSessionEntity`, `EmailVerificationEntity`, `TotpSecretEntity`, `TotpRecoveryCodeEntity`, plus `AuthController` and `AuthService` for local auth and provider-backed (Google/GitHub) auth flows.
 - `AuthorizationModule` owns reusable authorization grant persistence through `AuthorizationGrantEntity` and `AuthorizationService`.
 - `AppModule` now composes `DatabaseModule`, `UsersModule`, `AuthModule`, `AuthorizationModule`, and `HealthModule` so the API can bootstrap the shared identity/authz foundation as one application surface.
 - Local password auth stores Argon2id password hashes after appending the required password pepper, and local login stays blocked until a primary-email verification token has been consumed successfully.
 - Email verification tokens are generated at registration time, hashed before persistence with `AUTH_SESSION_TOKEN_PEPPER`, checked for expiry at verification time, and consumed once so the same token cannot activate the account twice.
 - Session lifecycle is server-managed through the `sfus_session` HTTP-only cookie: login issues a new session, `GET /api/auth/session` resolves and refreshes the active session timestamp, idle or absolute expiry revokes the record, and logout revokes the current session and clears the cookie.
+- External-provider auth is provider-agnostic via an adapter registry boundary, with deterministic account linking in this order: existing `(provider, subject)` identity match, then existing user by normalized email, then new pending-onboarding user creation.
+- First-time external users are marked `onboarding_required` until `POST /api/auth/onboarding/username` sets a valid unique username; `GET /api/auth/session` now returns `user.onboardingRequired` so the web shell can gate authenticated routes.
 - Auth API contract for frontend session-awareness:
   - `POST /api/auth/register`
   - `POST /api/auth/verify-email`
   - `POST /api/auth/login`
   - `POST /api/auth/logout`
   - `GET /api/auth/session`
+  - `GET /api/auth/external/:provider/start`
+  - `GET /api/auth/external/:provider/callback`
+  - `POST /api/auth/onboarding/username`
   - authenticated `login` and `session` responses return a stable `{ user, session }` payload so the frontend can treat explicit login and session rehydration consistently
 
 ## Runtime Contract Overview
@@ -91,9 +96,12 @@ The API environment contract now validates these auth settings at startup:
 - `AUTH_SESSION_TTL_MINUTES` must be an integer from 5 to 43200.
 - `AUTH_SESSION_IDLE_TIMEOUT_MINUTES` must be an integer from 5 to 10080 and cannot exceed `AUTH_SESSION_TTL_MINUTES`.
 - `AUTH_EMAIL_VERIFICATION_TTL_MINUTES` must be an integer from 5 to 10080 and controls how long a newly issued verification token remains usable.
+- `AUTH_EXTERNAL_STATE_TTL_MINUTES` must be an integer from 5 to 60 and controls OAuth callback-state expiry.
 - `AUTH_TOTP_ISSUER` is required and names the issuer presented by TOTP authenticators.
 - `AUTH_RECOVERY_CODE_COUNT` must be an integer from 6 to 20.
 - `AUTH_RECOVERY_CODE_LENGTH` must be an integer from 8 to 16.
+- `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`, and `AUTH_GOOGLE_CALLBACK_URL` are required for Google sign-in.
+- `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, and `AUTH_GITHUB_CALLBACK_URL` are required for GitHub sign-in.
 
 The example files are templates only. Production secrets and the external production MySQL connection are managed on the host outside the repository checkout.
 

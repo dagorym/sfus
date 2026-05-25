@@ -5,25 +5,32 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  NotFoundException,
   UnauthorizedException
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import argon2 from "argon2";
 import { Repository } from "typeorm";
 
-import { API_ENVIRONMENT } from "../config/config.constants";
+import { API_ENVIRONMENT, AUTH_EXTERNAL_PROVIDER_REGISTRY } from "../config/config.constants";
 import type { ApplicationEnvironment } from "../config/environment";
 import { UserEntity } from "../users/entities/user.entity";
 import { AuthIdentityEntity } from "./entities/auth-identity.entity";
 import { AuthSessionEntity } from "./entities/auth-session.entity";
 import { EmailVerificationEntity } from "./entities/email-verification.entity";
 import { PasswordAuthenticatorEntity } from "./entities/password-authenticator.entity";
+import type {
+  ExternalAuthProviderRegistry,
+  ExternalIdentityProfile
+} from "./external-auth-provider.registry";
 
 const localIdentityProvider = "local-password";
+const onboardingPendingStatus = "onboarding_required";
 const sessionCookieName = "sfus_session";
 const minimumPasswordLength = 12;
 const usernamePattern = /^[A-Za-z0-9_.-]{3,32}$/;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const externalAuthStateVersion = 1;
 
 export interface SessionRequestContext {
   cookieHeader?: string;
@@ -43,6 +50,12 @@ export interface LoginInput {
   password: string;
 }
 
+export interface ExternalCallbackInput {
+  provider: string;
+  code: string;
+  state: string;
+}
+
 export interface AuthenticatedUserPayload {
   id: string;
   username: string;
@@ -52,6 +65,7 @@ export interface AuthenticatedUserPayload {
   status: string;
   emailVerified: boolean;
   emailVerifiedAt: string | null;
+  onboardingRequired: boolean;
 }
 
 export interface AuthenticatedSessionPayload {
@@ -79,6 +93,14 @@ export interface AuthenticatedSessionResult {
   sessionToken: string;
 }
 
+export interface ExternalAuthStartResult {
+  authorizationUrl: string;
+}
+
+export interface ExternalCallbackResult extends AuthenticatedSessionResult {
+  redirectPath: string;
+}
+
 type PersistenceContext = {
   usersRepository: Repository<UserEntity>;
   authIdentitiesRepository: Repository<AuthIdentityEntity>;
@@ -101,7 +123,9 @@ export class AuthService {
     @InjectRepository(EmailVerificationEntity)
     private readonly emailVerificationsRepository: Repository<EmailVerificationEntity>,
     @Inject(API_ENVIRONMENT)
-    private readonly environment: ApplicationEnvironment
+    private readonly environment: ApplicationEnvironment,
+    @Inject(AUTH_EXTERNAL_PROVIDER_REGISTRY)
+    private readonly externalProviderRegistry: ExternalAuthProviderRegistry
   ) {}
 
   async registerAccount(input: RegisterInput | unknown): Promise<RegistrationResult> {
@@ -211,6 +235,78 @@ export class AuthService {
     return { user: mapUser(user) };
   }
 
+  startExternalAuth(providerInput: unknown, nextPathInput: unknown): ExternalAuthStartResult {
+    const provider = parseProvider(providerInput);
+    const adapter = this.externalProviderRegistry.resolve(provider);
+    const state = this.createExternalAuthState({
+      provider,
+      nextPath: normalizeNextPath(nextPathInput)
+    });
+    return {
+      authorizationUrl: adapter.getAuthorizationUrl(state)
+    };
+  }
+
+  async loginWithExternalProvider(
+    input: ExternalCallbackInput | unknown,
+    requestContext: SessionRequestContext
+  ): Promise<ExternalCallbackResult> {
+    const callbackInput = parseExternalCallbackInput(input);
+    const statePayload = this.parseExternalAuthState(callbackInput.state, callbackInput.provider);
+    const adapter = this.externalProviderRegistry.resolve(callbackInput.provider);
+    const identity = await adapter.exchangeCodeForIdentity(callbackInput.code);
+
+    if (identity.provider !== callbackInput.provider) {
+      throw new BadRequestException("Provider callback did not match the requested provider.");
+    }
+
+    const user = await this.withPersistenceContext((context) =>
+      this.resolveExternalIdentityUser(identity, context)
+    );
+    const session = await this.createSession(user, requestContext);
+
+    return {
+      user: mapUser(user),
+      session: mapSession(session.session),
+      sessionToken: session.sessionToken,
+      redirectPath: user.status === onboardingPendingStatus ? "/onboarding/username" : statePayload.nextPath
+    };
+  }
+
+  async completeExternalOnboarding(
+    input: unknown,
+    requestContext: SessionRequestContext
+  ): Promise<AuthenticatedSessionResult> {
+    const onboardingInput = parseOnboardingInput(input);
+    const resolvedSession = await this.resolveSession(requestContext);
+
+    if (!resolvedSession.user.onboardingRequired) {
+      return resolvedSession;
+    }
+
+    const user = await this.usersRepository.findOne({ where: { id: resolvedSession.user.id } });
+    if (!user) {
+      throw new UnauthorizedException("Authentication required.");
+    }
+
+    const duplicate = await this.usersRepository.findOne({
+      where: { username: onboardingInput.username }
+    });
+    if (duplicate && duplicate.id !== user.id) {
+      throw new BadRequestException("This username is already in use.");
+    }
+
+    user.username = onboardingInput.username;
+    user.status = "active";
+    await this.usersRepository.save(user);
+
+    return {
+      user: mapUser(user),
+      session: resolvedSession.session,
+      sessionToken: resolvedSession.sessionToken
+    };
+  }
+
   async loginWithPassword(
     input: LoginInput | unknown,
     requestContext: SessionRequestContext
@@ -241,28 +337,11 @@ export class AuthService {
       throw new ForbiddenException("Email verification required before login.");
     }
 
-    const now = new Date();
-    const expiresAt = addMinutes(now, this.environment.auth.sessionTtlMinutes);
-    const sessionToken = createToken();
-    const session = await this.authSessionsRepository.save(
-      this.authSessionsRepository.create({
-        id: crypto.randomUUID(),
-        userId: user.id,
-        sessionTokenHash: this.hashToken(sessionToken),
-        csrfTokenHash: null,
-        state: "active",
-        lastSeenAt: now,
-        expiresAt,
-        revokedAt: null,
-        ipAddress: requestContext.ipAddress || null,
-        userAgent: requestContext.userAgent || null
-      })
-    );
-
+    const session = await this.createSession(user, requestContext);
     return {
       user: mapUser(user),
-      session: mapSession(session),
-      sessionToken
+      session: mapSession(session.session),
+      sessionToken: session.sessionToken
     };
   }
 
@@ -327,6 +406,30 @@ export class AuthService {
     return sessionCookieName;
   }
 
+  private async createSession(
+    user: UserEntity,
+    requestContext: SessionRequestContext
+  ): Promise<{ session: AuthSessionEntity; sessionToken: string }> {
+    const now = new Date();
+    const expiresAt = addMinutes(now, this.environment.auth.sessionTtlMinutes);
+    const sessionToken = createToken();
+    const session = await this.authSessionsRepository.save(
+      this.authSessionsRepository.create({
+        id: crypto.randomUUID(),
+        userId: user.id,
+        sessionTokenHash: this.hashToken(sessionToken),
+        csrfTokenHash: null,
+        state: "active",
+        lastSeenAt: now,
+        expiresAt,
+        revokedAt: null,
+        ipAddress: requestContext.ipAddress || null,
+        userAgent: requestContext.userAgent || null
+      })
+    );
+    return { session, sessionToken };
+  }
+
   private async withPersistenceContext<T>(
     operation: (context: PersistenceContext) => Promise<T>
   ): Promise<T> {
@@ -380,6 +483,127 @@ export class AuthService {
 
     return token?.trim() || null;
   }
+
+  private async resolveExternalIdentityUser(
+    identity: ExternalIdentityProfile,
+    context: PersistenceContext
+  ): Promise<UserEntity> {
+    const existingIdentity = await context.authIdentitiesRepository.findOne({
+      where: {
+        provider: identity.provider,
+        providerSubject: identity.subject
+      }
+    });
+    if (existingIdentity) {
+      const existingUser = await context.usersRepository.findOne({
+        where: { id: existingIdentity.userId }
+      });
+      if (!existingUser) {
+        throw new NotFoundException("Linked account was not found.");
+      }
+      return existingUser;
+    }
+
+    const normalizedEmail = normalizeEmail(identity.email);
+    const userByEmail = normalizedEmail
+      ? await context.usersRepository.findOne({
+          where: { email: normalizedEmail }
+        })
+      : null;
+
+    const now = new Date();
+    const user =
+      userByEmail ||
+      (await context.usersRepository.save(
+        context.usersRepository.create({
+          id: crypto.randomUUID(),
+          username: createPendingUsername(),
+          email: normalizedEmail || createSyntheticExternalEmail(identity),
+          displayName: identity.displayName,
+          status: onboardingPendingStatus,
+          globalRole: "user",
+          emailVerifiedAt: identity.emailVerified ? now : null
+        })
+      ));
+
+    if (userByEmail && identity.emailVerified && !user.emailVerifiedAt) {
+      user.emailVerifiedAt = now;
+      await context.usersRepository.save(user);
+    }
+
+    await context.authIdentitiesRepository.save(
+      context.authIdentitiesRepository.create({
+        id: crypto.randomUUID(),
+        userId: user.id,
+        provider: identity.provider,
+        providerSubject: identity.subject,
+        providerEmail: normalizedEmail
+      })
+    );
+    return user;
+  }
+
+  private createExternalAuthState(payload: { provider: string; nextPath: string }): string {
+    const statePayload = {
+      v: externalAuthStateVersion,
+      p: payload.provider,
+      n: payload.nextPath,
+      iat: Date.now(),
+      nonce: createToken()
+    };
+    const encodedPayload = Buffer.from(JSON.stringify(statePayload)).toString("base64url");
+    const signature = crypto
+      .createHmac("sha256", this.environment.auth.sessionTokenPepper)
+      .update(encodedPayload)
+      .digest("base64url");
+    return `${encodedPayload}.${signature}`;
+  }
+
+  private parseExternalAuthState(
+    stateInput: string,
+    expectedProvider: string
+  ): { nextPath: string } {
+    const [encodedPayload, signature] = stateInput.split(".");
+    if (!encodedPayload || !signature) {
+      throw new BadRequestException("Invalid authentication callback state.");
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", this.environment.auth.sessionTokenPepper)
+      .update(encodedPayload)
+      .digest("base64url");
+    if (expectedSignature !== signature) {
+      throw new BadRequestException("Invalid authentication callback state.");
+    }
+
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as Record<
+        string,
+        unknown
+      >;
+    } catch {
+      throw new BadRequestException("Invalid authentication callback state.");
+    }
+
+    if (
+      payload.v !== externalAuthStateVersion ||
+      payload.p !== expectedProvider ||
+      typeof payload.iat !== "number" ||
+      typeof payload.n !== "string"
+    ) {
+      throw new BadRequestException("Invalid authentication callback state.");
+    }
+
+    const expiresAt = payload.iat + this.environment.auth.externalStateTtlMinutes * 60_000;
+    if (expiresAt <= Date.now()) {
+      throw new BadRequestException("Authentication callback state has expired.");
+    }
+
+    return {
+      nextPath: normalizeNextPath(payload.n)
+    };
+  }
 }
 
 const mapUser = (user: UserEntity): AuthenticatedUserPayload => ({
@@ -390,7 +614,8 @@ const mapUser = (user: UserEntity): AuthenticatedUserPayload => ({
   globalRole: user.globalRole,
   status: user.status,
   emailVerified: Boolean(user.emailVerifiedAt),
-  emailVerifiedAt: user.emailVerifiedAt ? user.emailVerifiedAt.toISOString() : null
+  emailVerifiedAt: user.emailVerifiedAt ? user.emailVerifiedAt.toISOString() : null,
+  onboardingRequired: user.status === onboardingPendingStatus
 });
 
 const mapSession = (session: AuthSessionEntity): AuthenticatedSessionPayload => ({
@@ -445,6 +670,40 @@ const parseLoginInput = (input: unknown): LoginInput => {
   return { email, password };
 };
 
+const parseProvider = (providerInput: unknown): string => {
+  const normalizedProvider =
+    typeof providerInput === "string" ? providerInput.trim().toLowerCase() : "";
+  if (!normalizedProvider) {
+    throw new BadRequestException("Authentication provider is required.");
+  }
+  return normalizedProvider;
+};
+
+const parseExternalCallbackInput = (input: unknown): ExternalCallbackInput => {
+  const record = asRecord(input);
+  const provider = parseProvider(record.provider);
+  const code = typeof record.code === "string" ? record.code.trim() : "";
+  const state = typeof record.state === "string" ? record.state.trim() : "";
+  if (!code) {
+    throw new BadRequestException("Authorization code is required.");
+  }
+  if (!state) {
+    throw new BadRequestException("Authentication callback state is required.");
+  }
+  return { provider, code, state };
+};
+
+const parseOnboardingInput = (input: unknown): { username: string } => {
+  const record = asRecord(input);
+  const username = typeof record.username === "string" ? record.username.trim() : "";
+  if (!usernamePattern.test(username)) {
+    throw new BadRequestException(
+      "Username must be 3-32 characters and contain only letters, numbers, periods, dashes, or underscores."
+    );
+  }
+  return { username };
+};
+
 const parseVerificationToken = (tokenInput: unknown): string => {
   const record = asRecord(tokenInput);
   const token = typeof tokenInput === "string" ? tokenInput : typeof record.token === "string" ? record.token : "";
@@ -456,10 +715,29 @@ const parseVerificationToken = (tokenInput: unknown): string => {
   return normalizedToken;
 };
 
+const normalizeNextPath = (value: unknown): string => {
+  if (typeof value !== "string") {
+    return "/app";
+  }
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
+    return "/app";
+  }
+  return trimmed;
+};
+
 const asRecord = (value: unknown): Record<string, unknown> =>
   typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 
 const createToken = (): string => crypto.randomBytes(32).toString("base64url");
+
+const createPendingUsername = (): string => {
+  const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+  return `pending_${suffix}`;
+};
+
+const createSyntheticExternalEmail = (identity: ExternalIdentityProfile): string =>
+  `${identity.provider}_${identity.subject}@users.noreply.sfus.local`;
 
 const addMinutes = (date: Date, minutes: number): Date => {
   return new Date(date.getTime() + minutes * 60_000);

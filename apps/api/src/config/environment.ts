@@ -15,9 +15,22 @@ export interface ApplicationEnvironment {
     sessionTtlMinutes: number;
     sessionIdleTimeoutMinutes: number;
     emailVerificationTtlMinutes: number;
+    externalStateTtlMinutes: number;
     totpIssuer: string;
     recoveryCodeCount: number;
     recoveryCodeLength: number;
+    externalProviders: {
+      google: {
+        clientId: string;
+        clientSecret: string;
+        callbackUrl: string;
+      };
+      github: {
+        clientId: string;
+        clientSecret: string;
+        callbackUrl: string;
+      };
+    };
   };
   db: {
     host: string;
@@ -76,7 +89,43 @@ export const loadEnvironment = (
     { min: 5, max: 10080 },
     errors
   );
+  const authExternalStateTtlMinutes = parseInteger(
+    source.AUTH_EXTERNAL_STATE_TTL_MINUTES,
+    "AUTH_EXTERNAL_STATE_TTL_MINUTES",
+    { min: 5, max: 60 },
+    errors
+  );
   const authTotpIssuer = readRequiredString(source.AUTH_TOTP_ISSUER, "AUTH_TOTP_ISSUER", errors);
+  const authGoogleClientId = readRequiredString(
+    source.AUTH_GOOGLE_CLIENT_ID,
+    "AUTH_GOOGLE_CLIENT_ID",
+    errors
+  );
+  const authGoogleClientSecret = readRequiredString(
+    source.AUTH_GOOGLE_CLIENT_SECRET,
+    "AUTH_GOOGLE_CLIENT_SECRET",
+    errors
+  );
+  const authGoogleCallbackUrl = readRequiredString(
+    source.AUTH_GOOGLE_CALLBACK_URL,
+    "AUTH_GOOGLE_CALLBACK_URL",
+    errors
+  );
+  const authGitHubClientId = readRequiredString(
+    source.AUTH_GITHUB_CLIENT_ID,
+    "AUTH_GITHUB_CLIENT_ID",
+    errors
+  );
+  const authGitHubClientSecret = readRequiredString(
+    source.AUTH_GITHUB_CLIENT_SECRET,
+    "AUTH_GITHUB_CLIENT_SECRET",
+    errors
+  );
+  const authGitHubCallbackUrl = readRequiredString(
+    source.AUTH_GITHUB_CALLBACK_URL,
+    "AUTH_GITHUB_CALLBACK_URL",
+    errors
+  );
   const authRecoveryCodeCount = parseInteger(
     source.AUTH_RECOVERY_CODE_COUNT,
     "AUTH_RECOVERY_CODE_COUNT",
@@ -137,9 +186,22 @@ export const loadEnvironment = (
       sessionTtlMinutes: authSessionTtlMinutes,
       sessionIdleTimeoutMinutes: authSessionIdleTimeoutMinutes,
       emailVerificationTtlMinutes: authEmailVerificationTtlMinutes,
+      externalStateTtlMinutes: authExternalStateTtlMinutes,
       totpIssuer: authTotpIssuer,
       recoveryCodeCount: authRecoveryCodeCount,
-      recoveryCodeLength: authRecoveryCodeLength
+      recoveryCodeLength: authRecoveryCodeLength,
+      externalProviders: {
+        google: {
+          clientId: authGoogleClientId,
+          clientSecret: authGoogleClientSecret,
+          callbackUrl: authGoogleCallbackUrl
+        },
+        github: {
+          clientId: authGitHubClientId,
+          clientSecret: authGitHubClientSecret,
+          callbackUrl: authGitHubCallbackUrl
+        }
+      }
     },
     db: {
       host: dbHost,

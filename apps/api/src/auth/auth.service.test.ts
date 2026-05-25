@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ApplicationEnvironment } from "../config/environment";
 import { AuthService } from "./auth.service";
+import type { ExternalAuthProviderRegistry } from "./external-auth-provider.registry";
 import { AuthIdentityEntity } from "./entities/auth-identity.entity";
 import { AuthSessionEntity } from "./entities/auth-session.entity";
 import { EmailVerificationEntity } from "./entities/email-verification.entity";
@@ -75,7 +76,20 @@ const createEnvironment = (): ApplicationEnvironment => ({
     sessionTtlMinutes: 1440,
     sessionIdleTimeoutMinutes: 120,
     emailVerificationTtlMinutes: 60,
+    externalStateTtlMinutes: 10,
     totpIssuer: "SFUS Development",
+    externalProviders: {
+      google: {
+        clientId: "google-client-id",
+        clientSecret: "google-client-secret",
+        callbackUrl: "http://localhost:3001/api/auth/external/google/callback"
+      },
+      github: {
+        clientId: "github-client-id",
+        clientSecret: "github-client-secret",
+        callbackUrl: "http://localhost:3001/api/auth/external/github/callback"
+      }
+    },
     recoveryCodeCount: 10,
     recoveryCodeLength: 12
   },
@@ -90,7 +104,13 @@ const createEnvironment = (): ApplicationEnvironment => ({
   }
 });
 
-const createService = () => {
+const createService = (
+  providerRegistry: ExternalAuthProviderRegistry = {
+    resolve: (provider: string) => {
+      throw new Error(`Unexpected provider lookup: ${provider}`);
+    }
+  }
+) => {
   const usersRepository = createRepository<UserEntity>();
   const authIdentitiesRepository = createRepository<AuthIdentityEntity>();
   const passwordAuthenticatorsRepository = createRepository<PasswordAuthenticatorEntity>();
@@ -161,7 +181,8 @@ const createService = () => {
     passwordAuthenticatorsRepository as never,
     authSessionsRepository as never,
     emailVerificationsRepository as never,
-    createEnvironment()
+    createEnvironment(),
+    providerRegistry
   );
 
   return {
@@ -170,7 +191,8 @@ const createService = () => {
     authIdentitiesRepository,
     passwordAuthenticatorsRepository,
     authSessionsRepository,
-    emailVerificationsRepository
+    emailVerificationsRepository,
+    providerRegistry
   };
 };
 
@@ -417,6 +439,95 @@ describe("AuthService", () => {
       })
     ).rejects.toThrowError("Session has expired.");
     expect(authSessionsRepository.data[0]!.state).toBe("revoked");
+  });
+
+  it("creates pending users for first-time external identities and gates onboarding", async () => {
+    const { service, authIdentitiesRepository } = createService({
+      resolve: (provider: string) => ({
+        provider,
+        getAuthorizationUrl: (state: string) => `https://example.test/${provider}/auth?state=${state}`,
+        exchangeCodeForIdentity: async () => ({
+          provider,
+          subject: "provider-subject",
+          email: "external@example.com",
+          emailVerified: true,
+          displayName: "External User"
+        })
+      })
+    });
+
+    const start = service.startExternalAuth("google", "/app");
+    expect(start.authorizationUrl).toContain("https://example.test/google/auth?state=");
+
+    const callback = await service.loginWithExternalProvider(
+      {
+        provider: "google",
+        code: "auth-code",
+        state: start.authorizationUrl.split("state=")[1]
+      },
+      {}
+    );
+
+    expect(callback.redirectPath).toBe("/onboarding/username");
+    expect(callback.user.onboardingRequired).toBe(true);
+    expect(callback.user.status).toBe("onboarding_required");
+    expect(authIdentitiesRepository.data[0]).toMatchObject({
+      provider: "google",
+      providerSubject: "provider-subject",
+      providerEmail: "external@example.com"
+    });
+
+    const completed = await service.completeExternalOnboarding(
+      {
+        username: "external_user"
+      },
+      {
+        cookieHeader: `sfus_session=${callback.sessionToken}`
+      }
+    );
+    expect(completed.user.onboardingRequired).toBe(false);
+    expect(completed.user.username).toBe("external_user");
+  });
+
+  it("links external identities to existing users by deterministic email matching", async () => {
+    const { service, authIdentitiesRepository } = createService({
+      resolve: (provider: string) => ({
+        provider,
+        getAuthorizationUrl: (state: string) => `https://example.test/${provider}?state=${state}`,
+        exchangeCodeForIdentity: async () => ({
+          provider,
+          subject: "github-subject",
+          email: "linked@example.com",
+          emailVerified: true,
+          displayName: "Linked User"
+        })
+      })
+    });
+    const registration = await service.registerAccount({
+      email: "linked@example.com",
+      username: "linked_local",
+      password: "super-secure-password"
+    });
+    await service.verifyEmailToken(registration.emailVerification.token!);
+
+    const start = service.startExternalAuth("github", "/app");
+    const callback = await service.loginWithExternalProvider(
+      {
+        provider: "github",
+        code: "auth-code",
+        state: start.authorizationUrl.split("state=")[1]
+      },
+      {}
+    );
+    expect(callback.user.email).toBe("linked@example.com");
+    expect(callback.user.status).toBe("active");
+    expect(callback.redirectPath).toBe("/app");
+    expect(authIdentitiesRepository.data).toHaveLength(2);
+    expect(
+      authIdentitiesRepository.data.filter(
+        (identity) => identity.provider === "github" && identity.userId === callback.user.id
+      )
+    ).toHaveLength(1);
   });
 
   it("rejects invalid verification tokens", async () => {

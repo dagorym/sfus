@@ -10,7 +10,14 @@ const createValidEnvironment = (): NodeJS.ProcessEnv => ({
   AUTH_SESSION_TTL_MINUTES: "1440",
   AUTH_SESSION_IDLE_TIMEOUT_MINUTES: "120",
   AUTH_EMAIL_VERIFICATION_TTL_MINUTES: "60",
+  AUTH_EXTERNAL_STATE_TTL_MINUTES: "10",
   AUTH_TOTP_ISSUER: "SFUS Development",
+  AUTH_GOOGLE_CLIENT_ID: "google-client-id",
+  AUTH_GOOGLE_CLIENT_SECRET: "google-client-secret",
+  AUTH_GOOGLE_CALLBACK_URL: "http://localhost:3001/api/auth/external/google/callback",
+  AUTH_GITHUB_CLIENT_ID: "github-client-id",
+  AUTH_GITHUB_CLIENT_SECRET: "github-client-secret",
+  AUTH_GITHUB_CALLBACK_URL: "http://localhost:3001/api/auth/external/github/callback",
   AUTH_RECOVERY_CODE_COUNT: "10",
   AUTH_RECOVERY_CODE_LENGTH: "12",
   DB_HOST: "mysql",
@@ -36,7 +43,20 @@ describe("loadEnvironment", () => {
         sessionTtlMinutes: 1440,
         sessionIdleTimeoutMinutes: 120,
         emailVerificationTtlMinutes: 60,
+        externalStateTtlMinutes: 10,
         totpIssuer: "SFUS Development",
+        externalProviders: {
+          google: {
+            clientId: "google-client-id",
+            clientSecret: "google-client-secret",
+            callbackUrl: "http://localhost:3001/api/auth/external/google/callback"
+          },
+          github: {
+            clientId: "github-client-id",
+            clientSecret: "github-client-secret",
+            callbackUrl: "http://localhost:3001/api/auth/external/github/callback"
+          }
+        },
         recoveryCodeCount: 10,
         recoveryCodeLength: 12
       },
@@ -71,6 +91,7 @@ describe("loadEnvironment", () => {
         AUTH_SESSION_TOKEN_PEPPER: "short",
         AUTH_SESSION_IDLE_TIMEOUT_MINUTES: "2000",
         AUTH_EMAIL_VERIFICATION_TTL_MINUTES: "1",
+        AUTH_EXTERNAL_STATE_TTL_MINUTES: "1",
         DB_HOST: "",
         DB_CONNECT_TIMEOUT_MS: "999",
         DB_MIGRATIONS_TABLE: "bad-table-name"
@@ -79,6 +100,7 @@ describe("loadEnvironment", () => {
 - NODE_ENV must be one of development, test, or production.
 - API_PORT must be an integer between 1 and 65535.
 - AUTH_EMAIL_VERIFICATION_TTL_MINUTES must be an integer between 5 and 10080.
+- AUTH_EXTERNAL_STATE_TTL_MINUTES must be an integer between 5 and 60.
 - AUTH_PASSWORD_PEPPER must be at least 16 characters long.
 - AUTH_SESSION_TOKEN_PEPPER must be at least 16 characters long.
 - AUTH_SESSION_IDLE_TIMEOUT_MINUTES must be less than or equal to AUTH_SESSION_TTL_MINUTES.

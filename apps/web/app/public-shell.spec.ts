@@ -63,4 +63,18 @@ describe("public web shell source contracts", () => {
     expect(errorSource).toContain('import { PageState } from "../components/page-state"');
     expect(errorSource).toContain('title="A hyperspace fault disrupted this page."');
   });
+
+  it("gates authenticated routes behind first-login onboarding", async () => {
+    const [loginSource, appShellSource, onboardingSource] = await Promise.all([
+      readWebFile("app/login/page.tsx"),
+      readWebFile("app/app/page.tsx"),
+      readWebFile("app/onboarding/username/page.tsx")
+    ]);
+
+    expect(loginSource).toContain("/api/auth/external/${provider.key}/start?next=%2Fapp");
+    expect(appShellSource).toContain('router.replace("/onboarding/username")');
+    expect(appShellSource).toContain('await readSession()');
+    expect(onboardingSource).toContain('fetch("/api/auth/onboarding/username"');
+    expect(onboardingSource).toContain('router.replace("/app")');
+  });
 });
