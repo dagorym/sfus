@@ -64,6 +64,8 @@ The default local config contracts are:
   - `DB_USER=sfus`
   - `DB_PASSWORD=changeme-app`
 
+Set the external callback URLs to the public API routes that providers can reach, typically `https://<public-host>/api/auth/external/google/callback` and `https://<public-host>/api/auth/external/github/callback` in deployed environments.
+
 Optional local port overrides are supported through the root `.env` invocation environment:
 
 ```bash
@@ -128,6 +130,7 @@ Current user-facing website behavior is intentionally narrow:
 - branded runtime error surface
 - external sign-in entry page at `/login`
 - authenticated shell route at `/app` that redirects first-login users into `/onboarding/username`
+- username onboarding page at `/onboarding/username` that posts the final username and returns the user to `/app`
 
 ## Run The Database Migration
 

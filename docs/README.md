@@ -31,10 +31,10 @@ This repository now includes the Milestone 1 foundation baseline for the monorep
 
 ## Frontend Shell Baseline
 
-- `apps/web` is a Next.js App Router frontend shell for the Milestone 1 public landing experience.
+- `apps/web` is a Next.js App Router frontend shell for the Milestone 1 public landing experience plus the Milestone 2 external-auth entry and onboarding flow.
 - Styling stays within the Milestone 1 architecture baseline: CSS Modules for component/page styles plus shared global CSS custom-property tokens in `apps/web/app/globals.css`.
-- Current public pages are intentionally limited to the static branded homepage (`/`), a branded `404`, and a branded runtime error surface. Navigation only links to implemented destinations, so the shell currently exposes `Home` only.
-- Auth controls and future-feature placeholder routes are intentionally absent from the Milestone 1 shell.
+- Public-facing routes remain intentionally narrow: the branded homepage (`/`), branded `404`, branded runtime error surface, and external sign-in page at `/login`.
+- The authenticated shell currently adds only `/app` plus `/onboarding/username`; `/app` redirects unauthenticated users to `/login` and redirects `user.onboardingRequired` sessions into username completion before normal authenticated use.
 - Frontend health endpoints are available at `/health/live` and `/health/ready`.
 - Frontend code targets the shared `/api` path contract. `NEXT_PUBLIC_API_BASE_PATH` defaults to `/api`, development rewrites forward to `WEB_API_ORIGIN` (`http://localhost:3001` by default), and non-development containerized routing can target `WEB_API_INTERNAL_URL`.
 
