@@ -6,24 +6,12 @@
   ],
   "branch_name": "ms2-subtask-2-implementer-20260525",
   "changed_files": [
-    "apps/api/.env.example",
-    "apps/api/package.json",
-    "apps/api/src/app.module.ts",
-    "apps/api/src/auth/auth.controller.test.ts",
     "apps/api/src/auth/auth.controller.ts",
-    "apps/api/src/auth/auth.module.ts",
-    "apps/api/src/auth/auth.service.test.ts",
     "apps/api/src/auth/auth.service.ts",
-    "apps/api/src/config/environment.test.ts",
-    "apps/api/src/config/environment.ts",
-    "apps/api/src/database/database.config.test.ts",
-    "apps/api/src/health/readiness.service.test.ts",
-    "apps/api/src/index.test.ts",
-    "docs/README.md",
-    "docs/website-launch-guide.md",
-    "pnpm-lock.yaml"
+    "apps/api/src/auth/auth.controller.test.ts",
+    "apps/api/src/auth/auth.service.test.ts"
   ],
-  "code_commit_hash": "3be676c235a976642f85a7ce3cd06544a3816b3f",
+  "code_commit_hash": "08d0432d1fc162e36fbd97c39e4198e537f2250e",
   "status": "completed",
   "task_id": "milestone-2-subtask-2",
   "validation_commands": [
@@ -33,7 +21,11 @@
     "npx --yes pnpm@10.0.0 --filter @sfus/api build",
     "npx --yes pnpm@10.0.0 --filter @sfus/web lint",
     "npx --yes pnpm@10.0.0 --filter @sfus/web typecheck",
-    "npx --yes pnpm@10.0.0 --filter @sfus/web test"
+    "npx --yes pnpm@10.0.0 --filter @sfus/web test",
+    "npx --yes pnpm@10.0.0 lint",
+    "npx --yes pnpm@10.0.0 typecheck",
+    "npx --yes pnpm@10.0.0 test",
+    "npx --yes pnpm@10.0.0 build"
   ],
-  "validation_outcome": "All listed API and web lint/typecheck/test commands passed after implementation updates; API build passed."
+  "validation_outcome": "All listed API/web and full-workspace lint, typecheck, test, and build commands passed after remediation."
 }

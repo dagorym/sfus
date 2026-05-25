@@ -4,25 +4,13 @@ Status:
 - completed
 
 Task summary:
-- Implemented local registration, login/logout, email verification, secure session cookie lifecycle, and authenticated session API for Milestone 2 Subtask 2.
+- Completed verifier-driven remediation for Milestone 2 Subtask 2 by hardening auth body handling, making registration transactional, and expanding auth/session edge-case tests.
 
 Changed files:
-- apps/api/.env.example
-- apps/api/package.json
-- apps/api/src/app.module.ts
-- apps/api/src/auth/auth.controller.test.ts
 - apps/api/src/auth/auth.controller.ts
-- apps/api/src/auth/auth.module.ts
-- apps/api/src/auth/auth.service.test.ts
 - apps/api/src/auth/auth.service.ts
-- apps/api/src/config/environment.test.ts
-- apps/api/src/config/environment.ts
-- apps/api/src/database/database.config.test.ts
-- apps/api/src/health/readiness.service.test.ts
-- apps/api/src/index.test.ts
-- docs/README.md
-- docs/website-launch-guide.md
-- pnpm-lock.yaml
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.service.test.ts
 
 Validation commands run:
 - npx --yes pnpm@10.0.0 --filter @sfus/api lint
@@ -32,13 +20,16 @@ Validation commands run:
 - npx --yes pnpm@10.0.0 --filter @sfus/web lint
 - npx --yes pnpm@10.0.0 --filter @sfus/web typecheck
 - npx --yes pnpm@10.0.0 --filter @sfus/web test
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+- npx --yes pnpm@10.0.0 build
 
 Validation outcome:
-- All listed API and web lint/typecheck/test commands passed after implementation updates.
-- API build passed.
+- All listed API/web and full-workspace lint, typecheck, test, and build commands passed after remediation.
 
 Implementation/code commit hash:
-- 3be676c235a976642f85a7ce3cd06544a3816b3f
+- 08d0432d1fc162e36fbd97c39e4198e537f2250e
 
 Artifacts written:
 - artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2/implementer_report.md
@@ -46,9 +37,10 @@ Artifacts written:
 - artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2/implementer_result.json
 
 Implementation context:
-- Added `AuthController` routes: `POST /api/auth/register`, `POST /api/auth/verify-email`, `POST /api/auth/login`, `POST /api/auth/logout`, and `GET /api/auth/session`.
-- Implemented Argon2id password hashing and verification, plus token hashing for sessions and email verification using a dedicated session-token pepper.
-- Enforced email verification before login and implemented verification-token consume semantics.
-- Implemented secure HTTP-only session cookie set/clear behavior and backend session revocation/expiration checks.
-- Added focused API tests for success/failure paths in registration, login, logout, and verification.
-- Updated API env contract/docs/examples to include session-token pepper and verification TTL settings.
+- Auth controller endpoints now accept unknown bodies and delegate parsing to service-level runtime validators, preventing TypeError-driven 500s for malformed payloads.
+- Registration persistence now runs inside a TypeORM transaction context so partial user/account rows are rolled back on mid-flow failures.
+- Auth service tests now cover malformed request bodies, transactional rollback behavior, expired verification tokens, replayed consumed verification tokens, and idle/absolute session-expiry revocation branches.
+- Auth controller tests include malformed verification request handling to ensure raw bodies are forwarded without pre-access crashes.
+
+Expected validation failures carried forward:
+- None
