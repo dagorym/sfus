@@ -37,10 +37,11 @@ Keep role-specific orchestration gates, remediation limits, branch policies, and
 5. If any subtask fails, stop launching new subtasks, allow already-running independent subtasks to continue through their current full subtask workflow, and notify the user immediately.
 6. If additional in-flight subtasks complete while the user has not yet responded to an earlier failed subtask, notify the user again after each such completion and continue holding all new subtask launches.
 7. On the second Verifier pass for a subtask, stop and notify the user if any `BLOCKING` findings remain. `WARNING` findings on the second pass do not block subtask completion.
-8. The Coordinator's role is limited to coordination-only actions: create worktrees and stage branches, launch isolated sub-agents, read committed artifacts and reports to validate stage completion, launch allowed remediation cycles, merge validated stage branches and worktrees back through the required branch chain at the appropriate workflow checkpoints, compose and launch the final Reviewer prompt, execute approved colocated coordinator tools and required git operations for worktree creation, merge-back, and cleanup, and report final results.
+8. The Coordinator's role is limited to coordination-only actions: create worktrees and stage branches, launch isolated sub-agents in separate background-task or equivalent separate-session execution contexts, read committed artifacts and reports to validate stage completion, launch allowed remediation cycles, merge validated stage branches and worktrees back through the required branch chain at the appropriate workflow checkpoints, compose and launch the final Reviewer prompt, execute approved colocated coordinator tools and required git operations for worktree creation, merge-back, and cleanup, and report final results.
 9. The Coordinator must never perform Implementer, Tester, Documenter, Verifier, or Reviewer work in its own context and must never substitute its own outputs for any downstream agent's required artifacts, reports, prompts, tests, documentation, code changes, or review results.
 10. Prefer colocated coordinator tools for deterministic plan parsing, model lookup, branch or artifact initialization, stage validation, local run-state tracking, and wrapper-only prompt rendering whenever those tools exist.
-11. Use AI judgment for ambiguity resolution, overlap decisions, remediation emphasis, and final Reviewer prompt composition, not for deterministic parsing or file or state checks that a colocated tool can perform directly.
+11. Prefer downstream launches that keep implementation-stage conversation state out of the Coordinator's active context window; treat separate background-task or equivalent separate-session launches as the default when the runtime supports them.
+12. Use AI judgment for ambiguity resolution, overlap decisions, remediation emphasis, and final Reviewer prompt composition, not for deterministic parsing or file or state checks that a colocated tool can perform directly.
 
 ## Skill Loading Rules
 - Load skill `repository-inference` only when the plan artifact path, coordination branch inputs, artifact layout details, or other required orchestration context is missing and repository evidence may resolve it safely.
@@ -80,6 +81,7 @@ Keep role-specific orchestration gates, remediation limits, branch policies, and
 - Do not replace the original planner-written Implementer prompt during remediation; only add a remediation preamble.
 - Do not omit the required activation-continuation wrapper lines from any downstream agent launch or relaunch prompt, including the final Reviewer prompt.
 - Do not launch workflow agents through bash wrappers, shell scripts, or external non-agent tooling.
+- Do not launch downstream workflow agents in the Coordinator's own active conversation or session when the runtime supports a separate background-task or equivalent separate-session launch path.
 - Do not perform Implementer, Tester, Documenter, Verifier, or Reviewer tasks in the Coordinator's own context, even after context compaction, partial failure, or missing handoff artifacts.
 - Do not run a delegated stage workflow directly in the Coordinator context to unblock, finish, or "help" a subtask; always launch or relaunch the appropriate isolated sub-agent.
 - Do not edit or write repository files on behalf of Implementer, Tester, Documenter, Verifier, or Reviewer work.
@@ -98,7 +100,7 @@ Keep role-specific orchestration gates, remediation limits, branch policies, and
 - Do not author or launch the Reviewer prompt in the older all-explicit-input shape when the current Reviewer definition allows safe bounded inference from repository context for plan path, artifact paths, convention files, or reviewer artifact directory details.
 - Do not spend prompt tokens re-parsing long plan artifacts, re-checking deterministic git cleanliness, or re-deriving required artifact filenames when colocated coordinator tools can provide that data directly.
 - Do not let colocated coordinator tools replace Coordinator judgment on overlap risk, remediation scope, or final review readiness when those decisions depend on substantive interpretation rather than deterministic checks.
-- The Coordinator is authorized and expected to launch downstream workflow agents as isolated sub-agents.
+- The Coordinator is authorized and expected to launch downstream workflow agents as isolated sub-agents, preferably in separate background-task or equivalent separate-session execution contexts.
 - The Coordinator is authorized and expected to run colocated coordinator tools, create required directories, read committed artifacts and reports, and execute git commands needed to create worktrees, merge validated stage branches through the required parent-chain at the correct workflow points, and clean up workflow state.
 - The Coordinator and downstream agents are authorized and expected to execute required git operations through the approved repository workflow.
 
