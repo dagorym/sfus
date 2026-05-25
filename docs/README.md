@@ -46,12 +46,16 @@ This repository now includes the Milestone 1 foundation baseline for the monorep
 - `AuthModule` imports `UsersModule` and owns auth persistence through `AuthIdentityEntity`, `PasswordAuthenticatorEntity`, `AuthSessionEntity`, `EmailVerificationEntity`, `TotpSecretEntity`, `TotpRecoveryCodeEntity`, plus `AuthController` and `AuthService` for local registration, login/logout, email verification, and current-session APIs.
 - `AuthorizationModule` owns reusable authorization grant persistence through `AuthorizationGrantEntity` and `AuthorizationService`.
 - `AppModule` now composes `DatabaseModule`, `UsersModule`, `AuthModule`, `AuthorizationModule`, and `HealthModule` so the API can bootstrap the shared identity/authz foundation as one application surface.
+- Local password auth stores Argon2id password hashes after appending the required password pepper, and local login stays blocked until a primary-email verification token has been consumed successfully.
+- Email verification tokens are generated at registration time, hashed before persistence with `AUTH_SESSION_TOKEN_PEPPER`, checked for expiry at verification time, and consumed once so the same token cannot activate the account twice.
+- Session lifecycle is server-managed through the `sfus_session` HTTP-only cookie: login issues a new session, `GET /api/auth/session` resolves and refreshes the active session timestamp, idle or absolute expiry revokes the record, and logout revokes the current session and clears the cookie.
 - Auth API contract for frontend session-awareness:
   - `POST /api/auth/register`
   - `POST /api/auth/verify-email`
   - `POST /api/auth/login`
   - `POST /api/auth/logout`
   - `GET /api/auth/session`
+  - authenticated `login` and `session` responses return a stable `{ user, session }` payload so the frontend can treat explicit login and session rehydration consistently
 
 ## Runtime Contract Overview
 
@@ -83,10 +87,10 @@ Ownership is split by runtime boundary:
 The API environment contract now validates these auth settings at startup:
 
 - `AUTH_PASSWORD_PEPPER` is required and must be at least 16 characters.
-- `AUTH_SESSION_TOKEN_PEPPER` is required and must be at least 16 characters.
+- `AUTH_SESSION_TOKEN_PEPPER` is required, must be at least 16 characters, and is used when hashing persisted session and email-verification tokens.
 - `AUTH_SESSION_TTL_MINUTES` must be an integer from 5 to 43200.
 - `AUTH_SESSION_IDLE_TIMEOUT_MINUTES` must be an integer from 5 to 10080 and cannot exceed `AUTH_SESSION_TTL_MINUTES`.
-- `AUTH_EMAIL_VERIFICATION_TTL_MINUTES` must be an integer from 5 to 10080.
+- `AUTH_EMAIL_VERIFICATION_TTL_MINUTES` must be an integer from 5 to 10080 and controls how long a newly issued verification token remains usable.
 - `AUTH_TOTP_ISSUER` is required and names the issuer presented by TOTP authenticators.
 - `AUTH_RECOVERY_CODE_COUNT` must be an integer from 6 to 20.
 - `AUTH_RECOVERY_CODE_LENGTH` must be an integer from 8 to 16.
