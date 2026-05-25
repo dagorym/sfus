@@ -1,0 +1,57 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Validate Milestone 2 Subtask 2 implementation for local account registration/login/logout, email verification enforcement, secure session lifecycle, and stable current-session API contract.
+
+Modified files:
+- apps/api/.env.example
+- apps/api/package.json
+- apps/api/src/app.module.ts
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.controller.ts
+- apps/api/src/auth/auth.module.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/auth/auth.service.ts
+- apps/api/src/config/environment.test.ts
+- apps/api/src/config/environment.ts
+- apps/api/src/database/database.config.test.ts
+- apps/api/src/health/readiness.service.test.ts
+- apps/api/src/index.test.ts
+- docs/README.md
+- docs/website-launch-guide.md
+- pnpm-lock.yaml
+
+Acceptance criteria to validate (from Planner):
+- Users can register and log in with email and password, and passwords are hashed with Argon2id.
+- Email verification is implemented and enforced according to the milestone flow.
+- Secure session cookies are issued, validated, and cleared correctly.
+- A stable authenticated-user API contract exists for the frontend to consume.
+
+Tester guidance:
+- Inspect tests under `apps/api/src/**/*.test.ts`, especially:
+  - apps/api/src/auth/auth.service.test.ts
+  - apps/api/src/auth/auth.controller.test.ts
+- If additional auth-related frontend tests are added, inspect under `apps/web`.
+
+Implementation context for testing:
+- Auth API routes added at `/api/auth/register`, `/api/auth/verify-email`, `/api/auth/login`, `/api/auth/logout`, and `/api/auth/session`.
+- Password authentication switched to Argon2id with peppering.
+- Email verification tokens are generated/hashed, expiration checked, and consumed once.
+- Login now enforces verified email before issuing session cookie.
+- Session lifecycle enforces state/expiry/idle-timeout checks and logout revocation.
+- Env contract now includes `AUTH_SESSION_TOKEN_PEPPER` and `AUTH_EMAIL_VERIFICATION_TTL_MINUTES`.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/api lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --filter @sfus/api build
+- npx --yes pnpm@10.0.0 --filter @sfus/web lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web test
+
+Shared artifact directory:
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
