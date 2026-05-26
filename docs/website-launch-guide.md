@@ -119,8 +119,8 @@ The current local auth API surface is available under `/api/auth`:
 - `GET /api/auth/external/google/start` and `GET /api/auth/external/github/start` initiate provider redirects.
 - `GET /api/auth/external/:provider/callback` handles callback code/state exchange, deterministic account linking, and either session issuance or redirect into the MFA challenge flow when required.
 - `POST /api/auth/onboarding/username` completes first-login external onboarding by setting the final username.
-- `GET /api/auth/profile` and `PATCH /api/auth/profile` expose/read update profile basics (`username`, `email`, `displayName`) for authenticated users.
-- `GET /api/auth/settings` and `PATCH /api/auth/settings` expose/read update account settings basics (`username`, `email`, `emailVerified`, `mfaEnabled`) for authenticated users.
+- `GET /api/auth/profile` returns profile basics (`username`, `email`, `displayName`) for authenticated users; `PATCH /api/auth/profile` updates `displayName` and returns the same profile payload.
+- `GET /api/auth/settings` returns account settings basics (`username`, `email`, `emailVerified`, `mfaEnabled`) for authenticated users; `PATCH /api/auth/settings` updates `username` only (with uniqueness enforcement) and returns the same settings payload.
 
 Session-cookie behavior is intentionally deployment-aware:
 
@@ -137,10 +137,11 @@ Current user-facing website behavior is intentionally narrow:
 - branded runtime error surface
 - sign-in entry page at `/login` (local password or external provider)
 - local registration page at `/register`
-- MFA challenge handling in `/login` when external callbacks return a challenge token
-- authenticated shell route at `/app` that redirects first-login users into `/onboarding/username`
-- authenticated profile route at `/profile` backed by `/api/auth/profile`
-- authenticated settings route at `/settings` backed by `/api/auth/settings`
+- MFA challenge handling in `/login` for both password and external flows, including authenticator-code or recovery-code completion before session issuance
+- local registration flow at `/register` that can auto-verify the development token and attempt immediate sign-in
+- authenticated shell route at `/app` that redirects unauthenticated users to `/login` and first-login users to `/onboarding/username`
+- authenticated profile route at `/profile` backed by `/api/auth/profile` and redirected to `/login?next=/profile` when unauthenticated
+- authenticated settings route at `/settings` backed by `/api/auth/settings` and redirected to `/login?next=/settings` when unauthenticated
 - username onboarding page at `/onboarding/username` that posts the final username and returns the user to `/app`
 
 ## Run The Database Migration
