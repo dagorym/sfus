@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import argon2 from "argon2";
+import { ConflictException } from "@nestjs/common";
 import { describe, expect, it } from "vitest";
 
 import type { ApplicationEnvironment } from "../config/environment";
@@ -370,13 +371,30 @@ describe("AuthService", () => {
       password: "super-secure-password"
     });
 
-    await expect(
-      service.registerAccount({
-        email: "duplicate@example.com",
-        username: "duplicate_two",
-        password: "super-secure-password"
-      })
-    ).rejects.toThrowError("An account with this email already exists.");
+    const duplicateRegistration = service.registerAccount({
+      email: "duplicate@example.com",
+      username: "duplicate_two",
+      password: "super-secure-password"
+    });
+    await expect(duplicateRegistration).rejects.toThrowError("An account with this email already exists.");
+    await expect(duplicateRegistration).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("rejects duplicate registration by username", async () => {
+    const { service } = createService();
+    await service.registerAccount({
+      email: "username-duplicate-one@example.com",
+      username: "duplicate_user",
+      password: "super-secure-password"
+    });
+
+    const duplicateRegistration = service.registerAccount({
+      email: "username-duplicate-two@example.com",
+      username: "duplicate_user",
+      password: "super-secure-password"
+    });
+    await expect(duplicateRegistration).rejects.toThrowError("This username is already in use.");
+    await expect(duplicateRegistration).rejects.toBeInstanceOf(ConflictException);
   });
 
   it("requires email verification before login", async () => {

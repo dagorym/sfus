@@ -107,6 +107,17 @@ describe("public web shell source contracts", () => {
     expect(registerSource).toContain('fetch("/api/auth/register"');
     expect(registerSource).toContain('fetch("/api/auth/verify-email"');
     expect(registerSource).toContain('fetch("/api/auth/login"');
+    expect(registerSource).toContain("statusCode === 409");
+    expect(registerSource).toContain("statusCode === 400");
+    expect(registerSource).toContain("statusCode >= 500");
+    expect(registerSource).toContain("Registration is unavailable while local prerequisites are incomplete.");
+    expect(registerSource).toContain(
+      "An account with this email or username already exists. Try signing in instead."
+    );
+    expect(registerSource).toContain(
+      "Username must be 3-32 characters: letters, numbers, periods, dashes, or underscores."
+    );
+    expect(registerSource).toContain("Password must be at least 12 characters.");
     expect(registerSource).toContain('router.replace("/app")');
   });
 });

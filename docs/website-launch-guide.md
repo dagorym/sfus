@@ -131,6 +131,17 @@ Session-cookie behavior is intentionally deployment-aware:
 
 For local development and tests, registration responses may include the raw verification token so the flow can be exercised without a real mail provider. Production behavior still stores only the hashed token and requires verification before login succeeds.
 
+The `/register` page enforces and documents the same backend constraints:
+
+- username: 3-32 characters, using only letters, numbers, periods (`.`), dashes (`-`), and underscores (`_`)
+- password: at least 12 characters
+
+Registration failure feedback in the UI is now intentionally actionable:
+
+- invalid input returns the API validation message
+- duplicate email or username maps to a duplicate-account message
+- server/setup failures prompt checking API readiness, database connectivity, and the explicit migration step
+
 Current user-facing website behavior is intentionally narrow:
 
 - branded homepage at `/`

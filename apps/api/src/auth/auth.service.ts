@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -210,14 +211,14 @@ export class AuthService {
         where: { email: registrationInput.email }
       });
       if (existingByEmail) {
-        throw new BadRequestException("An account with this email already exists.");
+        throw new ConflictException("An account with this email already exists.");
       }
 
       const existingByUsername = await context.usersRepository.findOne({
         where: { username: registrationInput.username }
       });
       if (existingByUsername) {
-        throw new BadRequestException("This username is already in use.");
+        throw new ConflictException("This username is already in use.");
       }
 
       const createdUser = await context.usersRepository.save(
