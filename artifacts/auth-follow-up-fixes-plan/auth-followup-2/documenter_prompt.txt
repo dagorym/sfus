@@ -1,0 +1,59 @@
+You are the Documenter Agent.
+
+Task summary:
+- Rework auth entry UX so /register is provider-first with local registration fallback and /login stays coherent for returning users.
+
+Acceptance criteria:
+1. /register visibly presents Google and GitHub entry points before the local registration form.
+2. The local registration form remains available as an explicit fallback on the same page.
+3. /login still supports returning-user sign-in cleanly and does not contradict the provider-first register-page guidance.
+4. Automated coverage asserts the provider-first register-page contract.
+
+Implementation/worktree context:
+- Tester branch: `ms2-auth-followup-2-tester-20260525`
+- Implementer branch base for this tester worktree: `ms2-auth-followup-2-implementer-20260525`
+- Plan path: `plans/auth-follow-up-fixes-plan.md`
+
+Full modified-file context for documentation review:
+- Implementer-modified files:
+  - `apps/web/app/register/page.tsx`
+  - `apps/web/app/login/login-client.tsx`
+  - `apps/web/app/public-shell.spec.ts`
+  - `docs/website-launch-guide.md`
+- Tester-modified files:
+  - `artifacts/auth-follow-up-fixes-plan/auth-followup-2/tester_report.md`
+  - `artifacts/auth-follow-up-fixes-plan/auth-followup-2/tester_result.json`
+  - `artifacts/auth-follow-up-fixes-plan/auth-followup-2/documenter_prompt.txt`
+
+Test files added or modified by tester:
+- None (regression validation only).
+
+Tester commit hash:
+- Test commit hash: `No Changes Made`
+
+Commands executed:
+- `npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts`
+- `npx --yes pnpm@10.0.0 --filter @sfus/web lint`
+- `npx --yes pnpm@10.0.0 --filter @sfus/web typecheck`
+- `npx --yes pnpm@10.0.0 --filter @sfus/web test`
+- `npx --yes pnpm@10.0.0 build`
+- `npx --yes pnpm@10.0.0 lint`
+- `npx --yes pnpm@10.0.0 typecheck`
+- `npx --yes pnpm@10.0.0 test`
+
+Final test outcomes:
+- All commands passed.
+- No unmet acceptance criteria were found.
+
+Shared artifact directory to reuse (repository-root-relative):
+- `artifacts/auth-follow-up-fixes-plan/auth-followup-2`
+
+Tester artifacts written:
+- `artifacts/auth-follow-up-fixes-plan/auth-followup-2/tester_report.md`
+- `artifacts/auth-follow-up-fixes-plan/auth-followup-2/tester_result.json`
+- `artifacts/auth-follow-up-fixes-plan/auth-followup-2/documenter_prompt.txt`
+
+Continue immediately when blocking inputs are present; do not stop after scope confirmation, documentation discovery, or diff review.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
