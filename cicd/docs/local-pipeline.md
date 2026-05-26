@@ -46,6 +46,13 @@ Host-run defaults:
 - api on `localhost:3001`
 - MySQL in Compose on `localhost:3306`
 
+For hybrid mode, `apps/api/.env` must point the host-run API process at the
+published MySQL port on localhost, for example `DB_HOST=127.0.0.1` and
+`DB_PORT=3306` or a custom `MYSQL_HOST_PORT` value from the root `.env`.
+The `DB_HOST=mysql` container hostname is only valid for the full-stack Compose
+API service, where `cicd/docker/compose.dev.yml` overrides the API container
+environment back to `mysql:3306`.
+
 In this mode the frontend still targets `/api`; local rewrites forward those requests to the host-run API on port `3001`.
 
 Frontend runtime surfaces available in hybrid mode:

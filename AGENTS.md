@@ -18,4 +18,4 @@ When needed read the following files.  When changes are made to the repository, 
 
 * Project architecture and design notes: `docs/README.md` file.
 * Website configuration and launch instructions: `docs/website-launch-guide.md` 
-* Deferred work register: `docs/deferred-tasks.md` file. Future planners should read it during planning and append new deferred-scope items when decisions intentionally postpone work.
+* Deferred work register: `docs/deferred-tasks.md` file. Future planners should read it during planning and append new deferred-scope items when decisions intentionally postpone work. This file should only be edited during a planning cycle not during a coordinator led development cycle.

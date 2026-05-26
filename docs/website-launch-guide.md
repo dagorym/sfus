@@ -60,13 +60,17 @@ The default local config contracts are:
   - `AUTH_RECOVERY_CODE_LENGTH=12` (integer 8-16)
   - `AUTH_GOOGLE_CLIENT_ID` / `AUTH_GOOGLE_CLIENT_SECRET` / `AUTH_GOOGLE_CALLBACK_URL` (required for working Google sign-in; placeholders still allow the stack to boot)
   - `AUTH_GITHUB_CLIENT_ID` / `AUTH_GITHUB_CLIENT_SECRET` / `AUTH_GITHUB_CALLBACK_URL` (required for working GitHub sign-in; placeholders still allow the stack to boot)
-  - `DB_HOST=mysql`
-  - `DB_PORT=3306`
+  - `DB_HOST=127.0.0.1` for host-run hybrid development
+  - `DB_PORT=3306` or the published `MYSQL_HOST_PORT` value from the root `.env`
   - `DB_NAME=sfus`
   - `DB_USER=sfus`
   - `DB_PASSWORD=changeme-app`
 
 Set the external callback URLs to the public API routes that providers can reach, typically `https://<public-host>/api/auth/external/google/callback` and `https://<public-host>/api/auth/external/github/callback` in deployed environments.
+
+For the full-stack container path, the Compose file overrides the API container
+database connection to `DB_HOST=mysql` and `DB_PORT=3306`. Those container-only
+values should not be copied into a host-run hybrid API process.
 
 Optional local port overrides are supported through the root `.env` invocation environment:
 

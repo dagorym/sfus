@@ -9,9 +9,9 @@ import {
   NotFoundException,
   UnauthorizedException
 } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import argon2 from "argon2";
-import { Repository } from "typeorm";
+import { DataSource, Repository } from "typeorm";
 
 import { AuthorizationService } from "../authorization/authorization.service";
 import type { AuthorizationAction } from "../authorization/authorization.types";
@@ -178,6 +178,8 @@ export class AuthService {
   private readonly consumedMfaChallengeHashes = new Map<string, number>();
 
   constructor(
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
     @InjectRepository(UserEntity)
     private readonly usersRepository: Repository<UserEntity>,
     @InjectRepository(AuthIdentityEntity)
@@ -202,6 +204,7 @@ export class AuthService {
   ) {}
 
   async registerAccount(input: RegisterInput | unknown): Promise<RegistrationResult> {
+    await this.ensureDataSourceInitialized();
     const registrationInput = parseRegistrationInput(input);
     const now = new Date();
     const verificationToken = createToken();
@@ -282,6 +285,7 @@ export class AuthService {
   }
 
   async verifyEmailToken(tokenInput: unknown): Promise<VerificationResult> {
+    await this.ensureDataSourceInitialized();
     const normalizedToken = parseVerificationToken(tokenInput);
 
     const verification = await this.emailVerificationsRepository.findOne({
@@ -326,6 +330,7 @@ export class AuthService {
     input: ExternalCallbackInput | unknown,
     requestContext: SessionRequestContext
   ): Promise<ExternalCallbackResult> {
+    await this.ensureDataSourceInitialized();
     const callbackInput = parseExternalCallbackInput(input);
     this.assertExternalAuthStateBoundToRequest(callbackInput.state, requestContext);
     const statePayload = this.parseExternalAuthState(callbackInput.state, callbackInput.provider);
@@ -364,6 +369,7 @@ export class AuthService {
     input: unknown,
     requestContext: SessionRequestContext
   ): Promise<AuthenticatedSessionResult> {
+    await this.ensureDataSourceInitialized();
     const onboardingInput = parseOnboardingInput(input);
     const resolvedSession = await this.resolveSession(requestContext);
 
@@ -398,6 +404,7 @@ export class AuthService {
     input: LoginInput | unknown,
     requestContext: SessionRequestContext
   ): Promise<PasswordLoginResult> {
+    await this.ensureDataSourceInitialized();
     const { email, password } = parseLoginInput(input);
 
     const user = await this.usersRepository.findOne({ where: { email } });
@@ -440,6 +447,7 @@ export class AuthService {
   }
 
   async startMfaEnrollment(requestContext: SessionRequestContext): Promise<MfaEnrollmentStartResult> {
+    await this.ensureDataSourceInitialized();
     const resolvedSession = await this.resolveSession(requestContext);
     const totpSecret = await this.upsertTotpSecretForEnrollment(resolvedSession.user.id);
     const secret = this.decryptTotpSecret(totpSecret.secretEncrypted);
@@ -456,6 +464,7 @@ export class AuthService {
     input: unknown,
     requestContext: SessionRequestContext
   ): Promise<MfaEnrollmentVerificationResult> {
+    await this.ensureDataSourceInitialized();
     const mfaInput = parseTotpCodeInput(input);
     const resolvedSession = await this.resolveSession(requestContext);
     const totpSecret = await this.totpSecretsRepository.findOne({
@@ -486,6 +495,7 @@ export class AuthService {
     input: unknown,
     requestContext: SessionRequestContext
   ): Promise<MfaChallengeVerificationResult> {
+    await this.ensureDataSourceInitialized();
     const challengeInput = parseMfaChallengeInput(input);
     const challengePayload = this.parseMfaChallengeToken(challengeInput.challengeToken);
     this.consumeMfaChallenge(challengeInput.challengeToken, challengePayload.expiresAt);
@@ -513,6 +523,7 @@ export class AuthService {
     input: unknown,
     requestContext: SessionRequestContext
   ): Promise<MfaRecoveryRegenerationResult> {
+    await this.ensureDataSourceInitialized();
     const mfaInput = parseMfaProofInput(input);
     const resolvedSession = await this.resolveSession(requestContext);
     await this.validateMfaProof({
@@ -528,6 +539,7 @@ export class AuthService {
   }
 
   async disableMfa(input: unknown, requestContext: SessionRequestContext): Promise<MfaDisableResult> {
+    await this.ensureDataSourceInitialized();
     const mfaInput = parseMfaProofInput(input);
     const resolvedSession = await this.resolveSession(requestContext);
     await this.validateMfaProof({
@@ -541,6 +553,7 @@ export class AuthService {
   }
 
   async resolveSession(requestContext: SessionRequestContext): Promise<AuthenticatedSessionResult> {
+    await this.ensureDataSourceInitialized();
     const sessionToken = this.extractSessionToken(requestContext);
     if (!sessionToken) {
       throw new UnauthorizedException("Authentication required.");
@@ -580,6 +593,7 @@ export class AuthService {
   }
 
   async logout(requestContext: SessionRequestContext): Promise<void> {
+    await this.ensureDataSourceInitialized();
     const sessionToken = this.extractSessionToken(requestContext);
     if (!sessionToken) {
       return;
@@ -601,6 +615,7 @@ export class AuthService {
     requestContext: SessionRequestContext,
     targetUserId?: string | null
   ): Promise<UserProfilePayload> {
+    await this.ensureDataSourceInitialized();
     const resolvedSession = await this.resolveSession(requestContext);
     const targetUser = await this.resolveAuthorizedAccountTarget({
       resolvedSession,
@@ -615,6 +630,7 @@ export class AuthService {
     requestContext: SessionRequestContext,
     targetUserId?: string | null
   ): Promise<UserProfilePayload> {
+    await this.ensureDataSourceInitialized();
     const profileInput = parseProfileInput(input);
     const resolvedSession = await this.resolveSession(requestContext);
     const user = await this.resolveAuthorizedAccountTarget({
@@ -631,6 +647,7 @@ export class AuthService {
     requestContext: SessionRequestContext,
     targetUserId?: string | null
   ): Promise<UserSettingsPayload> {
+    await this.ensureDataSourceInitialized();
     const resolvedSession = await this.resolveSession(requestContext);
     const user = await this.resolveAuthorizedAccountTarget({
       resolvedSession,
@@ -645,6 +662,7 @@ export class AuthService {
     requestContext: SessionRequestContext,
     targetUserId?: string | null
   ): Promise<UserSettingsPayload> {
+    await this.ensureDataSourceInitialized();
     const settingsInput = parseSettingsInput(input);
     const resolvedSession = await this.resolveSession(requestContext);
     const user = await this.resolveAuthorizedAccountTarget({
@@ -709,6 +727,12 @@ export class AuthService {
 
   getExternalAuthStateCookieName(): string {
     return externalAuthStateCookieName;
+  }
+
+  private async ensureDataSourceInitialized(): Promise<void> {
+    if (!this.dataSource.isInitialized) {
+      await this.dataSource.initialize();
+    }
   }
 
   private async mapSettings(user: AuthenticatedUserPayload): Promise<UserSettingsPayload> {

@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import argon2 from "argon2";
 import { ConflictException } from "@nestjs/common";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { ApplicationEnvironment } from "../config/environment";
 import { AuthorizationService } from "../authorization/authorization.service";
@@ -246,7 +246,16 @@ const createService = (
   totpRecoveryCodesRepository.manager = manager;
   authorizationGrantsRepository.manager = manager;
 
+  const dataSource = {
+    isInitialized: true,
+    initialize: vi.fn(async () => {
+      dataSource.isInitialized = true;
+      return dataSource;
+    })
+  };
+
   const service = new AuthService(
+    dataSource as never,
     usersRepository as never,
     authIdentitiesRepository as never,
     passwordAuthenticatorsRepository as never,
@@ -293,6 +302,26 @@ const expectExternalSession = (
 };
 
 describe("AuthService", () => {
+  it("initializes the data source lazily before registration", async () => {
+    const {
+      service
+    } = createService();
+
+    const dataSource = service["dataSource"] as unknown as {
+      isInitialized: boolean;
+      initialize: ReturnType<typeof vi.fn>;
+    };
+    dataSource.isInitialized = false;
+
+    await service.registerAccount({
+      email: "lazy-init@example.com",
+      username: "lazy_init",
+      password: "super-secure-password"
+    });
+
+    expect(dataSource.initialize).toHaveBeenCalledTimes(1);
+  });
+
   it("registers a user with an Argon2id password hash and issues a verification token", async () => {
     const {
       service,
