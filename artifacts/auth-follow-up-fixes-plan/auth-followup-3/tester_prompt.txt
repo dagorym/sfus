@@ -1,0 +1,40 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Refresh homepage language to describe the Milestone 2 auth-enabled foundation instead of Milestone 1.
+
+Modified files:
+- apps/web/app/page.tsx
+- apps/web/app/public-shell.spec.ts
+
+Acceptance criteria to validate (from Planner):
+- The homepage no longer refers to Milestone 1.
+- The visible copy accurately reflects the current Milestone 2 auth-enabled foundation without promising later-milestone features.
+- Automated coverage is updated to assert the new milestone wording.
+
+Create test files in:
+- apps/web/app/public-shell.spec.ts
+
+Implementation context for testing:
+- Homepage hero description now states a Milestone 2 foundation with auth-entry routes and authenticated-shell baseline.
+- Homepage highlight copy now describes a public plus auth-enabled foundation and updates theme-token wording to Milestone 2.
+- Source-contract test now asserts Milestone 2 wording and guards against reintroducing Milestone 1 language.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/web lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/auth-follow-up-fixes-plan/auth-followup-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
