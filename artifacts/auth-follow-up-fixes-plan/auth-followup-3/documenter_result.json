@@ -5,9 +5,9 @@
     "artifacts/auth-follow-up-fixes-plan/auth-followup-3/verifier_prompt.txt"
   ],
   "branch_name": "ms2-auth-followup-3-documenter-20260525",
-  "documentation_commit_hash": "27d5935e93e3fbecf13f50dd076f9f67c6d57272",
+  "documentation_commit_hash": "5d26ccd0ab5cda4ffa84d1f8648f34f7e6def949",
   "documentation_files_changed": [
-    "docs/README.md"
+    "docs/website-launch-guide.md"
   ],
   "pass_label": null,
   "status": "success",
