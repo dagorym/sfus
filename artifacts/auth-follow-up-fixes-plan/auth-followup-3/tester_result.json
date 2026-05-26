@@ -6,13 +6,9 @@
   "test_files_modified": [],
   "commands_run": [
     "npx --yes pnpm@10.0.0 install",
-    "npx --yes pnpm@10.0.0 --filter @sfus/web lint",
-    "npx --yes pnpm@10.0.0 --filter @sfus/web typecheck",
     "npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts",
-    "npx --yes pnpm@10.0.0 build",
-    "npx --yes pnpm@10.0.0 lint",
-    "npx --yes pnpm@10.0.0 typecheck",
-    "npx --yes pnpm@10.0.0 test"
+    "npx --yes pnpm@10.0.0 --filter @sfus/web run lint",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web run typecheck"
   ],
   "totals": {
     "total_tests": 6,

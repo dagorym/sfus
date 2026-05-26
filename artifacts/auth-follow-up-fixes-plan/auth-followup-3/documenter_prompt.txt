@@ -15,7 +15,7 @@ Implementation/worktree context:
 
 Full modified-file context for documentation review:
 - Implementer-modified files:
-  - `apps/web/app/page.tsx`
+  - `apps/web/app/layout.tsx`
   - `apps/web/app/public-shell.spec.ts`
 - Tester-modified files:
   - `artifacts/auth-follow-up-fixes-plan/auth-followup-3/tester_report.md`
@@ -30,13 +30,9 @@ Tester commit hash:
 
 Commands executed:
 - `npx --yes pnpm@10.0.0 install`
-- `npx --yes pnpm@10.0.0 --filter @sfus/web lint`
-- `npx --yes pnpm@10.0.0 --filter @sfus/web typecheck`
 - `npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts`
-- `npx --yes pnpm@10.0.0 build`
-- `npx --yes pnpm@10.0.0 lint`
-- `npx --yes pnpm@10.0.0 typecheck`
-- `npx --yes pnpm@10.0.0 test`
+- `npx --yes pnpm@10.0.0 --filter @sfus/web run lint`
+- `npx --yes pnpm@10.0.0 --filter @sfus/web run typecheck`
 
 Final test outcomes:
 - All commands passed.
