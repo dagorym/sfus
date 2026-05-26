@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { readSession, type SessionPayload } from "../auth-client";
+import { resolveProtectedSession, type SessionPayload } from "../auth-client";
 import styles from "../auth-shell.module.css";
 
 export default function AuthenticatedShellPage() {
@@ -16,19 +16,17 @@ export default function AuthenticatedShellPage() {
     let mounted = true;
     const load = async () => {
       try {
-        const resolved = await readSession();
+        const resolved = await resolveProtectedSession("/app");
         if (!mounted) {
           return;
         }
-        if (!resolved) {
-          router.replace("/login");
+        if (!resolved.session) {
+          if (resolved.redirectTo) {
+            router.replace(resolved.redirectTo);
+          }
           return;
         }
-        if (resolved.user.onboardingRequired) {
-          router.replace("/onboarding/username");
-          return;
-        }
-        setSession(resolved);
+        setSession(resolved.session);
       } catch {
         if (mounted) {
           setError("Unable to load your authenticated session.");

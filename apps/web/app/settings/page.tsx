@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { readSession, readSettings, updateSettings, type SettingsPayload } from "../auth-client";
+import {
+  AuthorizationError,
+  readSettings,
+  resolveProtectedSession,
+  updateSettings,
+  type SettingsPayload
+} from "../auth-client";
 import styles from "../auth-shell.module.css";
 
 export default function SettingsPage() {
@@ -17,16 +23,14 @@ export default function SettingsPage() {
     let mounted = true;
     const load = async () => {
       try {
-        const session = await readSession();
+        const session = await resolveProtectedSession("/settings");
         if (!mounted) {
           return;
         }
-        if (!session) {
-          router.replace("/login?next=/settings");
-          return;
-        }
-        if (session.user.onboardingRequired) {
-          router.replace("/onboarding/username");
+        if (!session.session) {
+          if (session.redirectTo) {
+            router.replace(session.redirectTo);
+          }
           return;
         }
 
@@ -36,9 +40,13 @@ export default function SettingsPage() {
         }
         setSettings(resolvedSettings);
         setUsername(resolvedSettings.username);
-      } catch {
+      } catch (loadError) {
         if (mounted) {
-          setError("Unable to load account settings.");
+          if (loadError instanceof AuthorizationError) {
+            setError(loadError.message);
+          } else {
+            setError("Unable to load account settings.");
+          }
         }
       }
     };

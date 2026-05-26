@@ -45,6 +45,7 @@ This repository now includes the Milestone 1 foundation baseline for the monorep
 - `UsersModule` owns user persistence through `UserEntity` and `UsersService`.
 - `AuthModule` imports `UsersModule` and owns auth persistence through `AuthIdentityEntity`, `PasswordAuthenticatorEntity`, `AuthSessionEntity`, `EmailVerificationEntity`, `TotpSecretEntity`, `TotpRecoveryCodeEntity`, plus `AuthController` and `AuthService` for local auth and provider-backed (Google/GitHub) auth flows.
 - `AuthorizationModule` owns reusable authorization grant persistence through `AuthorizationGrantEntity` and `AuthorizationService`.
+- `AuthorizationService` now provides reusable global-role + ACL authorization decisions (`read`/`write`/`admin`) over generic resources (`resourceType`, `resourceId`, `ownerUserId`, `visibility`, optional `projectId`) so later content milestones can reuse one authz contract.
 - `AppModule` now composes `DatabaseModule`, `UsersModule`, `AuthModule`, `AuthorizationModule`, and `HealthModule` so the API can bootstrap the shared identity/authz foundation as one application surface.
 - Local password auth stores Argon2id password hashes after appending the required password pepper, and local login stays blocked until a primary-email verification token has been consumed successfully.
 - Email verification tokens are generated at registration time, hashed before persistence with `AUTH_SESSION_TOKEN_PEPPER`, checked for expiry at verification time, and consumed once so the same token cannot activate the account twice.
@@ -74,6 +75,7 @@ This repository now includes the Milestone 1 foundation baseline for the monorep
   - authenticated `login` responses return either `{ user, session }` or `{ mfa }` when a challenge is required; `session` remains stable `{ user, session }`
   - `PATCH /api/auth/profile` accepts profile-display-name updates only and returns `{ username, email, displayName }`
   - `PATCH /api/auth/settings` accepts username updates only, enforces uniqueness, and returns `{ username, email, emailVerified, mfaEnabled }`
+  - `GET|PATCH /api/auth/profile` and `GET|PATCH /api/auth/settings` now run through the shared authorization layer for account-scoped access, including global-role and ACL grant checks when `?userId=<targetId>` is supplied for representative cross-account authorization coverage.
 
 ## Runtime Contract Overview
 

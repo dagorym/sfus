@@ -12,6 +12,9 @@ import { InjectRepository } from "@nestjs/typeorm";
 import argon2 from "argon2";
 import { Repository } from "typeorm";
 
+import { AuthorizationService } from "../authorization/authorization.service";
+import type { AuthorizationAction } from "../authorization/authorization.types";
+import { AuthorizationGrantEntity } from "../authorization/entities/authorization-grant.entity";
 import { API_ENVIRONMENT, AUTH_EXTERNAL_PROVIDER_REGISTRY } from "../config/config.constants";
 import type { ApplicationEnvironment } from "../config/environment";
 import { UserEntity } from "../users/entities/user.entity";
@@ -37,6 +40,7 @@ const externalAuthStateVersion = 1;
 const mfaChallengeVersion = 1;
 const totpWindow = 1;
 const mfaChallengePurpose = "mfa-challenge";
+const accountResourceType = "account";
 
 export interface SessionRequestContext {
   cookieHeader?: string;
@@ -187,10 +191,13 @@ export class AuthService {
     private readonly totpSecretsRepository: Repository<TotpSecretEntity>,
     @InjectRepository(TotpRecoveryCodeEntity)
     private readonly totpRecoveryCodesRepository: Repository<TotpRecoveryCodeEntity>,
+    @InjectRepository(AuthorizationGrantEntity)
+    private readonly authorizationGrantsRepository: Repository<AuthorizationGrantEntity>,
     @Inject(API_ENVIRONMENT)
     private readonly environment: ApplicationEnvironment,
     @Inject(AUTH_EXTERNAL_PROVIDER_REGISTRY)
-    private readonly externalProviderRegistry: ExternalAuthProviderRegistry
+    private readonly externalProviderRegistry: ExternalAuthProviderRegistry,
+    private readonly authorizationService: AuthorizationService
   ) {}
 
   async registerAccount(input: RegisterInput | unknown): Promise<RegistrationResult> {
@@ -589,41 +596,61 @@ export class AuthService {
     await this.authSessionsRepository.save(session);
   }
 
-  async getProfile(requestContext: SessionRequestContext): Promise<UserProfilePayload> {
+  async getProfile(
+    requestContext: SessionRequestContext,
+    targetUserId?: string | null
+  ): Promise<UserProfilePayload> {
     const resolvedSession = await this.resolveSession(requestContext);
-    return mapProfile(resolvedSession.user);
+    const targetUser = await this.resolveAuthorizedAccountTarget({
+      resolvedSession,
+      targetUserId,
+      action: "read"
+    });
+    return mapProfile(mapUser(targetUser));
   }
 
   async updateProfile(
     input: unknown,
-    requestContext: SessionRequestContext
+    requestContext: SessionRequestContext,
+    targetUserId?: string | null
   ): Promise<UserProfilePayload> {
     const profileInput = parseProfileInput(input);
     const resolvedSession = await this.resolveSession(requestContext);
-    const user = await this.usersRepository.findOne({ where: { id: resolvedSession.user.id } });
-    if (!user) {
-      throw new UnauthorizedException("Authentication required.");
-    }
+    const user = await this.resolveAuthorizedAccountTarget({
+      resolvedSession,
+      targetUserId,
+      action: "write"
+    });
     user.displayName = profileInput.displayName;
     const savedUser = await this.usersRepository.save(user);
     return mapProfile(mapUser(savedUser));
   }
 
-  async getSettings(requestContext: SessionRequestContext): Promise<UserSettingsPayload> {
+  async getSettings(
+    requestContext: SessionRequestContext,
+    targetUserId?: string | null
+  ): Promise<UserSettingsPayload> {
     const resolvedSession = await this.resolveSession(requestContext);
-    return this.mapSettings(resolvedSession.user);
+    const user = await this.resolveAuthorizedAccountTarget({
+      resolvedSession,
+      targetUserId,
+      action: "read"
+    });
+    return this.mapSettings(mapUser(user));
   }
 
   async updateSettings(
     input: unknown,
-    requestContext: SessionRequestContext
+    requestContext: SessionRequestContext,
+    targetUserId?: string | null
   ): Promise<UserSettingsPayload> {
     const settingsInput = parseSettingsInput(input);
     const resolvedSession = await this.resolveSession(requestContext);
-    const user = await this.usersRepository.findOne({ where: { id: resolvedSession.user.id } });
-    if (!user) {
-      throw new UnauthorizedException("Authentication required.");
-    }
+    const user = await this.resolveAuthorizedAccountTarget({
+      resolvedSession,
+      targetUserId,
+      action: "write"
+    });
 
     if (settingsInput.username !== user.username) {
       const duplicate = await this.usersRepository.findOne({
@@ -637,6 +664,42 @@ export class AuthService {
 
     const savedUser = await this.usersRepository.save(user);
     return this.mapSettings(mapUser(savedUser));
+  }
+
+  private async resolveAuthorizedAccountTarget(input: {
+    resolvedSession: AuthenticatedSessionResult;
+    targetUserId?: string | null;
+    action: AuthorizationAction;
+  }): Promise<UserEntity> {
+    const actor = input.resolvedSession.user;
+    const targetId = input.targetUserId?.trim() || actor.id;
+    const targetUser = await this.usersRepository.findOne({ where: { id: targetId } });
+    if (!targetUser) {
+      throw new NotFoundException("User account was not found.");
+    }
+
+    const grants = await this.authorizationGrantsRepository.find({
+      where: {
+        subjectUserId: actor.id,
+        resourceType: accountResourceType,
+        resourceId: targetUser.id
+      }
+    });
+    this.authorizationService.assertAllowed({
+      actor: {
+        userId: actor.id,
+        globalRole: actor.globalRole
+      },
+      resource: {
+        resourceType: accountResourceType,
+        resourceId: targetUser.id,
+        ownerUserId: targetUser.id,
+        visibility: "private"
+      },
+      action: input.action,
+      aclRoles: grants.map((grant) => grant.role)
+    });
+    return targetUser;
   }
 
   getSessionCookieName(): string {
