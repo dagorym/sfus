@@ -1,0 +1,38 @@
+{
+  "status": "PASS",
+  "summary": "Documentation now matches Subtask 6 protected-route redirect behavior and confirmed authz/deferred-scope docs remain aligned with implemented scope.",
+  "documentation_commit": "867e3f64e76b7e61640d2448566fba6ab4e4115f",
+  "validation": [
+    {
+      "command": "npx --yes pnpm@10.0.0 lint",
+      "result": "pass",
+      "source": "tester"
+    },
+    {
+      "command": "npx --yes pnpm@10.0.0 typecheck",
+      "result": "pass",
+      "source": "tester"
+    },
+    {
+      "command": "npx --yes pnpm@10.0.0 test",
+      "result": "pass",
+      "source": "tester"
+    },
+    {
+      "command": "bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml",
+      "result": "failed_expected",
+      "details": "Known pre-existing blocker: Next.js /login prerender requires Suspense for useSearchParams.",
+      "source": "tester"
+    }
+  ],
+  "documentation_files": [
+    "docs/README.md",
+    "docs/website-launch-guide.md",
+    "docs/deferred-tasks.md"
+  ],
+  "artifacts_written": [
+    "artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6/documenter_report.md",
+    "artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6/documenter_result.json",
+    "artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6/verifier_prompt.txt"
+  ]
+}
