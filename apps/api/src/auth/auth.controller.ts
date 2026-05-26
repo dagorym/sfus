@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Inject, Param, Patch, Post, Query, Req, Res } from "@nestjs/common";
 import {
+  ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -199,6 +200,7 @@ export class AuthController {
   @Get("profile")
   @ApiOperation({ summary: "Return profile basics for the authenticated user." })
   @ApiOkResponse({ description: "Profile basics resolved." })
+  @ApiForbiddenResponse({ description: "Authenticated user is not authorized for the requested profile." })
   async getProfile(@Req() request: Request): Promise<{
     username: string;
     email: string;
@@ -206,24 +208,26 @@ export class AuthController {
   }> {
     return this.authService.getProfile({
       cookieHeader: request.headers.cookie
-    });
+    }, this.readTargetUserId(request.query.userId));
   }
 
   @Patch("profile")
   @ApiOperation({ summary: "Update profile basics for the authenticated user." })
   @ApiOkResponse({ description: "Profile basics updated." })
+  @ApiForbiddenResponse({ description: "Authenticated user is not authorized for the requested profile." })
   async updateProfile(
     @Body() body: unknown,
     @Req() request: Request
   ): Promise<{ username: string; email: string; displayName: string | null }> {
     return this.authService.updateProfile(body, {
       cookieHeader: request.headers.cookie
-    });
+    }, this.readTargetUserId(request.query.userId));
   }
 
   @Get("settings")
   @ApiOperation({ summary: "Return account settings basics for the authenticated user." })
   @ApiOkResponse({ description: "Account settings basics resolved." })
+  @ApiForbiddenResponse({ description: "Authenticated user is not authorized for the requested settings." })
   async getSettings(@Req() request: Request): Promise<{
     username: string;
     email: string;
@@ -232,19 +236,20 @@ export class AuthController {
   }> {
     return this.authService.getSettings({
       cookieHeader: request.headers.cookie
-    });
+    }, this.readTargetUserId(request.query.userId));
   }
 
   @Patch("settings")
   @ApiOperation({ summary: "Update account settings basics for the authenticated user." })
   @ApiOkResponse({ description: "Account settings basics updated." })
+  @ApiForbiddenResponse({ description: "Authenticated user is not authorized for the requested settings." })
   async updateSettings(
     @Body() body: unknown,
     @Req() request: Request
   ): Promise<{ username: string; email: string; emailVerified: boolean; mfaEnabled: boolean }> {
     return this.authService.updateSettings(body, {
       cookieHeader: request.headers.cookie
-    });
+    }, this.readTargetUserId(request.query.userId));
   }
 
   @Get("external/:provider/start")
@@ -361,5 +366,9 @@ export class AuthController {
       next: challenge.nextPath
     });
     return `/login?${params.toString()}`;
+  }
+
+  private readTargetUserId(value: unknown): string | null {
+    return typeof value === "string" && value.trim() ? value : null;
   }
 }

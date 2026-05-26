@@ -1,0 +1,50 @@
+You are executing Milestone 2 Subtask 6 Verifier stage in repo /home/tstephen/repos/sfus.
+
+Use shared artifact directory (repository-relative):
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6
+
+Continue in the same run when blocking inputs are present; do not stop after activation output, review-scope establishment, convention discovery, or diff inspection.
+
+Upstream stage outcomes:
+- Tester: PASS (`lint`, `typecheck`, `test` passed)
+- Documenter: PASS (docs reviewed/updated and committed)
+- Documentation commit: 867e3f64e76b7e61640d2448566fba6ab4e4115f
+
+Full modified-file review surface (Implementer + Tester + Documenter):
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.controller.ts
+- apps/api/src/auth/auth.module.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/auth/auth.service.ts
+- apps/api/src/authorization/authorization.service.ts
+- apps/api/src/authorization/authorization.service.test.ts
+- apps/api/src/authorization/authorization.types.ts
+- apps/web/app/app/page.tsx
+- apps/web/app/auth-client.ts
+- apps/web/app/profile/page.tsx
+- apps/web/app/public-shell.spec.ts
+- apps/web/app/settings/page.tsx
+- docs/README.md
+- docs/website-launch-guide.md
+- docs/deferred-tasks.md
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6/tester_report.md
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6/tester_result.json
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6/documenter_prompt.txt
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6/documenter_report.md
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6/documenter_result.json
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6/verifier_prompt.txt
+
+Verifier objectives:
+1) Confirm implemented behavior and tests satisfy Milestone 2 Subtask 6 scope.
+2) Confirm documentation matches implemented shared account authorization behavior and authenticated-route redirect handling.
+3) Re-run required repository validations:
+   - npx --yes pnpm@10.0.0 lint
+   - npx --yes pnpm@10.0.0 typecheck
+   - npx --yes pnpm@10.0.0 test
+   - bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml (treat known `/login` Suspense prerender failure as pre-existing blocker unless behavior changed)
+4) Write verifier artifacts in the shared artifact directory.
+
+If expected review context (comparison base, plan pointer, or artifact path) is missing, infer from repository evidence before declaring blockers.
+
+Completion gate:
+- Do not report success unless all required verifier artifacts exist and all verifier-stage changes are committed.

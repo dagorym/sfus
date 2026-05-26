@@ -121,6 +121,7 @@ The current local auth API surface is available under `/api/auth`:
 - `POST /api/auth/onboarding/username` completes first-login external onboarding by setting the final username.
 - `GET /api/auth/profile` returns profile basics (`username`, `email`, `displayName`) for authenticated users; `PATCH /api/auth/profile` updates `displayName` and returns the same profile payload.
 - `GET /api/auth/settings` returns account settings basics (`username`, `email`, `emailVerified`, `mfaEnabled`) for authenticated users; `PATCH /api/auth/settings` updates `username` only (with uniqueness enforcement) and returns the same settings payload.
+- The account profile/settings routes now evaluate the shared authorization contract (global roles + ACL grants) and support representative cross-account checks through `?userId=<targetUserId>` when the caller is authorized.
 
 Session-cookie behavior is intentionally deployment-aware:
 
@@ -139,7 +140,8 @@ Current user-facing website behavior is intentionally narrow:
 - local registration page at `/register`
 - MFA challenge handling in `/login` for both password and external flows, including authenticator-code or recovery-code completion before session issuance
 - local registration flow at `/register` that can auto-verify the development token and attempt immediate sign-in
-- authenticated shell route at `/app` that redirects unauthenticated users to `/login` and first-login users to `/onboarding/username`
+- authenticated shell/profile/settings routes now use one shared client authorization-state resolver (`resolveProtectedSession`) for unauthenticated and onboarding-required handling
+- authenticated shell route at `/app` that redirects unauthenticated users to `/login?next=/app` and first-login users to `/onboarding/username`
 - authenticated profile route at `/profile` backed by `/api/auth/profile` and redirected to `/login?next=/profile` when unauthenticated
 - authenticated settings route at `/settings` backed by `/api/auth/settings` and redirected to `/login?next=/settings` when unauthenticated
 - username onboarding page at `/onboarding/username` that posts the final username and returns the user to `/app`

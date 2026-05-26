@@ -3,6 +3,8 @@ import argon2 from "argon2";
 import { describe, expect, it } from "vitest";
 
 import type { ApplicationEnvironment } from "../config/environment";
+import { AuthorizationService } from "../authorization/authorization.service";
+import { AuthorizationGrantEntity } from "../authorization/entities/authorization-grant.entity";
 import { AuthService } from "./auth.service";
 import type { ExternalAuthProviderRegistry } from "./external-auth-provider.registry";
 import { AuthIdentityEntity } from "./entities/auth-identity.entity";
@@ -20,13 +22,15 @@ type EntityClass =
   | typeof AuthSessionEntity
   | typeof EmailVerificationEntity
   | typeof TotpSecretEntity
-  | typeof TotpRecoveryCodeEntity;
+  | typeof TotpRecoveryCodeEntity
+  | typeof AuthorizationGrantEntity;
 
 type RepositoryLike<T extends { id: string }> = {
   data: T[];
   create: (entityLike: Partial<T>) => T;
   save: (entity: T | T[]) => Promise<T | T[]>;
   findOne: (input: { where: Partial<T> }) => Promise<T | null>;
+  find: (input: { where: Partial<T> }) => Promise<T[]>;
   delete: (input: Partial<T>) => Promise<void>;
   failNextSave: (error: Error) => void;
   manager?: {
@@ -68,6 +72,10 @@ const createRepository = <T extends { id: string }>(): RepositoryLike<T> => {
         keys.every((key) => candidate[key] === input.where[key])
       );
       return found || null;
+    },
+    find: async (input: { where: Partial<T> }): Promise<T[]> => {
+      const keys = Object.keys(input.where) as Array<keyof T>;
+      return data.filter((candidate) => keys.every((key) => candidate[key] === input.where[key]));
     },
     delete: async (input: Partial<T>): Promise<void> => {
       const keys = Object.keys(input) as Array<keyof T>;
@@ -171,6 +179,7 @@ const createService = (
   const emailVerificationsRepository = createRepository<EmailVerificationEntity>();
   const totpSecretsRepository = createRepository<TotpSecretEntity>();
   const totpRecoveryCodesRepository = createRepository<TotpRecoveryCodeEntity>();
+  const authorizationGrantsRepository = createRepository<AuthorizationGrantEntity>();
 
   const repositoryByEntity = new Map<EntityClass, RepositoryLike<{ id: string }>>([
     [UserEntity, usersRepository as unknown as RepositoryLike<{ id: string }>],
@@ -182,7 +191,8 @@ const createService = (
     [AuthSessionEntity, authSessionsRepository as unknown as RepositoryLike<{ id: string }>],
     [EmailVerificationEntity, emailVerificationsRepository as unknown as RepositoryLike<{ id: string }>],
     [TotpSecretEntity, totpSecretsRepository as unknown as RepositoryLike<{ id: string }>],
-    [TotpRecoveryCodeEntity, totpRecoveryCodesRepository as unknown as RepositoryLike<{ id: string }>]
+    [TotpRecoveryCodeEntity, totpRecoveryCodesRepository as unknown as RepositoryLike<{ id: string }>],
+    [AuthorizationGrantEntity, authorizationGrantsRepository as unknown as RepositoryLike<{ id: string }>]
   ]);
 
   const cloneRepositoryData = () =>
@@ -233,6 +243,7 @@ const createService = (
   emailVerificationsRepository.manager = manager;
   totpSecretsRepository.manager = manager;
   totpRecoveryCodesRepository.manager = manager;
+  authorizationGrantsRepository.manager = manager;
 
   const service = new AuthService(
     usersRepository as never,
@@ -242,8 +253,10 @@ const createService = (
     emailVerificationsRepository as never,
     totpSecretsRepository as never,
     totpRecoveryCodesRepository as never,
+    authorizationGrantsRepository as never,
     createEnvironment(),
-    providerRegistry
+    providerRegistry,
+    new AuthorizationService()
   );
 
   return {
@@ -255,6 +268,7 @@ const createService = (
     emailVerificationsRepository,
     totpSecretsRepository,
     totpRecoveryCodesRepository,
+    authorizationGrantsRepository,
     providerRegistry
   };
 };
@@ -988,5 +1002,78 @@ describe("AuthService", () => {
         sessionContext
       )
     ).rejects.toThrowError("This username is already in use.");
+  });
+
+  it("applies reusable account ACL/global-role authorization for cross-account access", async () => {
+    const { service, usersRepository, authorizationGrantsRepository } = createService();
+
+    const ownerRegistration = await service.registerAccount({
+      email: "owner@example.com",
+      username: "owner_user",
+      password: "owner-super-secure-password"
+    });
+    await service.verifyEmailToken(ownerRegistration.emailVerification.token!);
+    const ownerLogin = expectPasswordSession(
+      await service.loginWithPassword(
+        { email: "owner@example.com", password: "owner-super-secure-password" },
+        {}
+      )
+    );
+
+    const peerRegistration = await service.registerAccount({
+      email: "peer@example.com",
+      username: "peer_user",
+      password: "peer-super-secure-password"
+    });
+    await service.verifyEmailToken(peerRegistration.emailVerification.token!);
+    const peerLogin = expectPasswordSession(
+      await service.loginWithPassword(
+        { email: "peer@example.com", password: "peer-super-secure-password" },
+        {}
+      )
+    );
+    const peerContext = { cookieHeader: `sfus_session=${peerLogin.sessionToken}` };
+
+    await expect(service.getProfile(peerContext, ownerRegistration.user.id)).rejects.toThrowError(
+      "Authorization denied: access-denied."
+    );
+
+    authorizationGrantsRepository.data.push({
+      id: crypto.randomUUID(),
+      subjectUserId: peerRegistration.user.id,
+      resourceType: "account",
+      resourceId: ownerRegistration.user.id,
+      role: "viewer",
+      grantedByUserId: ownerRegistration.user.id,
+      createdAt: new Date(),
+      subjectUser: usersRepository.data.find((entry) => entry.id === peerRegistration.user.id)!,
+      grantedByUser: usersRepository.data.find((entry) => entry.id === ownerRegistration.user.id)!
+    });
+    await expect(service.getProfile(peerContext, ownerRegistration.user.id)).resolves.toMatchObject({
+      username: "owner_user"
+    });
+    await expect(
+      service.updateProfile(
+        {
+          displayName: "Unauthorized Edit"
+        },
+        peerContext,
+        ownerRegistration.user.id
+      )
+    ).rejects.toThrowError("Authorization denied: access-denied.");
+
+    const ownerUser = usersRepository.data.find((entry) => entry.id === ownerRegistration.user.id)!;
+    ownerUser.globalRole = "admin";
+    await expect(service.updateSettings({ username: "owner_admin" }, { cookieHeader: `sfus_session=${ownerLogin.sessionToken}` }))
+      .resolves.toMatchObject({ username: "owner_admin" });
+    await expect(
+      service.updateProfile(
+        {
+          displayName: "Owner Updated By Admin"
+        },
+        { cookieHeader: `sfus_session=${ownerLogin.sessionToken}` },
+        peerRegistration.user.id
+      )
+    ).resolves.toMatchObject({ displayName: "Owner Updated By Admin" });
   });
 });

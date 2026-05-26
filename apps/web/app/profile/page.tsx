@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { readProfile, readSession, updateProfile, type ProfilePayload } from "../auth-client";
+import {
+  AuthorizationError,
+  readProfile,
+  resolveProtectedSession,
+  updateProfile,
+  type ProfilePayload
+} from "../auth-client";
 import styles from "../auth-shell.module.css";
 
 export default function ProfilePage() {
@@ -17,16 +23,14 @@ export default function ProfilePage() {
     let mounted = true;
     const load = async () => {
       try {
-        const session = await readSession();
+        const session = await resolveProtectedSession("/profile");
         if (!mounted) {
           return;
         }
-        if (!session) {
-          router.replace("/login?next=/profile");
-          return;
-        }
-        if (session.user.onboardingRequired) {
-          router.replace("/onboarding/username");
+        if (!session.session) {
+          if (session.redirectTo) {
+            router.replace(session.redirectTo);
+          }
           return;
         }
 
@@ -36,9 +40,13 @@ export default function ProfilePage() {
         }
         setProfile(resolvedProfile);
         setDisplayName(resolvedProfile.displayName || "");
-      } catch {
+      } catch (loadError) {
         if (mounted) {
-          setError("Unable to load profile.");
+          if (loadError instanceof AuthorizationError) {
+            setError(loadError.message);
+          } else {
+            setError("Unable to load profile.");
+          }
         }
       }
     };

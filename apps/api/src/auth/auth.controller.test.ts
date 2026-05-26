@@ -472,7 +472,8 @@ describe("AuthController", () => {
     const request = {
       headers: {
         cookie: "sfus_session=session-token"
-      }
+      },
+      query: {}
     };
 
     await expect(controller.getProfile(request as never)).resolves.toMatchObject({
@@ -504,21 +505,34 @@ describe("AuthController", () => {
 
     expect(authService.getProfile).toHaveBeenCalledWith({
       cookieHeader: "sfus_session=session-token"
-    });
+    }, null);
     expect(authService.updateProfile).toHaveBeenCalledWith(
       { displayName: "Captain Zenith" },
       {
         cookieHeader: "sfus_session=session-token"
-      }
+      },
+      null
     );
     expect(authService.getSettings).toHaveBeenCalledWith({
       cookieHeader: "sfus_session=session-token"
-    });
+    }, null);
     expect(authService.updateSettings).toHaveBeenCalledWith(
       { username: "captain_zenith" },
       {
         cookieHeader: "sfus_session=session-token"
-      }
+      },
+      null
+    );
+
+    await controller.getProfile({
+      headers: { cookie: "sfus_session=session-token" },
+      query: { userId: "target-user-id" }
+    } as never);
+    expect(authService.getProfile).toHaveBeenLastCalledWith(
+      {
+        cookieHeader: "sfus_session=session-token"
+      },
+      "target-user-id"
     );
   });
 });

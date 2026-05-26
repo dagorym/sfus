@@ -3,6 +3,8 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 
 import { API_ENVIRONMENT, AUTH_EXTERNAL_PROVIDER_REGISTRY } from "../config/config.constants";
 import type { ApplicationEnvironment } from "../config/environment";
+import { AuthorizationModule } from "../authorization/authorization.module";
+import { AuthorizationGrantEntity } from "../authorization/entities/authorization-grant.entity";
 import { UsersModule } from "../users/users.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
@@ -21,13 +23,15 @@ export class AuthModule {
       module: AuthModule,
       imports: [
         UsersModule,
+        AuthorizationModule,
         TypeOrmModule.forFeature([
           AuthIdentityEntity,
           PasswordAuthenticatorEntity,
           AuthSessionEntity,
           EmailVerificationEntity,
           TotpSecretEntity,
-          TotpRecoveryCodeEntity
+          TotpRecoveryCodeEntity,
+          AuthorizationGrantEntity
         ])
       ],
       controllers: [AuthController],
