@@ -1,0 +1,40 @@
+You are the Documenter Agent for Milestone 2 Subtask 6 in repo /home/tstephen/repos/sfus.
+
+Continue immediately in the same run when blocking inputs are present; do not stop at scope confirmation, documentation discovery, or diff review.
+
+Tester outcome summary:
+- PASS for planner acceptance criteria.
+- Validation evidence:
+  - `npx --yes pnpm@10.0.0 lint` passed.
+  - `npx --yes pnpm@10.0.0 typecheck` passed.
+  - `npx --yes pnpm@10.0.0 test` passed.
+  - `bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml` failed only on known pre-existing blocker: Next.js `/login` prerender error (`useSearchParams` must be wrapped in `Suspense`).
+
+Implementer-modified files to inspect and document:
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.controller.ts
+- apps/api/src/auth/auth.module.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/auth/auth.service.ts
+- apps/api/src/authorization/authorization.service.ts
+- apps/api/src/authorization/authorization.service.test.ts
+- apps/api/src/authorization/authorization.types.ts
+- apps/web/app/app/page.tsx
+- apps/web/app/auth-client.ts
+- apps/web/app/profile/page.tsx
+- apps/web/app/public-shell.spec.ts
+- apps/web/app/settings/page.tsx
+- docs/README.md
+- docs/website-launch-guide.md
+- docs/deferred-tasks.md
+
+Tester-modified files to include in context:
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6/tester_report.md
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6/tester_result.json
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6/documenter_prompt.txt
+
+Shared artifact directory (reuse exactly, repo-root-relative):
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
