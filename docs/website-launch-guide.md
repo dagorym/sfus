@@ -106,7 +106,7 @@ Useful local URLs after startup:
 
 The current local auth API surface is available under `/api/auth`:
 
-- `POST /api/auth/register` creates a local account, stores the password with Argon2id plus the configured password pepper, and returns an email-verification requirement.
+- `POST /api/auth/register` creates a local account, stores the password with Argon2id plus the configured password pepper, returns an email-verification requirement on success, rejects invalid input with `400`, and rejects duplicate email or username attempts with `409`.
 - `POST /api/auth/verify-email` consumes a single-use verification token before the user can log in successfully.
 - `POST /api/auth/login` either issues the `sfus_session` HTTP-only cookie with `{ user, session }` or returns `{ mfa }` when a verified MFA factor must complete before session issuance.
 - `POST /api/auth/mfa/challenge` verifies a challenge with either an authenticator code or a single-use recovery code, then issues the session cookie.
