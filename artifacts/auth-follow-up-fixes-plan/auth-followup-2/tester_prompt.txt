@@ -1,0 +1,51 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Rework auth entry UX so /register is provider-first with local registration fallback and /login stays coherent for returning users.
+
+Modified files:
+- apps/web/app/register/page.tsx
+- apps/web/app/login/login-client.tsx
+- apps/web/app/public-shell.spec.ts
+- docs/website-launch-guide.md
+
+Acceptance criteria to validate (from Planner):
+- /register visibly presents Google and GitHub entry points before the local registration form.
+- The local registration form remains available as an explicit fallback on the same page.
+- /login still supports returning-user sign-in cleanly and does not contradict the provider-first register-page guidance.
+- Automated coverage asserts the provider-first register-page contract.
+
+Create test files in:
+- apps/web/app/public-shell.spec.ts
+- apps/web/app/** auth page tests if Tester adds focused coverage
+
+Implementation context for testing:
+- /register now presents Google and GitHub account-creation actions before the local form and labels local registration as fallback.
+- The local email/username/password registration flow and post-registration verification/login behavior remain unchanged.
+- /login messaging now targets returning users and points first-time visitors to /register for provider-first account creation while preserving local and external sign-in options.
+- Source-contract tests now assert provider-first placement on /register and coherence cues on /login.
+- Launch guide user-facing auth-entry bullets now describe provider-first registration and returning-user login framing.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/web lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web test
+- npx --yes pnpm@10.0.0 build
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/auth-follow-up-fixes-plan/auth-followup-2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
