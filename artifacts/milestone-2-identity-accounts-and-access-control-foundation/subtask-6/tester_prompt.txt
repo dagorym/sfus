@@ -1,0 +1,61 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Implemented reusable global-role and ACL authorization foundations, wired representative account/profile/settings API and UI surfaces to shared authorization helpers, and updated milestone docs and deferred-work records.
+
+Modified files:
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.controller.ts
+- apps/api/src/auth/auth.module.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/auth/auth.service.ts
+- apps/api/src/authorization/authorization.service.ts
+- apps/api/src/authorization/authorization.service.test.ts
+- apps/api/src/authorization/authorization.types.ts
+- apps/web/app/app/page.tsx
+- apps/web/app/auth-client.ts
+- apps/web/app/profile/page.tsx
+- apps/web/app/public-shell.spec.ts
+- apps/web/app/settings/page.tsx
+- docs/README.md
+- docs/website-launch-guide.md
+- docs/deferred-tasks.md
+
+Acceptance criteria to validate (from Planner):
+- Reusable backend authorization utilities cover global-role and ACL-style access decisions without being tied to one content type.
+- Representative Milestone 2 routes and UI states use the shared authorization layer rather than bespoke checks.
+- Automated validation covers authorization failures and major auth-path regressions.
+- Documentation and the deferred-work register match the final implemented scope.
+
+Create test files in:
+- apps/api/src/auth/**/*.test.ts and apps/api/src/authorization/**/*.test.ts for authorization behavior and regressions
+- apps/web/app/public-shell.spec.ts and apps/web/app/**/*.tsx source contracts for protected-route and unauthorized-state behavior
+
+Implementation context for testing:
+- Added reusable AuthorizationService decision primitives for global-role checks and ACL/visibility-based read-write-admin access evaluation across generic resource contracts.
+- AuthService now delegates account profile/settings authorization to AuthorizationService via a shared account ACL contract and optional ?userId target checks, resolving grants from authorization_grants.
+- AuthController profile/settings endpoints now forward optional target-user context and document forbidden responses for unauthorized cross-account access.
+- Web auth-client now centralizes protected-route session gating (resolveProtectedSession), global-role helpers, and explicit 401/403 authorization error handling for account/profile/settings fetches.
+- Profile, settings, and authenticated shell routes now consume the shared protected-session helper rather than bespoke route-level auth checks.
+- Expanded API + web source contract tests to cover shared authorization foundations and representative authz-path regressions.
+- Updated docs/README.md and docs/website-launch-guide.md for the reusable authz contract and updated docs/deferred-tasks.md with the existing stack-smoke blocker discovered during milestone validation.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+- bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml
+
+Existing validations expected to fail only because approved behavior changed:
+- bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml -> stack-smoke currently fails on pre-existing Next.js /login prerender error: useSearchParams must be wrapped in Suspense.
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
