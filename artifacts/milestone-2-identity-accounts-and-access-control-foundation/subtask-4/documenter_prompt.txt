@@ -1,0 +1,60 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Validated Milestone 2 MFA end-to-end behavior across API and web login UX; all requested API and web lint/typecheck/test commands pass with no additional tester test edits required.
+
+Acceptance criteria validated:
+- Users can enable and verify TOTP MFA successfully.
+- Recovery codes are generated, stored safely, shown at the correct time, consumed once, and regenerable.
+- MFA challenge behavior is integrated into the supported login flows.
+- Disable or reset behavior is authenticated and authorized.
+
+Implementation branch or worktree context:
+- Branch: ms2-subtask-4-tester-20260525 (tester) reviewing implementer outputs from ms2-subtask-4-implementer-20260525.
+- Worktree: /home/tstephen/.copilot/session-state/980e354c-b84f-4a6e-bf11-2d080f8d01fc/files/worktrees/ms2-subtask-4-tester-20260525
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.controller.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/auth/auth.service.ts
+- apps/web/app/login/page.tsx
+- apps/web/app/public-shell.spec.ts
+- docs/README.md
+- docs/website-launch-guide.md
+
+Test commit:
+- No Changes Made
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/api lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --filter @sfus/web lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web test
+
+Final test outcomes:
+- API lint, typecheck, and test commands passed.
+- Web lint, typecheck, and test commands passed.
+- Auth service tests cover MFA enrollment/verification, MFA challenge flows, one-time recovery code consumption, regeneration, and authenticated disable behavior.
+- Auth controller and web shell source-contract tests cover MFA challenge login flow handling and callback UX integration.
+
+Documentation context:
+- MFA endpoint contracts and login challenge behavior are already documented in docs/README.md and docs/website-launch-guide.md and should be verified against passing tests.
+- Documenter should confirm recovery-code lifecycle wording matches tested one-time consumption and regeneration behavior.
+
+Plan and diff context:
+- Plan path: plans/milestone-2-identity-accounts-and-access-control-foundation-plan.md
+- Assumption: compare tester branch against base branch ms2 and include implementer branch ms2-subtask-4-implementer-20260525 changes.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-4
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
