@@ -1,0 +1,69 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Rework auth entry UX so /register is provider-first with local registration fallback and /login stays coherent for returning users.
+
+Acceptance criteria to verify:
+- /register visibly presents Google and GitHub entry points before the local registration form.
+- The local registration form remains available as an explicit fallback on the same page.
+- /login still supports returning-user sign-in cleanly and does not contradict the provider-first register-page guidance.
+- Automated coverage asserts the provider-first register-page contract.
+
+Implementation branch or worktree context:
+- Documenter worktree: /home/tstephen/repos/.worktrees/sfus/ms2-auth-followup-2-documenter-20260525 on branch ms2-auth-followup-2-documenter-20260525.
+- Tester branch/worktree context: ms2-auth-followup-2-tester-20260525 at /home/tstephen/repos/.worktrees/sfus/ms2-auth-followup-2-tester-20260525.
+- Implementer base branch for the tested diff: ms2-auth-followup-2-implementer-20260525.
+- Documentation commit for this stage: 35a3a5fc8a56f6a4e521110be31b421d483f1edf.
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/register/page.tsx
+- apps/web/app/login/login-client.tsx
+- apps/web/app/public-shell.spec.ts
+- docs/website-launch-guide.md
+- artifacts/auth-follow-up-fixes-plan/auth-followup-2/tester_report.md
+- artifacts/auth-follow-up-fixes-plan/auth-followup-2/tester_result.json
+- artifacts/auth-follow-up-fixes-plan/auth-followup-2/documenter_prompt.txt
+- docs/README.md
+- artifacts/auth-follow-up-fixes-plan/auth-followup-2/documenter_report.md
+- artifacts/auth-follow-up-fixes-plan/auth-followup-2/documenter_result.json
+- artifacts/auth-follow-up-fixes-plan/auth-followup-2/verifier_prompt.txt
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/web lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web test
+- npx --yes pnpm@10.0.0 build
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+- python .myteam/documenter/commit-flow/validate_documenter_state.py --repo-root . --phase docs
+
+Final test outcomes:
+- All tester-provided validation commands passed.
+- No unmet acceptance criteria were found in tester review.
+- Documenter validation confirmed a documentation-only diff before the documentation commit.
+
+Plan or evaluation context guidance:
+- Plan path: plans/auth-follow-up-fixes-plan.md.
+- The plan's auth-followup-2 Documentation Impact called for updating docs/website-launch-guide.md if the user-facing auth-entry flow description changed materially.
+- Tester reported that all validation commands passed and no acceptance gaps remained.
+- Documentation review found docs/README.md also needed its route summary updated to match the shipped provider-first register flow and returning-user login framing.
+
+Convention-file guidance:
+- The maintained documentation references for behavior changes are docs/README.md, docs/website-launch-guide.md, and docs/deferred-tasks.md.
+- Repository guidance comes from .myteam/, and the Documenter role limits product-file edits to documentation-only comments while requiring artifact handoff to the Verifier stage.
+
+Updated documentation files:
+- docs/README.md
+
+Shared artifact directory:
+- artifacts/auth-follow-up-fixes-plan/auth-followup-2
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
