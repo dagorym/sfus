@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, Query, Req, Res } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Patch, Post, Query, Req, Res } from "@nestjs/common";
 import {
   ApiOkResponse,
   ApiOperation,
@@ -194,6 +194,57 @@ export class AuthController {
       user: result.user,
       session: result.session
     };
+  }
+
+  @Get("profile")
+  @ApiOperation({ summary: "Return profile basics for the authenticated user." })
+  @ApiOkResponse({ description: "Profile basics resolved." })
+  async getProfile(@Req() request: Request): Promise<{
+    username: string;
+    email: string;
+    displayName: string | null;
+  }> {
+    return this.authService.getProfile({
+      cookieHeader: request.headers.cookie
+    });
+  }
+
+  @Patch("profile")
+  @ApiOperation({ summary: "Update profile basics for the authenticated user." })
+  @ApiOkResponse({ description: "Profile basics updated." })
+  async updateProfile(
+    @Body() body: unknown,
+    @Req() request: Request
+  ): Promise<{ username: string; email: string; displayName: string | null }> {
+    return this.authService.updateProfile(body, {
+      cookieHeader: request.headers.cookie
+    });
+  }
+
+  @Get("settings")
+  @ApiOperation({ summary: "Return account settings basics for the authenticated user." })
+  @ApiOkResponse({ description: "Account settings basics resolved." })
+  async getSettings(@Req() request: Request): Promise<{
+    username: string;
+    email: string;
+    emailVerified: boolean;
+    mfaEnabled: boolean;
+  }> {
+    return this.authService.getSettings({
+      cookieHeader: request.headers.cookie
+    });
+  }
+
+  @Patch("settings")
+  @ApiOperation({ summary: "Update account settings basics for the authenticated user." })
+  @ApiOkResponse({ description: "Account settings basics updated." })
+  async updateSettings(
+    @Body() body: unknown,
+    @Req() request: Request
+  ): Promise<{ username: string; email: string; emailVerified: boolean; mfaEnabled: boolean }> {
+    return this.authService.updateSettings(body, {
+      cookieHeader: request.headers.cookie
+    });
   }
 
   @Get("external/:provider/start")

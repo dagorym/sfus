@@ -441,4 +441,84 @@ describe("AuthController", () => {
       expect.objectContaining({ httpOnly: true })
     );
   });
+
+  it("exposes authenticated profile and settings read/update endpoints", async () => {
+    const authService = {
+      getProfile: vi.fn().mockResolvedValue({
+        username: "captain",
+        email: "captain@example.com",
+        displayName: "Captain"
+      }),
+      updateProfile: vi.fn().mockResolvedValue({
+        username: "captain",
+        email: "captain@example.com",
+        displayName: "Captain Zenith"
+      }),
+      getSettings: vi.fn().mockResolvedValue({
+        username: "captain",
+        email: "captain@example.com",
+        emailVerified: true,
+        mfaEnabled: false
+      }),
+      updateSettings: vi.fn().mockResolvedValue({
+        username: "captain_zenith",
+        email: "captain@example.com",
+        emailVerified: true,
+        mfaEnabled: false
+      })
+    } as unknown as AuthService;
+
+    const controller = new AuthController(authService, createEnvironment());
+    const request = {
+      headers: {
+        cookie: "sfus_session=session-token"
+      }
+    };
+
+    await expect(controller.getProfile(request as never)).resolves.toMatchObject({
+      username: "captain"
+    });
+    await expect(
+      controller.updateProfile(
+        {
+          displayName: "Captain Zenith"
+        },
+        request as never
+      )
+    ).resolves.toMatchObject({
+      displayName: "Captain Zenith"
+    });
+    await expect(controller.getSettings(request as never)).resolves.toMatchObject({
+      mfaEnabled: false
+    });
+    await expect(
+      controller.updateSettings(
+        {
+          username: "captain_zenith"
+        },
+        request as never
+      )
+    ).resolves.toMatchObject({
+      username: "captain_zenith"
+    });
+
+    expect(authService.getProfile).toHaveBeenCalledWith({
+      cookieHeader: "sfus_session=session-token"
+    });
+    expect(authService.updateProfile).toHaveBeenCalledWith(
+      { displayName: "Captain Zenith" },
+      {
+        cookieHeader: "sfus_session=session-token"
+      }
+    );
+    expect(authService.getSettings).toHaveBeenCalledWith({
+      cookieHeader: "sfus_session=session-token"
+    });
+    expect(authService.updateSettings).toHaveBeenCalledWith(
+      { username: "captain_zenith" },
+      {
+        cookieHeader: "sfus_session=session-token"
+      }
+    );
+  });
 });

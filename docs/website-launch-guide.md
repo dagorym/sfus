@@ -119,6 +119,8 @@ The current local auth API surface is available under `/api/auth`:
 - `GET /api/auth/external/google/start` and `GET /api/auth/external/github/start` initiate provider redirects.
 - `GET /api/auth/external/:provider/callback` handles callback code/state exchange, deterministic account linking, and either session issuance or redirect into the MFA challenge flow when required.
 - `POST /api/auth/onboarding/username` completes first-login external onboarding by setting the final username.
+- `GET /api/auth/profile` and `PATCH /api/auth/profile` expose/read update profile basics (`username`, `email`, `displayName`) for authenticated users.
+- `GET /api/auth/settings` and `PATCH /api/auth/settings` expose/read update account settings basics (`username`, `email`, `emailVerified`, `mfaEnabled`) for authenticated users.
 
 Session-cookie behavior is intentionally deployment-aware:
 
@@ -133,9 +135,12 @@ Current user-facing website behavior is intentionally narrow:
 - branded homepage at `/`
 - branded `404` handling for unknown routes
 - branded runtime error surface
-- external sign-in entry page at `/login`
+- sign-in entry page at `/login` (local password or external provider)
+- local registration page at `/register`
 - MFA challenge handling in `/login` when external callbacks return a challenge token
 - authenticated shell route at `/app` that redirects first-login users into `/onboarding/username`
+- authenticated profile route at `/profile` backed by `/api/auth/profile`
+- authenticated settings route at `/settings` backed by `/api/auth/settings`
 - username onboarding page at `/onboarding/username` that posts the final username and returns the user to `/app`
 
 ## Run The Database Migration

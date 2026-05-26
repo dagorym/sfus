@@ -909,4 +909,84 @@ describe("AuthService", () => {
       "Invalid or expired verification token."
     );
   });
+
+  it("reads and updates authenticated profile and settings basics", async () => {
+    const { service, usersRepository } = createService();
+    const registration = await service.registerAccount({
+      email: "profile-settings@example.com",
+      username: "profile_user",
+      password: "super-secure-password"
+    });
+    await service.verifyEmailToken(registration.emailVerification.token!);
+    const login = expectPasswordSession(
+      await service.loginWithPassword(
+        {
+          email: "profile-settings@example.com",
+          password: "super-secure-password"
+        },
+        {}
+      )
+    );
+    const sessionContext = {
+      cookieHeader: `sfus_session=${login.sessionToken}`
+    };
+
+    await expect(service.getProfile(sessionContext)).resolves.toMatchObject({
+      username: "profile_user",
+      displayName: null
+    });
+    await expect(
+      service.updateProfile(
+        {
+          displayName: "Commander Zenith"
+        },
+        sessionContext
+      )
+    ).resolves.toMatchObject({
+      displayName: "Commander Zenith"
+    });
+    await expect(
+      service.updateSettings(
+        {
+          username: "profile_zenith"
+        },
+        sessionContext
+      )
+    ).resolves.toMatchObject({
+      username: "profile_zenith",
+      emailVerified: true
+    });
+    await expect(service.getSettings(sessionContext)).resolves.toMatchObject({
+      username: "profile_zenith",
+      mfaEnabled: false
+    });
+
+    usersRepository.data.push({
+      id: "other-user",
+      username: "taken_name",
+      email: "taken@example.com",
+      displayName: null,
+      globalRole: "user",
+      status: "active",
+      emailVerifiedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      authIdentities: [],
+      passwordAuthenticators: [],
+      sessions: [],
+      emailVerifications: [],
+      totpSecrets: [],
+      recoveryCodes: [],
+      authorizationGrants: []
+    });
+
+    await expect(
+      service.updateSettings(
+        {
+          username: "taken_name"
+        },
+        sessionContext
+      )
+    ).rejects.toThrowError("This username is already in use.");
+  });
 });
