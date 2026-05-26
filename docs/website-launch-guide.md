@@ -34,13 +34,15 @@ cp apps/web/.env.example apps/web/.env
 cp apps/api/.env.example apps/api/.env
 ```
 
-No additional value changes are required for the default local full-stack launch.
+No additional value changes are required to boot the default local full-stack launch.
+Provider-based Google/GitHub sign-in still needs real provider credentials and reachable
+callback URLs in `apps/api/.env` before those external auth flows will work end to end.
 
 The default local config contracts are:
 
 - `.env`
   - `MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`
-  - optional host metadata and `LOCAL_API_ORIGIN`
+  - optional host metadata, `LOCAL_API_ORIGIN`, and optional `WEB_HOST_PORT` / `API_HOST_PORT` / `MYSQL_HOST_PORT` overrides
 - `apps/web/.env`
   - `NEXT_PUBLIC_API_BASE_PATH=/api`
   - `WEB_API_ORIGIN=http://localhost:3001`
@@ -56,8 +58,8 @@ The default local config contracts are:
   - `AUTH_TOTP_ISSUER=SFUS Development` (required issuer label presented to authenticator apps)
   - `AUTH_RECOVERY_CODE_COUNT=10` (integer 6-20)
   - `AUTH_RECOVERY_CODE_LENGTH=12` (integer 8-16)
-  - `AUTH_GOOGLE_CLIENT_ID` / `AUTH_GOOGLE_CLIENT_SECRET` / `AUTH_GOOGLE_CALLBACK_URL` (required for Google sign-in)
-  - `AUTH_GITHUB_CLIENT_ID` / `AUTH_GITHUB_CLIENT_SECRET` / `AUTH_GITHUB_CALLBACK_URL` (required for GitHub sign-in)
+  - `AUTH_GOOGLE_CLIENT_ID` / `AUTH_GOOGLE_CLIENT_SECRET` / `AUTH_GOOGLE_CALLBACK_URL` (required for working Google sign-in; placeholders still allow the stack to boot)
+  - `AUTH_GITHUB_CLIENT_ID` / `AUTH_GITHUB_CLIENT_SECRET` / `AUTH_GITHUB_CALLBACK_URL` (required for working GitHub sign-in; placeholders still allow the stack to boot)
   - `DB_HOST=mysql`
   - `DB_PORT=3306`
   - `DB_NAME=sfus`
