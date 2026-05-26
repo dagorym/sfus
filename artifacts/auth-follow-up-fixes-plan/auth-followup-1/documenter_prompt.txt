@@ -1,0 +1,59 @@
+You are the Documenter Agent.
+
+Task summary:
+- Repair local registration path diagnostics and preserve development auto-verification behavior.
+
+Acceptance criteria:
+1. A correctly configured local environment can complete local registration through the shipped /register page.
+2. The development auto-verification flow still works when the API returns a verification token.
+3. The registration page explicitly states the enforced username and password constraints that the backend validates.
+4. Registration failures distinguish actionable classes (invalid input, duplicate account, setup/prerequisite failure).
+5. Automated coverage exercises the repaired failure mode and updated error-path contract.
+6. Session, verification, and password-handling guarantees are not weakened.
+
+Implementation/worktree context:
+- Tester branch: `ms2-auth-followup-1-tester-20260525`
+- Implementer branch base for this tester worktree: `ms2-auth-followup-1-implementer-20260525`
+- Plan path: `plans/auth-follow-up-fixes-plan.md`
+
+Full modified-file context for documentation review:
+- Implementer-modified files:
+  - `apps/web/app/register/page.tsx`
+  - `apps/api/src/auth/auth.service.ts`
+  - `apps/api/src/auth/auth.service.test.ts`
+  - `apps/web/app/public-shell.spec.ts`
+  - `docs/website-launch-guide.md`
+- Tester-modified files:
+  - `artifacts/auth-follow-up-fixes-plan/auth-followup-1/tester_report.md`
+  - `artifacts/auth-follow-up-fixes-plan/auth-followup-1/tester_result.json`
+  - `artifacts/auth-follow-up-fixes-plan/auth-followup-1/documenter_prompt.txt`
+
+Test files added or modified by tester:
+- None (regression validation only).
+
+Tester commit hash:
+- Test commit hash: `No Changes Made`
+
+Commands executed:
+- `npx --yes pnpm@10.0.0 --filter @sfus/api test -- src/auth/auth.controller.test.ts src/auth/auth.service.test.ts`
+- `npx --yes pnpm@10.0.0 --filter @sfus/web test -- app/public-shell.spec.ts`
+- `npx --yes pnpm@10.0.0 lint`
+- `npx --yes pnpm@10.0.0 typecheck`
+- `npx --yes pnpm@10.0.0 test`
+
+Final test outcomes:
+- All commands passed.
+- No unmet acceptance criteria were found.
+
+Shared artifact directory to reuse (repository-root-relative):
+- `artifacts/auth-follow-up-fixes-plan/auth-followup-1`
+
+Tester artifacts written:
+- `artifacts/auth-follow-up-fixes-plan/auth-followup-1/tester_report.md`
+- `artifacts/auth-follow-up-fixes-plan/auth-followup-1/tester_result.json`
+- `artifacts/auth-follow-up-fixes-plan/auth-followup-1/documenter_prompt.txt`
+
+Continue immediately when blocking inputs are present; do not stop after scope confirmation, documentation discovery, or diff review.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
