@@ -103,10 +103,27 @@ describe("public web shell source contracts", () => {
   });
 
   it("includes registration flow source contracts", async () => {
-    const registerSource = await readWebFile("app/register/page.tsx");
+    const [registerSource, loginClientSource] = await Promise.all([
+      readWebFile("app/register/page.tsx"),
+      readWebFile("app/login/login-client.tsx")
+    ]);
+    const registerFormIndex = registerSource.indexOf('<form className={styles.form} onSubmit={handleSubmit}>');
+    const providerActionsIndex = registerSource.indexOf("<div className={styles.actions}>");
+    const providerLinkTemplateIndex = registerSource.indexOf(
+      "href={`/api/auth/external/${provider.key}/start`}"
+    );
+
     expect(registerSource).toContain('fetch("/api/auth/register"');
     expect(registerSource).toContain('fetch("/api/auth/verify-email"');
     expect(registerSource).toContain('fetch("/api/auth/login"');
+    expect(registerSource).toContain("Start with Google or GitHub for the fastest setup.");
+    expect(registerSource).toContain("Prefer local email and password?");
+    expect(registerSource).toContain("Use local registration as a fallback option.");
+    expect(providerActionsIndex).toBeGreaterThan(-1);
+    expect(providerLinkTemplateIndex).toBeGreaterThan(-1);
+    expect(registerFormIndex).toBeGreaterThan(-1);
+    expect(providerActionsIndex).toBeLessThan(registerFormIndex);
+    expect(providerLinkTemplateIndex).toBeLessThan(registerFormIndex);
     expect(registerSource).toContain("statusCode === 409");
     expect(registerSource).toContain("statusCode === 400");
     expect(registerSource).toContain("statusCode >= 500");
@@ -118,6 +135,9 @@ describe("public web shell source contracts", () => {
       "Username must be 3-32 characters: letters, numbers, periods, dashes, or underscores."
     );
     expect(registerSource).toContain("Password must be at least 12 characters.");
+    expect(loginClientSource).toContain("Returning Users");
+    expect(loginClientSource).toContain("New here? Start at Register for");
+    expect(loginClientSource).toContain("New here? Create an account");
     expect(registerSource).toContain('router.replace("/app")');
   });
 });

@@ -147,8 +147,8 @@ Current user-facing website behavior is intentionally narrow:
 - branded homepage at `/`
 - branded `404` handling for unknown routes
 - branded runtime error surface
-- sign-in entry page at `/login` (local password or external provider)
-- local registration page at `/register`
+- sign-in entry page at `/login` for returning users (local password or external provider)
+- registration page at `/register` that promotes Google/GitHub account creation first and keeps local email/password registration as an explicit fallback
 - MFA challenge handling in `/login` for both password and external flows, including authenticator-code or recovery-code completion before session issuance
 - local registration flow at `/register` that can auto-verify the development token and attempt immediate sign-in
 - authenticated shell/profile/settings routes now use one shared client authorization-state resolver (`resolveProtectedSession`) for unauthenticated and onboarding-required handling

@@ -26,6 +26,11 @@ const duplicateAccountErrorMessage =
 const invalidRegistrationErrorMessage =
   "Registration input is invalid. Review the username and password requirements and try again.";
 
+const providerOptions = [
+  { key: "google", label: "Create account with Google" },
+  { key: "github", label: "Create account with GitHub" }
+];
+
 const toApiRequestError = async (
   response: Response,
   fallbackMessage: string
@@ -178,12 +183,21 @@ export default function RegisterPage() {
 
   return (
     <section className={styles.panel}>
-      <p className={styles.eyebrow}>Local Registration</p>
+      <p className={styles.eyebrow}>First Visit</p>
       <h2 className={styles.title}>Create your account.</h2>
       <p className={styles.description}>
-        Register with email, username, and password. Development mode verifies email automatically
-        from the returned token.
+        Start with Google or GitHub for the fastest setup. If you prefer local credentials, use the
+        email/password fallback below.
       </p>
+      <div className={styles.actions}>
+        {providerOptions.map((provider) => (
+          <a className={styles.secondaryAction} href={`/api/auth/external/${provider.key}/start`} key={provider.key}>
+            {provider.label}
+          </a>
+        ))}
+      </div>
+      <p className={styles.eyebrow}>Prefer local email and password?</p>
+      <p className={styles.description}>Use local registration as a fallback option.</p>
       <ul className={styles.description}>
         <li>Username must be 3-32 characters: letters, numbers, periods, dashes, or underscores.</li>
         <li>Password must be at least 12 characters.</li>

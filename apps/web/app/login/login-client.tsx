@@ -7,8 +7,8 @@ import { FormEvent, useMemo, useState } from "react";
 import styles from "../auth-shell.module.css";
 
 const providers = [
-  { key: "google", label: "Continue with Google" },
-  { key: "github", label: "Continue with GitHub" }
+  { key: "google", label: "Sign in with Google" },
+  { key: "github", label: "Sign in with GitHub" }
 ];
 
 export function LoginClient() {
@@ -153,11 +153,11 @@ export function LoginClient() {
 
   return (
     <section className={styles.panel}>
-      <p className={styles.eyebrow}>External Authentication</p>
+      <p className={styles.eyebrow}>Returning Users</p>
       <h2 className={styles.title}>Sign in to your command deck.</h2>
       <p className={styles.description}>
-        Use your local account or an external provider. New external accounts complete username
-        onboarding before entering the authenticated shell.
+        Use your existing local account or external provider. New here? Start at Register for
+        provider-first account creation.
       </p>
       <form className={styles.form} onSubmit={submitPasswordLogin}>
         <label className={styles.label}>
@@ -201,7 +201,7 @@ export function LoginClient() {
       </div>
       <div className={styles.actions}>
         <Link className={styles.secondaryAction} href="/register">
-          Create a local account
+          New here? Create an account
         </Link>
         <Link className={styles.secondaryAction} href="/">
           Return to public shell
