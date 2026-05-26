@@ -34,6 +34,8 @@ describe("public web shell source contracts", () => {
 
     expect(pageSource).toContain("Chart the next frontier for Star Frontiers US.");
     expect(pageSource).toContain("Public Landing Experience");
+    expect(pageSource).toContain("This Milestone 2 foundation delivers");
+    expect(pageSource).not.toContain("Milestone 1");
     expect(pageSource).toContain('process.env.NEXT_PUBLIC_API_BASE_PATH || "/api"');
     expect(pageSource).not.toMatch(/\bfetch\s*\(/);
     expect(pageSource).not.toContain("useEffect(");

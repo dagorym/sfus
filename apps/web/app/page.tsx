@@ -5,8 +5,8 @@ const apiBasePath = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api";
 
 const highlights = [
   {
-    title: "Static public landing page",
-    body: "The first-release homepage stays fast, stable, and entirely content-driven without depending on live API data."
+    title: "Public + auth-enabled foundation",
+    body: "The homepage remains fast and content-driven while supporting clear sign-in and registration entry points for Milestone 2."
   },
   {
     title: "Responsive shared shell",
@@ -14,7 +14,7 @@ const highlights = [
   },
   {
     title: "Single-theme token system",
-    body: "Global CSS custom properties define the Milestone 1 color, spacing, and elevation language without introducing a UI package."
+    body: "Global CSS custom properties define the Milestone 2 color, spacing, and elevation language without introducing a UI package."
   }
 ];
 
@@ -26,8 +26,8 @@ export default function HomePage() {
           <p className={styles.eyebrow}>Public Landing Experience</p>
           <h2 className={styles.title}>Chart the next frontier for Star Frontiers US.</h2>
           <p className={styles.description}>
-            This Milestone 1 shell establishes the branded public homepage, shared layout, and
-            local-to-production API path contract that future gameplay features can build on.
+            This Milestone 2 foundation delivers the branded public homepage, shared layout,
+            auth-entry routes, and authenticated-shell baseline on the shared API path contract.
           </p>
         </div>
         <div className={styles.actions}>
