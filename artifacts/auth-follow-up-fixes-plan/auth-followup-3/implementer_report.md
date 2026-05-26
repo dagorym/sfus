@@ -7,19 +7,19 @@ Task summary:
 - Refresh homepage language to describe the Milestone 2 auth-enabled foundation instead of Milestone 1.
 
 Changed files:
-- apps/web/app/page.tsx
+- apps/web/app/layout.tsx
 - apps/web/app/public-shell.spec.ts
 
 Validation commands run:
-- npx --yes pnpm@10.0.0 --filter @sfus/web lint
-- npx --yes pnpm@10.0.0 --filter @sfus/web typecheck
 - npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/web run lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web run typecheck
 
 Validation outcome:
 - pass
 
 Implementation/code commit hash:
-- a4188ac35f8f3730b99195bd41531bc7731ee883
+- 402955b0f4729e9f03fc534bd150c0695f9563eb
 
 Artifacts written:
 - artifacts/auth-follow-up-fixes-plan/auth-followup-3/implementer_report.md
@@ -27,9 +27,9 @@ Artifacts written:
 - artifacts/auth-follow-up-fixes-plan/auth-followup-3/implementer_result.json
 
 Implementation context:
-- Homepage hero description now states a Milestone 2 foundation with auth-entry routes and authenticated-shell baseline.
-- Homepage highlight copy now describes a public plus auth-enabled foundation and updates theme-token wording to Milestone 2.
-- Source-contract test now asserts Milestone 2 wording and guards against reintroducing Milestone 1 language.
+- Homepage shell branding in app/layout.tsx now uses Milestone 2 wording in the header eyebrow and footer baseline copy.
+- The homepage layout metadata description now references the Milestone 2 auth-enabled shell foundation.
+- Source-contract coverage now reads app/layout.tsx and fails if Milestone 1 text reappears in visible shell branding.
 
 Expected validation failures carried forward:
 - None

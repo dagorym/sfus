@@ -6,17 +6,17 @@
   ],
   "branch_name": "ms2-auth-followup-3-implementer-20260525",
   "changed_files": [
-    "apps/web/app/page.tsx",
+    "apps/web/app/layout.tsx",
     "apps/web/app/public-shell.spec.ts"
   ],
-  "code_commit_hash": "a4188ac35f8f3730b99195bd41531bc7731ee883",
+  "code_commit_hash": "402955b0f4729e9f03fc534bd150c0695f9563eb",
   "pass_label": null,
   "status": "success",
   "task_id": "auth-followup-3",
   "validation_commands": [
-    "npx --yes pnpm@10.0.0 --filter @sfus/web lint",
-    "npx --yes pnpm@10.0.0 --filter @sfus/web typecheck",
-    "npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts"
+    "npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web run lint",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web run typecheck"
   ],
   "validation_outcome": "pass"
 }
