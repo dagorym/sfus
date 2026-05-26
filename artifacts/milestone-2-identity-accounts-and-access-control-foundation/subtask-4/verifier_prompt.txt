@@ -1,0 +1,70 @@
+Task summary:
+- Verify Milestone 2 Subtask 4 implementation, tester validation, and documenter updates for TOTP MFA enrollment/challenge behavior and recovery-code lifecycle documentation accuracy.
+
+Acceptance criteria to verify:
+1. Users can enable and verify TOTP MFA successfully.
+2. Recovery codes are generated, stored safely, shown at the correct time, consumed once, and regenerable.
+3. MFA challenge behavior is integrated into supported login flows.
+4. Disable or reset behavior is authenticated and authorized.
+5. Documentation accurately reflects MFA challenge and recovery-code lifecycle behavior.
+
+Implementation and branch context:
+- Base branch for comparison: `ms2`
+- Implementer branch: `ms2-subtask-4-implementer-20260525`
+- Tester branch: `ms2-subtask-4-tester-20260525`
+- Documenter branch: `ms2-subtask-4-documenter-20260525`
+- Parent tester branch: `ms2-subtask-4-tester-20260525`
+- Base implementer branch: `ms2-subtask-4-implementer-20260525`
+- Documenter worktree: `/home/tstephen/.copilot/session-state/980e354c-b84f-4a6e-bf11-2d080f8d01fc/files/worktrees/ms2-subtask-4-documenter-20260525`
+- Plan path: `plans/milestone-2-identity-accounts-and-access-control-foundation-plan.md`
+- Shared artifact directory: `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-4`
+- Documentation commit hash to preserve in artifacts: `cbeef8c055dd74768ea6e8b53a1aee6208119510`
+
+Files in review scope:
+- Implementer-modified files:
+  - `apps/api/src/auth/auth.controller.test.ts`
+  - `apps/api/src/auth/auth.controller.ts`
+  - `apps/api/src/auth/auth.service.test.ts`
+  - `apps/api/src/auth/auth.service.ts`
+  - `apps/web/app/login/page.tsx`
+  - `apps/web/app/public-shell.spec.ts`
+  - `docs/README.md`
+  - `docs/website-launch-guide.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-4/implementer_report.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-4/implementer_result.json`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-4/tester_prompt.txt`
+- Tester-modified files:
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-4/documenter_prompt.txt`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-4/tester_report.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-4/tester_result.json`
+- Documenter-modified files:
+  - `docs/README.md`
+  - `docs/website-launch-guide.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-4/documenter_report.md`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-4/documenter_result.json`
+  - `artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-4/verifier_prompt.txt`
+
+Commands executed:
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/api lint`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/api typecheck`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/api test`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/web lint`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/web typecheck`
+- Tester: `npx --yes pnpm@10.0.0 --filter @sfus/web test`
+- Documenter: `npx --yes pnpm@10.0.0 install`
+- Documenter: `npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/auth/auth.controller.test.ts src/auth/auth.service.test.ts`
+- Documenter: `npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts`
+
+Validated outcomes so far:
+- Tester reported PASS with API lint/typecheck/test and web lint/typecheck/test all passing.
+- Tester confirmed MFA enrollment/verification, challenge behavior, one-time recovery-code consumption, regeneration, and authenticated disable behavior via API and web tests.
+- Documenter validated docs against implementation/tests and clarified recovery-code lifecycle wording for single-use consumption and regeneration invalidation.
+
+Verification requirements:
+- Continue through the full verifier workflow in the same run when blocking inputs are present; do not stop after activation, review-scope establishment, convention discovery, or diff inspection.
+- Infer any missing but recoverable repository context from repository evidence before treating it as a blocker.
+- Review the combined diff against `ms2` for implementation, tester, and documenter changes together, and compare against `ms2-subtask-4-implementer-20260525` as needed for stage outputs.
+- Explicitly inspect `docs/README.md` and `docs/website-launch-guide.md` alongside auth implementation and tests.
+- Confirm `documenter_result.json` records documentation commit hash `cbeef8c055dd74768ea6e8b53a1aee6208119510`, not the later artifact commit hash.
+- Confirm this branch HEAD is exactly one artifact commit ahead of documentation commit `cbeef8c055dd74768ea6e8b53a1aee6208119510` after the artifact commit is created.
+- Completion gate: do not report success unless all required artifacts exist and all changes are committed.

@@ -49,18 +49,25 @@ This repository now includes the Milestone 1 foundation baseline for the monorep
 - Local password auth stores Argon2id password hashes after appending the required password pepper, and local login stays blocked until a primary-email verification token has been consumed successfully.
 - Email verification tokens are generated at registration time, hashed before persistence with `AUTH_SESSION_TOKEN_PEPPER`, checked for expiry at verification time, and consumed once so the same token cannot activate the account twice.
 - Session lifecycle is server-managed through the `sfus_session` HTTP-only cookie: login issues a new session, `GET /api/auth/session` resolves and refreshes the active session timestamp, idle or absolute expiry revokes the record, and logout revokes the current session and clears the cookie.
+- MFA is implemented with TOTP plus recovery codes: authenticated users start enrollment at `POST /api/auth/mfa/enroll`, confirm at `POST /api/auth/mfa/enroll/verify`, and receive one-time recovery codes only after successful verification. Recovery codes are single-use during challenge or proof flows, and regeneration (`POST /api/auth/mfa/recovery/regenerate`) replaces the previous set after authenticated MFA proof. Disable (`POST /api/auth/mfa/disable`) also requires authenticated MFA proof.
+- Password and external-provider login flows now return an MFA challenge whenever a verified TOTP secret exists. Challenge completion at `POST /api/auth/mfa/challenge` issues the session cookie, and challenge tokens are signed and single-use.
 - External-provider auth is provider-agnostic via an adapter registry boundary, with deterministic account linking in this order: existing `(provider, subject)` identity match, then existing user by normalized email, then new pending-onboarding user creation.
 - First-time external users are marked `onboarding_required` until `POST /api/auth/onboarding/username` sets a valid unique username; `GET /api/auth/session` now returns `user.onboardingRequired` so the web shell can gate authenticated routes.
 - Auth API contract for frontend session-awareness:
   - `POST /api/auth/register`
   - `POST /api/auth/verify-email`
   - `POST /api/auth/login`
+  - `POST /api/auth/mfa/challenge`
+  - `POST /api/auth/mfa/enroll`
+  - `POST /api/auth/mfa/enroll/verify`
+  - `POST /api/auth/mfa/recovery/regenerate`
+  - `POST /api/auth/mfa/disable`
   - `POST /api/auth/logout`
   - `GET /api/auth/session`
   - `GET /api/auth/external/:provider/start`
   - `GET /api/auth/external/:provider/callback`
   - `POST /api/auth/onboarding/username`
-  - authenticated `login` and `session` responses return a stable `{ user, session }` payload so the frontend can treat explicit login and session rehydration consistently
+  - authenticated `login` responses return either `{ user, session }` or `{ mfa }` when a challenge is required; `session` remains stable `{ user, session }`
 
 ## Runtime Contract Overview
 

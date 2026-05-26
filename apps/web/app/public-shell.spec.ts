@@ -72,6 +72,9 @@ describe("public web shell source contracts", () => {
     ]);
 
     expect(loginSource).toContain("/api/auth/external/${provider.key}/start?next=%2Fapp");
+    expect(loginSource).toContain('fetch("/api/auth/mfa/challenge"');
+    expect(loginSource).toContain("setUsingRecoveryCode");
+    expect(loginSource).toContain("challengeToken");
     expect(appShellSource).toContain('router.replace("/onboarding/username")');
     expect(appShellSource).toContain('await readSession()');
     expect(onboardingSource).toContain('fetch("/api/auth/onboarding/username"');

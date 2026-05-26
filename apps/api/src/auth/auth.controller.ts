@@ -57,18 +57,111 @@ export class AuthController {
     @Body() body: unknown,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response
-  ): Promise<{ user: AuthenticatedUserPayload; session: AuthenticatedSessionPayload }> {
+  ): Promise<
+    | { user: AuthenticatedUserPayload; session: AuthenticatedSessionPayload }
+    | {
+        mfa: {
+          required: true;
+          challengeToken: string;
+          expiresAt: string;
+          nextPath: string;
+        };
+      }
+  > {
     const result = await this.authService.loginWithPassword(body, {
       cookieHeader: request.headers.cookie,
       ipAddress: request.ip || null,
       userAgent: request.headers["user-agent"] || null
     });
 
+    if ("mfa" in result) {
+      return { mfa: result.mfa };
+    }
+
     this.setSessionCookie(response, result.sessionToken, result.session.expiresAt);
     return {
       user: result.user,
       session: result.session
     };
+  }
+
+  @Post("mfa/challenge")
+  @ApiOperation({ summary: "Complete MFA challenge and issue an authenticated session." })
+  @ApiOkResponse({ description: "MFA verification succeeded and a secure session cookie was issued." })
+  async verifyMfaChallenge(
+    @Body() body: unknown,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response
+  ): Promise<{
+    user: AuthenticatedUserPayload;
+    session: AuthenticatedSessionPayload;
+    redirectPath: string;
+  }> {
+    const result = await this.authService.verifyMfaChallenge(body, {
+      cookieHeader: request.headers.cookie,
+      ipAddress: request.ip || null,
+      userAgent: request.headers["user-agent"] || null
+    });
+    this.setSessionCookie(response, result.sessionToken, result.session.expiresAt);
+    return {
+      user: result.user,
+      session: result.session,
+      redirectPath: result.redirectPath
+    };
+  }
+
+  @Post("mfa/enroll")
+  @ApiOperation({ summary: "Start MFA enrollment by issuing a TOTP secret for the authenticated user." })
+  @ApiOkResponse({ description: "MFA enrollment secret and otpauth URI returned." })
+  async startMfaEnrollment(@Req() request: Request): Promise<{
+    secret: string;
+    otpauthUrl: string;
+    issuer: string;
+  }> {
+    return this.authService.startMfaEnrollment({
+      cookieHeader: request.headers.cookie,
+      ipAddress: request.ip || null,
+      userAgent: request.headers["user-agent"] || null
+    });
+  }
+
+  @Post("mfa/enroll/verify")
+  @ApiOperation({ summary: "Verify TOTP enrollment and issue recovery codes." })
+  @ApiOkResponse({ description: "MFA is enabled and recovery codes are returned once." })
+  async verifyMfaEnrollment(
+    @Body() body: unknown,
+    @Req() request: Request
+  ): Promise<{ enabled: true; recoveryCodes: string[] }> {
+    return this.authService.verifyMfaEnrollment(body, {
+      cookieHeader: request.headers.cookie,
+      ipAddress: request.ip || null,
+      userAgent: request.headers["user-agent"] || null
+    });
+  }
+
+  @Post("mfa/recovery/regenerate")
+  @ApiOperation({ summary: "Regenerate recovery codes for an authenticated MFA-enabled account." })
+  @ApiOkResponse({ description: "Recovery codes were regenerated and returned." })
+  async regenerateRecoveryCodes(
+    @Body() body: unknown,
+    @Req() request: Request
+  ): Promise<{ regenerated: true; recoveryCodes: string[] }> {
+    return this.authService.regenerateMfaRecoveryCodes(body, {
+      cookieHeader: request.headers.cookie,
+      ipAddress: request.ip || null,
+      userAgent: request.headers["user-agent"] || null
+    });
+  }
+
+  @Post("mfa/disable")
+  @ApiOperation({ summary: "Disable MFA for the authenticated account after MFA proof." })
+  @ApiOkResponse({ description: "MFA disabled and recovery codes removed." })
+  async disableMfa(@Body() body: unknown, @Req() request: Request): Promise<{ disabled: true }> {
+    return this.authService.disableMfa(body, {
+      cookieHeader: request.headers.cookie,
+      ipAddress: request.ip || null,
+      userAgent: request.headers["user-agent"] || null
+    });
   }
 
   @Post("logout")
@@ -143,6 +236,11 @@ export class AuthController {
     } finally {
       this.clearExternalAuthStateCookie(response);
     }
+    if ("mfa" in result) {
+      response.redirect(this.buildMfaRedirect(result.mfa));
+      return;
+    }
+
     this.setSessionCookie(response, result.sessionToken, result.session.expiresAt);
     response.redirect(result.redirectPath);
   }
@@ -200,5 +298,17 @@ export class AuthController {
       sameSite: "lax",
       path: "/"
     });
+  }
+
+  private buildMfaRedirect(challenge: {
+    challengeToken: string;
+    nextPath: string;
+  }): string {
+    const params = new URLSearchParams({
+      mfa: "required",
+      challenge: challenge.challengeToken,
+      next: challenge.nextPath
+    });
+    return `/login?${params.toString()}`;
   }
 }
