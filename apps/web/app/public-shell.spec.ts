@@ -30,7 +30,10 @@ describe("public web shell source contracts", () => {
 
   it("keeps the homepage branded and static", async () => {
     // Acceptance criterion: the homepage is static and branded.
-    const pageSource = await readWebFile("app/page.tsx");
+    const [pageSource, layoutSource] = await Promise.all([
+      readWebFile("app/page.tsx"),
+      readWebFile("app/layout.tsx")
+    ]);
 
     expect(pageSource).toContain("Chart the next frontier for Star Frontiers US.");
     expect(pageSource).toContain("Public Landing Experience");
@@ -39,6 +42,9 @@ describe("public web shell source contracts", () => {
     expect(pageSource).toContain('process.env.NEXT_PUBLIC_API_BASE_PATH || "/api"');
     expect(pageSource).not.toMatch(/\bfetch\s*\(/);
     expect(pageSource).not.toContain("useEffect(");
+    expect(layoutSource).toContain("Milestone 2 Auth Foundation");
+    expect(layoutSource).toContain("Built for the Milestone 2 auth launch baseline.");
+    expect(layoutSource).not.toContain("Milestone 1");
   });
 
   it("supports signed-out and authenticated navigation states", async () => {
