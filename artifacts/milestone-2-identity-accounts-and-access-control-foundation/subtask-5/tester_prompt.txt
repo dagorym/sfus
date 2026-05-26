@@ -1,0 +1,59 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Implemented frontend and API surfaces for local sign-in/registration, first-login username completion, authenticated navigation state, protected-route gating, profile basics, and account settings basics.
+
+Modified files:
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.controller.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/auth/auth.service.ts
+- apps/web/app/app/page.tsx
+- apps/web/app/auth-client.ts
+- apps/web/app/layout.module.css
+- apps/web/app/login/page.tsx
+- apps/web/app/page.tsx
+- apps/web/app/profile/page.tsx
+- apps/web/app/public-shell.spec.ts
+- apps/web/app/register/page.tsx
+- apps/web/app/settings/page.tsx
+- apps/web/components/navigation.tsx
+- docs/README.md
+- docs/website-launch-guide.md
+
+Acceptance criteria to validate (from Planner):
+- Signed-out users continue to see the public shell, while signed-in users see authenticated navigation and can access profile and settings surfaces.
+- Protected routes redirect or block unauthenticated access consistently.
+- In-scope profile basics can be read and updated through real API contracts.
+- The existing shell quality and responsive behavior are preserved.
+
+Create test files in:
+- apps/web/app/public-shell.spec.ts plus route source contracts under apps/web/app/**/*.tsx for protected-route gating and profile/settings surfaces
+- apps/api/src/auth/**/*.test.ts for profile/settings API contracts exercised by the web app
+
+Implementation context for testing:
+- Added authenticated profile/settings APIs in AuthController/AuthService with session-based authorization, profile display-name updates, and username settings updates with uniqueness validation.
+- Extended login UX to support local password sign-in, kept MFA challenge flow, and added local registration with development-mode verification token handling and auto sign-in.
+- Added protected authenticated routes for /profile and /settings that gate unauthenticated users to /login and onboarding-required users to /onboarding/username.
+- Updated navigation to resolve signed-in session state and show authenticated destinations plus sign-out behavior while preserving responsive shell styling.
+- Expanded automated coverage in web and API tests for protected-route source contracts and profile/settings API read/update behavior.
+- Updated docs to include new frontend routes and auth/profile/settings endpoint contracts.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
