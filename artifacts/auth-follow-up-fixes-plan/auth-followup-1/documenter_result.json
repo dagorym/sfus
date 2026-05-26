@@ -1,0 +1,15 @@
+{
+  "artifact_file_paths": [
+    "artifacts/auth-follow-up-fixes-plan/auth-followup-1/documenter_report.md",
+    "artifacts/auth-follow-up-fixes-plan/auth-followup-1/documenter_result.json",
+    "artifacts/auth-follow-up-fixes-plan/auth-followup-1/verifier_prompt.txt"
+  ],
+  "branch_name": "ms2-auth-followup-1-documenter-20260525",
+  "documentation_commit_hash": "19b3c57fc086a9b71bb60b9d6c63f6b8c6ec3013",
+  "documentation_files_changed": [
+    "docs/website-launch-guide.md"
+  ],
+  "pass_label": null,
+  "status": "success",
+  "task_id": "auth-followup-1"
+}
