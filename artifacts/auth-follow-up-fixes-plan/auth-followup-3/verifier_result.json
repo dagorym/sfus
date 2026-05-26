@@ -3,19 +3,20 @@
     "artifacts/auth-follow-up-fixes-plan/auth-followup-3/verifier_report.md",
     "artifacts/auth-follow-up-fixes-plan/auth-followup-3/verifier_result.json"
   ],
-  "blocking_finding_count": 1,
+  "blocking_finding_count": 0,
   "branch_name": "ms2-auth-followup-3-verifier-20260525",
   "documentation_accuracy_summary": [
-    "docs/README.md was updated in the intended direction and now describes the web app as a Milestone 2 public/auth shell, but that documentation is slightly ahead of the current UI because the shared homepage layout still renders Milestone 1 copy."
+    "docs/website-launch-guide.md now matches the shipped homepage positioning by describing the branded homepage as the Milestone 2 auth-enabled foundation.",
+    "The refreshed docs stay within current scope and do not promise later-milestone features beyond the existing public/authenticated shell baseline."
   ],
   "note_finding_count": 0,
   "pass_label": null,
   "status": "success",
   "task_id": "auth-followup-3",
   "test_sufficiency_summary": [
-    "Insufficient for the acceptance criteria as written: the targeted Vitest file passes, but it only guards app/page.tsx and misses the shared layout text that is also visible on the homepage.",
-    "A follow-up test should cover the rendered homepage shell (or at minimum assert the layout branding strings) so Milestone 1 regressions in layout.tsx are caught."
+    "Sufficient for the scoped copy refresh: apps/web/app/public-shell.spec.ts now asserts the Milestone 2 wording in both app/page.tsx and app/layout.tsx and explicitly rejects Milestone 1 wording.",
+    "Independent verifier reruns of the targeted Vitest file, web lint, and web typecheck all passed in this worktree."
   ],
-  "verdict": "CONDITIONAL PASS",
-  "warning_finding_count": 1
+  "verdict": "PASS",
+  "warning_finding_count": 0
 }
