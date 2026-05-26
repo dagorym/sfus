@@ -62,10 +62,10 @@ export default function HomePage() {
         </article>
         <article className={styles.metaCard}>
           <p className={styles.metaLabel}>Current navigation scope</p>
-          <p className={styles.metaValue}>Implemented destinations only</p>
+          <p className={styles.metaValue}>Public and authenticated shell routes</p>
           <p className={styles.metaBody}>
-            Auth controls, speculative routes, and future feature placeholders are intentionally
-            absent from this foundation release.
+            Public users can sign in or register, while authenticated users can move between app,
+            profile, settings, and onboarding destinations.
           </p>
         </article>
       </section>

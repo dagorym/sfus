@@ -1,0 +1,49 @@
+You are executing Milestone 2 Subtask 5 Verifier stage in repo /home/tstephen/repos/sfus.
+
+Use shared artifact directory (repository-relative):
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-5
+
+Continue in the same run when blocking inputs are present; do not stop after activation output, review-scope establishment, convention discovery, or diff inspection.
+
+Upstream stage outcomes:
+- Tester: PASS (`lint`, `typecheck`, `test` passed)
+- Documenter: PASS (docs updated and committed)
+- Documentation commit: d292d6ee38df66f1666651a3b990c93b14f5f4a8
+
+Full modified-file review surface (Implementer + Tester + Documenter):
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.controller.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/auth/auth.service.ts
+- apps/web/app/app/page.tsx
+- apps/web/app/auth-client.ts
+- apps/web/app/layout.module.css
+- apps/web/app/login/page.tsx
+- apps/web/app/page.tsx
+- apps/web/app/profile/page.tsx
+- apps/web/app/public-shell.spec.ts
+- apps/web/app/register/page.tsx
+- apps/web/app/settings/page.tsx
+- apps/web/components/navigation.tsx
+- docs/README.md
+- docs/website-launch-guide.md
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-5/tester_report.md
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-5/tester_result.json
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-5/documenter_prompt.txt
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-5/documenter_report.md
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-5/documenter_result.json
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-5/verifier_prompt.txt
+
+Verifier objectives:
+1) Confirm implemented behavior and tests satisfy Milestone 2 Subtask 5 scope.
+2) Confirm documentation now matches implemented login/register flows, protected-route gating, profile/settings UX, and API contract details.
+3) Re-run required repository validations:
+   - npx --yes pnpm@10.0.0 lint
+   - npx --yes pnpm@10.0.0 typecheck
+   - npx --yes pnpm@10.0.0 test
+4) Write verifier artifacts in the shared artifact directory.
+
+If any expected input (comparison base, plan pointer, or artifact path) is absent, infer from repository evidence before declaring blockers.
+
+Completion gate:
+- Do not report success unless all required verifier artifacts exist and all verifier-stage changes are committed.

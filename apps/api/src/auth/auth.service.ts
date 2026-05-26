@@ -80,6 +80,19 @@ export interface AuthenticatedSessionPayload {
   lastSeenAt: string;
 }
 
+export interface UserProfilePayload {
+  username: string;
+  email: string;
+  displayName: string | null;
+}
+
+export interface UserSettingsPayload {
+  username: string;
+  email: string;
+  emailVerified: boolean;
+  mfaEnabled: boolean;
+}
+
 export interface RegistrationResult {
   user: AuthenticatedUserPayload;
   emailVerification: {
@@ -576,12 +589,76 @@ export class AuthService {
     await this.authSessionsRepository.save(session);
   }
 
+  async getProfile(requestContext: SessionRequestContext): Promise<UserProfilePayload> {
+    const resolvedSession = await this.resolveSession(requestContext);
+    return mapProfile(resolvedSession.user);
+  }
+
+  async updateProfile(
+    input: unknown,
+    requestContext: SessionRequestContext
+  ): Promise<UserProfilePayload> {
+    const profileInput = parseProfileInput(input);
+    const resolvedSession = await this.resolveSession(requestContext);
+    const user = await this.usersRepository.findOne({ where: { id: resolvedSession.user.id } });
+    if (!user) {
+      throw new UnauthorizedException("Authentication required.");
+    }
+    user.displayName = profileInput.displayName;
+    const savedUser = await this.usersRepository.save(user);
+    return mapProfile(mapUser(savedUser));
+  }
+
+  async getSettings(requestContext: SessionRequestContext): Promise<UserSettingsPayload> {
+    const resolvedSession = await this.resolveSession(requestContext);
+    return this.mapSettings(resolvedSession.user);
+  }
+
+  async updateSettings(
+    input: unknown,
+    requestContext: SessionRequestContext
+  ): Promise<UserSettingsPayload> {
+    const settingsInput = parseSettingsInput(input);
+    const resolvedSession = await this.resolveSession(requestContext);
+    const user = await this.usersRepository.findOne({ where: { id: resolvedSession.user.id } });
+    if (!user) {
+      throw new UnauthorizedException("Authentication required.");
+    }
+
+    if (settingsInput.username !== user.username) {
+      const duplicate = await this.usersRepository.findOne({
+        where: { username: settingsInput.username }
+      });
+      if (duplicate && duplicate.id !== user.id) {
+        throw new BadRequestException("This username is already in use.");
+      }
+      user.username = settingsInput.username;
+    }
+
+    const savedUser = await this.usersRepository.save(user);
+    return this.mapSettings(mapUser(savedUser));
+  }
+
   getSessionCookieName(): string {
     return sessionCookieName;
   }
 
   getExternalAuthStateCookieName(): string {
     return externalAuthStateCookieName;
+  }
+
+  private async mapSettings(user: AuthenticatedUserPayload): Promise<UserSettingsPayload> {
+    const totpSecret = await this.totpSecretsRepository.findOne({
+      where: {
+        userId: user.id
+      }
+    });
+    return {
+      username: user.username,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      mfaEnabled: Boolean(totpSecret?.verifiedAt)
+    };
   }
 
   private async createSession(
@@ -1132,6 +1209,12 @@ const mapSession = (session: AuthSessionEntity): AuthenticatedSessionPayload => 
   lastSeenAt: session.lastSeenAt.toISOString()
 });
 
+const mapProfile = (user: AuthenticatedUserPayload): UserProfilePayload => ({
+  username: user.username,
+  email: user.email,
+  displayName: user.displayName
+});
+
 const normalizeEmail = (email: unknown): string =>
   typeof email === "string" ? email.trim().toLowerCase() : "";
 
@@ -1202,6 +1285,33 @@ const parseExternalCallbackInput = (input: unknown): ExternalCallbackInput => {
 };
 
 const parseOnboardingInput = (input: unknown): { username: string } => {
+  const record = asRecord(input);
+  const username = typeof record.username === "string" ? record.username.trim() : "";
+  if (!usernamePattern.test(username)) {
+    throw new BadRequestException(
+      "Username must be 3-32 characters and contain only letters, numbers, periods, dashes, or underscores."
+    );
+  }
+  return { username };
+};
+
+const parseProfileInput = (input: unknown): { displayName: string | null } => {
+  const record = asRecord(input);
+  const displayNameRaw = record.displayName;
+  if (displayNameRaw === null || displayNameRaw === undefined) {
+    return { displayName: null };
+  }
+  if (typeof displayNameRaw !== "string") {
+    throw new BadRequestException("Display name must be a string.");
+  }
+  const displayName = displayNameRaw.trim();
+  if (displayName.length > 80) {
+    throw new BadRequestException("Display name must be 80 characters or fewer.");
+  }
+  return { displayName: displayName || null };
+};
+
+const parseSettingsInput = (input: unknown): { username: string } => {
   const record = asRecord(input);
   const username = typeof record.username === "string" ? record.username.trim() : "";
   if (!usernamePattern.test(username)) {

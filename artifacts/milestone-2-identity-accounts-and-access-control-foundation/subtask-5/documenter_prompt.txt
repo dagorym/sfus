@@ -1,0 +1,41 @@
+You are executing Milestone 2 Subtask 5 Documenter stage in repo /home/tstephen/repos/sfus.
+
+Use shared artifact directory (repository-relative):
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-5
+
+Tester outcome:
+- PASS
+- No tester-authored test-file edits were needed; implementation-provided tests already covered acceptance criteria and passed.
+- Validation commands passed:
+  - npx --yes pnpm@10.0.0 lint
+  - npx --yes pnpm@10.0.0 typecheck
+  - npx --yes pnpm@10.0.0 test
+
+Modified-file context to inspect (Implementer + Tester):
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.controller.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/auth/auth.service.ts
+- apps/web/app/app/page.tsx
+- apps/web/app/auth-client.ts
+- apps/web/app/layout.module.css
+- apps/web/app/login/page.tsx
+- apps/web/app/page.tsx
+- apps/web/app/profile/page.tsx
+- apps/web/app/public-shell.spec.ts
+- apps/web/app/register/page.tsx
+- apps/web/app/settings/page.tsx
+- apps/web/components/navigation.tsx
+- docs/README.md
+- docs/website-launch-guide.md
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-5/tester_report.md
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-5/tester_result.json
+- artifacts/milestone-2-identity-accounts-and-access-control-foundation/subtask-5/documenter_prompt.txt
+
+Documenter instructions:
+- Continue in the same run when blocking inputs are present; do not stop after scope confirmation, documentation discovery, or diff review.
+- Update/verify documentation for newly implemented login/register, protected-route gating, profile/settings UX, and API contracts.
+- Reuse the same shared artifact directory path for documenter artifacts.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

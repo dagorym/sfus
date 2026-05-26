@@ -71,6 +71,12 @@ export default function AuthenticatedShellPage() {
         onboarding.
       </p>
       <div className={styles.actions}>
+        <Link className={styles.action} href="/profile">
+          View profile
+        </Link>
+        <Link className={styles.secondaryAction} href="/settings">
+          Account settings
+        </Link>
         <Link className={styles.secondaryAction} href="/">
           Return to public shell
         </Link>
