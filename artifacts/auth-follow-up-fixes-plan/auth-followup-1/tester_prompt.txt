@@ -1,0 +1,52 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Repair local registration path diagnostics and preserve development auto-verification behavior.
+
+Modified files:
+- apps/web/app/register/page.tsx
+- apps/api/src/auth/auth.service.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/web/app/public-shell.spec.ts
+- docs/website-launch-guide.md
+
+Acceptance criteria to validate (from Planner):
+- A correctly configured local environment can complete local registration through the shipped /register page.
+- The development auto-verification flow still works when the API returns a verification token.
+- The registration page explicitly states the enforced username and password constraints that the backend validates.
+- Registration failures now distinguish actionable classes such as invalid input, duplicate account, or missing prerequisite/setup failure rather than collapsing to one generic message.
+- Automated coverage exercises the repaired failure mode and the updated error-path contract.
+- Session, verification, and password-handling guarantees are not weakened by the fix.
+
+Create test files in:
+- apps/api/src/auth/*.test.ts
+- apps/web/app/public-shell.spec.ts
+
+Implementation context for testing:
+- Register page now parses API error envelopes and maps responses into actionable classes: invalid input (400), duplicate account (409 or duplicate message), and setup/prerequisite failures (5xx).
+- Development auto-verification is unchanged: /register still calls /api/auth/verify-email when emailVerification.token is returned and then attempts /api/auth/login.
+- Register page now explicitly documents backend-enforced username/password constraints and applies matching username input min/max/pattern attributes.
+- Auth service duplicate email/username checks now raise ConflictException to express duplicate-account failures with 409 semantics.
+- Public web source-contract test asserts new registration error handling and visible constraints; auth service test covers duplicate-username conflict class.
+- Launch guide now documents registration constraints and actionable failure troubleshooting guidance for missing setup prerequisites.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/api test -- src/auth/auth.controller.test.ts src/auth/auth.service.test.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/web test -- app/public-shell.spec.ts
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/auth-follow-up-fixes-plan/auth-followup-1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
