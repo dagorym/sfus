@@ -1,0 +1,56 @@
+You are the Documenter Agent.
+
+Task summary:
+- Refresh homepage language to describe the Milestone 2 auth-enabled foundation instead of Milestone 1.
+
+Acceptance criteria:
+1. The homepage no longer refers to Milestone 1.
+2. The visible copy accurately reflects the current Milestone 2 auth-enabled foundation without promising later-milestone features.
+3. Automated coverage is updated to assert the new milestone wording.
+
+Implementation/worktree context:
+- Tester branch: `ms2-auth-followup-3-tester-20260525`
+- Implementer branch base for this tester worktree: `ms2-auth-followup-3-implementer-20260525`
+- Plan path: `plans/auth-follow-up-fixes-plan.md`
+
+Full modified-file context for documentation review:
+- Implementer-modified files:
+  - `apps/web/app/page.tsx`
+  - `apps/web/app/public-shell.spec.ts`
+- Tester-modified files:
+  - `artifacts/auth-follow-up-fixes-plan/auth-followup-3/tester_report.md`
+  - `artifacts/auth-follow-up-fixes-plan/auth-followup-3/tester_result.json`
+  - `artifacts/auth-follow-up-fixes-plan/auth-followup-3/documenter_prompt.txt`
+
+Test files added or modified by tester:
+- None (regression validation only).
+
+Tester commit hash:
+- Test commit hash: `No Changes Made`
+
+Commands executed:
+- `npx --yes pnpm@10.0.0 install`
+- `npx --yes pnpm@10.0.0 --filter @sfus/web lint`
+- `npx --yes pnpm@10.0.0 --filter @sfus/web typecheck`
+- `npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts`
+- `npx --yes pnpm@10.0.0 build`
+- `npx --yes pnpm@10.0.0 lint`
+- `npx --yes pnpm@10.0.0 typecheck`
+- `npx --yes pnpm@10.0.0 test`
+
+Final test outcomes:
+- All commands passed.
+- No unmet acceptance criteria were found.
+
+Shared artifact directory to reuse (repository-root-relative):
+- `artifacts/auth-follow-up-fixes-plan/auth-followup-3`
+
+Tester artifacts written:
+- `artifacts/auth-follow-up-fixes-plan/auth-followup-3/tester_report.md`
+- `artifacts/auth-follow-up-fixes-plan/auth-followup-3/tester_result.json`
+- `artifacts/auth-follow-up-fixes-plan/auth-followup-3/documenter_prompt.txt`
+
+Continue immediately when blocking inputs are present; do not stop after scope confirmation, documentation discovery, or diff review.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
