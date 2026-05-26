@@ -68,21 +68,26 @@ describe("public web shell source contracts", () => {
   });
 
   it("gates authenticated routes and profile/settings contracts", async () => {
-    const [loginSource, appShellSource, onboardingSource, profileSource, settingsSource] =
+    const [loginPageSource, loginClientSource, appShellSource, onboardingSource, profileSource, settingsSource] =
       await Promise.all([
       readWebFile("app/login/page.tsx"),
+      readWebFile("app/login/login-client.tsx"),
       readWebFile("app/app/page.tsx"),
       readWebFile("app/onboarding/username/page.tsx"),
       readWebFile("app/profile/page.tsx"),
       readWebFile("app/settings/page.tsx")
       ]);
 
-    expect(loginSource).toContain('fetch("/api/auth/login"');
-    expect(loginSource).toContain('href={`/api/auth/external/${provider.key}/start?next=${encodedNextPath}`}');
-    expect(loginSource).toContain('href="/register"');
-    expect(loginSource).toContain('fetch("/api/auth/mfa/challenge"');
-    expect(loginSource).toContain("setUsingRecoveryCode");
-    expect(loginSource).toContain("challengeToken");
+    expect(loginPageSource).toContain("<Suspense");
+    expect(loginPageSource).toContain("<LoginClient />");
+    expect(loginClientSource).toContain('fetch("/api/auth/login"');
+    expect(loginClientSource).toContain(
+      'href={`/api/auth/external/${provider.key}/start?next=${encodedNextPath}`}'
+    );
+    expect(loginClientSource).toContain('href="/register"');
+    expect(loginClientSource).toContain('fetch("/api/auth/mfa/challenge"');
+    expect(loginClientSource).toContain("setUsingRecoveryCode");
+    expect(loginClientSource).toContain("challengeToken");
     expect(appShellSource).toContain('await resolveProtectedSession("/app")');
     expect(appShellSource).toContain('href="/profile"');
     expect(appShellSource).toContain('href="/settings"');
