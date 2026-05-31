@@ -1,0 +1,29 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4/tester_report.md",
+    "artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4/tester_result.json",
+    "artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4/documenter_prompt.txt"
+  ],
+  "branch_name": "ms3-subtask-4-tester-20260531",
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 -C <worktree-root> install --prefer-offline",
+    "npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/api run typecheck",
+    "npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/api run test",
+    "npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/web run typecheck",
+    "npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/web run test"
+  ],
+  "pass_fail_totals": {
+    "api_tests_passed": 139,
+    "total_failed": 0,
+    "total_passed": 214,
+    "web_tests_passed": 75
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": "milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4",
+  "test_commit_hash": "06941ff",
+  "test_files_changed": [
+    "apps/api/src/blog/blog.service.test.ts"
+  ],
+  "unmet_acceptance_criteria": []
+}

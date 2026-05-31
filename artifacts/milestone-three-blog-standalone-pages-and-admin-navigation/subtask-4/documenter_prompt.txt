@@ -1,0 +1,65 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Blog comments for Milestone 3 subtask-4: public listing for guests, authenticated member creation with image support and sanitization, moderator/admin moderation flows, and unpublished-post protection.
+
+Acceptance criteria validated:
+- Guests can read comments on published blog posts without authentication.
+- Authenticated members can create comments on eligible published posts, including milestone-scoped image usage.
+- Moderators and admins can moderate comments through explicit protected flows.
+- Comments cannot be used to expose unpublished parent content or bypass the shared sanitization and authorization model.
+
+Implementation branch or worktree context:
+- Tester branch: ms3-subtask-4-tester-20260531 (branched from ms3-claude-subtask-4-implementer-20260531)
+- Implementation commit: d118690
+- Test commit: 06941ff
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.service.test.ts
+- apps/web/app/blog/blog-client.ts
+- apps/web/app/blog/[slug]/page.tsx
+- apps/web/app/blog/blog.spec.ts
+
+Test commit:
+- 06941ff
+
+Commands executed:
+- npx --yes pnpm@10.0.0 -C <worktree-root> install --prefer-offline
+- npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/api run typecheck
+- npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/api run test
+- npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/web run typecheck
+- npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/web run test
+
+Final test outcomes:
+- API: 139 tests passed (36 blog service tests, 4 new negative-path tests added for iframe injection, event handler injection, scheduled post guard, unpublished post guard)
+- Web: 75 tests passed (36 blog spec tests including 12 comment client/page contract tests)
+- Total: 214 passed, 0 failed
+- Typecheck: clean (API and web)
+- All acceptance criteria validated
+
+Documentation context:
+- New public API: GET /:postId/comments (no auth, published post guard), POST /:postId/comments (session required)
+- New moderation API: GET /moderation/comments/:postId, PATCH /moderation/comments/:commentId/status, DELETE /moderation/comments/:commentId (moderator/admin role required)
+- New web client functions: listComments, createComment, moderationListComments, moderateCommentStatus, deleteComment in blog-client.ts
+- Blog post detail page updated with guest-visible comment list and session-gated comment form
+- Comment body sanitized server-side using shared markdown-sanitizer (script, iframe, event handler patterns rejected)
+- ImageUpload with resourceType='blog-comment' used for image attachment in comment form
+- docs/README.md and docs/website-launch-guide.md may need updates for new comment API endpoints and moderation flows
+
+Plan and diff context:
+- Plan: plans/milestone-three-blog-standalone-pages-and-admin-navigation-plan.md
+- Base branch: ms3-claude (coordination branch for milestone 3)
+- Implementation worktree: /home/tstephen/repos/worktrees/ms3-claude-subtask-4-implementer-20260531
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
