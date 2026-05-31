@@ -1,0 +1,57 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Implement blog publishing lifecycle and public blog routes for Milestone 3.
+
+Modified files:
+- apps/api/src/app.module.ts
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.module.ts
+- apps/api/src/blog/blog.service.test.ts
+- apps/api/src/blog/blog.service.ts
+- apps/web/app/admin/blog/[id]/edit/page.tsx
+- apps/web/app/admin/blog/new/page.tsx
+- apps/web/app/admin/blog/page.tsx
+- apps/web/app/blog/[slug]/page.tsx
+- apps/web/app/blog/blog-client.ts
+- apps/web/app/blog/blog.spec.ts
+- apps/web/app/blog/page.tsx
+
+Acceptance criteria to validate (from Planner):
+- Admin users can manage blog posts end to end, including scheduled publishing and later publication-state changes.
+- Guests can browse and read only published blog content through public routes.
+- Draft and scheduled content remain protected from unauthorized public access.
+- Blog APIs and routes use reusable authorization checks instead of bespoke inline gating.
+
+Create test files in:
+- apps/api/src/**/*.test.ts and apps/web/**/*.spec.ts
+
+Implementation context for testing:
+- BlogService: expanded with create/update/publish/unpublish/schedule/delete methods; assertAdminManagementAccess() is the single reusable authorization check called by all admin operations.
+- BlogController: public GET /blog and GET /blog/:slug routes (published-only) plus admin routes under /blog/admin/posts/**. All admin routes resolve session and call assertAdminManagementAccess() before any data access.
+- BlogModule: dynamic module using AuthModule.register(environment) for AuthService injection.
+- Web blog-client.ts: listPublishedPosts/getPublishedPost (no credentials) + adminListAllPosts/adminCreatePost/adminUpdatePost/adminPublishPost/adminUnpublishPost/adminSchedulePost/adminDeletePost (credentials:include).
+- Public pages: /blog listing and /blog/[slug] detail use getPublishedPost only; draft/scheduled content never returned to guests.
+- Admin pages: /admin/blog (list+publish/unpublish/delete), /admin/blog/new (create draft), /admin/blog/[id]/edit (full edit+schedule+publish). All admin pages check hasGlobalRole('admin') via resolveProtectedSession before loading data.
+
+Suggested test command(s):
+- pnpm --filter @sfus/api typecheck
+- pnpm --filter @sfus/api lint
+- pnpm --filter @sfus/api test
+- pnpm --filter @sfus/web typecheck
+- pnpm --filter @sfus/web lint
+- pnpm --filter @sfus/web test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

@@ -1,0 +1,42 @@
+{
+  "status": "success",
+  "subtask": "subtask-3",
+  "branch_name": "ms3-claude-subtask-3-implementer-20260531",
+  "code_commit_hash": "c8ad45b",
+  "task_summary": "Implement blog publishing lifecycle and public blog routes for Milestone 3.",
+  "changed_files": [
+    "apps/api/src/app.module.ts",
+    "apps/api/src/blog/blog.controller.ts",
+    "apps/api/src/blog/blog.module.ts",
+    "apps/api/src/blog/blog.service.test.ts",
+    "apps/api/src/blog/blog.service.ts",
+    "apps/web/app/admin/blog/[id]/edit/page.tsx",
+    "apps/web/app/admin/blog/new/page.tsx",
+    "apps/web/app/admin/blog/page.tsx",
+    "apps/web/app/blog/[slug]/page.tsx",
+    "apps/web/app/blog/blog-client.ts",
+    "apps/web/app/blog/blog.spec.ts",
+    "apps/web/app/blog/page.tsx"
+  ],
+  "validation_commands": [
+    "pnpm --filter @sfus/api typecheck",
+    "pnpm --filter @sfus/api lint",
+    "pnpm --filter @sfus/api test",
+    "pnpm --filter @sfus/web typecheck",
+    "pnpm --filter @sfus/web lint",
+    "pnpm --filter @sfus/web test"
+  ],
+  "validation_outcome": "all pass — 116 API tests (13 blog + 103 existing), 63 web tests (24 blog + 39 existing); lint clean; typecheck clean",
+  "acceptance_criteria": [
+    "Admin users can manage blog posts end to end, including scheduled publishing and later publication-state changes.",
+    "Guests can browse and read only published blog content through public routes.",
+    "Draft and scheduled content remain protected from unauthorized public access.",
+    "Blog APIs and routes use reusable authorization checks instead of bespoke inline gating."
+  ],
+  "expected_failures": [],
+  "artifact_file_paths": [
+    "artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-3/implementer_report.md",
+    "artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-3/tester_prompt.txt",
+    "artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-3/implementer_result.json"
+  ]
+}
