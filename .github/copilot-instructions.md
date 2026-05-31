@@ -1,22 +1,23 @@
 # Copilot Instructions
 
-## MANDATORY FIRST STEP — non-negotiable
+**MANDATORY — not advisory.** This repository's complete instruction set lives
+in a single source of truth: **`AGENTS.md`**. This file is only a pointer to it.
 
-STOP. Before reading further, before answering, and before writing any code, you MUST
-open and read `AGENTS.md` at the repository root **in full**. The authoritative, operative
-guidance for this repository lives there, and these instructions are deliberately
-incomplete without it. Treat the entire contents of `AGENTS.md` as first-class
-instructions that you MUST follow, exactly as if they were written here.
+Before writing code, running commands, answering questions, or taking ANY other
+action in this repository, you MUST:
 
-Then load your `myteam` role: run `myteam get role` (or `myteam get role <role>` if you
-have been assigned one) and follow the loaded role and skills as operative repository
-policy. Do not skip either step, and do not begin a task until both are done.
+1. **Read `AGENTS.md` in full** — the entire file, top to bottom. Do not sample
+   or stop early. It is your instruction set, not background reading.
+2. **Execute every instruction in `AGENTS.md` that applies before work begins**,
+   including loading your initial role via `myteam get role <role>` and reading
+   its complete output.
+3. **Follow all rules in `AGENTS.md` exactly** — they OVERRIDE default behavior.
 
-If you cannot read `AGENTS.md` for any reason, say so explicitly instead of proceeding
-without it.
+Reading and following `AGENTS.md` is a hard precondition, not a suggestion. If
+you cannot read it or run the required `myteam` commands, STOP and tell the user.
 
-No project facts (commands, architecture, runtime, auth, env contracts) are kept in this
-file. `AGENTS.md` indexes where each of those lives (`.myteam/`, `docs/README.md`,
-`docs/website-launch-guide.md`, `cicd/docs/`), and carries the Copilot-specific notes
-(e.g. Playwright MCP usage for cloud-agent browser tasks). To change guidance, edit the
-canonical doc — never re-inline facts here.
+No project facts (commands, architecture, runtime, auth, env contracts) are kept
+in this file. `AGENTS.md` indexes where each of those lives (`.myteam/`,
+`docs/README.md`, `docs/website-launch-guide.md`, `cicd/docs/`), and carries the
+Copilot-specific notes (e.g. Playwright MCP usage for cloud-agent browser tasks).
+To change guidance, edit the canonical doc — never re-inline facts here.
