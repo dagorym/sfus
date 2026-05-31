@@ -25,7 +25,7 @@ export class AppModule implements NestModule {
         AuthModule.register(environment),
         AuthorizationModule,
         HealthModule.register(environment),
-        MediaModule,
+        MediaModule.register(environment),
         BlogModule,
         PagesModule,
         NavigationModule
