@@ -1,0 +1,77 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+Implement Milestone 3 persistence and module foundation: migrations, TypeORM entities, NestJS modules, and service stubs for blog posts, blog comments, standalone pages, page revisions, navigation items, and shared media references. Enforce admin-only management for blog/pages/navigation. Add startup validation for media-related environment variables.
+
+Modified files:
+- apps/api/.env.example
+- apps/api/src/app.module.ts
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/blog/blog.module.ts
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/entities/blog-comment.entity.ts
+- apps/api/src/blog/entities/blog-post-tag.entity.ts
+- apps/api/src/blog/entities/blog-post.entity.ts
+- apps/api/src/config/environment.test.ts
+- apps/api/src/config/environment.ts
+- apps/api/src/database/database.config.test.ts
+- apps/api/src/database/database.config.ts
+- apps/api/src/database/migrations/1748736000000-milestone-three-content-foundation.ts
+- apps/api/src/health/readiness.service.test.ts
+- apps/api/src/media/entities/media-reference.entity.ts
+- apps/api/src/media/media.module.ts
+- apps/api/src/navigation/entities/navigation-item.entity.ts
+- apps/api/src/navigation/navigation.module.ts
+- apps/api/src/navigation/navigation.service.ts
+- apps/api/src/pages/entities/page-revision.entity.ts
+- apps/api/src/pages/entities/standalone-page.entity.ts
+- apps/api/src/pages/pages.module.ts
+- apps/api/src/pages/pages.service.ts
+
+Acceptance criteria to validate (from Planner):
+- Reviewed migrations and persistence models support scheduled and published blog content (blog_posts with status/scheduled_at/published_at), public comments with authenticated authorship (blog_comments), standalone-page revisions (page_revisions with revision_number), and one-level navigation hierarchy (navigation_items with parent_id self-reference) — all MySQL 5.7.44 compatible.
+- Backend module structure cleanly separates blog (BlogModule), pages (PagesModule), navigation (NavigationModule), and shared media concerns (MediaModule).
+- Media-related environment variables (MEDIA_UPLOAD_MAX_SIZE_BYTES, MEDIA_ALLOWED_MIME_TYPES, MEDIA_STORAGE_PATH) are validated explicitly at startup via loadEnvironment().
+- BlogService.assertAdminManagementAccess(), PagesService.assertAdminManagementAccess(), and NavigationService.assertAdminManagementAccess() each enforce admin-only site-wide management by delegating to AuthorizationService.hasGlobalRole('admin').
+
+Test file locations:
+- apps/api/src/**/*.test.ts
+- New media env validation tests are in apps/api/src/config/environment.test.ts
+- Tester-owned follow-up tests should be added as new files following the same *.test.ts convention, for example:
+  - apps/api/src/blog/blog.service.test.ts
+  - apps/api/src/pages/pages.service.test.ts
+  - apps/api/src/navigation/navigation.service.test.ts
+
+Implementation context for testing:
+- All new entities use reviewed migrations (not synchronize=true). The new migration is 1748736000000-milestone-three-content-foundation.ts.
+- Media env vars are parsed after DB vars in loadEnvironment; missing or invalid media vars will appear after DB errors in the error list.
+- ApplicationEnvironment interface now requires a 'media' field; all existing test fixtures using this type were updated to include it.
+- The assertAdminManagementAccess() methods in BlogService, PagesService, and NavigationService delegate to the existing AuthorizationService.hasGlobalRole('admin') from Milestone 2.
+- Blog comment status enum: visible / hidden / removed.
+- Blog post status enum: draft / scheduled / published / unpublished.
+- Standalone page status: draft / published / unpublished.
+- navigation_items uses a self-referencing FK with ON DELETE CASCADE for one-level child cleanup.
+- page_revisions uses a unique constraint on (page_id, revision_number).
+- MEDIA_UPLOAD_MAX_SIZE_BYTES must be between 1024 and 20971520 (1 KB to 20 MB).
+- MEDIA_ALLOWED_MIME_TYPES must be a comma-separated list of valid MIME types; empty string throws at startup.
+- The worktree requires installing packages before running tests: npx --yes pnpm@10.0.0 --dir <worktree-root> install --frozen-lockfile
+
+Suggested test commands (run from the worktree root):
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-1-implementer-20260531 install --frozen-lockfile
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-1-implementer-20260531 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-1-implementer-20260531 --filter @sfus/api lint
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-1-implementer-20260531 --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-1-implementer-20260531 --filter @sfus/api build
+
+To run a single test file:
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-1-implementer-20260531 --filter @sfus/api exec vitest run src/blog/blog.service.test.ts
+
+Existing validations expected to fail only because approved behavior changed:
+- None. All 48 pre-existing tests continue to pass. 3 new tests were added for a total of 51.
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-1
+
+Completion gate:
+- Do not report success unless all required tester artifacts exist and all changes are committed.
