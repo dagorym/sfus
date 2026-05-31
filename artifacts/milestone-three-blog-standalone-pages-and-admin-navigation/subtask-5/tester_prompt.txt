@@ -1,0 +1,53 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Implement standalone pages management for Milestone 3 Subtask 5: admin CRUD/publish/unpublish flows, durable revision history with restore, and public routing for published pages at /pages/:slug. No block-builder, wiki hierarchy, or documents behavior.
+
+Modified files:
+- apps/api/src/app.module.ts
+- apps/api/src/pages/pages.controller.ts
+- apps/api/src/pages/pages.module.ts
+- apps/api/src/pages/pages.service.test.ts
+- apps/api/src/pages/pages.service.ts
+- apps/web/app/admin/pages/[id]/edit/page.tsx
+- apps/web/app/admin/pages/new/page.tsx
+- apps/web/app/admin/pages/page.tsx
+- apps/web/app/pages/[slug]/page.tsx
+- apps/web/app/pages/pages-client.ts
+
+Acceptance criteria to validate (from Planner):
+- Admin users can manage standalone pages end to end through authenticated admin screens
+- Every standalone-page edit creates durable revision history with metadata to inspect and restore prior versions
+- Guests can read only published standalone pages through stable public routes
+- Implementation does not introduce block-builder, wiki hierarchy, or broader documents/wiki behavior
+
+Create test files in:
+- apps/api/src/pages/pages.service.test.ts (19 unit tests covering authorization, revision creation, publish/unpublish, restore, and not-found cases)
+- apps/web/app/blog/blog.spec.ts (reference pattern for web integration tests)
+
+Implementation context for testing:
+- PagesService: added create() (creates page + revision 1 atomically), update() (appends new revision each edit), publish() (sets status=published, publishedAt=now), unpublish() (sets status=unpublished), restoreRevision() (creates new revision from source content maintaining audit trail), findAll() (admin all-status list), findById() (admin single-page lookup). Private assertSlugValid() and assertTitleValid() helpers mirror blog patterns.
+- PagesController: admin routes at /pages/admin/pages (list, get, create, update, publish, unpublish, list-revisions, restore-revision). Public route GET /pages/:slug returns 404 for non-published. Body content is resolved from current revision via resolveCurrentBody() private helper to avoid adding body to StandalonePageEntity. PagesModule updated to DynamicModule.register() pattern importing AuthModule.
+- AppModule: PagesModule.register(environment) replaces bare PagesModule import.
+- pages-client.ts: typed helpers getPublishedPage (no credentials), adminListAllPages/adminGetPage/adminCreatePage/adminUpdatePage/adminPublishPage/adminUnpublishPage/adminListRevisions/adminRestoreRevision (all credentials:include).
+- Web admin pages: /admin/pages (list with inline publish/unpublish), /admin/pages/new (create draft), /admin/pages/[id]/edit (edit + revision history panel with preview and restore). All pages use resolveProtectedSession + hasGlobalRole('admin') guard matching blog pattern.
+- Public /pages/[slug]/page.tsx: client component using getPublishedPage, renders 404 state when null, renders body via MarkdownRenderer(content=...).
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --dir <worktree-root> lint
+- npx --yes pnpm@10.0.0 --dir <worktree-root> typecheck
+- npx --yes pnpm@10.0.0 --dir <worktree-root> test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
