@@ -372,6 +372,94 @@ describe("BlogService.createComment", () => {
       service.createComment(publishedPost.id, "user-1", { body: "<script>alert(1)</script>" })
     ).rejects.toThrow(BadRequestException);
   });
+
+  // AC4: Comments cannot bypass the shared sanitization model — iframe injection
+  it("throws BadRequestException for unsafe markdown body (iframe injection)", async () => {
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(publishedPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.createComment(publishedPost.id, "user-1", { body: '<iframe src="https://evil.example"></iframe>' })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  // AC4: Comments cannot bypass the shared sanitization model — event handler injection
+  it("throws BadRequestException for unsafe markdown body (event handler injection)", async () => {
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(publishedPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.createComment(publishedPost.id, "user-1", { body: '<img src=x onerror="alert(1)">' })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  // AC4: Comments cannot expose unpublished parent content — scheduled post guard
+  it("throws ForbiddenException when post is scheduled (not published)", async () => {
+    const scheduledPost = {
+      id: "post-scheduled",
+      status: "scheduled",
+      title: "Scheduled Post",
+      slug: "scheduled-post",
+      body: "body",
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(scheduledPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.createComment(scheduledPost.id, "user-1", { body: "Comment on scheduled" })
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  // AC4: Comments cannot expose unpublished parent content — unpublished post guard
+  it("throws ForbiddenException when post is unpublished", async () => {
+    const unpublishedPost = {
+      id: "post-unpublished",
+      status: "unpublished",
+      title: "Unpublished Post",
+      slug: "unpublished-post",
+      body: "body",
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(unpublishedPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.createComment(unpublishedPost.id, "user-1", { body: "Comment on unpublished" })
+    ).rejects.toThrow(ForbiddenException);
+  });
 });
 
 // ---------------------------------------------------------------------------
