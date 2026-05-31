@@ -1,0 +1,70 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Implement shared Milestone 3 authoring workflow: Markdown sanitizer, protected image upload API, shared editor and renderer web components reusable across blog posts, standalone pages, and blog comments.
+
+Acceptance criteria validated:
+- AC1: Authored content is stored as Markdown and rendered through a sanitization path that blocks unsafe HTML or script execution.
+- AC2: Authorized users can upload allowed images and use them from blog posts, standalone pages, and blog comments.
+- AC3: Unauthorized users cannot access protected upload flows, and upload validation enforces the configured MIME and size rules.
+- AC4: The editor/media workflow is reusable across Milestone 3 content types rather than duplicated per screen.
+
+Implementation branch or worktree context:
+- Branch: ms3-subtask-2-tester-20260531 (worktree at /home/tstephen/repos/worktrees/ms3-subtask-2-tester-20260531)
+- Implementer commit: 8a17e49 feat(ms3/subtask-2): implement shared authoring workflow
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/app.module.ts
+- apps/api/src/media/media.module.ts
+- apps/api/src/media/media.service.ts
+- apps/api/src/media/media.controller.ts
+- apps/api/src/media/markdown-sanitizer.ts
+- apps/api/src/media/markdown-sanitizer.test.ts
+- apps/api/src/media/media.service.test.ts
+- apps/web/components/markdown-renderer.tsx
+- apps/web/components/markdown-editor.tsx
+- apps/web/components/markdown-editor.module.css
+- apps/web/components/image-upload.tsx
+- apps/web/components/image-upload.module.css
+- apps/web/components/authoring-components.spec.ts
+
+Test commit:
+- 0dd6f6d
+
+Commands executed:
+- pnpm --filter @sfus/api typecheck
+- pnpm --filter @sfus/api lint
+- pnpm --filter @sfus/api test
+- pnpm --filter @sfus/web typecheck
+- pnpm --filter @sfus/web lint
+- pnpm --filter @sfus/web test
+
+Final test outcomes:
+- AC1 PASS: validateMarkdownBody rejects 27 unsafe patterns; MarkdownRenderer strips HTML and sanitizes URLs; MarkdownEditor uses MarkdownRenderer for preview
+- AC2 PASS: MediaService.uploadImage accepts valid MIME/size/resourceType; ImageUpload sends credentials:include for all 3 MS3 resource types
+- AC3 PASS: ImageUpload surfaces 401 with error message; MediaService rejects disallowed MIME, oversized files, and invalid resource types
+- AC4 PASS: Single MarkdownRenderer/MarkdownEditor/ImageUpload shared across content types; MarkdownEditor imports MarkdownRenderer; configurable apiBasePath
+
+Documentation context:
+- New API module: MediaModule (dynamic, registered in AppModule) with MediaController (POST /api/media/upload) and MediaService
+- New API module: MarkdownSanitizer utility (validateMarkdownBody, normalizeMarkdownBody)
+- New web components: MarkdownRenderer, MarkdownEditor, ImageUpload — all in apps/web/components/
+- MediaModule imports AuthModule.register(environment) for session authentication on upload endpoint
+- MEDIA_UPLOAD_MAX_SIZE_BYTES, MEDIA_ALLOWED_MIME_TYPES, MEDIA_STORAGE_PATH added to environment contract
+
+Plan and diff context:
+- Plan: milestone-three-blog-standalone-pages-and-admin-navigation
+- Subtask: 2 — shared authoring workflow
+- Plan file: plans/milestone-three-blog-standalone-pages-and-admin-navigation-plan.md
+- Compare against base: ms3-claude branch (prior to implementer commit 8a17e49)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

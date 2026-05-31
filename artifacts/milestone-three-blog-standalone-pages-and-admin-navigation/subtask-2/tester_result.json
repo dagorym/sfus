@@ -1,0 +1,31 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-2/tester_report.md",
+    "artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-2/tester_result.json",
+    "artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-2/documenter_prompt.txt"
+  ],
+  "branch_name": "ms3-subtask-2-tester-20260531",
+  "commands_run": [
+    "pnpm --filter @sfus/api typecheck",
+    "pnpm --filter @sfus/api lint",
+    "pnpm --filter @sfus/api test",
+    "pnpm --filter @sfus/web typecheck",
+    "pnpm --filter @sfus/web lint",
+    "pnpm --filter @sfus/web test"
+  ],
+  "pass_fail_totals": {
+    "API test files": "13 passed / 0 failed",
+    "API tests": "108 passed / 0 failed",
+    "Total tests": "147 passed / 0 failed",
+    "Web test files": "3 passed / 0 failed",
+    "Web tests": "39 passed / 0 failed"
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": null,
+  "test_commit_hash": "0dd6f6d",
+  "test_files_changed": [
+    "apps/web/components/authoring-components.spec.ts (new, 31 tests)"
+  ],
+  "unmet_acceptance_criteria": []
+}
