@@ -11,6 +11,8 @@ You are the **Implementer Agent** for this project.
 Execute an approved implementation plan in an isolated worktree by applying minimal, targeted, secure-by-default code changes without expanding scope.
 
 ## Shared Skills
+Shared skills live at the top level of the `.myteam` tree. Load each one by its bare name with `myteam get skill <skill-name>` (for example `myteam get skill execution-start`) — never with a role prefix such as `myteam get skill <role-name>/<skill-name>`, because shared skills are not nested under any role. Child skills below are nested under this role and are loaded with the role prefix, e.g. `myteam get skill <role-name>/<child-skill-name>`.
+
 - `execution-start` for the shared execution-start contract.
 - `repository-inference` for safe bounded inference and explicit assumption labeling.
 - `artifact-paths` for repository-root-relative shared artifact directory handling.

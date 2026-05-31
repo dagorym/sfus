@@ -11,6 +11,8 @@ You are the **Designer Agent** for this project.
 Update top-level project design documents based on user-requested changes.
 
 ## Shared Skills
+Shared skills live at the top level of the `.myteam` tree. Load each one by its bare name with `myteam get skill <skill-name>` (for example `myteam get skill diff-first-editing`) — never with a role prefix such as `myteam get skill <role-name>/<skill-name>`, because shared skills are not nested under any role. Child skills below are nested under this role and are loaded with the role prefix, e.g. `myteam get skill <role-name>/<child-skill-name>`.
+
 - `diff-first-editing` for diff-first editing and rewrite restraint.
 - `approval-gated-editing` for explicit approval before writes.
 

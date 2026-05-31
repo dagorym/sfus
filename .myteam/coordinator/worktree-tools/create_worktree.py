@@ -20,6 +20,7 @@ If TOP_LEVEL_DIR resolves under /mnt/c/Users/.../Documents, the script uses
 ~/worktrees instead. Git worktrees are unreliable there under WSL.
 """
 
+import argparse
 import datetime
 import os
 import re
@@ -54,19 +55,41 @@ def git(*args, check=True):
 
 
 def main():
-    if len(sys.argv) != 3 or sys.argv[1] in ("-h", "--help"):
-        print(__doc__)
-        sys.exit(0 if (len(sys.argv) == 2 and sys.argv[1] in ("-h", "--help")) else 1)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("top_level_dir")
+    parser.add_argument("branch_or_agent")
+    parser.add_argument(
+        "--from-branch",
+        dest="from_branch",
+        default=None,
+        help="Branch to base the new worktree on. Defaults to the current branch.",
+    )
+    args = parser.parse_args()
 
-    top_level_dir = sys.argv[1]
-    branch_or_agent = sys.argv[2]
+    top_level_dir = args.top_level_dir
+    branch_or_agent = args.branch_or_agent
 
     git("rev-parse", "--show-toplevel")  # verify inside a git repo
 
     repo_root = git("rev-parse", "--show-toplevel")
-    current_branch = git("branch", "--show-current")
     today = datetime.date.today().strftime("%Y%m%d")
     top_level_path = Path(os.path.abspath(os.path.expanduser(top_level_dir)))
+
+    if args.from_branch:
+        check = subprocess.run(
+            ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{args.from_branch}"],
+            capture_output=True,
+        )
+        if check.returncode != 0:
+            fail(f"--from-branch '{args.from_branch}' does not exist as a local branch")
+        current_branch = args.from_branch
+    else:
+        current_branch = git("branch", "--show-current")
+        if not current_branch:
+            fail("detached HEAD is not supported")
 
     mnt_docs = re.compile(r"^/mnt/c/Users/[^/]+/Documents(/|$)")
     if mnt_docs.match(str(top_level_path)):
@@ -74,9 +97,6 @@ def main():
         print(f"Notice: {top_level_path} is under /mnt/c/Users/.../Documents, which is unreliable for git worktrees in WSL.", file=sys.stderr)
         print(f"Notice: using {fallback} instead.", file=sys.stderr)
         top_level_path = fallback
-
-    if not current_branch:
-        fail("detached HEAD is not supported")
 
     if looks_like_full_branch_name(branch_or_agent):
         branch_name = branch_or_agent

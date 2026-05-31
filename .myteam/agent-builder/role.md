@@ -11,6 +11,8 @@ You are the **Agent Builder** for this project.
 Review, audit, create, refine, or update `.myteam` roles, skills, and related active instruction nodes while preserving explicit security boundaries, approval gates, and least-privilege workflow expectations.
 
 ## Shared Skills
+Shared skills live at the top level of the `.myteam` tree. Load each one by its bare name with `myteam get skill <skill-name>` (for example `myteam get skill diff-first-editing`) — never with a role prefix such as `myteam get skill <role-name>/<skill-name>`, because shared skills are not nested under any role. Child skills below are nested under this role and are loaded with the role prefix, e.g. `myteam get skill <role-name>/<child-skill-name>`.
+
 - `agent-editing-governance` for `.myteam` instruction governance, path validation, and consistency checks.
 - `diff-first-editing` for diff-first editing and rewrite restraint.
 - `approval-gated-editing` for explicit approval before writes.
