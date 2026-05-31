@@ -163,6 +163,36 @@ describe("BlogService publish-state transitions", () => {
     await expect(service.unpublish("nonexistent")).rejects.toThrow(NotFoundException);
   });
 
+  it("schedule() throws NotFoundException for unknown post id (future date)", async () => {
+    const service = makeBlogService();
+    const futureDate = new Date(Date.now() + 60_000);
+    await expect(service.schedule("nonexistent", futureDate)).rejects.toThrow(NotFoundException);
+  });
+
+  it("delete() throws NotFoundException for unknown post id", async () => {
+    const service = makeBlogService();
+    await expect(service.delete("nonexistent")).rejects.toThrow(NotFoundException);
+  });
+
+  it("create() throws BadRequestException for invalid slug", async () => {
+    const service = makeBlogService();
+    await expect(
+      service.create("user-1", { title: "Valid Title", slug: "INVALID SLUG!", body: "" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("create() throws BadRequestException for empty title", async () => {
+    const service = makeBlogService();
+    await expect(
+      service.create("user-1", { title: "   ", slug: "valid-slug", body: "" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("update() throws NotFoundException for unknown post id", async () => {
+    const service = makeBlogService();
+    await expect(service.update("nonexistent", { title: "New Title" })).rejects.toThrow(NotFoundException);
+  });
+
   it("findPublished() only queries for status=published (public-route filtering)", async () => {
     const authorizationService = new AuthorizationService();
     const findSpy = vi.fn().mockResolvedValue([]);
