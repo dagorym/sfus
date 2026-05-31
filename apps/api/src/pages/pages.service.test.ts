@@ -1,5 +1,5 @@
-import { ForbiddenException } from "@nestjs/common";
-import { describe, expect, it } from "vitest";
+import { ForbiddenException, NotFoundException } from "@nestjs/common";
+import { describe, expect, it, vi } from "vitest";
 
 import { AuthorizationService } from "../authorization/authorization.service";
 import { PagesService } from "./pages.service";
@@ -10,18 +10,27 @@ import type { StandalonePageEntity } from "./entities/standalone-page.entity";
 type MinimalRepository<T> = {
   find: (opts?: unknown) => Promise<T[]>;
   findOne: (opts?: unknown) => Promise<T | null>;
+  create: (data: unknown) => T;
+  save: (entity: T) => Promise<T>;
+  delete?: (opts?: unknown) => Promise<unknown>;
 };
 
-const createMinimalRepository = <T>(): MinimalRepository<T> => ({
+const createMinimalRepository = <T>(defaults?: Partial<MinimalRepository<T>>): MinimalRepository<T> => ({
   find: async () => [],
-  findOne: async () => null
+  findOne: async () => null,
+  create: (data: unknown) => data as T,
+  save: async (entity: T) => entity,
+  ...defaults
 });
 
-const makePagesService = (): PagesService => {
+const makePagesService = (
+  pageRepo?: Partial<MinimalRepository<StandalonePageEntity>>,
+  revisionRepo?: Partial<MinimalRepository<PageRevisionEntity>>
+): PagesService => {
   const authorizationService = new AuthorizationService();
   return new PagesService(
-    createMinimalRepository<StandalonePageEntity>() as never,
-    createMinimalRepository<PageRevisionEntity>() as never,
+    createMinimalRepository<StandalonePageEntity>(pageRepo) as never,
+    createMinimalRepository<PageRevisionEntity>(revisionRepo) as never,
     authorizationService
   );
 };
@@ -56,5 +65,200 @@ describe("PagesService.assertAdminManagementAccess", () => {
   it("throws ForbiddenException for an unrecognised role", () => {
     const service = makePagesService();
     expect(() => service.assertAdminManagementAccess("editor")).toThrow(ForbiddenException);
+  });
+});
+
+describe("PagesService.findPublished", () => {
+  it("returns only published pages", async () => {
+    const published = { id: "1", status: "published", title: "About", slug: "about" } as StandalonePageEntity;
+    const service = makePagesService({ find: async () => [published] });
+    const results = await service.findPublished();
+    expect(results).toHaveLength(1);
+    expect(results[0].status).toBe("published");
+  });
+});
+
+describe("PagesService.findPublishedBySlug", () => {
+  it("returns null when no page exists", async () => {
+    const service = makePagesService();
+    const result = await service.findPublishedBySlug("not-found");
+    expect(result).toBeNull();
+  });
+
+  it("returns the page when found", async () => {
+    const page = { id: "1", status: "published", slug: "about" } as StandalonePageEntity;
+    const service = makePagesService({ findOne: async () => page });
+    const result = await service.findPublishedBySlug("about");
+    expect(result).toBe(page);
+  });
+});
+
+describe("PagesService.create", () => {
+  it("creates a page with revision 1 and returns it", async () => {
+    const savedRevision = {
+      id: "rev-1",
+      pageId: "page-1",
+      revisionNumber: 1,
+      title: "About",
+      body: "Content",
+      authorUserId: "user-1",
+      createdAt: new Date()
+    } as PageRevisionEntity;
+    const savedPage = {
+      id: "page-1",
+      title: "About",
+      slug: "about",
+      status: "draft",
+      currentRevisionId: "rev-1",
+      createdByUserId: "user-1",
+      publishedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as StandalonePageEntity;
+
+    const revisionSave = vi.fn().mockResolvedValue(savedRevision);
+    const pageSave = vi.fn().mockResolvedValue(savedPage);
+    const pageFind = vi.fn().mockResolvedValue(savedPage);
+
+    const service = makePagesService(
+      { save: pageSave, findOne: pageFind, create: (d) => d as StandalonePageEntity },
+      { save: revisionSave, create: (d) => d as PageRevisionEntity, findOne: async () => null }
+    );
+
+    const result = await service.create("user-1", { title: "About", slug: "about", body: "Content" });
+    expect(result.title).toBe("About");
+    expect(revisionSave).toHaveBeenCalledOnce();
+  });
+
+  it("rejects invalid slugs", async () => {
+    const service = makePagesService();
+    await expect(service.create("user-1", { title: "T", slug: "INVALID SLUG", body: "" })).rejects.toThrow();
+  });
+
+  it("rejects empty titles", async () => {
+    const service = makePagesService();
+    await expect(service.create("user-1", { title: "  ", slug: "about", body: "" })).rejects.toThrow();
+  });
+});
+
+describe("PagesService.publish", () => {
+  it("throws NotFoundException when page does not exist", async () => {
+    const service = makePagesService({ findOne: async () => null });
+    await expect(service.publish("missing-id")).rejects.toThrow(NotFoundException);
+  });
+
+  it("sets status to published and sets publishedAt", async () => {
+    const page = {
+      id: "page-1",
+      status: "draft",
+      publishedAt: null,
+      title: "About",
+      slug: "about",
+      currentRevisionId: "rev-1",
+      createdByUserId: "u",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as StandalonePageEntity;
+
+    const savedPage = { ...page, status: "published", publishedAt: new Date() } as StandalonePageEntity;
+    const findOne = vi.fn()
+      .mockResolvedValueOnce(page)   // initial load for mutation
+      .mockResolvedValueOnce(savedPage); // re-fetch after save
+    const save = vi.fn().mockResolvedValue(savedPage);
+
+    const service = makePagesService({ findOne, save });
+    const result = await service.publish("page-1");
+    expect(result.status).toBe("published");
+    expect(result.publishedAt).not.toBeNull();
+  });
+});
+
+describe("PagesService.unpublish", () => {
+  it("throws NotFoundException when page does not exist", async () => {
+    const service = makePagesService({ findOne: async () => null });
+    await expect(service.unpublish("missing-id")).rejects.toThrow(NotFoundException);
+  });
+
+  it("sets status to unpublished", async () => {
+    const page = { id: "page-1", status: "published", publishedAt: new Date() } as StandalonePageEntity;
+    const savedPage = { ...page, status: "unpublished" } as StandalonePageEntity;
+    const findOne = vi.fn()
+      .mockResolvedValueOnce(page)
+      .mockResolvedValueOnce(savedPage);
+    const save = vi.fn().mockResolvedValue(savedPage);
+
+    const service = makePagesService({ findOne, save });
+    const result = await service.unpublish("page-1");
+    expect(result.status).toBe("unpublished");
+  });
+});
+
+describe("PagesService.restoreRevision", () => {
+  it("throws NotFoundException when page does not exist", async () => {
+    const service = makePagesService({ findOne: async () => null });
+    await expect(service.restoreRevision("missing-page", "rev-1", "user-1")).rejects.toThrow(NotFoundException);
+  });
+
+  it("throws NotFoundException when revision does not belong to page", async () => {
+    const page = { id: "page-1", status: "draft" } as StandalonePageEntity;
+    const service = makePagesService(
+      { findOne: async () => page },
+      { findOne: async () => null } // revision not found
+    );
+    await expect(service.restoreRevision("page-1", "rev-999", "user-1")).rejects.toThrow(NotFoundException);
+  });
+
+  it("creates a new revision with the restored content", async () => {
+    const page = { id: "page-1", status: "draft", title: "About", currentRevisionId: "rev-1" } as StandalonePageEntity;
+    const sourceRevision = {
+      id: "rev-1",
+      pageId: "page-1",
+      title: "Old Title",
+      body: "Old body",
+      revisionNumber: 1,
+      authorUserId: "u",
+      createdAt: new Date()
+    } as PageRevisionEntity;
+    const latestRevision = {
+      id: "rev-2",
+      pageId: "page-1",
+      revisionNumber: 2,
+      title: "Current",
+      body: "Current body",
+      authorUserId: "u",
+      createdAt: new Date()
+    } as PageRevisionEntity;
+
+    const newRevision = { ...sourceRevision, id: "rev-3", revisionNumber: 3 };
+    const updatedPage = { ...page, title: "Old Title", currentRevisionId: "rev-3" } as StandalonePageEntity;
+
+    const pageFind = vi.fn().mockResolvedValue(updatedPage);
+    const pageSave = vi.fn().mockResolvedValue(updatedPage);
+    // revision findOne: first call for source (by id+pageId), second for latest (DESC order)
+    const revFind = vi.fn()
+      .mockResolvedValueOnce(sourceRevision)  // source revision lookup
+      .mockResolvedValueOnce(latestRevision); // latest revision for next number
+    const revSave = vi.fn().mockResolvedValue(newRevision);
+
+    const service = makePagesService(
+      { findOne: pageFind, save: pageSave, create: (d) => d as StandalonePageEntity },
+      { findOne: revFind, save: revSave, create: (d) => d as PageRevisionEntity }
+    );
+
+    const result = await service.restoreRevision("page-1", "rev-1", "user-1");
+    expect(revSave).toHaveBeenCalledOnce();
+    expect(result.currentRevisionId).toBe("rev-3");
+  });
+});
+
+describe("PagesService.findRevisions", () => {
+  it("returns revision list for a page", async () => {
+    const revisions = [
+      { id: "rev-1", revisionNumber: 1 } as PageRevisionEntity,
+      { id: "rev-2", revisionNumber: 2 } as PageRevisionEntity
+    ];
+    const service = makePagesService({}, { find: async () => revisions });
+    const result = await service.findRevisions("page-1");
+    expect(result).toHaveLength(2);
   });
 });
