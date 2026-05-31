@@ -20,6 +20,9 @@ const createValidEnvironment = (): NodeJS.ProcessEnv => ({
   AUTH_GITHUB_CALLBACK_URL: "http://localhost:3001/api/auth/external/github/callback",
   AUTH_RECOVERY_CODE_COUNT: "10",
   AUTH_RECOVERY_CODE_LENGTH: "12",
+  MEDIA_UPLOAD_MAX_SIZE_BYTES: "5242880",
+  MEDIA_ALLOWED_MIME_TYPES: "image/jpeg,image/png,image/gif,image/webp",
+  MEDIA_STORAGE_PATH: "./storage/uploads",
   DB_HOST: "mysql",
   DB_PORT: "3306",
   DB_NAME: "sfus",
@@ -37,6 +40,11 @@ describe("loadEnvironment", () => {
       nodeEnv: "development",
       apiPort: 3001,
       swaggerEnabled: true,
+      media: {
+        uploadMaxSizeBytes: 5242880,
+        allowedMimeTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+        storagePath: "./storage/uploads"
+      },
       auth: {
         passwordPepper: "development-pepper-value",
         sessionTokenPepper: "development-session-token-pepper",
@@ -107,5 +115,46 @@ describe("loadEnvironment", () => {
 - DB_HOST is required.
 - DB_CONNECT_TIMEOUT_MS must be an integer between 1000 and 60000.
 - DB_MIGRATIONS_TABLE must contain only letters, numbers, or underscores.`);
+  });
+
+  it("throws when MEDIA_UPLOAD_MAX_SIZE_BYTES is missing or out of range", () => {
+    expect(() =>
+      loadEnvironment(process.cwd(), {
+        ...createValidEnvironment(),
+        MEDIA_UPLOAD_MAX_SIZE_BYTES: ""
+      })
+    ).toThrowError("MEDIA_UPLOAD_MAX_SIZE_BYTES is required.");
+
+    expect(() =>
+      loadEnvironment(process.cwd(), {
+        ...createValidEnvironment(),
+        MEDIA_UPLOAD_MAX_SIZE_BYTES: "20971521"
+      })
+    ).toThrowError("MEDIA_UPLOAD_MAX_SIZE_BYTES must be an integer between 1024 and 20971520.");
+  });
+
+  it("throws when MEDIA_ALLOWED_MIME_TYPES is missing or contains an invalid type", () => {
+    expect(() =>
+      loadEnvironment(process.cwd(), {
+        ...createValidEnvironment(),
+        MEDIA_ALLOWED_MIME_TYPES: ""
+      })
+    ).toThrowError("MEDIA_ALLOWED_MIME_TYPES is required.");
+
+    expect(() =>
+      loadEnvironment(process.cwd(), {
+        ...createValidEnvironment(),
+        MEDIA_ALLOWED_MIME_TYPES: "image/jpeg,not-valid"
+      })
+    ).toThrowError('MEDIA_ALLOWED_MIME_TYPES contains an invalid MIME type: "not-valid".');
+  });
+
+  it("throws when MEDIA_STORAGE_PATH is missing", () => {
+    expect(() =>
+      loadEnvironment(process.cwd(), {
+        ...createValidEnvironment(),
+        MEDIA_STORAGE_PATH: ""
+      })
+    ).toThrowError("MEDIA_STORAGE_PATH is required.");
   });
 });

@@ -12,6 +12,11 @@ const environment: ApplicationEnvironment = {
   nodeEnv: "development",
   apiPort: 3001,
   swaggerEnabled: true,
+  media: {
+    uploadMaxSizeBytes: 5242880,
+    allowedMimeTypes: ["image/jpeg", "image/png"],
+    storagePath: "./storage/uploads"
+  },
   auth: {
     passwordPepper: "development-pepper-value",
     sessionTokenPepper: "development-session-token-pepper",
@@ -70,7 +75,8 @@ describe("database config", () => {
     expect((options.entities as unknown[]).length).toBeGreaterThan(0);
     expect(reviewedMigrationNames).toEqual([
       "FoundationBaseline1711843200000",
-      "IdentityAuthorizationFoundation1714435200000"
+      "IdentityAuthorizationFoundation1714435200000",
+      "MilestoneThreeContentFoundation1748736000000"
     ]);
   });
 

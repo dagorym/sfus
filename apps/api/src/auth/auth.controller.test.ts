@@ -8,6 +8,11 @@ const createEnvironment = (): ApplicationEnvironment => ({
   nodeEnv: "development",
   apiPort: 3001,
   swaggerEnabled: true,
+  media: {
+    uploadMaxSizeBytes: 5242880,
+    allowedMimeTypes: ["image/jpeg", "image/png"],
+    storagePath: "./storage/uploads"
+  },
   auth: {
     passwordPepper: "development-pepper-value",
     sessionTokenPepper: "development-session-token-pepper",

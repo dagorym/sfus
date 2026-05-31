@@ -9,6 +9,11 @@ export interface ApplicationEnvironment {
   nodeEnv: NodeEnvironment;
   apiPort: number;
   swaggerEnabled: boolean;
+  media: {
+    uploadMaxSizeBytes: number;
+    allowedMimeTypes: string[];
+    storagePath: string;
+  };
   auth: {
     passwordPepper: string;
     sessionTokenPepper: string;
@@ -172,6 +177,19 @@ export const loadEnvironment = (
     errors.push("DB_MIGRATIONS_TABLE must contain only letters, numbers, or underscores.");
   }
 
+  const mediaUploadMaxSizeBytes = parseInteger(
+    source.MEDIA_UPLOAD_MAX_SIZE_BYTES,
+    "MEDIA_UPLOAD_MAX_SIZE_BYTES",
+    { min: 1024, max: 20971520 },
+    errors
+  );
+  const mediaAllowedMimeTypes = parseMimeTypeList(
+    source.MEDIA_ALLOWED_MIME_TYPES,
+    "MEDIA_ALLOWED_MIME_TYPES",
+    errors
+  );
+  const mediaStoragePath = readRequiredString(source.MEDIA_STORAGE_PATH, "MEDIA_STORAGE_PATH", errors);
+
   if (errors.length > 0) {
     throw new Error(`Invalid API environment configuration:\n- ${errors.join("\n- ")}`);
   }
@@ -180,6 +198,11 @@ export const loadEnvironment = (
     nodeEnv,
     apiPort,
     swaggerEnabled,
+    media: {
+      uploadMaxSizeBytes: mediaUploadMaxSizeBytes,
+      allowedMimeTypes: mediaAllowedMimeTypes,
+      storagePath: mediaStoragePath
+    },
     auth: {
       passwordPepper: authPasswordPepper,
       sessionTokenPepper: authSessionTokenPepper,
@@ -305,4 +328,38 @@ const parseBoolean = (
 
   errors.push(`${name} must be a boolean value (true/false).`);
   return defaultValue;
+};
+
+const mimeTypePattern = /^[a-zA-Z0-9!#$&\-^_]+\/[a-zA-Z0-9!#$&\-^_.+]+$/;
+
+const parseMimeTypeList = (
+  value: string | undefined,
+  name: string,
+  errors: string[]
+): string[] => {
+  const normalized = value?.trim() || "";
+
+  if (!normalized) {
+    errors.push(`${name} is required.`);
+    return [];
+  }
+
+  const types = normalized
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  if (types.length === 0) {
+    errors.push(`${name} must contain at least one MIME type.`);
+    return [];
+  }
+
+  for (const t of types) {
+    if (!mimeTypePattern.test(t)) {
+      errors.push(`${name} contains an invalid MIME type: "${t}".`);
+      return types;
+    }
+  }
+
+  return types;
 };
