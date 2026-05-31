@@ -8,7 +8,9 @@ import {
   Param,
   Patch,
   Post,
-  Req
+  Req,
+  HttpCode,
+  HttpStatus
 } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
@@ -22,9 +24,11 @@ import {
 import type { Request } from "express";
 
 import { AuthService } from "../auth/auth.service";
-import type { CreateBlogPostInput, UpdateBlogPostInput } from "./blog.service";
+import type { CreateBlogPostInput, UpdateBlogPostInput, CreateCommentInput } from "./blog.service";
 import { BlogService } from "./blog.service";
 import type { BlogPostEntity } from "./entities/blog-post.entity";
+import type { BlogCommentEntity, BlogCommentStatus } from "./entities/blog-comment.entity";
+import { blogCommentStatuses } from "./entities/blog-comment.entity";
 
 /**
  * BlogController exposes two access surfaces:
@@ -182,6 +186,127 @@ export class BlogController {
     await this.blogService.delete(id);
     return { deleted: true };
   }
+
+  // ---------------------------------------------------------------------------
+  // Public comment route — guest-accessible, visible comments only
+  // ---------------------------------------------------------------------------
+
+  @Get(":postId/comments")
+  @ApiOperation({ summary: "List visible comments for a published post (public)." })
+  @ApiOkResponse({ description: "Visible comments returned." })
+  @ApiNotFoundResponse({ description: "Post not found or not published." })
+  async listComments(@Param("postId") postId: string): Promise<{ comments: BlogCommentDetail[] }> {
+    // Verify the post exists and is published before exposing any comments.
+    const post = await this.blogService.findPublishedBySlug(postId) ??
+      await this.blogService.findById(postId).then((p) => (p?.status === "published" ? p : null));
+    if (!post) {
+      throw new NotFoundException("Blog post not found or not published.");
+    }
+    const comments = await this.blogService.findVisibleComments(post.id);
+    return { comments: comments.map(toCommentDetail) };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Member comment creation — requires authenticated session (any role)
+  // ---------------------------------------------------------------------------
+
+  @Post(":postId/comments")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: "Create a comment on a published post (authenticated member)." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Post is not published." })
+  @ApiBadRequestResponse({ description: "Invalid or unsafe comment body." })
+  @ApiNotFoundResponse({ description: "Post not found." })
+  async createComment(
+    @Req() request: Request,
+    @Param("postId") postId: string,
+    @Body() body: unknown
+  ): Promise<{ comment: BlogCommentDetail }> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    // Resolve the post id from either slug or id path param.
+    const resolvedPostId = await this.resolvePostId(postId);
+    const input = parseCreateCommentInput(body);
+    const comment = await this.blogService.createComment(resolvedPostId, session.user.id, input);
+    return { comment: toCommentDetail(comment) };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Moderation routes — require active session + moderator/admin role
+  // ---------------------------------------------------------------------------
+
+  @Get("moderation/comments/:postId")
+  @ApiOperation({ summary: "List all comments for a post regardless of status (moderator/admin)." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({ description: "Post not found." })
+  async moderationListComments(
+    @Req() request: Request,
+    @Param("postId") postId: string
+  ): Promise<{ comments: BlogCommentDetail[] }> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    this.blogService.assertModerationAccess(session.user.globalRole);
+    const post = await this.blogService.findById(postId);
+    if (!post) {
+      throw new NotFoundException("Blog post not found.");
+    }
+    const comments = await this.blogService.findAllComments(post.id);
+    return { comments: comments.map(toCommentDetail) };
+  }
+
+  @Patch("moderation/comments/:commentId/status")
+  @ApiOperation({ summary: "Update comment status (hide, remove, or restore) (moderator/admin)." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({ description: "Comment not found." })
+  @ApiBadRequestResponse({ description: "Invalid status value." })
+  async moderateCommentStatus(
+    @Req() request: Request,
+    @Param("commentId") commentId: string,
+    @Body() body: unknown
+  ): Promise<{ comment: BlogCommentDetail }> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    this.blogService.assertModerationAccess(session.user.globalRole);
+    const status = parseCommentStatus(body);
+    const comment = await this.blogService.moderateComment(commentId, status, session.user.id);
+    return { comment: toCommentDetail(comment) };
+  }
+
+  @Delete("moderation/comments/:commentId")
+  @ApiOperation({ summary: "Permanently delete a comment (moderator/admin)." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({ description: "Comment not found." })
+  async deleteComment(
+    @Req() request: Request,
+    @Param("commentId") commentId: string
+  ): Promise<{ deleted: true }> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    this.blogService.assertModerationAccess(session.user.globalRole);
+    await this.blogService.deleteComment(commentId);
+    return { deleted: true };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Resolves a path segment that may be a post slug or post id into a stable
+   * post id string. Tries slug lookup first (published-only); falls back to
+   * id lookup. Throws NotFoundException when neither resolves to a valid post.
+   *
+   * This resolution is only used for the member comment creation path; the
+   * published-post guard is enforced inside BlogService.createComment.
+   */
+  private async resolvePostId(slugOrId: string): Promise<string> {
+    // Try slug first (only matches published posts).
+    const bySlug = await this.blogService.findPublishedBySlug(slugOrId);
+    if (bySlug) return bySlug.id;
+    // Try id (any status; createComment will enforce the published guard).
+    const byId = await this.blogService.findById(slugOrId);
+    if (byId) return byId.id;
+    throw new NotFoundException("Blog post not found.");
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -297,4 +422,65 @@ function parseScheduleInput(body: unknown): Date {
     throw new BadRequestException("scheduledAt is not a valid datetime.");
   }
   return date;
+}
+
+// ---------------------------------------------------------------------------
+// Comment response shape helpers
+// ---------------------------------------------------------------------------
+
+interface BlogCommentDetail {
+  id: string;
+  postId: string;
+  authorUserId: string;
+  body: string;
+  status: string;
+  moderatedByUserId: string | null;
+  moderatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function toCommentDetail(comment: BlogCommentEntity): BlogCommentDetail {
+  return {
+    id: comment.id,
+    postId: comment.postId,
+    authorUserId: comment.authorUserId,
+    body: comment.body,
+    status: comment.status,
+    moderatedByUserId: comment.moderatedByUserId,
+    moderatedAt: comment.moderatedAt ? comment.moderatedAt.toISOString() : null,
+    createdAt: comment.createdAt.toISOString(),
+    updatedAt: comment.updatedAt.toISOString()
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Comment input parsers
+// ---------------------------------------------------------------------------
+
+function parseCreateCommentInput(body: unknown): CreateCommentInput {
+  if (!body || typeof body !== "object") {
+    throw new BadRequestException("Request body must be a JSON object.");
+  }
+  const b = body as Record<string, unknown>;
+  if (typeof b.body !== "string") {
+    throw new BadRequestException("body is required and must be a string.");
+  }
+  return {
+    body: b.body,
+    imageId: typeof b.imageId === "string" ? b.imageId : null
+  };
+}
+
+function parseCommentStatus(body: unknown): BlogCommentStatus {
+  if (!body || typeof body !== "object") {
+    throw new BadRequestException("Request body must be a JSON object with a status field.");
+  }
+  const b = body as Record<string, unknown>;
+  if (typeof b.status !== "string" || !(blogCommentStatuses as readonly string[]).includes(b.status)) {
+    throw new BadRequestException(
+      `status must be one of: ${blogCommentStatuses.join(", ")}.`
+    );
+  }
+  return b.status as BlogCommentStatus;
 }

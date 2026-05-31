@@ -182,3 +182,112 @@ export async function adminDeletePost(id: string): Promise<void> {
     throw new Error(payload?.message || "Failed to delete blog post.");
   }
 }
+
+// ---------------------------------------------------------------------------
+// Comment types
+// ---------------------------------------------------------------------------
+
+export interface BlogCommentDetail {
+  id: string;
+  postId: string;
+  authorUserId: string;
+  body: string;
+  status: string;
+  moderatedByUserId: string | null;
+  moderatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BlogCommentStatus = "visible" | "hidden" | "removed";
+
+// ---------------------------------------------------------------------------
+// Public comment routes — no credentials required
+// ---------------------------------------------------------------------------
+
+export async function listComments(postId: string): Promise<BlogCommentDetail[]> {
+  const response = await fetch(`${apiBase}/blog/${encodeURIComponent(postId)}/comments`, {
+    cache: "no-store"
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message || "Failed to load comments.");
+  }
+  const data = (await response.json()) as { comments: BlogCommentDetail[] };
+  return data.comments;
+}
+
+// ---------------------------------------------------------------------------
+// Member comment creation — require active session cookie
+// ---------------------------------------------------------------------------
+
+export async function createComment(
+  postId: string,
+  body: string,
+  imageId?: string | null
+): Promise<BlogCommentDetail> {
+  const response = await fetch(`${apiBase}/blog/${encodeURIComponent(postId)}/comments`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ body, imageId: imageId ?? null })
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message || "Failed to create comment.");
+  }
+  const data = (await response.json()) as { comment: BlogCommentDetail };
+  return data.comment;
+}
+
+// ---------------------------------------------------------------------------
+// Moderation routes — require active session + moderator/admin role
+// ---------------------------------------------------------------------------
+
+export async function moderationListComments(postId: string): Promise<BlogCommentDetail[]> {
+  const response = await fetch(`${apiBase}/blog/moderation/comments/${encodeURIComponent(postId)}`, {
+    credentials: "include",
+    cache: "no-store"
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message || "Failed to load comments for moderation.");
+  }
+  const data = (await response.json()) as { comments: BlogCommentDetail[] };
+  return data.comments;
+}
+
+export async function moderateCommentStatus(
+  commentId: string,
+  status: BlogCommentStatus
+): Promise<BlogCommentDetail> {
+  const response = await fetch(
+    `${apiBase}/blog/moderation/comments/${encodeURIComponent(commentId)}/status`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status })
+    }
+  );
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message || "Failed to update comment status.");
+  }
+  const data = (await response.json()) as { comment: BlogCommentDetail };
+  return data.comment;
+}
+
+export async function deleteComment(commentId: string): Promise<void> {
+  const response = await fetch(
+    `${apiBase}/blog/moderation/comments/${encodeURIComponent(commentId)}`,
+    {
+      method: "DELETE",
+      credentials: "include"
+    }
+  );
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message || "Failed to delete comment.");
+  }
+}

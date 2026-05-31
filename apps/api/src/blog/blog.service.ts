@@ -5,7 +5,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 
 import { AuthorizationService } from "../authorization/authorization.service";
-import { BlogCommentEntity } from "./entities/blog-comment.entity";
+import { validateMarkdownBody, normalizeMarkdownBody } from "../media/markdown-sanitizer";
+import { BlogCommentEntity, BlogCommentStatus } from "./entities/blog-comment.entity";
 import { BlogPostEntity } from "./entities/blog-post.entity";
 import { BlogPostTagEntity } from "./entities/blog-post-tag.entity";
 
@@ -23,6 +24,12 @@ export interface UpdateBlogPostInput {
   body?: string;
   featuredImageId?: string | null;
   tags?: string[];
+}
+
+export interface CreateCommentInput {
+  body: string;
+  /** Optional image media reference id to associate with the comment. */
+  imageId?: string | null;
 }
 
 /**
@@ -247,6 +254,100 @@ export class BlogService {
       where: { postId, status: "visible" },
       order: { createdAt: "ASC" }
     });
+  }
+
+  /**
+   * Returns all comments for a post regardless of status — moderator/admin surface.
+   * Caller must have verified moderation access before calling this.
+   */
+  async findAllComments(postId: string): Promise<BlogCommentEntity[]> {
+    return this.blogCommentRepository.find({
+      where: { postId },
+      order: { createdAt: "ASC" }
+    });
+  }
+
+  /**
+   * Creates a new comment on a published post by an authenticated member.
+   *
+   * Guards:
+   * - The parent post must be published — prevents comment creation on draft,
+   *   scheduled, or unpublished posts (no exposure of non-public parent content).
+   * - The comment body is sanitized with the shared markdown sanitizer before
+   *   persistence.
+   */
+  async createComment(postId: string, authorUserId: string, input: CreateCommentInput): Promise<BlogCommentEntity> {
+    // Confirm parent post exists and is published.
+    const post = await this.blogPostRepository.findOne({ where: { id: postId } });
+    if (!post) {
+      throw new NotFoundException("Blog post not found.");
+    }
+    if (post.status !== "published") {
+      throw new ForbiddenException("Comments can only be added to published posts.");
+    }
+
+    // Sanitize the body with the shared markdown sanitizer.
+    const normalizedBody = normalizeMarkdownBody(input.body ?? "");
+    if (!normalizedBody) {
+      throw new BadRequestException("Comment body must not be empty.");
+    }
+    const sanitizationResult = validateMarkdownBody(normalizedBody);
+    if (!sanitizationResult.safe) {
+      throw new BadRequestException(`Comment body contains unsafe content: ${sanitizationResult.reason}`);
+    }
+
+    const id = crypto.randomUUID();
+    const comment = this.blogCommentRepository.create({
+      id,
+      postId,
+      authorUserId,
+      body: normalizedBody,
+      status: "visible",
+      moderatedByUserId: null,
+      moderatedAt: null
+    });
+
+    return this.blogCommentRepository.save(comment) as Promise<BlogCommentEntity>;
+  }
+
+  /**
+   * Finds a single comment by id — used for moderation lookups.
+   */
+  async findCommentById(id: string): Promise<BlogCommentEntity | null> {
+    return this.blogCommentRepository.findOne({ where: { id } });
+  }
+
+  /**
+   * Updates comment status for moderation (hide, remove, or restore to visible).
+   * Caller must have verified moderation access before calling this.
+   *
+   * Records the moderatorUserId and timestamp on every status change.
+   */
+  async moderateComment(
+    commentId: string,
+    newStatus: BlogCommentStatus,
+    moderatorUserId: string
+  ): Promise<BlogCommentEntity> {
+    const comment = await this.blogCommentRepository.findOne({ where: { id: commentId } });
+    if (!comment) {
+      throw new NotFoundException("Comment not found.");
+    }
+    comment.status = newStatus;
+    comment.moderatedByUserId = moderatorUserId;
+    comment.moderatedAt = new Date();
+    return this.blogCommentRepository.save(comment) as Promise<BlogCommentEntity>;
+  }
+
+  /**
+   * Deletes a comment permanently.
+   * Caller must have verified moderation access before calling this.
+   */
+  async deleteComment(commentId: string): Promise<void> {
+    const comment = await this.blogCommentRepository.findOne({ where: { id: commentId } });
+    if (!comment) {
+      throw new NotFoundException("Comment not found.");
+    }
+    await this.blogCommentRepository.remove(comment);
   }
 
   // ---------------------------------------------------------------------------

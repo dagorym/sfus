@@ -225,3 +225,104 @@ describe("Admin blog edit page source contracts (AC1, AC3)", () => {
     expect(source).toContain("adminUpdatePost");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Blog comment client contracts (AC2, AC3)
+// ---------------------------------------------------------------------------
+
+describe("blog-client.ts comment API contracts", () => {
+  it("exports listComments without credentials (public/guest access)", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    expect(source).toContain("export async function listComments");
+    // Public route must not send credentials
+    const commentBlock = source.slice(
+      source.indexOf("async function listComments"),
+      source.indexOf("async function createComment") + 1
+    );
+    expect(commentBlock).not.toContain('credentials: "include"');
+  });
+
+  it("exports createComment with credentials:include (member auth required)", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    expect(source).toContain("export async function createComment");
+    const createBlock = source.slice(
+      source.indexOf("async function createComment"),
+      source.indexOf("async function moderationListComments") + 1
+    );
+    expect(createBlock).toContain('credentials: "include"');
+  });
+
+  it("exports moderation functions with credentials:include (moderator/admin required)", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    expect(source).toContain("export async function moderationListComments");
+    expect(source).toContain("export async function moderateCommentStatus");
+    expect(source).toContain("export async function deleteComment");
+    // All moderation routes must forward the session cookie
+    const moderationSection = source.slice(source.indexOf("async function moderationListComments"));
+    expect(moderationSection).toContain('credentials: "include"');
+  });
+
+  it("uses moderation path prefix for all moderation routes", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    // Moderation routes use /blog/moderation/comments/...
+    expect(source).toContain("/blog/moderation/comments/");
+  });
+
+  it("exports BlogCommentDetail and BlogCommentStatus types", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    expect(source).toContain("BlogCommentDetail");
+    expect(source).toContain("BlogCommentStatus");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Blog post detail page with comments (AC2, AC3)
+// ---------------------------------------------------------------------------
+
+describe("Blog post detail page comment surface contracts (AC2, AC3)", () => {
+  it("imports and calls listComments for guest-visible comments", async () => {
+    const source = await readAppFile("app/blog/[slug]/page.tsx");
+    // AC2: public route
+    expect(source).toContain("listComments");
+    expect(source).toContain("from \"../blog-client\"");
+  });
+
+  it("imports createComment for authenticated member comment submission", async () => {
+    const source = await readAppFile("app/blog/[slug]/page.tsx");
+    expect(source).toContain("createComment");
+  });
+
+  it("uses MarkdownEditor for comment body input (shared authoring component AC4)", async () => {
+    const source = await readAppFile("app/blog/[slug]/page.tsx");
+    expect(source).toContain("MarkdownEditor");
+    expect(source).toContain('from "../../../components/markdown-editor"');
+  });
+
+  it("uses ImageUpload with blog-comment resource type (shared upload component AC4)", async () => {
+    const source = await readAppFile("app/blog/[slug]/page.tsx");
+    expect(source).toContain("ImageUpload");
+    expect(source).toContain('"blog-comment"');
+  });
+
+  it("reads session to determine whether to show comment form (AC2, AC3)", async () => {
+    const source = await readAppFile("app/blog/[slug]/page.tsx");
+    // Session-gated form: only members see it
+    expect(source).toContain("readSession");
+    expect(source).toContain("session");
+  });
+
+  it("renders comment list without authentication requirement (AC2)", async () => {
+    const source = await readAppFile("app/blog/[slug]/page.tsx");
+    // Comments list must be rendered for all users including guests
+    expect(source).toContain("comments.map");
+    // The section must have an aria label for accessibility
+    expect(source).toContain('aria-label="Comments"');
+  });
+
+  it("does not call adminGetPost or expose draft content (AC3)", async () => {
+    const source = await readAppFile("app/blog/[slug]/page.tsx");
+    // AC3: only public endpoint used
+    expect(source).not.toContain("adminGetPost");
+    expect(source).not.toContain("adminListAllPosts");
+  });
+});
