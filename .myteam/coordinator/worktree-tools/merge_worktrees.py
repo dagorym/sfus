@@ -3,8 +3,13 @@
 Usage:
   python merge_worktrees.py BRANCH_PREFIX
 
-Finds local branches created from the given prefix using the naming pattern:
+Finds local branches created from the given prefix using either naming pattern:
   <branch-prefix>-<agent-name>-<YYYYMMDD>
+  <branch-prefix>-<subtask-id>-<agent-name>-<YYYYMMDD>
+
+The agent name is always extracted from the rightmost position before the date.
+The optional subtask-id is used for organizational purposes when multiple subtasks
+use the same coordination branch.
 
 Merge order:
   1. verifier -> documenter
@@ -43,14 +48,33 @@ def require_clean_prefix(value):
 
 
 def parse_agent_branch(branch, prefix):
-    """Returns (agent_name, date) or None."""
+    """Returns (agent_name, date) or None.
+
+    Handles both naming patterns:
+    - <prefix>-<agent>-YYYYMMDD
+    - <prefix>-<subtask>-<agent>-YYYYMMDD
+
+    Extracts the agent name from the rightmost position before the date.
+    """
     if not branch.startswith(f"{prefix}-"):
         return None
     rest = branch[len(prefix) + 1:]
     m = re.fullmatch(r"(.+)-([0-9]{8})", rest)
     if not m:
         return None
-    return m.group(1), m.group(2)
+
+    # Extract agent name from the rightmost dash-separated component before the date
+    prefix_and_agent = m.group(1)
+    date = m.group(2)
+
+    # The agent name is the last dash-separated component
+    parts = prefix_and_agent.rsplit("-", 1)
+    if len(parts) == 2:
+        agent_name = parts[1]  # rightmost component (the agent name)
+    else:
+        agent_name = prefix_and_agent
+
+    return agent_name, date
 
 
 def git(*args, check=True):

@@ -2,7 +2,7 @@
 """
 Usage:
   python create_worktree.py TOP_LEVEL_DIR BRANCH_NAME
-  python create_worktree.py TOP_LEVEL_DIR AGENT_NAME
+  python create_worktree.py TOP_LEVEL_DIR AGENT_NAME [--subtask SUBTASK_ID]
 
 Creates a git worktree on a new branch based on the current branch.
 
@@ -11,10 +11,12 @@ that branch name is used directly.
 
 Otherwise, the second argument is treated as an agent name and the script
 builds the branch name from the current branch:
-  <current-branch-prefix>-<agent-name>-<today>
+  <current-branch-prefix>-<subtask-id>-<agent-name>-<today>  (if --subtask provided)
+  <current-branch-prefix>-<agent-name>-<today>               (otherwise)
 
-If the current branch already ends in -<agent>-<YYYYMMDD>, that suffix is
-removed before the new agent/date suffix is appended.
+If the current branch already ends in -<subtask>-<agent>-<YYYYMMDD>, that suffix is
+removed before the new agent/date suffix is appended. The --subtask parameter ensures
+consistent subtask organization across all stages for a given subtask.
 
 If TOP_LEVEL_DIR resolves under /mnt/c/Users/.../Documents, the script uses
 ~/worktrees instead. Git worktrees are unreliable there under WSL.
@@ -67,6 +69,12 @@ def main():
         default=None,
         help="Branch to base the new worktree on. Defaults to the current branch.",
     )
+    parser.add_argument(
+        "--subtask",
+        dest="subtask",
+        default=None,
+        help="Subtask identifier (e.g., 'subtask-1') to include in branch name for organization.",
+    )
     args = parser.parse_args()
 
     top_level_dir = args.top_level_dir
@@ -103,10 +111,18 @@ def main():
     else:
         agent_name = branch_or_agent
         require_clean_name(agent_name, "agent name")
-        branch_prefix = re.sub(r"-[^-]+-[0-9]{8}$", "", current_branch)
+
+        # Remove trailing agent-date suffix if present, accounting for optional subtask
+        # Pattern: -<subtask>-<agent>-YYYYMMDD or -<agent>-YYYYMMDD
+        branch_prefix = re.sub(r"(?:-[a-zA-Z0-9_.-]+-[a-zA-Z0-9_.-]+|-[a-zA-Z0-9_.-]+)-[0-9]{8}$", "", current_branch)
         if not branch_prefix:
             fail(f"could not derive a branch prefix from current branch '{current_branch}'")
-        branch_name = f"{branch_prefix}-{agent_name}-{today}"
+
+        if args.subtask:
+            require_clean_name(args.subtask, "subtask identifier")
+            branch_name = f"{branch_prefix}-{args.subtask}-{agent_name}-{today}"
+        else:
+            branch_name = f"{branch_prefix}-{agent_name}-{today}"
 
     require_clean_name(branch_name, "branch name")
 
