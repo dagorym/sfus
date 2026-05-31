@@ -1,0 +1,87 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Implement Milestone 3 persistence and module foundation: migrations, TypeORM entities, NestJS modules, and service stubs for blog posts, blog comments, standalone pages, page revisions, navigation items, and shared media references. Enforce admin-only management for blog/pages/navigation. Add startup validation for media-related environment variables.
+
+Acceptance criteria validated:
+- Migrations and persistence models support blog_posts (status/scheduled_at/published_at), blog_comments, page_revisions (revision_number unique constraint), and navigation_items (parent_id self-reference with ON DELETE CASCADE) — all MySQL 5.7.44 compatible. Verified by structural review of migration and entity files.
+- Backend module structure cleanly separates BlogModule, PagesModule, NavigationModule, and MediaModule with all modules registered in AppModule. Verified by structural review of module files.
+- MEDIA_UPLOAD_MAX_SIZE_BYTES (1024–20971520), MEDIA_ALLOWED_MIME_TYPES (comma-separated valid MIME types), and MEDIA_STORAGE_PATH are validated by loadEnvironment() at startup. Three implementer-added tests in environment.test.ts verify all edge cases and pass.
+- BlogService.assertAdminManagementAccess(), PagesService.assertAdminManagementAccess(), and NavigationService.assertAdminManagementAccess() each throw ForbiddenException for any role below admin (user, moderator, empty, unrecognised), delegating to AuthorizationService.hasGlobalRole('admin'). 15 new tests validate this — all pass.
+
+Implementation branch or worktree context:
+- Implementer worktree: /home/tstephen/repos/worktrees/ms3-claude-subtask-1-implementer-20260531
+- Tester branch: ms3-claude-subtask-1-subtask-1-tester-20260531
+- Base branch: ms3-claude
+- Implementer commits: 7c9580b (implementation), 51924a5 (implementer artifacts)
+- Tester commit: 8721e5d
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/.env.example
+- apps/api/src/app.module.ts
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/blog/blog.module.ts
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/entities/blog-comment.entity.ts
+- apps/api/src/blog/entities/blog-post-tag.entity.ts
+- apps/api/src/blog/entities/blog-post.entity.ts
+- apps/api/src/blog/blog.service.test.ts
+- apps/api/src/config/environment.test.ts
+- apps/api/src/config/environment.ts
+- apps/api/src/database/database.config.ts
+- apps/api/src/database/migrations/1748736000000-milestone-three-content-foundation.ts
+- apps/api/src/health/readiness.service.test.ts
+- apps/api/src/media/entities/media-reference.entity.ts
+- apps/api/src/media/media.module.ts
+- apps/api/src/navigation/entities/navigation-item.entity.ts
+- apps/api/src/navigation/navigation.module.ts
+- apps/api/src/navigation/navigation.service.ts
+- apps/api/src/navigation/navigation.service.test.ts
+- apps/api/src/pages/entities/page-revision.entity.ts
+- apps/api/src/pages/entities/standalone-page.entity.ts
+- apps/api/src/pages/pages.module.ts
+- apps/api/src/pages/pages.service.ts
+- apps/api/src/pages/pages.service.test.ts
+
+Test commit:
+- 8721e5d
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-1-implementer-20260531 install --frozen-lockfile
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-1-implementer-20260531 --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-1-subtask-1-tester-20260531 install --frozen-lockfile
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-1-subtask-1-tester-20260531 --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-1-subtask-1-tester-20260531 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-1-subtask-1-tester-20260531 --filter @sfus/api lint
+
+Final test outcomes:
+- 66 tests passed, 0 failed across 11 test files.
+- 51 pre-existing tests continue to pass unchanged.
+- 15 new tester-authored tests added: 5 each for BlogService, PagesService, and NavigationService assertAdminManagementAccess().
+- TypeScript typecheck passed with no errors.
+- ESLint passed with no warnings.
+
+Documentation context:
+- New NestJS modules (BlogModule, PagesModule, NavigationModule, MediaModule) are now registered in AppModule and represent new top-level API domains.
+- The ApplicationEnvironment interface gained a 'media' field — any documentation referencing the environment contract needs updating.
+- New environment variables MEDIA_UPLOAD_MAX_SIZE_BYTES, MEDIA_ALLOWED_MIME_TYPES, MEDIA_STORAGE_PATH are required at startup and should appear in docs/README.md and apps/api/.env.example.
+- Admin-only management pattern is now established for blog, pages, and navigation — docs/README.md architecture/auth sections may need to reflect this.
+- Migration 1748736000000-milestone-three-content-foundation.ts adds 6 new tables: blog_posts, blog_post_tags, blog_comments, standalone_pages, page_revisions, navigation_items.
+- Blog post status enum: draft/scheduled/published/unpublished. Blog comment status: visible/hidden/removed. Page status: draft/published/unpublished.
+
+Plan and diff context:
+- Plan: plans/milestone-three-blog-standalone-pages-and-admin-navigation-plan.md
+- Base branch for comparison: main (assumption — the plan coordinates against the ms3-claude coordination branch, with main as the merge target).
+- Coordination branch: ms3-claude
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
