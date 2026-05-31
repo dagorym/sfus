@@ -1,0 +1,67 @@
+Your role is 'verifier'. Your task is as follows:
+
+Verify the Milestone 3 Subtask 3 documentation pass for the blog publishing lifecycle.
+
+Worktree: ms3-subtask-3-documenter-20260531
+Base branch: ms3-claude
+Documentation commit: 1e28068
+
+## Original Task Summary
+
+Document the blog publishing lifecycle implementation for ms3 subtask-3: BlogController public/admin route split, BlogService lifecycle methods (create/update/publish/unpublish/schedule/delete), reusable assertAdminManagementAccess authorization gate, public web routes (/blog, /blog/:slug), and admin web pages (/admin/blog, /admin/blog/new, /admin/blog/:id/edit).
+
+## Acceptance Criteria To Verify
+
+- Admin end-to-end blog management with scheduling is documented
+- Public routes for published blog only are documented
+- Draft/scheduled content protection is documented
+- Reusable admin authorization via assertAdminManagementAccess() is documented
+
+## Files Modified By Implementer, Tester, and Documenter
+
+Implementation (Implementer):
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.module.ts
+- apps/api/src/app.module.ts
+- apps/web/app/blog/page.tsx
+- apps/web/app/blog/[slug]/page.tsx
+- apps/web/app/blog/blog-client.ts
+- apps/web/app/admin/blog/page.tsx
+- apps/web/app/admin/blog/new/page.tsx
+- apps/web/app/admin/blog/[id]/edit/page.tsx
+
+Tests (Tester):
+- apps/api/src/blog/blog.service.test.ts
+- apps/web/app/blog/blog.spec.ts
+
+Documentation (Documenter):
+- docs/README.md
+- docs/website-launch-guide.md
+
+Artifacts:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-3/
+
+## Final Test Outcomes
+
+184 tests passing (18 new blog API tests + 24 web blog tests added in subtask-3).
+
+## Plan Context
+
+plans/milestone-three-blog-standalone-pages-and-admin-navigation-plan.md, subtask 3
+
+## Convention Guidance
+
+Repository follows NestJS modules for API and Next.js App Router for web. Documentation lives in docs/README.md (architecture/API contracts) and docs/website-launch-guide.md (operational/user-facing guidance). In-code documentation via JSDoc comments on service classes and public methods is present in blog.service.ts and blog.controller.ts.
+
+## Verification Scope
+
+1. Confirm docs/README.md accurately describes the BlogController public/admin route split, assertAdminManagementAccess authorization model, scheduling contract (future-only, no auto-publish), post status lifecycle, and web route descriptions.
+2. Confirm docs/website-launch-guide.md accurately describes how guests access the public blog and how admins create, publish, schedule, and unpublish posts.
+3. Confirm documentation does not overstate capabilities (e.g. does not claim automatic scheduling publication).
+4. Confirm all required artifacts exist in the artifact directory and are committed.
+5. Confirm the documentation commit hash 1e28068 is recorded in documenter_result.json.
+
+If blocking inputs are present, continue in the same run — do not stop after scope establishment or diff inspection.
+
+Do not report success unless all required artifacts exist and all changes are committed.
