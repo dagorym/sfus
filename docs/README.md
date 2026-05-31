@@ -46,7 +46,7 @@ This repository now includes the Milestone 1 foundation baseline for the monorep
 - `AuthModule` imports `UsersModule` and owns auth persistence through `AuthIdentityEntity`, `PasswordAuthenticatorEntity`, `AuthSessionEntity`, `EmailVerificationEntity`, `TotpSecretEntity`, `TotpRecoveryCodeEntity`, plus `AuthController` and `AuthService` for local auth and provider-backed (Google/GitHub) auth flows.
 - `AuthorizationModule` owns reusable authorization grant persistence through `AuthorizationGrantEntity` and `AuthorizationService`.
 - `AuthorizationService` now provides reusable global-role + ACL authorization decisions (`read`/`write`/`admin`) over generic resources (`resourceType`, `resourceId`, `ownerUserId`, `visibility`, optional `projectId`) so later content milestones can reuse one authz contract.
-- `AppModule` now composes `DatabaseModule`, `UsersModule`, `AuthModule`, `AuthorizationModule`, and `HealthModule` so the API can bootstrap the shared identity/authz foundation as one application surface.
+- `AppModule` now composes `DatabaseModule`, `UsersModule`, `AuthModule`, `AuthorizationModule`, `HealthModule`, `MediaModule`, `BlogModule`, `PagesModule`, and `NavigationModule` so the API can bootstrap the shared identity/authz and Milestone 3 content foundation as one application surface.
 - Local password auth stores Argon2id password hashes after appending the required password pepper, and local login stays blocked until a primary-email verification token has been consumed successfully.
 - Email verification tokens are generated at registration time, hashed before persistence with `AUTH_SESSION_TOKEN_PEPPER`, checked for expiry at verification time, and consumed once so the same token cannot activate the account twice.
 - Session lifecycle is server-managed through the `sfus_session` HTTP-only cookie: login issues a new session, `GET /api/auth/session` resolves and refreshes the active session timestamp, idle or absolute expiry revokes the record, and logout revokes the current session and clears the cookie.
@@ -77,6 +77,42 @@ This repository now includes the Milestone 1 foundation baseline for the monorep
   - `PATCH /api/auth/settings` accepts username updates only, enforces uniqueness, and returns `{ username, email, emailVerified, mfaEnabled }`
   - `GET|PATCH /api/auth/profile` and `GET|PATCH /api/auth/settings` now run through the shared authorization layer for account-scoped access, including global-role and ACL grant checks when `?userId=<targetId>` is supplied for representative cross-account authorization coverage.
 
+## Milestone 3 Content Foundation
+
+Milestone 3 Subtask 1 adds the persistence and module foundation for blog posts, standalone pages, navigation items, comments, and shared media references.
+
+### New Modules
+
+- `MediaModule` owns `MediaReferenceEntity` for shared image-reference records used across content types.
+- `BlogModule` owns `BlogPostEntity`, `BlogPostTagEntity`, and `BlogCommentEntity`, and exposes `BlogService` with an admin-only management authorization contract.
+- `PagesModule` owns `StandalonePageEntity` and `PageRevisionEntity`, and exposes `PagesService` with an admin-only management authorization contract.
+- `NavigationModule` owns `NavigationItemEntity`, and exposes `NavigationService` with an admin-only management authorization contract.
+
+### Database Migration
+
+Migration `1748736000000-milestone-three-content-foundation.ts` adds six tables to the MySQL 5.7.44-compatible schema:
+
+- `blog_posts` — blog post records with `status` enum (`draft`/`scheduled`/`published`/`unpublished`), `scheduled_at`, `published_at`, and `slug`.
+- `blog_post_tags` — many-to-many tag associations for blog posts.
+- `blog_comments` — comment records with `status` enum (`visible`/`hidden`/`removed`) and `author_user_id` foreign key.
+- `standalone_pages` — managed site pages with `status` enum (`draft`/`published`/`unpublished`) and `slug`.
+- `page_revisions` — page revision records with a `revision_number` unique constraint per page.
+- `navigation_items` — navigation item records with a `parent_id` self-reference and `ON DELETE CASCADE`.
+
+### Admin-Only Management Authorization
+
+`BlogService.assertAdminManagementAccess()`, `PagesService.assertAdminManagementAccess()`, and `NavigationService.assertAdminManagementAccess()` each throw `ForbiddenException` for any caller whose role is below admin, delegating to `AuthorizationService.hasGlobalRole('admin')`. This contract must be called on all create, edit, publish, and delete operations for blog posts, standalone pages, and navigation items.
+
+### Media Environment Contract
+
+`ApplicationEnvironment` now includes a `media` field populated by `loadEnvironment()` at startup. The following variables are required:
+
+- `MEDIA_UPLOAD_MAX_SIZE_BYTES` — maximum accepted upload size in bytes; must be an integer from 1024 to 20971520.
+- `MEDIA_ALLOWED_MIME_TYPES` — comma-separated list of accepted MIME types; each entry must be a valid `type/subtype` string.
+- `MEDIA_STORAGE_PATH` — local filesystem path for uploaded files; required non-empty string.
+
+All three are validated by `loadEnvironment()` at startup; a missing or invalid value throws immediately before the application finishes bootstrapping.
+
 ## Runtime Contract Overview
 
 Milestone 1 local development is hybrid by default:
@@ -102,7 +138,7 @@ Ownership is split by runtime boundary:
 
 - `.env.example` - platform/deployment-owned values used by Compose metadata and local MySQL scaffolding
 - `apps/web/.env.example` - web-owned values, including `/api` path targeting and container-internal API routing
-- `apps/api/.env.example` - API-owned values, including the database contract plus auth foundation inputs for password peppering, session-token hashing, verification/session lifetimes, TOTP issuer naming, and recovery-code generation used by the API container and explicit migration flow
+- `apps/api/.env.example` - API-owned values, including the database contract, auth foundation inputs for password peppering, session-token hashing, verification/session lifetimes, TOTP issuer naming, and recovery-code generation, and Milestone 3 media upload constraints (`MEDIA_UPLOAD_MAX_SIZE_BYTES`, `MEDIA_ALLOWED_MIME_TYPES`, `MEDIA_STORAGE_PATH`) used by the API container and explicit migration flow
 
 The API environment contract now validates these auth settings at startup:
 
@@ -117,6 +153,9 @@ The API environment contract now validates these auth settings at startup:
 - `AUTH_RECOVERY_CODE_LENGTH` must be an integer from 8 to 16.
 - `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`, and `AUTH_GOOGLE_CALLBACK_URL` are required for Google sign-in.
 - `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, and `AUTH_GITHUB_CALLBACK_URL` are required for GitHub sign-in.
+- `MEDIA_UPLOAD_MAX_SIZE_BYTES` must be an integer from 1024 to 20971520.
+- `MEDIA_ALLOWED_MIME_TYPES` must be a comma-separated list of at least one valid `type/subtype` MIME type.
+- `MEDIA_STORAGE_PATH` is required and must be a non-empty string.
 
 The example files are templates only. Production secrets and the external production MySQL connection are managed on the host outside the repository checkout.
 

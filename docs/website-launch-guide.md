@@ -60,6 +60,9 @@ The default local config contracts are:
   - `AUTH_RECOVERY_CODE_LENGTH=12` (integer 8-16)
   - `AUTH_GOOGLE_CLIENT_ID` / `AUTH_GOOGLE_CLIENT_SECRET` / `AUTH_GOOGLE_CALLBACK_URL` (required for working Google sign-in; placeholders still allow the stack to boot)
   - `AUTH_GITHUB_CLIENT_ID` / `AUTH_GITHUB_CLIENT_SECRET` / `AUTH_GITHUB_CALLBACK_URL` (required for working GitHub sign-in; placeholders still allow the stack to boot)
+  - `MEDIA_UPLOAD_MAX_SIZE_BYTES=5242880` (integer 1024–20971520; maximum accepted upload size in bytes)
+  - `MEDIA_ALLOWED_MIME_TYPES=image/jpeg,image/png,image/gif,image/webp` (comma-separated list of accepted MIME types; at least one required)
+  - `MEDIA_STORAGE_PATH=./storage/uploads` (local filesystem path for uploaded files; use an absolute path on a durable volume in production)
   - `DB_HOST=127.0.0.1` for host-run hybrid development
   - `DB_PORT=3306` or the published `MYSQL_HOST_PORT` value from the root `.env`
   - `DB_NAME=sfus`
