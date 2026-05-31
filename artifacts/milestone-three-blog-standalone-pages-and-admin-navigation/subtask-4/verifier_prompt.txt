@@ -1,0 +1,64 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Document blog comments for Milestone 3 Subtask 4: public comment listing (no auth required), authenticated member comment creation with image support, moderator/admin moderation flows, and the shared sanitization and authorization model for comments.
+
+Acceptance criteria to verify:
+- Guests can read comments on published blog posts without authentication.
+- Authenticated members can create comments on eligible published posts, including milestone-scoped image usage.
+- Moderators and admins can moderate comments through explicit protected flows.
+- Comments cannot be used to expose unpublished parent content or bypass the shared sanitization and authorization model.
+
+Implementation branch or worktree context:
+- Worktree ms3-subtask-4-documenter-20260531 branched from tester branch ms3-subtask-4-tester-20260531 (commit 95f1b33). Base branch: ms3-claude.
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.service.ts
+- apps/web/app/blog/[slug]/page.tsx
+- apps/web/app/blog/blog-client.ts
+- apps/web/app/blog/blog.spec.ts
+- apps/api/src/blog/blog.service.test.ts
+- docs/README.md
+- docs/website-launch-guide.md
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4/documenter_prompt.txt
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4/implementer_report.md
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4/implementer_result.json
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4/tester_prompt.txt
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4/tester_report.md
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4/tester_result.json
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4/documenter_report.md
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4/documenter_result.json
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4/verifier_prompt.txt
+
+Commands executed:
+- git diff ms3-claude --stat
+- git diff ms3-claude -- apps/api/src/blog/blog.controller.ts
+- git diff ms3-claude -- apps/api/src/blog/blog.service.ts
+- git diff ms3-claude -- apps/web/app/blog/blog-client.ts apps/web/app/blog/[slug]/page.tsx
+
+Final test outcomes:
+- 214 tests passing (tester-reported result from ms3-subtask-4-tester-20260531)
+
+Plan or evaluation context guidance:
+- plans/milestone-three-blog-standalone-pages-and-admin-navigation-plan.md - Subtask 4: Implement public blog comments with authenticated posting and moderator/admin moderation controls.
+
+Convention-file guidance:
+- Repository uses NestJS (API) and Next.js App Router (web). TypeScript strict mode.
+- Documentation lives in docs/README.md (architecture/API contracts) and docs/website-launch-guide.md (operational/launch guidance).
+- Shared artifact directory: artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4/.
+
+Updated documentation files:
+- docs/README.md
+- docs/website-launch-guide.md
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
