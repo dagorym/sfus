@@ -9,7 +9,7 @@ Load this skill only when creating a stage worktree or launching a downstream ag
 
 ## Tool
 
-- Use the colocated tool `create_worktree.sh` when a new stage worktree must be created.
+- Load skill `coordinator/worktree-tools` to access `create_worktree.py` when a new stage worktree must be created.
 
 ## Required Actions
 

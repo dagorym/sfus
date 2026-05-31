@@ -9,7 +9,7 @@ Load this skill only when a subtask chain has completed successfully or stale wo
 
 ## Tool
 
-- Use the colocated tool `merge_worktrees.sh` when the successful stage chain must be merged back into the coordination branch and the merged worktrees should be cleaned up together.
+- Load skill `coordinator/worktree-tools` to access `merge_worktrees.py` when the successful stage chain must be merged back into the coordination branch and the merged worktrees should be cleaned up together.
 
 ## Required Actions
 

@@ -9,7 +9,7 @@ Load this skill only when a Tester or Verifier outcome triggers a permitted reme
 
 ## Tool
 
-- Use the colocated tool `merge_to_implementer.sh` when downstream stage branches must be merged back into the Implementer branch for a remediation cycle.
+- Load skill `coordinator/worktree-tools` to access `merge_to_implementer.py` when downstream stage branches must be merged back into the Implementer branch for a remediation cycle.
 - Use the colocated tool `archive_stage_artifacts.py` before remediation to archive live artifacts from the failed pass into the subtask history directory.
 - Run the archive step in the failing downstream stage worktree that currently contains the complete live artifact set, not in the Implementer worktree.
 
