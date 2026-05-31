@@ -1,0 +1,29 @@
+version: 1
+roles:
+  planner:
+    model: claude-opus-4-8
+    reasoning_effort: high
+  coordinator:
+    model: claude-haiku-4-5-20251001
+    reasoning_effort: medium
+  implementer:
+    model: claude-sonnet-4-6
+    reasoning_effort: medium
+  tester:
+    model: claude-sonnet-4-6
+    reasoning_effort: medium
+  documenter:
+    model: claude-sonnet-4-6
+    reasoning_effort: medium
+  verifier:
+    model: claude-sonnet-4-6
+    reasoning_effort: high
+  reviewer:
+    model: claude-opus-4-8
+    reasoning_effort: medium
+  designer:
+    model: claude-sonnet-4-6
+    reasoning_effort: medium
+  agent-builder:
+    model: claude-sonnet-4-6
+    reasoning_effort: medium
