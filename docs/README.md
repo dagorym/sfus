@@ -113,6 +113,43 @@ Migration `1748736000000-milestone-three-content-foundation.ts` adds six tables 
 
 All three are validated by `loadEnvironment()` at startup; a missing or invalid value throws immediately before the application finishes bootstrapping.
 
+### Shared Authoring Workflow (Milestone 3 Subtask 2)
+
+Milestone 3 Subtask 2 adds the shared authoring infrastructure — a protected image-upload API, a server-side Markdown sanitizer, and three reusable web components — used across blog posts, standalone pages, and blog comments.
+
+#### MediaModule Upload API
+
+`MediaModule.register(environment)` is a dynamic NestJS module that exposes:
+
+- `POST /api/media/upload?resourceType=<type>` — uploads an image for Milestone 3 content. Requires an active session (HTTP-only `sfus_session` cookie). Returns a `MediaUploadResult` with `id`, `storageKey`, `url`, `mimeType`, `sizeBytes`, `originalFilename`, and `createdAt`.
+- `resourceType` must be one of `blog-post`, `standalone-page`, or `blog-comment`.
+- The endpoint rejects requests from unauthenticated users with `401 Unauthorized`.
+- `MediaService.uploadImage()` enforces the configured MIME allow-list and size limit, both read from the `media` environment block; any violation produces `400 Bad Request` with a human-readable message.
+- Files are stored under `MEDIA_STORAGE_PATH` organized by `<resourceType>/<uuid><ext>`. The original filename is sanitized before persistence (directory traversal removed, non-word characters replaced with `_`, capped at 255 characters).
+- `MediaModule` imports `AuthModule.register(environment)` to resolve sessions on the upload endpoint. The module exports `MediaService` and `TypeOrmModule` for reuse in later content modules.
+
+#### MarkdownSanitizer (server-side)
+
+`apps/api/src/media/markdown-sanitizer.ts` provides two functions used by all Milestone 3 content-write paths:
+
+- `validateMarkdownBody(body: string): SanitizationResult` — inspects the raw Markdown body against a pattern list that blocks `<script>`, `<iframe>`, `<object>`, `<embed>`, `<form>`, `<input>`, `<button>`, inline event handlers (`on*=`), and dangerous URI schemes (`javascript:`, `vbscript:`, `data:`). Returns `{ safe: true }` or `{ safe: false, reason }`. Callers that persist body content **must** call this before writing and reject the request when `safe === false`.
+- `normalizeMarkdownBody(body: string): string` — normalizes line endings to LF and trims surrounding whitespace without altering content. Call after `validateMarkdownBody`.
+
+#### Web Components
+
+Three shared components live in `apps/web/components/` and are reusable across all Milestone 3 authoring surfaces:
+
+- `MarkdownEditor` (`markdown-editor.tsx`) — a fully controlled write/preview toggle. Props: `value`, `onChange`, `placeholder`, `rows`, `label`, `disabled`, `id`. Write mode shows a `<textarea>`; Preview mode renders via `MarkdownRenderer`. Owns no internal body state; callers decide when to persist.
+- `MarkdownRenderer` (`markdown-renderer.tsx`) — renders stored Markdown as sanitized HTML in the browser. Strips all raw HTML tags from the Markdown source before conversion (defence-in-depth on top of the server sanitizer), converts a safe Markdown subset (headings, bold, italic, inline code, fenced code blocks, blockquotes, unordered lists, links, images), and rejects `javascript:`, `vbscript:`, and `data:` URI schemes in link and image attributes. Uses `dangerouslySetInnerHTML` with a purpose-built converter; no external Markdown library is required.
+- `ImageUpload` (`image-upload.tsx`) — a shared image-upload widget. Props: `resourceType` (`"blog-post" | "standalone-page" | "blog-comment"`), `onUpload`, `onError`, `apiBasePath`, `disabled`, `label`. Posts `multipart/form-data` to `POST /api/media/upload?resourceType=<type>` with `credentials: "include"`. Handles `401` by surfacing an authentication-required message; delegates MIME and size enforcement to the server. Calls `onUpload(result)` on success so callers can insert the returned URL into the Markdown body.
+
+#### Security Contract Summary
+
+- Server-side MIME type and file-size validation in `MediaService` is authoritative. The `ImageUpload` component performs an early client-side `image/*` check only as a UX aid.
+- All Markdown body content stored through Milestone 3 write paths must be validated through `validateMarkdownBody` before persistence; content that fails validation must be rejected with a `400` response.
+- `MarkdownRenderer` applies a client-side HTML-strip pass before rendering so that any raw HTML that escaped the server sanitizer becomes a no-op in the browser.
+- Upload authorization relies entirely on the `sfus_session` cookie resolved by `AuthService.resolveSession()`; the upload endpoint has no separate capability token.
+
 ## Runtime Contract Overview
 
 Milestone 1 local development is hybrid by default:
