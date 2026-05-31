@@ -1,0 +1,56 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Implement blog comments for Milestone 3 subtask-4: public comment listing, authenticated member creation with image support, moderator/admin moderation flows, and shared sanitization/authorization reuse.
+
+Modified files:
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.service.test.ts
+- apps/web/app/blog/blog-client.ts
+- apps/web/app/blog/[slug]/page.tsx
+- apps/web/app/blog/blog.spec.ts
+
+Acceptance criteria to validate (from Planner):
+- Guests can read comments on published blog posts without authentication.
+- Authenticated members can create comments on eligible published posts, including milestone-scoped image usage.
+- Moderators and admins can moderate comments through explicit protected flows.
+- Comments cannot be used to expose unpublished parent content or bypass the shared sanitization and authorization model.
+
+Test file locations:
+- apps/api/src/blog/blog.service.test.ts — service-layer unit tests
+- apps/web/app/blog/blog.spec.ts — web source-contract tests
+
+Implementation context for testing:
+- BlogService.createComment(): validates the parent post is published (ForbiddenException if not), normalizes body with normalizeMarkdownBody(), validates with validateMarkdownBody() (BadRequestException on unsafe content including script/iframe/event-handler patterns).
+- BlogService.findAllComments(): returns all comment statuses for the moderator surface.
+- BlogService.moderateComment(): sets status, moderatedByUserId, and moderatedAt on status change.
+- BlogService.deleteComment(): removes the comment permanently (NotFoundException if not found).
+- BlogController GET /:postId/comments: no auth required; only visible comments returned; post must be published (NotFoundException if not published or not found).
+- BlogController POST /:postId/comments: session required (any role); delegates to createComment which enforces the published-post guard.
+- BlogController /moderation/comments/ routes: all call assertModerationAccess() which requires moderator or admin global role (ForbiddenException for user role).
+- blog-client.ts listComments(): uses no credentials (guest-accessible fetch); createComment(): credentials:include; moderationListComments/moderateCommentStatus/deleteComment: all credentials:include with /blog/moderation/comments/ path prefix.
+- Blog [slug]/page.tsx: fetches and renders visible comment list (guest-accessible); reads session independently to show/hide comment form; authenticated form uses MarkdownEditor and ImageUpload with resourceType='blog-comment'.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 -C <worktree-root> install --prefer-offline  (required once before tests)
+- npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/api run typecheck
+- npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/api run lint
+- npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/api run test
+- npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/web run typecheck
+- npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/web run lint
+- npx --yes pnpm@10.0.0 -C <worktree-root> --filter @sfus/web run test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-4
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
