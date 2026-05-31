@@ -223,6 +223,66 @@ All admin blog pages in `apps/web/app/admin/blog/` call `resolveProtectedSession
 
 `apps/web/app/blog/blog-client.ts` is the typed API client for all blog API calls. Public helpers (`listPublishedPosts`, `getPublishedPost`) fetch without credentials. Admin helpers (`adminListAllPosts`, `adminGetPost`, `adminCreatePost`, `adminUpdatePost`, `adminPublishPost`, `adminUnpublishPost`, `adminSchedulePost`, `adminDeletePost`) send `credentials: "include"` so the session cookie is forwarded.
 
+### Blog Comments (Milestone 3 Subtask 4)
+
+Milestone 3 Subtask 4 adds blog comments: publicly readable, authenticated-member writable, and moderator/admin moderated.
+
+#### Comment API Routes
+
+**Public route — no authentication required, visible comments only:**
+
+- `GET /api/blog/:postId/comments` — returns all comments with `status = "visible"` for a published post as `{ comments: BlogCommentDetail[] }`. Returns `404` when the post does not exist or is not published, preventing exposure of comments on non-public parent content.
+
+**Member route — requires an active `sfus_session` cookie (any authenticated role):**
+
+- `POST /api/blog/:postId/comments` — creates a comment on a published post. Body: `{ body: string, imageId?: string | null }`. The `body` field is run through `normalizeMarkdownBody` then `validateMarkdownBody` before persistence; a comment whose body fails sanitization is rejected with `400`. Returns `{ comment: BlogCommentDetail }` on success. Returns `401` when no session is present, `403` when the post is not published, and `404` when the post does not exist.
+
+**Moderation routes — require an active `sfus_session` cookie and the `moderator` or `admin` global role:**
+
+- `GET /api/blog/moderation/comments/:postId` — lists all comments for a post regardless of status as `{ comments: BlogCommentDetail[] }`. Returns `403` for non-moderator/admin callers.
+- `PATCH /api/blog/moderation/comments/:commentId/status` — updates a comment's status. Body: `{ status: "visible" | "hidden" | "removed" }`. Records `moderatedByUserId` and `moderatedAt` on every status change. Returns `{ comment: BlogCommentDetail }`.
+- `DELETE /api/blog/moderation/comments/:commentId` — permanently deletes a comment. Returns `{ deleted: true }`.
+
+All moderation routes return `401` for missing sessions and `403` for sessions whose global role is below `moderator`.
+
+#### Comment Authorization Model
+
+`BlogService.assertModerationAccess(actorGlobalRole: string)` is the single authorization gate for all moderation operations. It throws `ForbiddenException` for any role that is neither `moderator` nor `admin`. All moderation `BlogController` handlers call this method before performing any data operation.
+
+Comment creation does not require a minimum role beyond an active session, but the parent post must be in `published` status; attempting to comment on a draft, scheduled, or unpublished post returns `403`.
+
+#### Comment Sanitization
+
+All comment bodies pass through the shared Markdown sanitizer (`apps/api/src/media/markdown-sanitizer.ts`) before persistence:
+
+1. `normalizeMarkdownBody(input)` — normalizes line endings to LF and trims whitespace.
+2. `validateMarkdownBody(normalized)` — blocks `<script>`, `<iframe>`, `<object>`, `<embed>`, `<form>`, `<input>`, `<button>`, inline event handlers (`on*=`), and `javascript:` / `vbscript:` / `data:` URI schemes. Returns `{ safe: false, reason }` on violation.
+
+A comment body that fails either step is rejected with `400 Bad Request` before the record is written.
+
+#### Comment Response Shape
+
+`BlogCommentDetail`: `id`, `postId`, `authorUserId`, `body`, `status` (`"visible" | "hidden" | "removed"`), `moderatedByUserId`, `moderatedAt`, `createdAt`, `updatedAt`.
+
+#### Web — Public Comment Display and Member Submission
+
+`apps/web/app/blog/[slug]/page.tsx` now renders a comments section below each published blog post:
+
+- The comments list is fetched from `GET /api/blog/:id/comments` immediately after the post loads. A comment-load failure is silently ignored so the post remains readable.
+- Authenticated members see a comment form with a `MarkdownEditor` for the body and the shared `ImageUpload` component (`resourceType="blog-comment"`) to attach an optional image. The submitted image URL is inserted into the Markdown body before the form posts.
+- Unauthenticated visitors see a "Sign in to leave a comment" link that preserves the current URL as the `next` parameter.
+- Comment submission posts to `POST /api/blog/:id/comments` with the session cookie. The new comment is appended to the local list on success without reloading.
+
+#### blog-client.ts — Comment Helpers
+
+`blog-client.ts` now exports additional typed helpers:
+
+- `listComments(postId)` — public, no credentials. Fetches `GET /api/blog/:postId/comments`.
+- `createComment(postId, body, imageId?)` — member, sends `credentials: "include"`. Posts to `POST /api/blog/:postId/comments`.
+- `moderationListComments(postId)` — moderator/admin, sends `credentials: "include"`. Fetches `GET /api/blog/moderation/comments/:postId`.
+- `moderateCommentStatus(commentId, status)` — moderator/admin, sends `credentials: "include"`. Patches `PATCH /api/blog/moderation/comments/:commentId/status`.
+- `deleteComment(commentId)` — moderator/admin, sends `credentials: "include"`. Deletes `DELETE /api/blog/moderation/comments/:commentId`.
+
 ## Runtime Contract Overview
 
 Milestone 1 local development is hybrid by default:

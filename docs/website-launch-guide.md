@@ -165,7 +165,8 @@ Current user-facing website behavior is intentionally narrow:
 - authenticated profile route at `/profile` backed by `/api/auth/profile` and redirected to `/login?next=/profile` when unauthenticated
 - authenticated settings route at `/settings` backed by `/api/auth/settings` and redirected to `/login?next=/settings` when unauthenticated
 - username onboarding page at `/onboarding/username` that posts the final username and returns the user to `/app`
-- public blog index at `/blog` and individual post pages at `/blog/:slug` — no authentication required; only published posts are visible
+- public blog index at `/blog` and individual post pages at `/blog/:slug` — no authentication required; only published posts and their visible comments are shown
+- comment form on `/blog/:slug` — visible to authenticated members only; submits to `POST /api/blog/:postId/comments`
 - admin blog management at `/admin/blog`, `/admin/blog/new`, and `/admin/blog/:id/edit` — requires an active session with the global `admin` role
 
 ## Blog Content Management
@@ -196,9 +197,37 @@ Published posts appear immediately on the public `/blog` index.
 
 The **Schedule** control on the edit page accepts a local datetime (converted to ISO 8601 UTC before sending). The API rejects any datetime at or before the current server time with a `400` error. A scheduled post retains `scheduled` status and does not publish automatically; an admin must click **Publish now** when ready, or a future automation may call `POST /api/blog/admin/posts/:id/publish`.
 
+### Blog Comments
+
+#### Reading Comments (Public)
+
+Comments are publicly readable on any published blog post page. The comment list loads automatically at `/blog/:slug` after the post body renders. No session or credentials are required.
+
+#### Posting a Comment (Authenticated Members)
+
+Any authenticated user may leave a comment on a published post:
+
+1. Sign in at `http://localhost:3000/login`.
+2. Navigate to any published blog post at `http://localhost:3000/blog/<slug>`.
+3. A **Leave a comment** form appears below the post body. Write your comment using the Markdown editor.
+4. Optionally click **Attach image** to upload a supported image; the image URL is inserted into the comment body automatically.
+5. Click **Post comment**. The comment appears in the comments list immediately.
+
+Comments are rejected if the body is empty or contains unsafe HTML/script content (the API enforces the shared Markdown sanitizer).
+
+#### Moderating Comments (Moderator / Admin)
+
+Moderators and admins can manage comments through the API. These routes require an active `sfus_session` cookie with the global `moderator` or `admin` role:
+
+- `GET /api/blog/moderation/comments/:postId` — list all comments regardless of status.
+- `PATCH /api/blog/moderation/comments/:commentId/status` — set status to `visible`, `hidden`, or `removed`. Body: `{ "status": "hidden" }`.
+- `DELETE /api/blog/moderation/comments/:commentId` — permanently delete a comment.
+
+Only `visible` comments are returned by the public comment listing endpoint; `hidden` and `removed` comments are invisible to guests and regular members.
+
 ### Admin Blog API
 
-For direct API access (e.g. scripting or integration tests), the admin blog surface is at `/api/blog/admin/posts`. All requests must include the `sfus_session` cookie. See `docs/README.md` under "Blog Publishing Lifecycle" for the full route list and response shapes.
+For direct API access (e.g. scripting or integration tests), the admin blog surface is at `/api/blog/admin/posts`. All requests must include the `sfus_session` cookie. See `docs/README.md` under "Blog Publishing Lifecycle" and "Blog Comments" for the full route list and response shapes.
 
 ## Run The Database Migration
 
