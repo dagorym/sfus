@@ -165,6 +165,40 @@ Current user-facing website behavior is intentionally narrow:
 - authenticated profile route at `/profile` backed by `/api/auth/profile` and redirected to `/login?next=/profile` when unauthenticated
 - authenticated settings route at `/settings` backed by `/api/auth/settings` and redirected to `/login?next=/settings` when unauthenticated
 - username onboarding page at `/onboarding/username` that posts the final username and returns the user to `/app`
+- public blog index at `/blog` and individual post pages at `/blog/:slug` — no authentication required; only published posts are visible
+- admin blog management at `/admin/blog`, `/admin/blog/new`, and `/admin/blog/:id/edit` — requires an active session with the global `admin` role
+
+## Blog Content Management
+
+### Guest Access
+
+Guests and unauthenticated users can browse the public blog at:
+
+- `http://localhost:3000/blog` — lists all published posts
+- `http://localhost:3000/blog/<slug>` — reads a single published post
+
+Draft, scheduled, and unpublished posts are never returned by the public API endpoints. A request for a non-published slug returns a "Post not found" message.
+
+### Publishing a Blog Post (Admin)
+
+To create and publish a blog post, you need an account whose global role is `admin`.
+
+1. Sign in at `http://localhost:3000/login`.
+2. Navigate to `http://localhost:3000/admin/blog`.
+3. Click **New post** to open the creation form.
+4. Fill in Title, Slug (lowercase hyphenated, e.g. `my-first-post`), optional Tags (comma-separated), and Body (Markdown).
+5. Click **Create draft**. The new post is created with `draft` status and the editor opens.
+6. In the editor, click **Publish now** to publish immediately, or enter a future date/time in the schedule field and click **Schedule** to set `scheduled` status.
+
+Published posts appear immediately on the public `/blog` index.
+
+### Scheduling a Blog Post
+
+The **Schedule** control on the edit page accepts a local datetime (converted to ISO 8601 UTC before sending). The API rejects any datetime at or before the current server time with a `400` error. A scheduled post retains `scheduled` status and does not publish automatically; an admin must click **Publish now** when ready, or a future automation may call `POST /api/blog/admin/posts/:id/publish`.
+
+### Admin Blog API
+
+For direct API access (e.g. scripting or integration tests), the admin blog surface is at `/api/blog/admin/posts`. All requests must include the `sfus_session` cookie. See `docs/README.md` under "Blog Publishing Lifecycle" for the full route list and response shapes.
 
 ## Run The Database Migration
 

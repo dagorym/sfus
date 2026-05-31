@@ -150,6 +150,79 @@ Three shared components live in `apps/web/components/` and are reusable across a
 - `MarkdownRenderer` applies a client-side HTML-strip pass before rendering so that any raw HTML that escaped the server sanitizer becomes a no-op in the browser.
 - Upload authorization relies entirely on the `sfus_session` cookie resolved by `AuthService.resolveSession()`; the upload endpoint has no separate capability token.
 
+### Blog Publishing Lifecycle (Milestone 3 Subtask 3)
+
+Milestone 3 Subtask 3 adds the full blog publishing lifecycle: a `BlogController` with separated public and admin route surfaces, a complete `BlogService` with status-transition methods, and the corresponding admin and public web pages.
+
+#### BlogModule API Routes
+
+`BlogController` exposes two distinct access surfaces under `/api/blog`:
+
+**Public routes — no authentication required, published content only:**
+
+- `GET /api/blog` — returns all published posts as `{ posts: BlogPostSummary[] }` ordered by `publishedAt` descending. Draft, scheduled, and unpublished posts are never included.
+- `GET /api/blog/:slug` — returns a single published post by slug as `{ post: BlogPostDetail }`. Returns `404` when the post does not exist or is not published, so draft and scheduled content is never exposed through this route.
+
+**Admin management routes — require an active `sfus_session` cookie and the global `admin` role:**
+
+- `GET /api/blog/admin/posts` — lists all posts regardless of status as `{ posts: BlogPostDetail[] }`.
+- `GET /api/blog/admin/posts/:id` — fetches a single post by UUID.
+- `POST /api/blog/admin/posts` — creates a new post in `draft` status. Body: `{ title, slug, body, featuredImageId?, tags? }`.
+- `PATCH /api/blog/admin/posts/:id` — updates post fields. All fields are optional; only the supplied fields are changed.
+- `POST /api/blog/admin/posts/:id/publish` — transitions a post to `published` status and records the current UTC timestamp in `publishedAt`.
+- `POST /api/blog/admin/posts/:id/unpublish` — transitions a post to `unpublished` status.
+- `POST /api/blog/admin/posts/:id/schedule` — sets the post status to `scheduled` and records a future UTC datetime in `scheduledAt`. Body: `{ scheduledAt: "<ISO 8601 UTC string>" }`. Rejects past datetimes with `400`.
+- `DELETE /api/blog/admin/posts/:id` — permanently removes the post.
+
+All admin routes return `401` when no session is present and `403` when the session's global role is not `admin`. Authorization is enforced by `BlogService.assertAdminManagementAccess(session.user.globalRole)` called at the top of every admin handler.
+
+#### Authorization Model
+
+`BlogService.assertAdminManagementAccess(actorGlobalRole: string)` is the single reusable authorization gate for all blog management operations. It delegates to `AuthorizationService.hasGlobalRole(actorGlobalRole, "admin")` and throws `ForbiddenException` for any role below admin. All admin `BlogController` handlers call this method before performing any data operation; no admin action is reachable without it. This pattern avoids inline role-checks scattered across handlers.
+
+#### Scheduling Contract
+
+- The `schedule` method rejects any `scheduledAt` value at or before the current time (`Date.now()`) with a `400 Bad Request`.
+- Setting a post to `scheduled` status does not automatically publish it; no background scheduler exists in this subtask. A scheduled post remains in `scheduled` status until an admin calls the publish endpoint manually or a future automation does so.
+- The `publish` method always records the actual publish timestamp (`new Date()`) in `publishedAt` regardless of any previously set `scheduledAt` value, and clears `scheduledAt` to `null`.
+
+#### Post Status Lifecycle
+
+```
+draft → published (publish)
+draft → scheduled (schedule)
+scheduled → published (publish)
+scheduled → unpublished (unpublish)
+published → unpublished (unpublish)
+unpublished → published (publish)
+unpublished → scheduled (schedule)
+```
+
+All transitions are permissive at the service layer: any status can be moved to any other status by calling the appropriate method. The public `GET /api/blog` and `GET /api/blog/:slug` routes filter exclusively on `status = "published"` regardless of how the record was last modified.
+
+#### Response Shapes
+
+`BlogPostSummary` (public list): `id`, `title`, `slug`, `status`, `publishedAt`, `scheduledAt`, `featuredImageId`, `tags`, `createdAt`.
+
+`BlogPostDetail` (admin or single-post views): all summary fields plus `body` and `authorUserId` and `updatedAt`.
+
+#### Web Routes — Public Blog
+
+- `/blog` — public blog index (`apps/web/app/blog/page.tsx`). No session required. Lists all published posts fetched from `GET /api/blog`. Each post links to `/blog/<slug>`.
+- `/blog/:slug` — single blog post view (`apps/web/app/blog/[slug]/page.tsx`). No session required. Fetches `GET /api/blog/<slug>` and renders the post body via `MarkdownRenderer`. Displays a "Post not found" message when the API returns `null` (post missing or not published).
+
+#### Web Routes — Admin Blog Management
+
+All admin blog pages in `apps/web/app/admin/blog/` call `resolveProtectedSession()` followed by `hasGlobalRole(session.user, "admin")` on mount and redirect unauthenticated users to `/login?next=<current-route>`. A non-admin authenticated session shows an "Admin access required" error in place of the management UI.
+
+- `/admin/blog` — admin blog list (`apps/web/app/admin/blog/page.tsx`). Shows all posts (all statuses) with inline Publish / Unpublish / Delete actions and a "New post" link to `/admin/blog/new`.
+- `/admin/blog/new` — create a new draft post (`apps/web/app/admin/blog/new/page.tsx`). Form fields: Title, Slug, Tags (comma-separated), Body (via `MarkdownEditor`). On submit, calls `adminCreatePost()` and redirects to the edit page for the newly created post.
+- `/admin/blog/:id/edit` — edit an existing post (`apps/web/app/admin/blog/[id]/edit/page.tsx`). Shows the current status and publish/schedule controls at the top, followed by the content editor form. Controls visible by status: unpublished/draft/scheduled posts show "Publish now" and a datetime picker for scheduling; published posts show "Unpublish". Saving the content form calls `adminUpdatePost()`; lifecycle transitions call the corresponding `adminPublishPost`, `adminUnpublishPost`, or `adminSchedulePost` helpers from `blog-client.ts`.
+
+#### blog-client.ts
+
+`apps/web/app/blog/blog-client.ts` is the typed API client for all blog API calls. Public helpers (`listPublishedPosts`, `getPublishedPost`) fetch without credentials. Admin helpers (`adminListAllPosts`, `adminGetPost`, `adminCreatePost`, `adminUpdatePost`, `adminPublishPost`, `adminUnpublishPost`, `adminSchedulePost`, `adminDeletePost`) send `credentials: "include"` so the session cookie is forwarded.
+
 ## Runtime Contract Overview
 
 Milestone 1 local development is hybrid by default:
