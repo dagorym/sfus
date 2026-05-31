@@ -202,6 +202,15 @@ npx --yes pnpm@10.0.0 test
 
 Those commands are the same command family used by `cicd/config/validation-config.yml`.
 
+To run a single Vitest file, filter to the owning workspace instead of the root `test` script:
+
+```bash
+# API
+npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/health/health.controller.test.ts
+# Web
+npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts
+```
+
 ### 2. Full-stack smoke validation
 
 This is the fastest way to verify that the built website container path works end to end:
