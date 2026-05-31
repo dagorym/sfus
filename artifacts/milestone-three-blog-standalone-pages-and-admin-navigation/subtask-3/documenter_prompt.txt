@@ -1,0 +1,71 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Implement blog publishing lifecycle and public blog routes for Milestone 3.
+
+Acceptance criteria validated:
+- Admin users can manage blog posts end to end, including scheduled publishing and later publication-state changes.
+- Guests can browse and read only published blog content through public routes.
+- Draft and scheduled content remain protected from unauthorized public access.
+- Blog APIs and routes use reusable authorization checks instead of bespoke inline gating.
+
+Implementation branch or worktree context:
+- Implementation branch: ms3-claude-subtask-3-implementer-20260531 (commit c8ad45b)
+- Tester worktree: /home/tstephen/repos/worktrees/ms3-subtask-3-tester-20260531 on branch ms3-subtask-3-tester-20260531
+- BlogService: assertAdminManagementAccess() delegates to AuthorizationService.hasGlobalRole(admin) -- single reusable check for all admin operations
+- BlogController: public GET /blog + GET /blog/:slug (published-only); admin routes under /blog/admin/posts/** all call assertAdminManagementAccess
+- Web blog-client.ts: listPublishedPosts/getPublishedPost (no credentials) + 7 admin helpers (credentials:include)
+- Admin pages: all use resolveProtectedSession + hasGlobalRole(admin) before loading data
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/app.module.ts
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.module.ts
+- apps/api/src/blog/blog.service.test.ts
+- apps/api/src/blog/blog.service.ts
+- apps/web/app/admin/blog/[id]/edit/page.tsx
+- apps/web/app/admin/blog/new/page.tsx
+- apps/web/app/admin/blog/page.tsx
+- apps/web/app/blog/[slug]/page.tsx
+- apps/web/app/blog/blog-client.ts
+- apps/web/app/blog/blog.spec.ts
+- apps/web/app/blog/page.tsx
+
+Test commit:
+- 73081cb
+
+Commands executed:
+- vitest run --dir /home/tstephen/repos/worktrees/ms3-subtask-3-tester-20260531 (184 tests pass)
+- tsc -p apps/api/tsconfig.json --noEmit (clean)
+- tsc -p apps/web/tsconfig.json --noEmit (clean)
+- eslint apps/api/src/**/*.ts --max-warnings=0 (clean)
+- eslint apps/web/app/blog apps/web/app/admin/blog --max-warnings=0 (clean)
+
+Final test outcomes:
+- AC1 PASS: Admin management end to end -- resolveProtectedSession + hasGlobalRole admin on all admin pages; all 7 admin client functions confirmed; BlogService create/update/publish/unpublish/schedule/delete lifecycle tested
+- AC2 PASS: Guests see only published content -- listPublishedPosts (no credentials) and getPublishedPost used on public pages; findPublished/findPublishedBySlug filter status=published only
+- AC3 PASS: Draft and scheduled content protected -- public detail page uses getPublishedPost only; null shown as not-yet-published; all admin pages guarded by resolveProtectedSession + hasGlobalRole(admin)
+- AC4 PASS: Reusable authorization -- assertAdminManagementAccess() is single check called at start of every admin controller action; delegates to AuthorizationService.hasGlobalRole; no bespoke inline gating
+
+Documentation context:
+- New public blog API: GET /api/blog (published listing), GET /api/blog/:slug (published detail by slug)
+- New admin blog API: GET/POST /api/blog/admin/posts, GET/PATCH/DELETE /api/blog/admin/posts/:id, POST /api/blog/admin/posts/:id/{publish,unpublish,schedule}
+- Authorization: BlogService.assertAdminManagementAccess() enforces global admin role via AuthorizationService.hasGlobalRole; called at start of every admin controller action
+- Blog lifecycle: draft -> published (immediately via /publish) or draft -> scheduled (future date via /schedule); unpublish -> status=unpublished
+- New web routes: /blog (public listing), /blog/[slug] (public detail), /admin/blog (list+actions), /admin/blog/new (create), /admin/blog/[id]/edit (edit+publish+schedule)
+- Web API client: apps/web/app/blog/blog-client.ts -- typed fetch wrappers for all blog endpoints
+
+Plan and diff context:
+- Plan: plans/milestone-three-blog-standalone-pages-and-admin-navigation-plan.md, subtask 3
+- Base for comparison: ms3-claude branch (commit f037ade); implementer changes on ms3-claude-subtask-3-implementer-20260531 (c8ad45b)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
