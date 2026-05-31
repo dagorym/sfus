@@ -1,0 +1,60 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Implement shared Milestone 3 authoring workflow: Markdown sanitizer, protected image upload API, shared editor and renderer web components reusable across blog posts, standalone pages, and blog comments.
+
+Modified files:
+- apps/api/src/app.module.ts
+- apps/api/src/media/media.module.ts
+- apps/api/src/media/media.service.ts
+- apps/api/src/media/media.controller.ts
+- apps/api/src/media/markdown-sanitizer.ts
+- apps/api/src/media/markdown-sanitizer.test.ts
+- apps/api/src/media/media.service.test.ts
+- apps/web/components/markdown-renderer.tsx
+- apps/web/components/markdown-editor.tsx
+- apps/web/components/markdown-editor.module.css
+- apps/web/components/image-upload.tsx
+- apps/web/components/image-upload.module.css
+
+Acceptance criteria to validate (from Planner):
+- Authored content is stored as Markdown and rendered through a sanitization path that blocks unsafe HTML or script execution.
+- Authorized users can upload allowed images and use them from blog posts, standalone pages, and blog comments.
+- Unauthorized users cannot access protected upload flows, and upload validation enforces the configured MIME and size rules.
+- The editor/media workflow is reusable across Milestone 3 content types rather than duplicated per screen.
+
+Create test files in:
+- apps/api/src/**/*.test.ts (new tests: markdown-sanitizer.test.ts, media.service.test.ts)
+- apps/web/**/*.spec.ts (tester-owned integration tests for editor and upload components)
+
+Implementation context for testing:
+- MarkdownSanitizer: apps/api/src/media/markdown-sanitizer.ts — validateMarkdownBody() rejects unsafe HTML; normalizeMarkdownBody() normalizes line endings
+- MediaService: apps/api/src/media/media.service.ts — assertValidMimeType/assertValidFileSize/assertValidResourceType called before write; uploadImage() stores file and DB record
+- MediaController: apps/api/src/media/media.controller.ts — POST /api/media/upload calls authService.resolveSession() for session auth, then delegates to MediaService
+- MediaModule: converted to dynamic module with MediaModule.register(environment); imports AuthModule.register(environment) for AuthService injection
+- AppModule: updated to use MediaModule.register(environment) instead of MediaModule
+- MarkdownRenderer: apps/web/components/markdown-renderer.tsx — strips raw HTML, converts Markdown to safe HTML subset, rejects javascript:/vbscript:/data: URLs
+- MarkdownEditor: apps/web/components/markdown-editor.tsx — Write/Preview tab toggle over single controlled Markdown value; uses MarkdownRenderer for preview
+- ImageUpload: apps/web/components/image-upload.tsx — multipart POST to /api/media/upload?resourceType=<type>; handles 401 and error responses
+
+Suggested test command(s):
+- pnpm --filter @sfus/api typecheck
+- pnpm --filter @sfus/api lint
+- pnpm --filter @sfus/api test
+- pnpm --filter @sfus/web typecheck
+- pnpm --filter @sfus/web lint
+- pnpm --filter @sfus/web test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
