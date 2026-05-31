@@ -1,0 +1,76 @@
+Your role is 'verifier'. Your task is as follows:
+
+Task summary:
+- Implement shared Milestone 3 authoring workflow: Markdown sanitizer, protected image upload API, shared editor and renderer web components reusable across blog posts, standalone pages, and blog comments.
+
+Acceptance criteria to verify:
+- AC1: Authored content is stored as Markdown and rendered through a sanitization path that blocks unsafe HTML or script execution.
+- AC2: Authorized users can upload allowed images and use them from blog posts, standalone pages, and blog comments.
+- AC3: Unauthorized users cannot access protected upload flows, and upload validation enforces the configured MIME and size rules.
+- AC4: The editor/media workflow is reusable across Milestone 3 content types rather than duplicated per screen.
+
+Implementation branch or worktree context:
+- Implementer commit: 8a17e49 on branch ms3-subtask-2-tester-20260531
+- Tester commit: 0dd6f6d on branch ms3-subtask-2-tester-20260531
+- Documenter commit: ac9d444 on branch ms3-subtask-2-documenter-20260531
+- Base branch: ms3-claude
+- Worktree: /home/tstephen/repos/worktrees/ms3-subtask-2-documenter-20260531
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/app.module.ts
+- apps/api/src/media/media.module.ts
+- apps/api/src/media/media.service.ts
+- apps/api/src/media/media.controller.ts
+- apps/api/src/media/markdown-sanitizer.ts
+- apps/api/src/media/markdown-sanitizer.test.ts
+- apps/api/src/media/media.service.test.ts
+- apps/web/components/markdown-renderer.tsx
+- apps/web/components/markdown-editor.tsx
+- apps/web/components/markdown-editor.module.css
+- apps/web/components/image-upload.tsx
+- apps/web/components/image-upload.module.css
+- apps/web/components/authoring-components.spec.ts
+- docs/README.md
+
+Commands executed by Tester:
+- pnpm --filter @sfus/api typecheck
+- pnpm --filter @sfus/api lint
+- pnpm --filter @sfus/api test
+- pnpm --filter @sfus/web typecheck
+- pnpm --filter @sfus/web lint
+- pnpm --filter @sfus/web test
+
+Final test outcomes:
+- API tests: 108 passed / 0 failed
+- Web tests: 39 passed / 0 failed
+- Total: 147 passed / 0 failed
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-three-blog-standalone-pages-and-admin-navigation-plan.md
+- Subtask 2 scope: shared Markdown sanitizer, protected image upload API, and shared MarkdownEditor/MarkdownRenderer/ImageUpload web components.
+- Documentation Impact (plan): document image-upload constraints, sanitized-rendering expectations, and shared-editor behavior in architecture and launch docs.
+- Infer missing plan details, convention-file guidance, or artifact-path context from repository context when safe.
+
+Convention-file guidance:
+- docs/README.md is the canonical home for architecture, API contract, module descriptions, and env contract facts.
+- docs/website-launch-guide.md covers runtime URLs, env files, and test commands.
+- In-code documentation (function comments, docblocks, file headers) is required by repository guidance for changed product files.
+
+Updated documentation files:
+- docs/README.md (new "Shared Authoring Workflow" subsection added under Milestone 3 Content Foundation)
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-2
+
+Startup behavior:
+- Begin verification work immediately. Do not stop after activation, scope restatement, or diff inspection when blocking inputs are present.
+- Run myteam get role verifier before any other action.
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Verify that each acceptance criterion is met by the actual implementation and test coverage.
+- Verify that the documentation accurately reflects the implemented behavior.
+- Infer missing convention-file, plan-source, or artifact-path details from repository context when evidence is sufficient.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
