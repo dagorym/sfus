@@ -1,0 +1,75 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Validate standalone pages management for Milestone 3 Subtask 5: admin CRUD/publish/unpublish flows, durable revision history with restore, and public routing for published pages at /pages/:slug. Confirm no block-builder, wiki hierarchy, or documents behavior introduced.
+
+Acceptance criteria validated:
+- Admin users can manage standalone pages end to end through authenticated admin screens
+- Every standalone-page edit creates durable revision history with metadata to inspect and restore prior versions
+- Guests can read only published standalone pages through stable public routes
+- Implementation does not introduce block-builder, wiki hierarchy, or broader documents/wiki behavior
+
+Implementation branch or worktree context:
+- Implementer branch: ms3-claude-subtask-5-implementer-20260531 (impl commit e5bd9fd)
+- Tester branch: ms3-claude-subtask-5-tester-20260531 (test commit 5afa7b7, branched from implementer)
+- PagesService: create/update/publish/unpublish/restoreRevision/findAll/findById/findPublished/findPublishedBySlug. Admin-only access enforced via assertAdminManagementAccess().
+- PagesController: admin routes at /pages/admin/pages (list, get, create, update, publish, unpublish, list-revisions, restore-revision). Public GET /pages/:slug returns 404 for non-published.
+- AppModule: PagesModule.register(environment) replaces bare PagesModule import.
+- pages-client.ts: typed helpers getPublishedPage (public), adminListAllPages/adminGetPage/adminCreatePage/adminUpdatePage/adminPublishPage/adminUnpublishPage/adminListRevisions/adminRestoreRevision (all credentials:include).
+- Web admin pages: /admin/pages, /admin/pages/new, /admin/pages/[id]/edit — all use resolveProtectedSession + hasGlobalRole('admin').
+- Public /pages/[slug]/page.tsx: client component using getPublishedPage, renders 404 state when null, renders body via MarkdownRenderer.
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/app.module.ts
+- apps/api/src/pages/pages.controller.ts
+- apps/api/src/pages/pages.module.ts
+- apps/api/src/pages/pages.service.test.ts
+- apps/api/src/pages/pages.service.ts
+- apps/web/app/admin/pages/[id]/edit/page.tsx
+- apps/web/app/admin/pages/new/page.tsx
+- apps/web/app/admin/pages/page.tsx
+- apps/web/app/pages/[slug]/page.tsx
+- apps/web/app/pages/pages-client.ts
+- apps/web/app/pages/pages.spec.ts
+
+Test commit:
+- 5afa7b7
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir <worktree-root> lint
+- npx --yes pnpm@10.0.0 --dir <worktree-root> typecheck
+- npx --yes pnpm@10.0.0 --dir <worktree-root> test
+
+Final test outcomes:
+- All 259 tests passed (157 API, 102 web). 0 failures.
+- Lint clean: 0 warnings/errors across API and web.
+- Typecheck clean: no TypeScript errors.
+- pages.service.test.ts: 23 tests pass (19 existing + 4 new update() tests).
+- pages.spec.ts: 27 new source-contract tests pass covering admin CRUD, revision history, public route, and AC4 scope-negative guards.
+- AC1 (admin manage pages end-to-end): covered by assertAdminManagementAccess (5 tests), create (3 tests), publish (2 tests), unpublish (2 tests), update (4 new tests), plus web admin page source-contract tests (18 tests).
+- AC2 (durable revision history with metadata): covered by restoreRevision (3 tests), findRevisions (1 test), update creates new revision (1 new test), plus web revision-panel source-contract tests (3 tests).
+- AC3 (guests read only published pages): covered by findPublished (1 test), findPublishedBySlug (2 tests), plus web public page source-contract tests (4 tests).
+- AC4 (no block-builder/wiki behavior): covered by scope-negative assertions in all 4 admin web page spec groups.
+
+Documentation context:
+- docs/README.md likely needs a section or entry for the standalone pages subsystem (routes, entities, service, controller).
+- New API routes: GET /pages/:slug (public), GET/POST/PATCH /pages/admin/pages/... (admin-only). These should be documented.
+- New web routes: /pages/:slug (public), /admin/pages, /admin/pages/new, /admin/pages/[id]/edit.
+- Revision history is durable — each create/update/restore creates a new PageRevisionEntity. Documenter should note audit-trail intent.
+- No block-builder, wiki hierarchy, or documents feature set is present. Documenter should explicitly note the approved scope boundary.
+- StandalonePageEntity and PageRevisionEntity are new database entities from the milestone-three content foundation migration.
+
+Plan and diff context:
+- Plan: plans/milestone-three-blog-standalone-pages-and-admin-navigation-plan.md — standalone pages is subtask 5.
+- Comparison base: ms3-claude (coordination branch for milestone 3). Diff ms3-claude-subtask-5-tester-20260531 against ms3-claude to see all subtask-5 changes.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
