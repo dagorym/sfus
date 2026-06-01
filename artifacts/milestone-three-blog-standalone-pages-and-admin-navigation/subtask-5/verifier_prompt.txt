@@ -1,0 +1,68 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Document standalone pages implementation for Milestone 3 Subtask 5: admin CRUD operations for standalone pages, revision history and restore capability, public routing for published pages at /pages/:slug, and explicit scope boundary confirming no block-builder or wiki features were introduced.
+
+Acceptance criteria to verify:
+- Admin users can manage standalone pages end to end through authenticated admin screens.
+- Every standalone-page edit creates durable revision history with enough metadata to inspect and restore prior versions.
+- Guests can read only published standalone pages through stable public routes.
+- The implementation does not introduce a block-builder UI, wiki hierarchy, or broader documents/wiki behavior.
+
+Implementation branch or worktree context:
+- Base branch: ms3-claude
+- Tester branch: ms3-claude-subtask-5-tester-20260531
+- Documenter branch: ms3-subtask-5-documenter-20260531
+- Plan: plans/milestone-three-blog-standalone-pages-and-admin-navigation-plan.md (Subtask 5)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/app.module.ts
+- apps/api/src/pages/pages.controller.ts
+- apps/api/src/pages/pages.module.ts
+- apps/api/src/pages/pages.service.ts
+- apps/api/src/pages/pages.service.test.ts
+- apps/web/app/admin/pages/[id]/edit/page.tsx
+- apps/web/app/admin/pages/new/page.tsx
+- apps/web/app/admin/pages/page.tsx
+- apps/web/app/pages/[slug]/page.tsx
+- apps/web/app/pages/pages-client.ts
+- apps/web/app/pages/pages.spec.ts
+- docs/README.md
+- docs/website-launch-guide.md
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir <worktree-root> lint
+- npx --yes pnpm@10.0.0 --dir <worktree-root> typecheck
+- npx --yes pnpm@10.0.0 --dir <worktree-root> test
+
+Final test outcomes:
+- 259 tests passed (157 API, 102 web), 0 failures
+- Lint clean: 0 warnings/errors
+- Typecheck clean: no TypeScript errors
+- pages.service.test.ts: 23 tests pass (19 existing + 4 new update() tests)
+- pages.spec.ts: 27 new source-contract tests covering admin CRUD, revision history, public route, and AC4 scope-negative guards
+
+Plan or evaluation context guidance:
+- Plan path: plans/milestone-three-blog-standalone-pages-and-admin-navigation-plan.md
+- Subtask 5 scope: versioned standalone page management and public page routing
+- Documentation impact hint: update route inventory, content-management architecture notes, and launch docs for standalone-page administration and revision behavior
+
+Convention-file guidance:
+- Architecture and API contracts live in docs/README.md
+- Operational launch, routes, and test commands live in docs/website-launch-guide.md
+- Minimal, localized edits preferred over broad rewrites
+
+Updated documentation files:
+- docs/README.md
+- docs/website-launch-guide.md
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-5
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
