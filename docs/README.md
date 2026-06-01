@@ -359,6 +359,98 @@ All admin pages pages in `apps/web/app/admin/pages/` call `resolveProtectedSessi
 
 Standalone pages in Milestone 3 are managed site pages (About, Rules, Contact, and similar). They do not introduce a block-builder UI, wiki hierarchy, document namespaces, or collaborative wiki workflows. Those features are deferred to Milestone 5.
 
+### Admin Navigation (Milestone 3 Subtask 6)
+
+Milestone 3 Subtask 6 adds a configurable admin navigation system. Site navigation items are managed through an API-backed CRUD interface and rendered dynamically in the public shell, replacing the previous hardcoded nav links.
+
+#### NavigationModule API Routes
+
+`NavigationController` exposes two distinct access surfaces under `/api/navigation`:
+
+**Public read routes — no authentication required for the public surface:**
+
+- `GET /api/navigation/items/public` — returns all active navigation items with `visibility = "public"`, ordered by `sortOrder` ascending. Returns `{ items: NavigationItemDetail[] }` where each top-level item includes its active children in a `children` array. Safe for guest access.
+- `GET /api/navigation/items/authenticated` — returns all active navigation items (both `public` and `authenticated` visibility), ordered by `sortOrder` ascending, with one level of active children. For use when a session is present.
+
+**Admin management routes — require an active `sfus_session` cookie and the global `admin` role:**
+
+- `GET /api/navigation/admin` — lists all navigation items regardless of visibility or active status as `{ items: NavigationItemDetail[] }`. Top-level items ordered by `sortOrder`; each includes its children.
+- `POST /api/navigation/admin` — creates a new navigation item. Body: `{ label, url, linkType?, visibility?, sortOrder?, parentId? }`. Defaults: `linkType = "internal"`, `visibility = "public"`, `sortOrder = 0`, `isActive = true`. Returns `{ item: NavigationItemDetail }` with HTTP 201.
+- `PATCH /api/navigation/admin/:id` — updates a navigation item. All fields optional. Returns `{ item: NavigationItemDetail }`.
+- `DELETE /api/navigation/admin/:id` — deletes a navigation item. Child items are removed via database CASCADE. Returns `{ deleted: true }`.
+
+All admin routes return `401` when no session is present and `403` when the session's global role is not `admin`. Authorization is enforced by `NavigationService.assertAdminManagementAccess(session.user.globalRole)` called at the top of every admin handler.
+
+#### Authorization Model
+
+`NavigationService.assertAdminManagementAccess(actorGlobalRole: string)` is the single authorization gate for all navigation management operations. It delegates to `AuthorizationService.hasGlobalRole(actorGlobalRole, "admin")` and throws `ForbiddenException` for any role below admin. All admin `NavigationController` handlers call this method before performing any data operation.
+
+#### 1-Level Nesting Constraint
+
+Navigation supports exactly one level of nesting. A child item's `parentId` must point to a top-level item (one whose own `parentId` is `null`). Attempting to set a grandparent relationship (nesting a child under another child) is rejected with `400 Bad Request`. Additionally, a top-level item that already has children cannot be reclassified as a child item without first reassigning or deleting its children; this too is rejected with `400 Bad Request`.
+
+#### `navigation_items` Table Schema
+
+Migration `1748736000001-navigation-items.ts` adds the `navigation_items` table:
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `char(36)` | UUID primary key |
+| `parent_id` | `char(36)` | Nullable FK to `navigation_items.id` with `ON DELETE CASCADE` |
+| `label` | `varchar(128)` | Display label; required, max 128 characters |
+| `link_type` | `varchar(16)` | `"internal"` or `"external"`; default `"internal"` |
+| `url` | `varchar(512)` | Destination URL; required, max 512 characters |
+| `visibility` | `varchar(32)` | `"public"` or `"authenticated"`; default `"public"` |
+| `sort_order` | `smallint unsigned` | Ascending display order; default `0` |
+| `is_active` | `tinyint(1)` | `1 = active`, `0 = inactive`; default `1` |
+| `created_at` | `datetime(3)` | Set at insert |
+| `updated_at` | `datetime(3)` | Auto-updated on change |
+
+A composite index `idx_navigation_items_parent_sort` on `(parent_id, sort_order)` supports the ordered tree queries. The self-referential FK enforces cascade deletion of children when a parent is deleted.
+
+#### Response Shape
+
+`NavigationItemDetail`:
+
+```
+{
+  id: string,
+  parentId: string | null,
+  label: string,
+  linkType: "internal" | "external",
+  url: string,
+  visibility: "public" | "authenticated",
+  sortOrder: number,
+  isActive: boolean,
+  children: NavigationItemDetail[],
+  createdAt: string,   // ISO 8601
+  updatedAt: string    // ISO 8601
+}
+```
+
+Top-level items always include a `children` array (empty when no children exist). Child items are included in the parent's `children` field; they are not returned as separate top-level entries.
+
+#### Web Routes — Admin Navigation Management
+
+`/admin/navigation` — admin navigation management page (`apps/web/app/admin/navigation/page.tsx`). Requires an active session with the global `admin` role. Redirects unauthenticated users to `/login?next=/admin/navigation`. Non-admin sessions see an "Admin access required" error.
+
+Features available from the admin navigation page:
+- **Create** — form with Label, URL, Link Type (`internal`/`external`), Visibility (`public`/`authenticated only`), Sort Order, and optional Parent selector (limited to top-level items). Submits `POST /api/navigation/admin`.
+- **Toggle visibility** — "Show"/"Hide" buttons toggle `isActive` per item via `PATCH /api/navigation/admin/:id`. Applies to both top-level and child items.
+- **Reorder** — up/down arrow buttons swap `sortOrder` values between adjacent siblings within the same level, via two concurrent `PATCH` calls.
+- **Delete** — confirms with a browser dialog before calling `DELETE /api/navigation/admin/:id`. Cascade removes children automatically.
+
+#### Dynamic Navigation Shell
+
+`apps/web/components/navigation.tsx` renders the public shell navigation bar dynamically. On each route change it fetches navigation items from the API based on the current session state:
+
+- Guest sessions call `GET /api/navigation/items/public`.
+- Authenticated sessions call `GET /api/navigation/items/authenticated`.
+
+A fetch error falls back silently to an empty dynamic items list so the shell still renders. After dynamic items, the shell always appends the fixed auth-state links (Sign in / Register for guests; App / Profile / Settings for authenticated users).
+
+`apps/web/app/navigation/navigation-client.ts` is the typed API client for navigation calls. It exports `adminListNavItems`, `adminCreateNavItem`, `adminUpdateNavItem`, and `adminDeleteNavItem` (all admin, `credentials: "include"`) as well as the `NavigationItemDetail`, `CreateNavigationItemInput`, and `UpdateNavigationItemInput` TypeScript interfaces.
+
 ## Runtime Contract Overview
 
 Milestone 1 local development is hybrid by default:

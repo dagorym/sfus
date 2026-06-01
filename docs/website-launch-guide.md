@@ -170,6 +170,7 @@ Current user-facing website behavior is intentionally narrow:
 - admin blog management at `/admin/blog`, `/admin/blog/new`, and `/admin/blog/:id/edit` — requires an active session with the global `admin` role
 - public standalone page view at `/pages/:slug` — no authentication required; only published pages are shown
 - admin standalone page management at `/admin/pages`, `/admin/pages/new`, and `/admin/pages/:id/edit` — requires an active session with the global `admin` role
+- admin navigation management at `/admin/navigation` — requires an active session with the global `admin` role; create, toggle, reorder, and delete navigation items
 
 ## Blog Content Management
 
@@ -266,6 +267,38 @@ Every save on the edit page creates a new revision. The **Revision History** pan
 ### Admin Pages API
 
 For direct API access, the admin pages surface is at `/api/pages/admin/pages`. All requests must include the `sfus_session` cookie. See `docs/README.md` under "Standalone Pages" for the full route list and response shapes.
+
+## Navigation Management
+
+Site navigation is dynamically driven by the `navigation_items` database table. Admins can create, reorder, and control the visibility of nav items through the admin UI or the API. The public shell fetches nav items on each route change, so updates are reflected immediately on the next page load without a deployment.
+
+### Guest and Authenticated Nav API
+
+Two read-only endpoints are publicly reachable:
+
+- `GET /api/navigation/items/public` — returns active items with `visibility = "public"`, ordered by `sortOrder` ascending, with one level of children. No credentials required.
+- `GET /api/navigation/items/authenticated` — returns all active items (both `public` and `authenticated` visibility), ordered by `sortOrder` ascending, with one level of children. Called when a session is present.
+
+### Managing Navigation Items (Admin)
+
+To manage navigation items, you need an account whose global role is `admin`.
+
+1. Sign in at `http://localhost:3000/login`.
+2. Navigate to `http://localhost:3000/admin/navigation`.
+3. Use the **Add Navigation Item** form to create a new item. Fields:
+   - **Label** — display text for the link.
+   - **URL** — destination path or URL (e.g. `/blog`).
+   - **Link Type** — `Internal` (same-site Next.js `<Link>`) or `External`.
+   - **Visibility** — `Public` (shown to all) or `Authenticated only` (hidden from guests).
+   - **Sort Order** — lower numbers appear first; items at the same level are sorted ascending by this value.
+   - **Parent (optional)** — select a top-level item to nest this item under it. Only one level of nesting is supported; children cannot themselves be selected as parents.
+4. Use the **Show / Hide** toggle to make items active or inactive without deleting them.
+5. Use the **↑ / ↓** buttons to swap sort-order values between adjacent siblings.
+6. Use the **Delete** button to permanently remove an item. Child items are automatically removed via database cascade.
+
+### Admin Navigation API
+
+For direct API access, the admin navigation surface is at `/api/navigation/admin`. All requests must include the `sfus_session` cookie. See `docs/README.md` under "Admin Navigation (Milestone 3 Subtask 6)" for the full route list, field constraints, nesting rules, and response shapes.
 
 ## Run The Database Migration
 
