@@ -48,12 +48,20 @@ describe("public web shell source contracts", () => {
   });
 
   it("supports signed-out and authenticated navigation states", async () => {
+    // AC3: Shell now renders nav from NavigationModule config (dynamic API fetch)
+    // instead of hardcoded publicNavigation arrays. Auth-specific fixed links
+    // remain but are now defined in authNavLinks, not publicNavigation.
     const [navigationSource, layoutSource] = await Promise.all([
       readWebFile("components/navigation.tsx"),
       readWebFile("app/layout.tsx")
     ]);
 
-    expect(navigationSource).toContain('const publicNavigation = [');
+    // Hardcoded publicNavigation array replaced by dynamic fetch from NavigationService API.
+    expect(navigationSource).not.toContain('const publicNavigation = [');
+    expect(navigationSource).toContain('fetchNavItems');
+    expect(navigationSource).toContain('navigation/items/public');
+    expect(navigationSource).toContain('navigation/items/authenticated');
+    // Auth-specific fixed links remain (sign-in, register, app, profile, settings).
     expect(navigationSource).toContain('{ href: "/login", label: "Sign in" }');
     expect(navigationSource).toContain('{ href: "/register", label: "Register" }');
     expect(navigationSource).toContain('{ href: "/profile", label: "Profile" }');
