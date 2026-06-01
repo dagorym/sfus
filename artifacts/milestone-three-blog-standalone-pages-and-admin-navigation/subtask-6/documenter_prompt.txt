@@ -1,0 +1,74 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Validate configurable admin navigation system: NavigationService CRUD with 1-level nesting enforcement, ordering, and visibility helpers; NavigationController with admin-guarded CRUD endpoints and public read endpoints; database migration for nav_items table; web navigation-client helper; admin navigation management page at /admin/navigation; and updated shell Navigation component to fetch dynamic items from NavigationService API instead of hardcoded arrays.
+
+Acceptance criteria validated:
+- AC1: Nav items can be created, ordered, toggled visible/hidden, and deleted via admin endpoints — VALIDATED by 16 new NavigationService tests covering create, update (isActive toggle, sortOrder change), delete, and NotFoundException on missing items.
+- AC2: Nav structure supports 1-level nesting (parent items with child items) — VALIDATED: assertValidParent tests reject missing parent, grandchild nesting (parent is already a child), and reparenting a top-level item that has children.
+- AC3: Shell renders nav from NavigationModule config instead of hardcoded arrays — VALIDATED: public-shell.spec.ts confirms publicNavigation array removed, fetchNavItems API calls present for both public and authenticated endpoints.
+- AC4: Non-admin users cannot access nav management endpoints — VALIDATED: existing 5 assertAdminManagementAccess tests confirm ForbiddenException for user, moderator, empty string, and unknown roles.
+
+Implementation branch or worktree context:
+- Tester branch: ms3-subtask-6-tester-20260531 (branched from ms3-claude-subtask-6-implementer-20260531)
+- Worktree: /home/tstephen/repos/worktrees/ms3-subtask-6-tester-20260531
+- Implementer commit: 1091284 — feat(ms3/subtask-6): add admin navigation CRUD endpoints and dynamic shell nav
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/app.module.ts
+- apps/api/src/database/migrations/1748736000001-navigation-items.ts
+- apps/api/src/navigation/navigation.controller.ts
+- apps/api/src/navigation/navigation.module.ts
+- apps/api/src/navigation/navigation.service.ts
+- apps/api/src/navigation/navigation.service.test.ts
+- apps/web/app/admin/navigation/page.tsx
+- apps/web/app/navigation/navigation-client.ts
+- apps/web/components/navigation.tsx
+- apps/web/app/public-shell.spec.ts
+
+Test commit:
+- c4a1dec
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/api lint
+- npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/web test
+- npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/web typecheck
+- npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/web lint
+
+Final test outcomes:
+- All 275 tests passed (173 API, 102 web). 0 failures.
+- API typecheck clean: no TypeScript errors.
+- Web typecheck clean: no TypeScript errors.
+- Web lint clean: 0 warnings/errors.
+- API lint: 1 pre-existing implementer defect — NotFoundException unused import in navigation.controller.ts (not introduced by tester; confirmed present before tester changes).
+- AC1 (CRUD create/update/delete): 16 new tests in navigation.service.test.ts covering create, toggle isActive, update sortOrder, and NotFoundException on missing items.
+- AC2 (1-level nesting): assertValidParent tests reject missing parent, grandchild nesting (parent.parentId !== null), and reparenting top-level items with children.
+- AC3 (dynamic nav from API): public-shell.spec.ts updated — confirms hardcoded publicNavigation array removed, fetchNavItems present, endpoints /navigation/items/public and /navigation/items/authenticated used.
+- AC4 (non-admin forbidden): existing 5 assertAdminManagementAccess tests pass confirming ForbiddenException for user, moderator, empty, and unknown roles.
+
+Documentation context:
+- NavigationController registers at /navigation: public GET /navigation/items/public and GET /navigation/items/authenticated; admin GET/POST /navigation/admin and PATCH/DELETE /navigation/admin/:id
+- assertAdminManagementAccess() requires global admin role — same pattern as BlogService and PagesService
+- 1-level nesting enforced in assertValidParent(): parent.parentId must be null; cannot reparent a top-level item with children
+- NavigationModule changed from static @Module to dynamic register(environment) to support AuthModule injection for the controller
+- Shell Navigation component: fetches /navigation/items/public for guests, /navigation/items/authenticated for logged-in users; falls back to empty on error; retains auth-specific fixed links (sign-in, register, app, profile, settings)
+- Admin page at /admin/navigation: create form with label/url/linkType/visibility/sortOrder/parentId fields; toggle active/inactive; reorder via swap of sortOrder values; delete with cascade warning
+- navigation-client.ts at apps/web/app/navigation/ provides adminListNavItems, adminCreateNavItem, adminUpdateNavItem, adminDeleteNavItem
+- API lint defect to fix before merge: NotFoundException unused import in navigation.controller.ts — implementer should remove it
+
+Plan and diff context:
+- Plan: plans/milestone-three-blog-standalone-pages-and-admin-navigation-plan.md (subtask 6)
+- Comparison base: ms3-claude-subtask-6-implementer-20260531 (implementer branch)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
