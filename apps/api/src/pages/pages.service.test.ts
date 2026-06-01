@@ -262,3 +262,83 @@ describe("PagesService.findRevisions", () => {
     expect(result).toHaveLength(2);
   });
 });
+
+describe("PagesService.update", () => {
+  // Acceptance criterion: Every standalone-page edit creates durable revision
+  // history — update() must append a new revision each time it is called.
+
+  it("throws NotFoundException when page does not exist", async () => {
+    const service = makePagesService({ findOne: async () => null });
+    await expect(service.update("missing-id", "user-1", { title: "New" })).rejects.toThrow(NotFoundException);
+  });
+
+  it("creates a new revision on each edit (durable revision history)", async () => {
+    const page = {
+      id: "page-1",
+      title: "About",
+      slug: "about",
+      status: "draft",
+      currentRevisionId: "rev-1",
+      createdByUserId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as StandalonePageEntity;
+    const latestRevision = {
+      id: "rev-1",
+      pageId: "page-1",
+      revisionNumber: 1,
+      title: "About",
+      body: "Original body",
+      authorUserId: "user-1",
+      createdAt: new Date()
+    } as PageRevisionEntity;
+    const newRevision = { ...latestRevision, id: "rev-2", revisionNumber: 2, title: "About Updated" };
+    const updatedPage = { ...page, title: "About Updated", currentRevisionId: "rev-2" } as StandalonePageEntity;
+
+    const pageFind = vi.fn()
+      .mockResolvedValueOnce(page)     // initial load for mutation
+      .mockResolvedValueOnce(updatedPage); // re-fetch after save
+    const pageSave = vi.fn().mockResolvedValue(updatedPage);
+    const revFind = vi.fn().mockResolvedValue(latestRevision); // latest revision lookup
+    const revSave = vi.fn().mockResolvedValue(newRevision);
+
+    const service = makePagesService(
+      { findOne: pageFind, save: pageSave, create: (d) => d as StandalonePageEntity },
+      { findOne: revFind, save: revSave, create: (d) => d as PageRevisionEntity }
+    );
+
+    const result = await service.update("page-1", "user-1", { title: "About Updated", body: "Updated body" });
+    expect(revSave).toHaveBeenCalledOnce();
+    expect(result.currentRevisionId).toBe("rev-2");
+  });
+
+  it("rejects invalid slugs on update", async () => {
+    const page = {
+      id: "page-1",
+      title: "About",
+      slug: "about",
+      status: "draft",
+      currentRevisionId: "rev-1",
+      createdByUserId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as StandalonePageEntity;
+    const service = makePagesService({ findOne: async () => page });
+    await expect(service.update("page-1", "user-1", { slug: "INVALID SLUG" })).rejects.toThrow();
+  });
+
+  it("rejects empty titles on update", async () => {
+    const page = {
+      id: "page-1",
+      title: "About",
+      slug: "about",
+      status: "draft",
+      currentRevisionId: "rev-1",
+      createdByUserId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as StandalonePageEntity;
+    const service = makePagesService({ findOne: async () => page });
+    await expect(service.update("page-1", "user-1", { title: "   " })).rejects.toThrow();
+  });
+});
