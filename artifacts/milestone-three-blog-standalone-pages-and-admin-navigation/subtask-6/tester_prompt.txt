@@ -1,0 +1,52 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Create configurable admin navigation system: NavigationService CRUD with 1-level nesting enforcement, ordering, and visibility helpers; NavigationController with admin-guarded CRUD endpoints and public read endpoints; database migration for nav_items table; web navigation-client helper; admin navigation management page at /admin/navigation; and updated shell Navigation component to fetch dynamic items from NavigationService API instead of hardcoded arrays.
+
+Modified files:
+- apps/api/src/app.module.ts
+- apps/api/src/database/migrations/1748736000001-navigation-items.ts
+- apps/api/src/navigation/navigation.controller.ts
+- apps/api/src/navigation/navigation.module.ts
+- apps/api/src/navigation/navigation.service.ts
+- apps/web/app/admin/navigation/page.tsx
+- apps/web/app/navigation/navigation-client.ts
+- apps/web/components/navigation.tsx
+
+Acceptance criteria to validate (from Planner):
+- AC1: Nav items can be created, ordered, toggled visible/hidden, and deleted via admin endpoints — SATISFIED: POST /navigation/admin creates, PATCH /navigation/admin/:id updates (sortOrder, isActive), DELETE /navigation/admin/:id deletes, all guarded by assertAdminManagementAccess()
+- AC2: Nav structure supports 1-level nesting (parent items with child items) — SATISFIED: assertValidParent() enforces parent must be top-level (parentId === null); cannot reparent a top-level item with children to become a child
+- AC3: Shell renders nav from NavigationModule config instead of hardcoded arrays — SATISFIED: Navigation component fetches from /navigation/items/public or /navigation/items/authenticated; hardcoded publicNavigation array removed
+- AC4: Non-admin users cannot access nav management endpoints — SATISFIED: All admin routes call authService.resolveSession() + navigationService.assertAdminManagementAccess() which throws ForbiddenException for non-admin roles
+
+Create test files in:
+- apps/api/src/navigation/navigation.service.test.ts — existing test file covering assertAdminManagementAccess (5 tests passing)
+- New controller integration tests if needed: apps/api/src/navigation/navigation.controller.test.ts
+
+Implementation context for testing:
+- NavigationController registers at /navigation: public GET /navigation/items/public and GET /navigation/items/authenticated; admin GET/POST /navigation/admin and PATCH/DELETE /navigation/admin/:id
+- assertAdminManagementAccess() delegates to AuthorizationService.hasGlobalRole() — same pattern as BlogService and PagesService
+- 1-level nesting enforced in assertValidParent(): parent.parentId must be null; cannot reparent a top-level item with children
+- NavigationModule changed from static @Module to dynamic register(environment) to support AuthModule injection for the controller
+- AppModule updated to use NavigationModule.register(environment) instead of NavigationModule
+- Shell Navigation component: fetches /navigation/items/public for guests, /navigation/items/authenticated for logged-in users; falls back to empty on error; retains auth-specific fixed links (sign-in, register, app, profile, settings)
+- Admin page at /admin/navigation: create form with label/url/linkType/visibility/sortOrder/parentId fields; toggle active/inactive; reorder via swap of sortOrder values; delete with cascade warning
+- navigation-client.ts at apps/web/app/navigation/ provides adminListNavItems, adminCreateNavItem, adminUpdateNavItem, adminDeleteNavItem
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter api test
+- npx --yes pnpm@10.0.0 --filter web run typecheck
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-three-blog-standalone-pages-and-admin-navigation/subtask-6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
