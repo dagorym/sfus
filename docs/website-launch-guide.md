@@ -168,6 +168,8 @@ Current user-facing website behavior is intentionally narrow:
 - public blog index at `/blog` and individual post pages at `/blog/:slug` — no authentication required; only published posts and their visible comments are shown
 - comment form on `/blog/:slug` — visible to authenticated members only; submits to `POST /api/blog/:postId/comments`
 - admin blog management at `/admin/blog`, `/admin/blog/new`, and `/admin/blog/:id/edit` — requires an active session with the global `admin` role
+- public standalone page view at `/pages/:slug` — no authentication required; only published pages are shown
+- admin standalone page management at `/admin/pages`, `/admin/pages/new`, and `/admin/pages/:id/edit` — requires an active session with the global `admin` role
 
 ## Blog Content Management
 
@@ -228,6 +230,42 @@ Only `visible` comments are returned by the public comment listing endpoint; `hi
 ### Admin Blog API
 
 For direct API access (e.g. scripting or integration tests), the admin blog surface is at `/api/blog/admin/posts`. All requests must include the `sfus_session` cookie. See `docs/README.md` under "Blog Publishing Lifecycle" and "Blog Comments" for the full route list and response shapes.
+
+## Standalone Pages Content Management
+
+Standalone pages are admin-managed site pages such as About, Rules, and Contact. They support revision history and restore. They do not include a block-builder UI, wiki hierarchy, or broader documents behavior.
+
+### Guest Access
+
+Guests and unauthenticated users can browse published standalone pages at:
+
+- `http://localhost:3000/pages/<slug>` — reads a single published page
+
+Draft and unpublished pages are never returned by the public API endpoint. A request for a non-published slug returns a "not published" message.
+
+### Managing Standalone Pages (Admin)
+
+To create and publish a standalone page, you need an account whose global role is `admin`.
+
+1. Sign in at `http://localhost:3000/login`.
+2. Navigate to `http://localhost:3000/admin/pages`.
+3. Click **New page** to open the creation form.
+4. Fill in Title, Slug (lowercase hyphenated, e.g. `about-us`), and Body (Markdown).
+5. Click **Create draft**. The new page is created with `draft` status and the editor opens.
+6. In the editor, click **Publish now** to publish immediately, or **Unpublish** to revert a published page to unpublished status.
+
+Published pages appear immediately at `/pages/<slug>`.
+
+### Revision History and Restore
+
+Every save on the edit page creates a new revision. The **Revision History** panel on the edit page lists all prior revisions with revision number, author, and creation timestamp. For each revision:
+
+- **Preview** — renders the revision body inline using `MarkdownRenderer`.
+- **Restore** — creates a new revision from the selected prior revision's title and body and sets it as current. The prior revision remains in the history; restore never overwrites existing revision records.
+
+### Admin Pages API
+
+For direct API access, the admin pages surface is at `/api/pages/admin/pages`. All requests must include the `sfus_session` cookie. See `docs/README.md` under "Standalone Pages" for the full route list and response shapes.
 
 ## Run The Database Migration
 

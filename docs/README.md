@@ -283,6 +283,82 @@ A comment body that fails either step is rejected with `400 Bad Request` before 
 - `moderateCommentStatus(commentId, status)` — moderator/admin, sends `credentials: "include"`. Patches `PATCH /api/blog/moderation/comments/:commentId/status`.
 - `deleteComment(commentId)` — moderator/admin, sends `credentials: "include"`. Deletes `DELETE /api/blog/moderation/comments/:commentId`.
 
+### Standalone Pages (Milestone 3 Subtask 5)
+
+Milestone 3 Subtask 5 adds versioned standalone page management with full admin CRUD, revision history, restore capability, and public routing for published pages.
+
+#### PagesModule API Routes
+
+`PagesController` exposes two distinct access surfaces under `/api/pages`:
+
+**Public route — no authentication required, published content only:**
+
+- `GET /api/pages/:slug` — returns a single published page as `{ page: PageDetail }`. Returns `404` when the page does not exist or is not published, so draft and unpublished content is never exposed through this route.
+
+**Admin management routes — require an active `sfus_session` cookie and the global `admin` role:**
+
+- `GET /api/pages/admin/pages` — lists all pages regardless of status as `{ pages: PageDetail[] }`.
+- `GET /api/pages/admin/pages/:id` — fetches a single page by UUID.
+- `POST /api/pages/admin/pages` — creates a new page in `draft` status. Body: `{ title, slug, body }`.
+- `PATCH /api/pages/admin/pages/:id` — updates page fields and creates a new revision. All fields optional; only supplied fields change.
+- `POST /api/pages/admin/pages/:id/publish` — transitions a page to `published` status and records the current UTC timestamp in `publishedAt`.
+- `POST /api/pages/admin/pages/:id/unpublish` — transitions a page to `unpublished` status.
+- `GET /api/pages/admin/pages/:id/revisions` — lists all revisions for a page ordered by revision number ascending as `{ revisions: RevisionDetail[] }`.
+- `POST /api/pages/admin/pages/:id/restore/:revisionId` — restores a page to the content of a prior revision by creating a new revision that copies the source revision's title and body, then updating `currentRevisionId`.
+
+All admin routes return `401` when no session is present and `403` when the session's global role is not `admin`. Authorization is enforced by `PagesService.assertAdminManagementAccess(session.user.globalRole)` called at the top of every admin handler.
+
+#### Authorization Model
+
+`PagesService.assertAdminManagementAccess(actorGlobalRole: string)` is the single authorization gate for all standalone page management operations. It delegates to `AuthorizationService.hasGlobalRole(actorGlobalRole, "admin")` and throws `ForbiddenException` for any role below admin. All admin `PagesController` handlers call this method before performing any data operation.
+
+#### Revision History Contract
+
+- Every `create` call records revision 1 with the initial title and body.
+- Every `update` call appends a new revision; the revision number is monotonically incremented from the current highest revision on that page. `currentRevisionId` is updated to the new revision after each save.
+- Every `restore` call appends a new revision copying the source revision's title and body, then updates `currentRevisionId` to the new revision. The original revision is preserved in the audit trail; `restoreRevision` does not overwrite existing records.
+- Revision history is an admin-only surface; guests cannot access the revisions endpoint.
+
+#### Page Status Lifecycle
+
+```
+draft → published (publish)
+published → unpublished (unpublish)
+unpublished → published (publish)
+```
+
+The public `GET /api/pages/:slug` route filters exclusively on `status = "published"` regardless of how the record was last modified. Draft and unpublished pages are never exposed through the public route.
+
+#### Slug Validation
+
+Slugs must match `^[a-z0-9]+(?:-[a-z0-9]+)*$` (lowercase alphanumeric words separated by hyphens). Invalid slugs are rejected with `400 Bad Request` on both create and update.
+
+#### Response Shapes
+
+`PageDetail` (all views): `id`, `title`, `slug`, `body`, `status`, `publishedAt`, `currentRevisionId`, `createdByUserId`, `createdAt`, `updatedAt`.
+
+`RevisionDetail` (revisions list): `id`, `pageId`, `authorUserId`, `title`, `body`, `revisionNumber`, `createdAt`.
+
+#### Web Routes — Public Standalone Pages
+
+- `/pages/:slug` — public standalone page view (`apps/web/app/pages/[slug]/page.tsx`). No session required. Fetches `GET /api/pages/:slug` and renders the page body via `MarkdownRenderer`. Displays a "not published" message when the API returns `null` (page missing or not published). Never exposes the edit UI.
+
+#### Web Routes — Admin Standalone Page Management
+
+All admin pages pages in `apps/web/app/admin/pages/` call `resolveProtectedSession()` followed by `hasGlobalRole(session.user, "admin")` on mount and redirect unauthenticated users to `/login?next=<current-route>`. A non-admin authenticated session shows an "Admin access required" error in place of the management UI.
+
+- `/admin/pages` — admin pages list (`apps/web/app/admin/pages/page.tsx`). Shows all pages (all statuses) with inline Publish / Unpublish actions and a link to create a new page.
+- `/admin/pages/new` — create a new draft page (`apps/web/app/admin/pages/new/page.tsx`). Form fields: Title, Slug, Body (via `MarkdownEditor`). On submit, calls `adminCreatePage()` and redirects to the edit page for the newly created page.
+- `/admin/pages/:id/edit` — edit an existing page (`apps/web/app/admin/pages/[id]/edit/page.tsx`). Shows current status and publish/unpublish controls, the content editor form, and a Revision History panel listing all prior revisions with Preview and Restore actions. Saving calls `adminUpdatePage()`; lifecycle transitions call `adminPublishPage` or `adminUnpublishPage`; restore calls `adminRestoreRevision`.
+
+#### pages-client.ts
+
+`apps/web/app/pages/pages-client.ts` is the typed API client for all standalone pages calls. The public helper (`getPublishedPage`) fetches without credentials. Admin helpers (`adminListAllPages`, `adminGetPage`, `adminCreatePage`, `adminUpdatePage`, `adminPublishPage`, `adminUnpublishPage`, `adminListRevisions`, `adminRestoreRevision`) send `credentials: "include"` so the session cookie is forwarded.
+
+#### Scope Boundaries
+
+Standalone pages in Milestone 3 are managed site pages (About, Rules, Contact, and similar). They do not introduce a block-builder UI, wiki hierarchy, document namespaces, or collaborative wiki workflows. Those features are deferred to Milestone 5.
+
 ## Runtime Contract Overview
 
 Milestone 1 local development is hybrid by default:
