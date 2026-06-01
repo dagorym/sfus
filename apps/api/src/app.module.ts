@@ -28,7 +28,7 @@ export class AppModule implements NestModule {
         MediaModule.register(environment),
         BlogModule.register(environment),
         PagesModule.register(environment),
-        NavigationModule
+        NavigationModule.register(environment)
       ],
       providers: [JsonLogger, CorrelationIdMiddleware, RequestLoggingMiddleware]
     };
