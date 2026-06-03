@@ -89,7 +89,7 @@ export class BlogService {
 
   /**
    * Returns a single published post by slug. Returns null when the post does
-   * not exist or is not published, so callers never expose draft or scheduled
+   * not exist or is not published, so callers never expose draft or unpublished
    * content through public routes.
    */
   async findPublishedBySlug(slug: string): Promise<BlogPostEntity | null> {
@@ -138,8 +138,7 @@ export class BlogService {
       body: input.body,
       status: "draft",
       featuredImageId: input.featuredImageId ?? null,
-      publishedAt: null,
-      scheduledAt: null
+      publishedAt: null
     });
     await this.blogPostRepository.save(post);
 
@@ -196,7 +195,6 @@ export class BlogService {
     const now = new Date();
     post.status = "published";
     post.publishedAt = now;
-    post.scheduledAt = null;
     await this.blogPostRepository.save(post);
     return this.blogPostRepository.findOne({ where: { id }, relations: ["postTags"] }) as Promise<BlogPostEntity>;
   }
@@ -211,24 +209,6 @@ export class BlogService {
       throw new NotFoundException("Blog post not found.");
     }
     post.status = "unpublished";
-    await this.blogPostRepository.save(post);
-    return this.blogPostRepository.findOne({ where: { id }, relations: ["postTags"] }) as Promise<BlogPostEntity>;
-  }
-
-  /**
-   * Schedules a blog post for future publication at the given UTC datetime.
-   * Caller must have verified admin access before calling this.
-   */
-  async schedule(id: string, scheduledAt: Date): Promise<BlogPostEntity> {
-    if (scheduledAt.getTime() <= Date.now()) {
-      throw new BadRequestException("scheduledAt must be a future UTC datetime.");
-    }
-    const post = await this.blogPostRepository.findOne({ where: { id } });
-    if (!post) {
-      throw new NotFoundException("Blog post not found.");
-    }
-    post.status = "scheduled";
-    post.scheduledAt = scheduledAt;
     await this.blogPostRepository.save(post);
     return this.blogPostRepository.findOne({ where: { id }, relations: ["postTags"] }) as Promise<BlogPostEntity>;
   }
@@ -271,8 +251,8 @@ export class BlogService {
    * Creates a new comment on a published post by an authenticated member.
    *
    * Guards:
-   * - The parent post must be published — prevents comment creation on draft,
-   *   scheduled, or unpublished posts (no exposure of non-public parent content).
+   * - The parent post must be published — prevents comment creation on draft or
+   *   unpublished posts (no exposure of non-public parent content).
    * - The comment body is sanitized with the shared markdown sanitizer before
    *   persistence.
    */

@@ -30,11 +30,13 @@ export class MilestoneThreeContentFoundation1748736000000 implements MigrationIn
         \`author_user_id\` char(36) NOT NULL,
         \`title\` varchar(255) NOT NULL,
         \`slug\` varchar(255) NOT NULL,
+        \`summary\` varchar(512) NULL,
         \`body\` mediumtext NOT NULL,
         \`status\` varchar(32) NOT NULL DEFAULT 'draft',
+        \`is_featured\` tinyint(1) NOT NULL DEFAULT 0,
+        \`comments_locked\` tinyint(1) NOT NULL DEFAULT 0,
         \`featured_image_id\` char(36) NULL,
         \`published_at\` datetime(3) NULL,
-        \`scheduled_at\` datetime(3) NULL,
         \`created_at\` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
         \`updated_at\` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
         PRIMARY KEY (\`id\`),
@@ -61,9 +63,11 @@ export class MilestoneThreeContentFoundation1748736000000 implements MigrationIn
       CREATE TABLE \`blog_comments\` (
         \`id\` char(36) NOT NULL,
         \`post_id\` char(36) NOT NULL,
+        \`parent_id\` char(36) NULL,
         \`author_user_id\` char(36) NOT NULL,
         \`body\` text NOT NULL,
         \`status\` varchar(32) NOT NULL DEFAULT 'visible',
+        \`media_reference_id\` char(36) NULL,
         \`moderated_by_user_id\` char(36) NULL,
         \`moderated_at\` datetime(3) NULL,
         \`created_at\` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -71,8 +75,11 @@ export class MilestoneThreeContentFoundation1748736000000 implements MigrationIn
         PRIMARY KEY (\`id\`),
         KEY \`idx_blog_comments_post_status\` (\`post_id\`, \`status\`),
         KEY \`idx_blog_comments_author\` (\`author_user_id\`),
+        KEY \`idx_blog_comments_parent\` (\`parent_id\`),
         CONSTRAINT \`fk_blog_comments_post_id\` FOREIGN KEY (\`post_id\`) REFERENCES \`blog_posts\` (\`id\`) ON DELETE CASCADE,
+        CONSTRAINT \`fk_blog_comments_parent_id\` FOREIGN KEY (\`parent_id\`) REFERENCES \`blog_comments\` (\`id\`) ON DELETE CASCADE,
         CONSTRAINT \`fk_blog_comments_author_user_id\` FOREIGN KEY (\`author_user_id\`) REFERENCES \`users\` (\`id\`) ON DELETE RESTRICT,
+        CONSTRAINT \`fk_blog_comments_media_reference_id\` FOREIGN KEY (\`media_reference_id\`) REFERENCES \`media_references\` (\`id\`) ON DELETE SET NULL,
         CONSTRAINT \`fk_blog_comments_moderated_by_user_id\` FOREIGN KEY (\`moderated_by_user_id\`) REFERENCES \`users\` (\`id\`) ON DELETE SET NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
@@ -102,15 +109,21 @@ export class MilestoneThreeContentFoundation1748736000000 implements MigrationIn
         \`id\` char(36) NOT NULL,
         \`page_id\` char(36) NOT NULL,
         \`author_user_id\` char(36) NOT NULL,
+        \`editor_user_id\` char(36) NULL,
         \`title\` varchar(255) NOT NULL,
+        \`summary\` varchar(512) NULL,
         \`body\` mediumtext NOT NULL,
+        \`change_note\` varchar(512) NULL,
+        \`featured_media_id\` char(36) NULL,
         \`revision_number\` int unsigned NOT NULL,
         \`created_at\` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
         PRIMARY KEY (\`id\`),
         UNIQUE KEY \`uq_page_revisions_page_revision_number\` (\`page_id\`, \`revision_number\`),
         KEY \`idx_page_revisions_page_created\` (\`page_id\`, \`created_at\`),
         CONSTRAINT \`fk_page_revisions_page_id\` FOREIGN KEY (\`page_id\`) REFERENCES \`standalone_pages\` (\`id\`) ON DELETE CASCADE,
-        CONSTRAINT \`fk_page_revisions_author_user_id\` FOREIGN KEY (\`author_user_id\`) REFERENCES \`users\` (\`id\`) ON DELETE RESTRICT
+        CONSTRAINT \`fk_page_revisions_author_user_id\` FOREIGN KEY (\`author_user_id\`) REFERENCES \`users\` (\`id\`) ON DELETE RESTRICT,
+        CONSTRAINT \`fk_page_revisions_editor_user_id\` FOREIGN KEY (\`editor_user_id\`) REFERENCES \`users\` (\`id\`) ON DELETE SET NULL,
+        CONSTRAINT \`fk_page_revisions_featured_media_id\` FOREIGN KEY (\`featured_media_id\`) REFERENCES \`media_references\` (\`id\`) ON DELETE SET NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
