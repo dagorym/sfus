@@ -1,0 +1,62 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Normalize the Milestone 3 persistence model on ms3-claude by amending the existing MS3 migration in place and updating entities, DTOs, and shared types. Changes: blog_posts collapses status to draft/published/unpublished and adds summary/is_featured/comments_locked; blog_comments adds parent_id self-reference and media_reference_id FK; page_revisions adds summary/change_note/editor_user_id/featured_media_id. Removed duplicate unregistered 1748736000001-navigation-items migration.
+
+Modified files:
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.service.test.ts
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/entities/blog-comment.entity.ts
+- apps/api/src/blog/entities/blog-post.entity.ts
+- apps/api/src/database/migrations/1748736000000-milestone-three-content-foundation.ts
+- apps/api/src/database/migrations/1748736000001-navigation-items.ts (deleted)
+- apps/api/src/navigation/navigation.controller.ts
+- apps/api/src/pages/entities/page-revision.entity.ts
+- docs/README.md
+- docs/website-launch-guide.md
+
+Acceptance criteria to validate (from Planner):
+- The amended MS3 migration reflects all schema changes, contains no scheduled_at or scheduled status value
+- BlogPostStatus type is draft/published/unpublished only - no scheduled value
+- BlogCommentEntity has nullable parent_id (self-ref) and media_reference_id FK columns
+- PageRevisionEntity has summary, change_note, editor_user_id, and featured_media_id columns
+- Duplicate 1748736000001-navigation-items.ts deleted; database.config.ts only registers 3 migrations
+- All API unit tests compile and pass (173 tests green)
+- No lingering scheduled references in entities, DTOs, or type exports
+
+Create test files in:
+- apps/api/src/**/*.test.ts
+- apps/api/src/blog/blog.service.test.ts (updated in this subtask)
+- apps/api/src/pages/pages.service.test.ts (unchanged - no scheduled references)
+
+Implementation context for testing:
+- Migration 1748736000000 amended in place - no incremental migration added
+- BlogPostStatus now exports ['draft', 'published', 'unpublished'] only
+- BlogService.schedule() method removed entirely - no schedule() method exists on the service
+- POST /api/blog/admin/posts/:id/schedule route removed from BlogController
+- BlogCommentEntity: parentId (string|null), mediaReferenceId (string|null) added; parent/replies/mediaReference relations added
+- PageRevisionEntity: editorUserId (string|null), summary (string|null), changeNote (string|null), featuredMediaId (string|null) added
+- BlogPostEntity: summary (string|null), isFeatured (boolean), commentsLocked (boolean) added; scheduledAt removed
+- database.config.ts is unchanged - already only registers 3 migration classes
+- Tester should run migration:run against a disposable MySQL 5.7 database to validate the SQL DDL
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run
+- npx --yes pnpm@10.0.0 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/api lint
+- docker compose --env-file .env -f cicd/docker/compose.dev.yml --profile fullstack run --rm api node dist/index.js migration:run
+
+Existing validations expected to fail only because approved behavior changed:
+- migration:run/migration:show requires a live MySQL 5.7 instance - will fail without one; SQL was manually verified for MySQL 5.7.44 compatibility
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-completion-and-copilot-port/subtask-1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
