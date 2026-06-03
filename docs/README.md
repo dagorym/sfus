@@ -92,11 +92,11 @@ Milestone 3 Subtask 1 adds the persistence and module foundation for blog posts,
 
 Migration `1748736000000-milestone-three-content-foundation.ts` adds six tables to the MySQL 5.7.44-compatible schema:
 
-- `blog_posts` — blog post records with `status` enum (`draft`/`scheduled`/`published`/`unpublished`), `scheduled_at`, `published_at`, and `slug`.
+- `blog_posts` — blog post records with `status` enum (`draft`/`published`/`unpublished`), `published_at` (nullable, may hold a future time), `summary`, `is_featured`, `comments_locked`, and `slug`.
 - `blog_post_tags` — many-to-many tag associations for blog posts.
-- `blog_comments` — comment records with `status` enum (`visible`/`hidden`/`removed`) and `author_user_id` foreign key.
+- `blog_comments` — comment records with `status` enum (`visible`/`hidden`/`removed`), `author_user_id` FK, nullable `parent_id` self-reference (one-level threading), and nullable `media_reference_id` FK.
 - `standalone_pages` — managed site pages with `status` enum (`draft`/`published`/`unpublished`) and `slug`.
-- `page_revisions` — page revision records with a `revision_number` unique constraint per page.
+- `page_revisions` — page revision records with a `revision_number` unique constraint per page, plus `summary`, `change_note`, `editor_user_id`, and `featured_media_id`.
 - `navigation_items` — navigation item records with a `parent_id` self-reference and `ON DELETE CASCADE`.
 
 ### Admin-Only Management Authorization
@@ -160,8 +160,8 @@ Milestone 3 Subtask 3 adds the full blog publishing lifecycle: a `BlogController
 
 **Public routes — no authentication required, published content only:**
 
-- `GET /api/blog` — returns all published posts as `{ posts: BlogPostSummary[] }` ordered by `publishedAt` descending. Draft, scheduled, and unpublished posts are never included.
-- `GET /api/blog/:slug` — returns a single published post by slug as `{ post: BlogPostDetail }`. Returns `404` when the post does not exist or is not published, so draft and scheduled content is never exposed through this route.
+- `GET /api/blog` — returns all published posts as `{ posts: BlogPostSummary[] }` ordered by `publishedAt` descending. Draft and unpublished posts are never included.
+- `GET /api/blog/:slug` — returns a single published post by slug as `{ post: BlogPostDetail }`. Returns `404` when the post does not exist or is not published, so draft and unpublished content is never exposed through this route.
 
 **Admin management routes — require an active `sfus_session` cookie and the global `admin` role:**
 
@@ -171,7 +171,6 @@ Milestone 3 Subtask 3 adds the full blog publishing lifecycle: a `BlogController
 - `PATCH /api/blog/admin/posts/:id` — updates post fields. All fields are optional; only the supplied fields are changed.
 - `POST /api/blog/admin/posts/:id/publish` — transitions a post to `published` status and records the current UTC timestamp in `publishedAt`.
 - `POST /api/blog/admin/posts/:id/unpublish` — transitions a post to `unpublished` status.
-- `POST /api/blog/admin/posts/:id/schedule` — sets the post status to `scheduled` and records a future UTC datetime in `scheduledAt`. Body: `{ scheduledAt: "<ISO 8601 UTC string>" }`. Rejects past datetimes with `400`.
 - `DELETE /api/blog/admin/posts/:id` — permanently removes the post.
 
 All admin routes return `401` when no session is present and `403` when the session's global role is not `admin`. Authorization is enforced by `BlogService.assertAdminManagementAccess(session.user.globalRole)` called at the top of every admin handler.
@@ -180,29 +179,19 @@ All admin routes return `401` when no session is present and `403` when the sess
 
 `BlogService.assertAdminManagementAccess(actorGlobalRole: string)` is the single reusable authorization gate for all blog management operations. It delegates to `AuthorizationService.hasGlobalRole(actorGlobalRole, "admin")` and throws `ForbiddenException` for any role below admin. All admin `BlogController` handlers call this method before performing any data operation; no admin action is reachable without it. This pattern avoids inline role-checks scattered across handlers.
 
-#### Scheduling Contract
-
-- The `schedule` method rejects any `scheduledAt` value at or before the current time (`Date.now()`) with a `400 Bad Request`.
-- Setting a post to `scheduled` status does not automatically publish it; no background scheduler exists in this subtask. A scheduled post remains in `scheduled` status until an admin calls the publish endpoint manually or a future automation does so.
-- The `publish` method always records the actual publish timestamp (`new Date()`) in `publishedAt` regardless of any previously set `scheduledAt` value, and clears `scheduledAt` to `null`.
-
 #### Post Status Lifecycle
 
 ```
 draft → published (publish)
-draft → scheduled (schedule)
-scheduled → published (publish)
-scheduled → unpublished (unpublish)
 published → unpublished (unpublish)
 unpublished → published (publish)
-unpublished → scheduled (schedule)
 ```
 
 All transitions are permissive at the service layer: any status can be moved to any other status by calling the appropriate method. The public `GET /api/blog` and `GET /api/blog/:slug` routes filter exclusively on `status = "published"` regardless of how the record was last modified.
 
 #### Response Shapes
 
-`BlogPostSummary` (public list): `id`, `title`, `slug`, `status`, `publishedAt`, `scheduledAt`, `featuredImageId`, `tags`, `createdAt`.
+`BlogPostSummary` (public list): `id`, `title`, `slug`, `status`, `summary`, `isFeatured`, `commentsLocked`, `publishedAt`, `featuredImageId`, `tags`, `createdAt`.
 
 `BlogPostDetail` (admin or single-post views): all summary fields plus `body` and `authorUserId` and `updatedAt`.
 
@@ -217,11 +206,11 @@ All admin blog pages in `apps/web/app/admin/blog/` call `resolveProtectedSession
 
 - `/admin/blog` — admin blog list (`apps/web/app/admin/blog/page.tsx`). Shows all posts (all statuses) with inline Publish / Unpublish / Delete actions and a "New post" link to `/admin/blog/new`.
 - `/admin/blog/new` — create a new draft post (`apps/web/app/admin/blog/new/page.tsx`). Form fields: Title, Slug, Tags (comma-separated), Body (via `MarkdownEditor`). On submit, calls `adminCreatePost()` and redirects to the edit page for the newly created post.
-- `/admin/blog/:id/edit` — edit an existing post (`apps/web/app/admin/blog/[id]/edit/page.tsx`). Shows the current status and publish/schedule controls at the top, followed by the content editor form. Controls visible by status: unpublished/draft/scheduled posts show "Publish now" and a datetime picker for scheduling; published posts show "Unpublish". Saving the content form calls `adminUpdatePost()`; lifecycle transitions call the corresponding `adminPublishPost`, `adminUnpublishPost`, or `adminSchedulePost` helpers from `blog-client.ts`.
+- `/admin/blog/:id/edit` — edit an existing post (`apps/web/app/admin/blog/[id]/edit/page.tsx`). Shows the current status and publish controls at the top, followed by the content editor form. Controls visible by status: unpublished/draft posts show "Publish now"; published posts show "Unpublish". Saving the content form calls `adminUpdatePost()`; lifecycle transitions call the corresponding `adminPublishPost` or `adminUnpublishPost` helpers from `blog-client.ts`.
 
 #### blog-client.ts
 
-`apps/web/app/blog/blog-client.ts` is the typed API client for all blog API calls. Public helpers (`listPublishedPosts`, `getPublishedPost`) fetch without credentials. Admin helpers (`adminListAllPosts`, `adminGetPost`, `adminCreatePost`, `adminUpdatePost`, `adminPublishPost`, `adminUnpublishPost`, `adminSchedulePost`, `adminDeletePost`) send `credentials: "include"` so the session cookie is forwarded.
+`apps/web/app/blog/blog-client.ts` is the typed API client for all blog API calls. Public helpers (`listPublishedPosts`, `getPublishedPost`) fetch without credentials. Admin helpers (`adminListAllPosts`, `adminGetPost`, `adminCreatePost`, `adminUpdatePost`, `adminPublishPost`, `adminUnpublishPost`, `adminDeletePost`) send `credentials: "include"` so the session cookie is forwarded.
 
 ### Blog Comments (Milestone 3 Subtask 4)
 
@@ -249,7 +238,7 @@ All moderation routes return `401` for missing sessions and `403` for sessions w
 
 `BlogService.assertModerationAccess(actorGlobalRole: string)` is the single authorization gate for all moderation operations. It throws `ForbiddenException` for any role that is neither `moderator` nor `admin`. All moderation `BlogController` handlers call this method before performing any data operation.
 
-Comment creation does not require a minimum role beyond an active session, but the parent post must be in `published` status; attempting to comment on a draft, scheduled, or unpublished post returns `403`.
+Comment creation does not require a minimum role beyond an active session, but the parent post must be in `published` status; attempting to comment on a draft or unpublished post returns `403`.
 
 #### Comment Sanitization
 
@@ -262,7 +251,7 @@ A comment body that fails either step is rejected with `400 Bad Request` before 
 
 #### Comment Response Shape
 
-`BlogCommentDetail`: `id`, `postId`, `authorUserId`, `body`, `status` (`"visible" | "hidden" | "removed"`), `moderatedByUserId`, `moderatedAt`, `createdAt`, `updatedAt`.
+`BlogCommentDetail`: `id`, `postId`, `parentId` (nullable; set when the comment is a threaded reply), `authorUserId`, `body`, `status` (`"visible" | "hidden" | "removed"`), `mediaReferenceId` (nullable; references an attached image), `moderatedByUserId`, `moderatedAt`, `createdAt`, `updatedAt`.
 
 #### Web — Public Comment Display and Member Submission
 
@@ -337,7 +326,7 @@ Slugs must match `^[a-z0-9]+(?:-[a-z0-9]+)*$` (lowercase alphanumeric words sepa
 
 `PageDetail` (all views): `id`, `title`, `slug`, `body`, `status`, `publishedAt`, `currentRevisionId`, `createdByUserId`, `createdAt`, `updatedAt`.
 
-`RevisionDetail` (revisions list): `id`, `pageId`, `authorUserId`, `title`, `body`, `revisionNumber`, `createdAt`.
+`RevisionDetail` (revisions list): `id`, `pageId`, `authorUserId`, `editorUserId` (nullable; set when a different user edited the revision), `title`, `summary` (nullable), `body`, `changeNote` (nullable; free-text note describing the change), `featuredMediaId` (nullable), `revisionNumber`, `createdAt`.
 
 #### Web Routes — Public Standalone Pages
 

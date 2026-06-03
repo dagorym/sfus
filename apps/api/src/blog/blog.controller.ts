@@ -157,24 +157,6 @@ export class BlogController {
     return { post: toDetail(post) };
   }
 
-  @Post("admin/posts/:id/schedule")
-  @ApiOperation({ summary: "Schedule a blog post for future publication (admin)." })
-  @ApiUnauthorizedResponse({ description: "No active session." })
-  @ApiForbiddenResponse({ description: "Admin role required." })
-  @ApiNotFoundResponse({ description: "Post not found." })
-  @ApiBadRequestResponse({ description: "Invalid or past scheduledAt value." })
-  async adminSchedule(
-    @Req() request: Request,
-    @Param("id") id: string,
-    @Body() body: unknown
-  ): Promise<{ post: BlogPostDetail }> {
-    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
-    this.blogService.assertAdminManagementAccess(session.user.globalRole);
-    const scheduledAt = parseScheduleInput(body);
-    const post = await this.blogService.schedule(id, scheduledAt);
-    return { post: toDetail(post) };
-  }
-
   @Delete("admin/posts/:id")
   @ApiOperation({ summary: "Delete a blog post (admin)." })
   @ApiUnauthorizedResponse({ description: "No active session." })
@@ -319,7 +301,6 @@ interface BlogPostSummary {
   slug: string;
   status: string;
   publishedAt: string | null;
-  scheduledAt: string | null;
   featuredImageId: string | null;
   tags: string[];
   createdAt: string;
@@ -338,7 +319,6 @@ function toSummary(post: BlogPostEntity): BlogPostSummary {
     slug: post.slug,
     status: post.status,
     publishedAt: post.publishedAt ? post.publishedAt.toISOString() : null,
-    scheduledAt: post.scheduledAt ? post.scheduledAt.toISOString() : null,
     featuredImageId: post.featuredImageId,
     tags: post.postTags ? post.postTags.map((t) => t.tag) : [],
     createdAt: post.createdAt.toISOString()
@@ -407,21 +387,6 @@ function parseUpdateInput(body: unknown): UpdateBlogPostInput {
     input.tags = (b.tags as unknown[]).filter((t): t is string => typeof t === "string");
   }
   return input;
-}
-
-function parseScheduleInput(body: unknown): Date {
-  if (!body || typeof body !== "object") {
-    throw new BadRequestException("Request body must be a JSON object with a scheduledAt field.");
-  }
-  const b = body as Record<string, unknown>;
-  if (typeof b.scheduledAt !== "string") {
-    throw new BadRequestException("scheduledAt must be an ISO 8601 UTC datetime string.");
-  }
-  const date = new Date(b.scheduledAt);
-  if (isNaN(date.getTime())) {
-    throw new BadRequestException("scheduledAt is not a valid datetime.");
-  }
-  return date;
 }
 
 // ---------------------------------------------------------------------------

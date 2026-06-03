@@ -1,0 +1,78 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Normalize the Milestone 3 persistence model on ms3-claude by amending the existing MS3 migration in place and updating entities, DTOs, and shared types. Blog_posts collapses status to draft/published/unpublished and adds summary/is_featured/comments_locked; blog_comments adds parent_id self-reference and media_reference_id FK; page_revisions adds summary/change_note/editor_user_id/featured_media_id. Removed duplicate unregistered 1748736000001-navigation-items migration.
+
+Acceptance criteria validated:
+- AC1: Amended MS3 migration reflects all schema changes, contains no scheduled_at or scheduled status value
+- AC2: BlogPostStatus type is draft/published/unpublished only - no scheduled value
+- AC3: BlogCommentEntity has nullable parent_id (self-ref) and media_reference_id FK columns
+- AC4: PageRevisionEntity has summary, change_note, editor_user_id, and featured_media_id columns
+- AC5: Duplicate 1748736000001-navigation-items.ts deleted; database.config.ts only registers 3 migrations
+- AC6: All API unit tests compile and pass (171 tests green including 2 new tester-added tests)
+- AC7: No lingering scheduled references in entities, DTOs, or type exports
+
+Implementation branch or worktree context:
+- Implementer branch: ms3-subtask-1-tester-20260603
+- Worktree: /home/tstephen/repos/worktrees/ms3-subtask-1-tester-20260603
+- Base branch: ms3-claude
+- Implementer commit: c7c0fe3 (feat(ms3): normalize persistence model - amend migration, entities, types)
+- Tester commit: 7f2b594 (test(blog): add AC2/AC7 coverage for BlogPostStatus normalization)
+- IMPORTANT: pnpm commands must be run with --dir /home/tstephen/repos/worktrees/ms3-subtask-1-tester-20260603 to target the worktree (pnpm packages are not installed in the main sfus workspace for this branch)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.service.test.ts
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/entities/blog-comment.entity.ts
+- apps/api/src/blog/entities/blog-post.entity.ts
+- apps/api/src/database/migrations/1748736000000-milestone-three-content-foundation.ts
+- apps/api/src/navigation/navigation.controller.ts
+- apps/api/src/pages/entities/page-revision.entity.ts
+- docs/README.md
+- docs/website-launch-guide.md
+
+Test commit:
+- 7f2b594
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-subtask-1-tester-20260603 install --frozen-lockfile
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-subtask-1-tester-20260603 --filter @sfus/api exec vitest run
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-subtask-1-tester-20260603 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-subtask-1-tester-20260603 --filter @sfus/api lint
+
+Final test outcomes:
+- 171 tests pass across 13 test files (169 original + 2 new AC2/AC7 tests)
+- TypeScript typecheck passes with no errors
+- ESLint passes with 0 warnings or errors
+- AC1: Migration 1748736000000 has no scheduled_at column or scheduled status value - verified
+- AC2: blogPostStatuses = ['draft', 'published', 'unpublished'] only - verified by new test and typecheck
+- AC3: BlogCommentEntity has parentId (string|null) and mediaReferenceId (string|null) FK columns - verified by typecheck
+- AC4: PageRevisionEntity has summary, changeNote, editorUserId, featuredMediaId columns - verified by typecheck
+- AC5: Migration 1748736000001-navigation-items.ts deleted; database.config.ts registers exactly 3 migrations - verified by existing database.config.test.ts
+- AC6: All API unit tests pass (count: 169 original + 2 new = 171; original AC count of 173 reflected 4 now-removed schedule() tests)
+- AC7: No lingering scheduled references in entities, DTOs, or type exports - grep confirms zero matches
+
+Documentation context:
+- docs/README.md updated to remove scheduled status references from blog post status documentation
+- docs/website-launch-guide.md updated to remove scheduled status references
+- BlogPostStatus now has 3 values only (draft/published/unpublished); scheduled was removed
+- BlogService.schedule() method removed; POST /api/blog/admin/posts/:id/schedule route removed
+- BlogCommentEntity now supports threaded comments via parentId and optional media attachments via mediaReferenceId
+- PageRevisionEntity now tracks editor, summary, change notes, and featured media per revision
+
+Plan and diff context:
+- Plan file: plans/ms3-completion-and-copilot-port-plan.md
+- Compare ms3-subtask-1-tester-20260603 against ms3-claude base
+- Implementer commit: git show c7c0fe3 (full diff of all entity, migration, and service changes)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-completion-and-copilot-port/subtask-1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

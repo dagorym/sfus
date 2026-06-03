@@ -5,7 +5,7 @@ import { UserEntity } from "../../users/entities/user.entity";
 import { BlogCommentEntity } from "./blog-comment.entity";
 import { BlogPostTagEntity } from "./blog-post-tag.entity";
 
-export const blogPostStatuses = ["draft", "scheduled", "published", "unpublished"] as const;
+export const blogPostStatuses = ["draft", "published", "unpublished"] as const;
 export type BlogPostStatus = (typeof blogPostStatuses)[number];
 
 @Entity("blog_posts")
@@ -25,20 +25,26 @@ export class BlogPostEntity {
   @Column("varchar", { length: 255 })
   slug!: string;
 
+  @Column("varchar", { name: "summary", length: 512, nullable: true })
+  summary!: string | null;
+
   @Column("mediumtext")
   body!: string;
 
   @Column("varchar", { length: 32, default: "draft" })
   status!: BlogPostStatus;
 
+  @Column("tinyint", { name: "is_featured", width: 1, default: 0 })
+  isFeatured!: boolean;
+
+  @Column("tinyint", { name: "comments_locked", width: 1, default: 0 })
+  commentsLocked!: boolean;
+
   @Column("char", { name: "featured_image_id", length: 36, nullable: true })
   featuredImageId!: string | null;
 
   @Column("datetime", { name: "published_at", precision: 3, nullable: true })
   publishedAt!: Date | null;
-
-  @Column("datetime", { name: "scheduled_at", precision: 3, nullable: true })
-  scheduledAt!: Date | null;
 
   @Column("datetime", { name: "created_at", precision: 3, default: () => "CURRENT_TIMESTAMP(3)" })
   createdAt!: Date;

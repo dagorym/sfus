@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
+import { blogPostStatuses } from "./entities/blog-post.entity";
+
 import { AuthorizationService } from "../authorization/authorization.service";
 import { BlogService } from "./blog.service";
 import type { BlogCommentEntity } from "./entities/blog-comment.entity";
@@ -77,7 +79,6 @@ describe("BlogService publish-state transitions", () => {
       id: "post-1",
       status: "draft",
       publishedAt: null,
-      scheduledAt: null,
       postTags: []
     };
     const authorizationService = new AuthorizationService();
@@ -102,7 +103,6 @@ describe("BlogService publish-state transitions", () => {
       id: "post-1",
       status: "published",
       publishedAt: new Date(),
-      scheduledAt: null,
       postTags: []
     };
     const authorizationService = new AuthorizationService();
@@ -121,38 +121,6 @@ describe("BlogService publish-state transitions", () => {
     expect(result.status).toBe("unpublished");
   });
 
-  it("schedule() sets status to scheduled and records scheduledAt", async () => {
-    const post = {
-      id: "post-1",
-      status: "draft",
-      publishedAt: null,
-      scheduledAt: null,
-      postTags: []
-    };
-    const futureDate = new Date(Date.now() + 60_000);
-    const authorizationService = new AuthorizationService();
-    const postRepo = {
-      ...createMinimalRepository(),
-      findOne: vi.fn().mockResolvedValueOnce(post).mockResolvedValueOnce({ ...post, status: "scheduled", scheduledAt: futureDate, postTags: [] }),
-      save: vi.fn().mockResolvedValue(post)
-    };
-    const service = new BlogService(
-      postRepo as never,
-      createMinimalRepository() as never,
-      createMinimalRepository() as never,
-      authorizationService
-    );
-    const result = await service.schedule("post-1", futureDate);
-    expect(result.status).toBe("scheduled");
-    expect(result.scheduledAt).toEqual(futureDate);
-  });
-
-  it("schedule() rejects a past scheduledAt", async () => {
-    const service = makeBlogService();
-    const pastDate = new Date(Date.now() - 1000);
-    await expect(service.schedule("post-1", pastDate)).rejects.toThrow(BadRequestException);
-  });
-
   it("publish() throws NotFoundException for unknown post id", async () => {
     const service = makeBlogService();
     // Default stub returns null for findOne
@@ -162,12 +130,6 @@ describe("BlogService publish-state transitions", () => {
   it("unpublish() throws NotFoundException for unknown post id", async () => {
     const service = makeBlogService();
     await expect(service.unpublish("nonexistent")).rejects.toThrow(NotFoundException);
-  });
-
-  it("schedule() throws NotFoundException for unknown post id (future date)", async () => {
-    const service = makeBlogService();
-    const futureDate = new Date(Date.now() + 60_000);
-    await expect(service.schedule("nonexistent", futureDate)).rejects.toThrow(NotFoundException);
   });
 
   it("delete() throws NotFoundException for unknown post id", async () => {
@@ -409,32 +371,6 @@ describe("BlogService.createComment", () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  // AC4: Comments cannot expose unpublished parent content — scheduled post guard
-  it("throws ForbiddenException when post is scheduled (not published)", async () => {
-    const scheduledPost = {
-      id: "post-scheduled",
-      status: "scheduled",
-      title: "Scheduled Post",
-      slug: "scheduled-post",
-      body: "body",
-      postTags: []
-    };
-    const authorizationService = new AuthorizationService();
-    const postRepo = {
-      ...createMinimalRepository(),
-      findOne: vi.fn().mockResolvedValue(scheduledPost)
-    };
-    const service = new BlogService(
-      postRepo as never,
-      createMinimalRepository() as never,
-      createMinimalRepository() as never,
-      authorizationService
-    );
-    await expect(
-      service.createComment(scheduledPost.id, "user-1", { body: "Comment on scheduled" })
-    ).rejects.toThrow(ForbiddenException);
-  });
-
   // AC4: Comments cannot expose unpublished parent content — unpublished post guard
   it("throws ForbiddenException when post is unpublished", async () => {
     const unpublishedPost = {
@@ -555,5 +491,20 @@ describe("BlogService.findVisibleComments", () => {
     expect(findSpy).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ postId: "post-1", status: "visible" })
     }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC2 / AC7: BlogPostStatus type normalization — no scheduled value
+// ---------------------------------------------------------------------------
+
+describe("BlogPostStatus enum normalization", () => {
+  // AC2: BlogPostStatus type is draft/published/unpublished only - no scheduled value
+  it("blogPostStatuses contains exactly draft, published, and unpublished", () => {
+    expect(blogPostStatuses).toEqual(["draft", "published", "unpublished"]);
+  });
+
+  it("blogPostStatuses does not contain scheduled", () => {
+    expect((blogPostStatuses as readonly string[]).includes("scheduled")).toBe(false);
   });
 });
