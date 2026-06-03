@@ -1,0 +1,75 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Normalize the Milestone 3 persistence model on ms3-claude by amending the existing MS3 migration in place and updating entities, DTOs, and shared types. Blog_posts collapses status to draft/published/unpublished and adds summary/is_featured/comments_locked; blog_comments adds parent_id self-reference and media_reference_id FK; page_revisions adds summary/change_note/editor_user_id/featured_media_id. Removed duplicate unregistered 1748736000001-navigation-items migration.
+
+Acceptance criteria to verify:
+- AC1: Amended MS3 migration reflects all schema changes, contains no scheduled_at or scheduled status value
+- AC2: BlogPostStatus type is draft/published/unpublished only - no scheduled value
+- AC3: BlogCommentEntity has nullable parent_id (self-ref) and media_reference_id FK columns
+- AC4: PageRevisionEntity has summary, change_note, editor_user_id, and featured_media_id columns
+- AC5: Duplicate 1748736000001-navigation-items.ts deleted; database.config.ts only registers 3 migrations
+- AC6: All API unit tests compile and pass (171 tests green including 2 new tester-added tests)
+- AC7: No lingering scheduled references in entities, DTOs, or type exports
+
+Implementation branch or worktree context:
+- Implementer branch: ms3-subtask-1-tester-20260603
+- Worktree: /home/tstephen/repos/worktrees/ms3-subtask-1-tester-20260603
+- Base branch: ms3-claude
+- Implementer commit: c7c0fe3 (feat(ms3): normalize persistence model - amend migration, entities, types)
+- Tester commit: 7f2b594 (test(blog): add AC2/AC7 coverage for BlogPostStatus normalization)
+- Documenter commit: bcf80af (docs(ms3): update response shapes for normalized persistence model)
+- IMPORTANT: pnpm commands must be run with --dir /home/tstephen/repos/worktrees/ms3-subtask-1-tester-20260603 to target the worktree
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.service.test.ts
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/entities/blog-comment.entity.ts
+- apps/api/src/blog/entities/blog-post.entity.ts
+- apps/api/src/database/migrations/1748736000000-milestone-three-content-foundation.ts
+- apps/api/src/database/migrations/1748736000001-navigation-items.ts (deleted)
+- apps/api/src/navigation/navigation.controller.ts
+- apps/api/src/pages/entities/page-revision.entity.ts
+- docs/README.md
+- docs/website-launch-guide.md
+
+Commands executed:
+- git add docs/README.md
+- git commit -m 'docs(ms3): update response shapes for normalized persistence model'
+
+Final test outcomes:
+- 171 tests pass across 13 test files (169 original + 2 new AC2/AC7 tests)
+- TypeScript typecheck passes with no errors
+- ESLint passes with 0 warnings or errors
+- AC1: Migration 1748736000000 has no scheduled_at column or scheduled status value - verified
+- AC2: blogPostStatuses = ['draft', 'published', 'unpublished'] only - verified by new test and typecheck
+- AC3: BlogCommentEntity has parentId (string|null) and mediaReferenceId (string|null) FK columns - verified by typecheck
+- AC4: PageRevisionEntity has summary, changeNote, editorUserId, featuredMediaId columns - verified by typecheck
+- AC5: Migration 1748736000001-navigation-items.ts deleted; database.config.ts registers exactly 3 migrations - verified by existing database.config.test.ts
+- AC6: All API unit tests pass (count: 169 original + 2 new = 171; original AC count of 173 reflected 4 now-removed schedule() tests)
+- AC7: No lingering scheduled references in entities, DTOs, or type exports - grep confirms zero matches
+
+Plan or evaluation context guidance:
+- Plan file: plans/ms3-completion-and-copilot-port-plan.md
+- Compare ms3-subtask-1-tester-20260603 against ms3-claude base
+- Subtask 1 normalizes the persistence model: BlogPostStatus drops 'scheduled', BlogCommentEntity adds threading (parentId) and media attachment (mediaReferenceId), PageRevisionEntity adds summary/change_note/editor_user_id/featured_media_id, duplicate migration deleted
+
+Convention-file guidance:
+- Repository documentation lives in docs/README.md (architecture, API contract, entity model) and docs/website-launch-guide.md (startup and user workflows)
+- No required in-code docblock policy was found in repository guidance; TypeScript entity files use self-documenting column decorators
+- Artifact paths follow pattern: artifacts/<plan-slug>/subtask-<N>/<role>_<report|result|prompt>.txt
+
+Updated documentation files:
+- docs/README.md
+
+Shared artifact directory:
+- artifacts/ms3-completion-and-copilot-port/subtask-1
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
