@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
+import { blogPostStatuses } from "./entities/blog-post.entity";
+
 import { AuthorizationService } from "../authorization/authorization.service";
 import { BlogService } from "./blog.service";
 import type { BlogCommentEntity } from "./entities/blog-comment.entity";
@@ -489,5 +491,20 @@ describe("BlogService.findVisibleComments", () => {
     expect(findSpy).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ postId: "post-1", status: "visible" })
     }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC2 / AC7: BlogPostStatus type normalization — no scheduled value
+// ---------------------------------------------------------------------------
+
+describe("BlogPostStatus enum normalization", () => {
+  // AC2: BlogPostStatus type is draft/published/unpublished only - no scheduled value
+  it("blogPostStatuses contains exactly draft, published, and unpublished", () => {
+    expect(blogPostStatuses).toEqual(["draft", "published", "unpublished"]);
+  });
+
+  it("blogPostStatuses does not contain scheduled", () => {
+    expect((blogPostStatuses as readonly string[]).includes("scheduled")).toBe(false);
   });
 });
