@@ -26,11 +26,14 @@ services:
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
+      MEDIA_STORAGE_PATH: /app/storage/uploads
     depends_on:
       mysql:
         condition: service_healthy
     ports:
       - "${API_HOST_PORT:-3001}:3001"
+    volumes:
+      - sfus_media_uploads:/app/storage/uploads
 
   web:
     profiles: ["fullstack"]
@@ -48,3 +51,4 @@ services:
 
 volumes:
   sfus_mysql_data:
+  sfus_media_uploads:

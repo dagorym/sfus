@@ -4,6 +4,28 @@
   gap: var(--space-xs, 0.25rem);
 }
 
+.altTextRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.altTextLabel {
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  color: var(--color-muted, #888);
+}
+
+.altTextInput {
+  flex: 1;
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-border, #444);
+  border-radius: 4px;
+  background: var(--color-surface, #1e1e1e);
+  color: inherit;
+}
+
 /* Visually hide the native file input; the styled label acts as the trigger. */
 .fileInput {
   position: absolute;

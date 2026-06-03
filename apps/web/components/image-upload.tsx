@@ -19,7 +19,7 @@
  * - No external file-upload library is used.
  */
 
-import React, { useRef, useState } from "react";
+import React, { useId, useRef, useState } from "react";
 
 import styles from "./image-upload.module.css";
 
@@ -32,6 +32,7 @@ export interface ImageUploadResult {
   mimeType: string;
   sizeBytes: number;
   originalFilename: string;
+  altText: string;
 }
 
 export interface ImageUploadProps {
@@ -42,7 +43,8 @@ export interface ImageUploadProps {
   resourceType: ImageUploadResourceType;
   /**
    * Called with the upload result when the server successfully processes the
-   * file. Callers typically insert the returned URL into the Markdown body.
+   * file. Callers typically insert the returned URL and alt text into the
+   * Markdown body as ![altText](url).
    */
   onUpload: (result: ImageUploadResult) => void;
   /**
@@ -73,10 +75,17 @@ export function ImageUpload({
   disabled = false,
   label = "Upload image"
 }: ImageUploadProps) {
+  // useId produces a stable, unique id per component instance so that multiple
+  // ImageUpload widgets on the same page do not share the same DOM id.
+  const instanceId = useId();
+  const inputId = `image-upload-input-${instanceId}`;
+  const altInputId = `image-upload-alt-${instanceId}`;
+
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<"success" | "error" | null>(null);
+  const [altText, setAltText] = useState("");
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -128,7 +137,10 @@ export function ImageUpload({
         return;
       }
 
-      const result = (await response.json()) as ImageUploadResult;
+      const serverResult = (await response.json()) as Omit<ImageUploadResult, "altText">;
+      // Attach the caller-supplied alt text to the result so the parent
+      // component can insert correct Markdown: ![altText](url).
+      const result: ImageUploadResult = { ...serverResult, altText: altText.trim() };
       setStatusMessage(`Uploaded: ${result.originalFilename}`);
       setStatusType("success");
       onUpload(result);
@@ -146,6 +158,20 @@ export function ImageUpload({
 
   return (
     <div className={styles.container}>
+      <div className={styles.altTextRow}>
+        <label htmlFor={altInputId} className={styles.altTextLabel}>
+          Alt text
+        </label>
+        <input
+          id={altInputId}
+          type="text"
+          value={altText}
+          onChange={(e) => setAltText(e.target.value)}
+          placeholder="Describe the image (for accessibility)"
+          disabled={disabled || uploading}
+          className={styles.altTextInput}
+        />
+      </div>
       <input
         ref={inputRef}
         type="file"
@@ -154,10 +180,10 @@ export function ImageUpload({
         disabled={disabled || uploading}
         className={styles.fileInput}
         aria-label={label}
-        id="image-upload-input"
+        id={inputId}
       />
       <label
-        htmlFor="image-upload-input"
+        htmlFor={inputId}
         className={`${styles.uploadButton}${disabled || uploading ? ` ${styles.uploadButtonDisabled}` : ""}`}
       >
         {uploading ? "Uploading…" : label}

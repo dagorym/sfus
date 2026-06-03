@@ -26,9 +26,12 @@ services:
       VIRTUAL_HOST: ${SFUS_PUBLIC_HOST:?set in host env}
       VIRTUAL_PATH: /api
       VIRTUAL_PORT: "3001"
+      MEDIA_STORAGE_PATH: /app/storage/uploads
     networks:
       - sfus
       - nginx-proxy
+    volumes:
+      - sfus_media_uploads:/app/storage/uploads
 
   migrate:
     build:
@@ -37,10 +40,17 @@ services:
     profiles: ["migration"]
     env_file:
       - ../../apps/api/.env
+    environment:
+      MEDIA_STORAGE_PATH: /app/storage/uploads
     command: ["node", "dist/index.js", "migration:run"]
     restart: "no"
     networks:
       - sfus
+    volumes:
+      - sfus_media_uploads:/app/storage/uploads
+
+volumes:
+  sfus_media_uploads:
 
 networks:
   sfus:

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
-import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 
@@ -29,6 +29,13 @@ export interface MediaUploadResult {
   sizeBytes: number;
   url: string;
   createdAt: Date;
+}
+
+export interface MediaServeResult {
+  filePath: string;
+  mimeType: string;
+  sizeBytes: number;
+  originalFilename: string;
 }
 
 /** Resource type values accepted as the resource context for an upload. */
@@ -91,6 +98,46 @@ export class MediaService {
       sizeBytes: entity.sizeBytes,
       url: `/api/media/${entity.id}`,
       createdAt: entity.createdAt
+    };
+  }
+
+  /**
+   * Resolves a stored media record by ID and returns a safe file path for
+   * streaming. The path is derived from the stored storageKey — never from any
+   * user-supplied path — and is resolved relative to the configured storage
+   * root so that path traversal attempts embedded in a storageKey in the
+   * database are still rejected.
+   *
+   * Throws NotFoundException when the record does not exist or the file is
+   * absent from disk, and BadRequestException when the stored mimeType is not
+   * in the allowed list (defence-in-depth).
+   */
+  async getImageForServing(id: string): Promise<MediaServeResult> {
+    const entity = await this.mediaRepository.findOne({ where: { id } });
+    if (!entity) {
+      throw new NotFoundException("Media not found.");
+    }
+
+    // Defence-in-depth: even though storageKey is server-generated, validate
+    // that it does not attempt to escape the storage root.
+    const storageRoot = path.resolve(this.environment.media.storagePath);
+    const resolvedPath = path.resolve(storageRoot, entity.storageKey);
+    if (!resolvedPath.startsWith(storageRoot + path.sep) && resolvedPath !== storageRoot) {
+      throw new BadRequestException("Invalid media storage key.");
+    }
+
+    if (!fs.existsSync(resolvedPath)) {
+      throw new NotFoundException("Media file not found on disk.");
+    }
+
+    // Only serve MIME types that are in the configured allow-list.
+    this.assertValidMimeType(entity.mimeType);
+
+    return {
+      filePath: resolvedPath,
+      mimeType: entity.mimeType,
+      sizeBytes: entity.sizeBytes,
+      originalFilename: entity.originalFilename
     };
   }
 
