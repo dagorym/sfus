@@ -191,7 +191,7 @@ All transitions are permissive at the service layer: any status can be moved to 
 
 #### Response Shapes
 
-`BlogPostSummary` (public list): `id`, `title`, `slug`, `status`, `publishedAt`, `featuredImageId`, `tags`, `createdAt`.
+`BlogPostSummary` (public list): `id`, `title`, `slug`, `status`, `summary`, `isFeatured`, `commentsLocked`, `publishedAt`, `featuredImageId`, `tags`, `createdAt`.
 
 `BlogPostDetail` (admin or single-post views): all summary fields plus `body` and `authorUserId` and `updatedAt`.
 
@@ -251,7 +251,7 @@ A comment body that fails either step is rejected with `400 Bad Request` before 
 
 #### Comment Response Shape
 
-`BlogCommentDetail`: `id`, `postId`, `authorUserId`, `body`, `status` (`"visible" | "hidden" | "removed"`), `moderatedByUserId`, `moderatedAt`, `createdAt`, `updatedAt`.
+`BlogCommentDetail`: `id`, `postId`, `parentId` (nullable; set when the comment is a threaded reply), `authorUserId`, `body`, `status` (`"visible" | "hidden" | "removed"`), `mediaReferenceId` (nullable; references an attached image), `moderatedByUserId`, `moderatedAt`, `createdAt`, `updatedAt`.
 
 #### Web — Public Comment Display and Member Submission
 
@@ -326,7 +326,7 @@ Slugs must match `^[a-z0-9]+(?:-[a-z0-9]+)*$` (lowercase alphanumeric words sepa
 
 `PageDetail` (all views): `id`, `title`, `slug`, `body`, `status`, `publishedAt`, `currentRevisionId`, `createdByUserId`, `createdAt`, `updatedAt`.
 
-`RevisionDetail` (revisions list): `id`, `pageId`, `authorUserId`, `title`, `body`, `revisionNumber`, `createdAt`.
+`RevisionDetail` (revisions list): `id`, `pageId`, `authorUserId`, `editorUserId` (nullable; set when a different user edited the revision), `title`, `summary` (nullable), `body`, `changeNote` (nullable; free-text note describing the change), `featuredMediaId` (nullable), `revisionNumber`, `createdAt`.
 
 #### Web Routes — Public Standalone Pages
 
