@@ -16,6 +16,7 @@ Load this skill only when all open questions are resolved and the proposed desig
 - Present a section-by-section change plan.
 - Show exact patch-style diffs inline in chat for all intended edits.
 - Explain the impacts and trade-offs clearly.
+- Explicitly highlight any security implications identified during impact analysis alongside the relevant diffs, so the user has full security context at the point of approval.
 - Request explicit approval before any file edits are made.
 
 ## Limits

@@ -16,6 +16,7 @@ Shared skills live at the top level of the `.myteam` tree. Load each one by its 
 - `repository-inference` for safe bounded inference and explicit assumption labeling.
 - `artifact-paths` for repository-root-relative artifact-path conventions.
 - `handoff-prompt-contract` for shared completion-gate and downstream prompt expectations used in Implementer handoff sections.
+- `decision-tracking` for externalizing open-decision queue state during the decision-resolution loop when bookkeeping would otherwise consume unnecessary context.
 
 ## Child Skills
 - `preflight` for feature restatement, initial repository-context framing, and startup continuation.
