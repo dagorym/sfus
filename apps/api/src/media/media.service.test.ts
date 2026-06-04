@@ -1,13 +1,15 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("node:fs", () => ({
   default: {
     mkdirSync: vi.fn(),
-    writeFileSync: vi.fn()
+    writeFileSync: vi.fn(),
+    existsSync: vi.fn().mockReturnValue(true)
   },
   mkdirSync: vi.fn(),
-  writeFileSync: vi.fn()
+  writeFileSync: vi.fn(),
+  existsSync: vi.fn().mockReturnValue(true)
 }));
 
 import type { ApplicationEnvironment } from "../config/environment";
@@ -21,11 +23,15 @@ import { MediaService } from "./media.service";
 type MinimalRepository<T> = {
   create: (partial: Partial<T>) => T;
   save: (entity: T) => Promise<T>;
+  findOne: (options: unknown) => Promise<T | null>;
 };
 
-const createMinimalMediaRepository = (): MinimalRepository<MediaReferenceEntity> => ({
+const createMinimalMediaRepository = (
+  findOneResult: MediaReferenceEntity | null = null
+): MinimalRepository<MediaReferenceEntity> => ({
   create: (partial) => ({ ...partial, createdAt: new Date() }) as MediaReferenceEntity,
-  save: async (entity) => entity
+  save: async (entity) => entity,
+  findOne: async () => findOneResult
 });
 
 const makeTestEnvironment = (overrides: Partial<ApplicationEnvironment["media"]> = {}): ApplicationEnvironment => ({
@@ -64,9 +70,12 @@ const makeTestEnvironment = (overrides: Partial<ApplicationEnvironment["media"]>
   }
 });
 
-const makeMediaService = (envOverrides: Partial<ApplicationEnvironment["media"]> = {}): MediaService => {
+const makeMediaService = (
+  envOverrides: Partial<ApplicationEnvironment["media"]> = {},
+  findOneResult: MediaReferenceEntity | null = null
+): MediaService => {
   const env = makeTestEnvironment(envOverrides);
-  const repo = createMinimalMediaRepository();
+  const repo = createMinimalMediaRepository(findOneResult);
   return new MediaService(repo as never, env as never);
 };
 
@@ -209,5 +218,85 @@ describe("MediaService.uploadImage", () => {
     expect(result.mimeType).toBe("image/jpeg");
     expect(result.sizeBytes).toBe(1024);
     expect(result.originalFilename).toContain("photo");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MediaService.getImageForServing tests
+// Acceptance criterion: GET /api/media/:id serves stored files resolved from
+// storageKey with path traversal defence; only allowed MIME types served.
+// ---------------------------------------------------------------------------
+
+const makeMediaEntity = (overrides: Partial<MediaReferenceEntity> = {}): MediaReferenceEntity => ({
+  id: "test-media-id",
+  storageKey: "blog-post/test-media-id.jpg",
+  originalFilename: "photo.jpg",
+  mimeType: "image/jpeg",
+  sizeBytes: 1024,
+  ownerUserId: "user-1",
+  resourceType: "blog-post",
+  resourceId: null,
+  createdAt: new Date(),
+  ...overrides
+} as MediaReferenceEntity);
+
+describe("MediaService.getImageForServing", () => {
+  it("throws NotFoundException when the media record does not exist", async () => {
+    const service = makeMediaService({}, null);
+    await expect(service.getImageForServing("nonexistent-id")).rejects.toThrow(NotFoundException);
+  });
+
+  it("throws NotFoundException when the file is absent from disk", async () => {
+    const fsMock = await import("node:fs");
+    vi.mocked(fsMock.default.existsSync).mockReturnValueOnce(false);
+    const entity = makeMediaEntity();
+    const service = makeMediaService({}, entity);
+    await expect(service.getImageForServing(entity.id)).rejects.toThrow(NotFoundException);
+  });
+
+  it("rejects a path traversal storageKey that escapes the storage root", async () => {
+    // Simulate a tampered storageKey (defence-in-depth: server-generated keys
+    // should never contain traversal, but the guard must still reject them).
+    const entity = makeMediaEntity({ storageKey: "../../etc/passwd" });
+    const service = makeMediaService({ storagePath: "/tmp/sfus-test-uploads" }, entity);
+    await expect(service.getImageForServing(entity.id)).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a storageKey with encoded traversal segments", async () => {
+    const entity = makeMediaEntity({ storageKey: "blog-post/../../../etc/passwd" });
+    const service = makeMediaService({ storagePath: "/tmp/sfus-test-uploads" }, entity);
+    await expect(service.getImageForServing(entity.id)).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException when the stored mimeType is not in the allow-list", async () => {
+    const fsMock = await import("node:fs");
+    vi.mocked(fsMock.default.existsSync).mockReturnValueOnce(true);
+    const entity = makeMediaEntity({ mimeType: "application/octet-stream" });
+    const service = makeMediaService({}, entity);
+    await expect(service.getImageForServing(entity.id)).rejects.toThrow(BadRequestException);
+  });
+
+  it("returns filePath, mimeType, sizeBytes and originalFilename for a valid record", async () => {
+    const fsMock = await import("node:fs");
+    vi.mocked(fsMock.default.existsSync).mockReturnValueOnce(true);
+    const entity = makeMediaEntity();
+    const service = makeMediaService({ storagePath: "/tmp/sfus-test-uploads" }, entity);
+    const result = await service.getImageForServing(entity.id);
+    expect(result.filePath).toContain("/tmp/sfus-test-uploads");
+    expect(result.filePath).toContain("blog-post");
+    // Path must not escape the storage root.
+    expect(result.filePath.startsWith("/tmp/sfus-test-uploads")).toBe(true);
+    expect(result.mimeType).toBe("image/jpeg");
+    expect(result.sizeBytes).toBe(1024);
+    expect(result.originalFilename).toBe("photo.jpg");
+  });
+
+  it("resolved path remains within the storage root for a valid storageKey", async () => {
+    const fsMock = await import("node:fs");
+    vi.mocked(fsMock.default.existsSync).mockReturnValueOnce(true);
+    const entity = makeMediaEntity({ storageKey: "blog-post/abc-123.png", mimeType: "image/png" });
+    const service = makeMediaService({ storagePath: "/tmp/sfus-test-uploads" }, entity);
+    const result = await service.getImageForServing(entity.id);
+    expect(result.filePath).toBe("/tmp/sfus-test-uploads/blog-post/abc-123.png");
   });
 });

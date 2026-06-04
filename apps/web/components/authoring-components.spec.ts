@@ -235,6 +235,49 @@ describe("ImageUpload source contracts", () => {
     const source = await readComponent("image-upload.tsx");
     expect(source).toContain('role={statusType === "error" ? "alert" : "status"}');
   });
+
+  it("captures alt text via a controlled input — altText state present", async () => {
+    // AC: ImageUpload captures alt text and includes it in the upload result.
+    const source = await readComponent("image-upload.tsx");
+    // A controlled altText state must be declared.
+    expect(source).toContain("altText");
+    expect(source).toContain("setAltText");
+    // Alt text must be attached to the upload result.
+    expect(source).toContain("altText: altText");
+  });
+
+  it("includes altText in ImageUploadResult interface", async () => {
+    // AC: ImageUploadResult.altText is added to the interface.
+    const source = await readComponent("image-upload.tsx");
+    expect(source).toContain("altText: string");
+  });
+
+  it("uses useId() to generate per-instance unique DOM ids for the file and alt inputs", async () => {
+    // AC: multiple ImageUpload widgets on a page have unique DOM ids via useId.
+    const source = await readComponent("image-upload.tsx");
+    // useId must be imported.
+    expect(source).toContain("useId");
+    // Per-instance ids must be derived from the useId result.
+    expect(source).toContain("image-upload-input-");
+    expect(source).toContain("image-upload-alt-");
+    // The instanceId variable must be used to construct the ids.
+    expect(source).toContain("instanceId");
+  });
+
+  it("assigns unique id to the file input element", async () => {
+    // AC: each widget's file input has a distinct id, avoiding DOM id collisions.
+    const source = await readComponent("image-upload.tsx");
+    expect(source).toContain("inputId");
+    // The id attribute must be bound to the per-instance variable, not a literal.
+    expect(source).toContain("id={inputId}");
+  });
+
+  it("assigns unique id to the alt text input element", async () => {
+    // AC: each widget's alt text input has a distinct id.
+    const source = await readComponent("image-upload.tsx");
+    expect(source).toContain("altInputId");
+    expect(source).toContain("id={altInputId}");
+  });
 });
 
 // ---------------------------------------------------------------------------
