@@ -157,7 +157,7 @@ Three shared components live in `apps/web/components/` and are reusable across a
 
 ### Blog Publishing Lifecycle (Milestone 3 Subtask 3)
 
-Milestone 3 Subtask 3 adds the full blog publishing lifecycle: a `BlogController` with separated public and admin route surfaces, a complete `BlogService` with status-transition methods, and the corresponding admin and public web pages.
+Milestone 3 Subtask 3 adds the full blog publishing lifecycle: a `BlogController` with separated public and admin route surfaces, a complete `BlogService` with status-transition methods, server-side body sanitization, featured image wiring, and pin/feature ordering. The corresponding admin and public web pages are also included.
 
 #### BlogModule API Routes
 
@@ -165,17 +165,19 @@ Milestone 3 Subtask 3 adds the full blog publishing lifecycle: a `BlogController
 
 **Public routes — no authentication required, published content only:**
 
-- `GET /api/blog` — returns all published posts as `{ posts: BlogPostSummary[] }` ordered by `publishedAt` descending. Draft and unpublished posts are never included.
-- `GET /api/blog/:slug` — returns a single published post by slug as `{ post: BlogPostDetail }`. Returns `404` when the post does not exist or is not published, so draft and unpublished content is never exposed through this route.
+- `GET /api/blog` — returns all published posts whose `publishedAt` is at or before the current time as `{ posts: BlogPostSummary[] }`, ordered by `isFeatured DESC, publishedAt DESC`. Future-dated published posts and draft posts are never included; no background job is required for scheduled visibility — the `LessThanOrEqual(now)` filter is evaluated at query time.
+- `GET /api/blog/:slug` — returns a single published post by slug as `{ post: BlogPostDetail }`. Returns `404` when the post does not exist, is not published, or its `publishedAt` is in the future, so draft, unpublished, and future-scheduled content is never exposed through this route.
 
 **Admin management routes — require an active `sfus_session` cookie and the global `admin` role:**
 
 - `GET /api/blog/admin/posts` — lists all posts regardless of status as `{ posts: BlogPostDetail[] }`.
 - `GET /api/blog/admin/posts/:id` — fetches a single post by UUID.
-- `POST /api/blog/admin/posts` — creates a new post in `draft` status. Body: `{ title, slug, body, featuredImageId?, tags? }`.
-- `PATCH /api/blog/admin/posts/:id` — updates post fields. All fields are optional; only the supplied fields are changed.
-- `POST /api/blog/admin/posts/:id/publish` — transitions a post to `published` status and records the current UTC timestamp in `publishedAt`.
-- `POST /api/blog/admin/posts/:id/unpublish` — transitions a post to `unpublished` status.
+- `POST /api/blog/admin/posts` — creates a new post in `draft` status. Body: `{ title, slug, body, summary?, featuredImageId?, isFeatured?, tags? }`. The `body` is sanitized with `normalizeMarkdownBody` + `validateMarkdownBody` before persistence; unsafe bodies are rejected with `400`. `featuredImageId` is validated against the `media_references` table; an unrecognized UUID is rejected with `400`.
+- `PATCH /api/blog/admin/posts/:id` — updates post fields. All fields are optional; only the supplied fields are changed. Body sanitization and `featuredImageId` validation apply when those fields are present.
+- `POST /api/blog/admin/posts/:id/publish` — transitions a post to `published` status and records the current UTC timestamp in `publishedAt`. The post becomes immediately visible on public routes because `publishedAt <= now`.
+- `POST /api/blog/admin/posts/:id/publish-at` — schedules a post for future publication. Body: `{ publishedAt: string }` (ISO 8601 datetime). Sets `status = "published"` and `publishedAt` to the supplied datetime. The post remains hidden from public routes until `publishedAt <= now`; no background job is required.
+- `POST /api/blog/admin/posts/:id/unpublish` — returns the post to `draft` status and clears `publishedAt`. The post is immediately hidden from all public routes.
+- `POST /api/blog/admin/posts/:id/toggle-featured` — toggles the `isFeatured` (pin) state of the post. Featured posts surface first in the public listing (`isFeatured DESC`). Only admins may call this endpoint.
 - `DELETE /api/blog/admin/posts/:id` — permanently removes the post.
 
 All admin routes return `401` when no session is present and `403` when the session's global role is not `admin`. Authorization is enforced by `BlogService.assertAdminManagementAccess(session.user.globalRole)` called at the top of every admin handler.
@@ -187,35 +189,54 @@ All admin routes return `401` when no session is present and `403` when the sess
 #### Post Status Lifecycle
 
 ```
-draft → published (publish)
-published → unpublished (unpublish)
-unpublished → published (publish)
+draft → published (publish / publish-at)
+published → draft (unpublish — also clears publishedAt)
+draft → draft (publish-at with future date sets status=published + future publishedAt)
 ```
 
-All transitions are permissive at the service layer: any status can be moved to any other status by calling the appropriate method. The public `GET /api/blog` and `GET /api/blog/:slug` routes filter exclusively on `status = "published"` regardless of how the record was last modified.
+`unpublish` returns the post to `draft` status and sets `publishedAt` to `null`; there is no separate `"unpublished"` status in the persistence layer. Public routes filter on both `status = "published"` and `publishedAt <= now`, so a future-dated published post is effectively "scheduled" — it is stored as published but hidden until its time arrives. The admin UI labels such posts as scheduled with a "goes live at" timestamp. Drafts and posts with `publishedAt` in the future are never visible through public routes.
+
+Comment creation is also gated on `publishedAt <= now`; attempting to comment on a future-scheduled published post returns `403`.
 
 #### Response Shapes
 
-`BlogPostSummary` (public list): `id`, `title`, `slug`, `status`, `summary`, `isFeatured`, `commentsLocked`, `publishedAt`, `featuredImageId`, `tags`, `createdAt`.
+`BlogPostSummary` (public list and admin list): `id`, `title`, `slug`, `summary`, `status`, `isFeatured`, `commentsLocked`, `publishedAt`, `featuredImageId`, `tags`, `createdAt`.
 
 `BlogPostDetail` (admin or single-post views): all summary fields plus `body` and `authorUserId` and `updatedAt`.
 
+#### Body Sanitization
+
+All blog post bodies are sanitized server-side on create and update using the shared Markdown sanitizer (`apps/api/src/media/markdown-sanitizer.ts`):
+
+1. `normalizeMarkdownBody(body)` — normalizes line endings to LF and trims whitespace.
+2. `validateMarkdownBody(normalized)` — blocks unsafe HTML and dangerous URI schemes. Returns `{ safe: false, reason }` on violation.
+
+A body that fails validation is rejected with `400 Bad Request` before persistence. This applies to both `POST /api/blog/admin/posts` (create) and `PATCH /api/blog/admin/posts/:id` (update).
+
+#### Featured Image Validation
+
+When `featuredImageId` is supplied on create or update, `BlogService` queries the `media_references` table and rejects any UUID that does not correspond to an existing record with `400 Bad Request`. This ensures the blog post entity always references a valid uploaded media file.
+
 #### Web Routes — Public Blog
 
-- `/blog` — public blog index (`apps/web/app/blog/page.tsx`). No session required. Lists all published posts fetched from `GET /api/blog`. Each post links to `/blog/<slug>`.
-- `/blog/:slug` — single blog post view (`apps/web/app/blog/[slug]/page.tsx`). No session required. Fetches `GET /api/blog/<slug>` and renders the post body via `MarkdownRenderer`. Displays a "Post not found" message when the API returns `null` (post missing or not published).
+- `/blog` — public blog index (`apps/web/app/blog/page.tsx`). No session required. Lists all published posts fetched from `GET /api/blog`. Featured/pinned posts appear first. Each post links to `/blog/<slug>`.
+- `/blog/:slug` — single blog post view (`apps/web/app/blog/[slug]/page.tsx`). No session required. Fetches `GET /api/blog/<slug>` and renders the post body via `MarkdownRenderer`. Displays a "Post not found" message when the API returns `null` (post missing, not published, or scheduled for the future).
 
 #### Web Routes — Admin Blog Management
 
 All admin blog pages in `apps/web/app/admin/blog/` call `resolveProtectedSession()` followed by `hasGlobalRole(session.user, "admin")` on mount and redirect unauthenticated users to `/login?next=<current-route>`. A non-admin authenticated session shows an "Admin access required" error in place of the management UI.
 
-- `/admin/blog` — admin blog list (`apps/web/app/admin/blog/page.tsx`). Shows all posts (all statuses) with inline Publish / Unpublish / Delete actions and a "New post" link to `/admin/blog/new`.
-- `/admin/blog/new` — create a new draft post (`apps/web/app/admin/blog/new/page.tsx`). Form fields: Title, Slug, Tags (comma-separated), Body (via `MarkdownEditor`). On submit, calls `adminCreatePost()` and redirects to the edit page for the newly created post.
-- `/admin/blog/:id/edit` — edit an existing post (`apps/web/app/admin/blog/[id]/edit/page.tsx`). Shows the current status and publish controls at the top, followed by the content editor form. Controls visible by status: unpublished/draft posts show "Publish now"; published posts show "Unpublish". Saving the content form calls `adminUpdatePost()`; lifecycle transitions call the corresponding `adminPublishPost` or `adminUnpublishPost` helpers from `blog-client.ts`.
+- `/admin/blog` — admin blog list (`apps/web/app/admin/blog/page.tsx`). Shows all posts (all statuses) with inline Publish / Unpublish / Delete actions and a "New post" link to `/admin/blog/new`. Future-dated published posts are labeled as scheduled with their go-live timestamp.
+- `/admin/blog/new` — create a new draft post (`apps/web/app/admin/blog/new/page.tsx`). Form fields: Title, Slug, Summary, Tags (comma-separated), Featured Image (via `ImageUpload`), Body (via `MarkdownEditor`). On submit, calls `adminCreatePost()` and redirects to the edit page for the newly created post.
+- `/admin/blog/:id/edit` — edit an existing post (`apps/web/app/admin/blog/[id]/edit/page.tsx`). Shows the current status and publish controls at the top, followed by the content editor form. Controls visible by status: draft/scheduled posts show "Publish now" and "Schedule" options; published posts show "Unpublish"; all posts show a "Pin/Unpin" toggle. Saving the content form calls `adminUpdatePost()`; lifecycle transitions call the corresponding `adminPublishPost`, `adminUnpublishPost`, `adminPublishAt`, or `adminToggleFeatured` helpers from `blog-client.ts`. The featured image field uses `ImageUpload` (`resourceType="blog-post"`).
 
 #### blog-client.ts
 
-`apps/web/app/blog/blog-client.ts` is the typed API client for all blog API calls. Public helpers (`listPublishedPosts`, `getPublishedPost`) fetch without credentials. Admin helpers (`adminListAllPosts`, `adminGetPost`, `adminCreatePost`, `adminUpdatePost`, `adminPublishPost`, `adminUnpublishPost`, `adminDeletePost`) send `credentials: "include"` so the session cookie is forwarded.
+`apps/web/app/blog/blog-client.ts` is the typed API client for all blog API calls. Public helpers (`listPublishedPosts`, `getPublishedPost`) fetch without credentials. Admin helpers send `credentials: "include"` so the session cookie is forwarded:
+
+- `adminListAllPosts`, `adminGetPost`, `adminCreatePost`, `adminUpdatePost`, `adminPublishPost`, `adminUnpublishPost`, `adminDeletePost` — standard CRUD and lifecycle operations.
+- `adminPublishAt(id, publishedAt)` — calls `POST /api/blog/admin/posts/:id/publish-at` with `{ publishedAt }` (ISO 8601 string) to schedule future publication.
+- `adminToggleFeatured(id)` — calls `POST /api/blog/admin/posts/:id/toggle-featured` to toggle the pin/featured state.
 
 ### Blog Comments (Milestone 3 Subtask 4)
 
