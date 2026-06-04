@@ -1,0 +1,69 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- MS3 media pipeline: validate multer direct dep, GET /api/media/:id serve endpoint, role-scoped upload authorization, alt-text capture in ImageUpload with unique per-instance IDs, and durable storage volume in compose files.
+
+Acceptance criteria validated:
+- AC1 (multer declared dep): apps/api/package.json lists multer ^2.0.0 in dependencies; controller imports multer as default import with const { memoryStorage } = multer.
+- AC2 (GET /api/media/:id serve): MediaService.getImageForServing tested - path traversal rejected (BadRequestException), NotFoundException for missing record/file, MIME type allow-list enforced, resolved path verified within storage root.
+- AC3 (upload authorization): MediaController tests - 401 for unauthenticated, 403 for non-admin on blog-post/standalone-page, 200 for admin, 200 for authenticated user on blog-comment.
+- AC4 (alt text capture + unique IDs): authoring-components.spec.ts verifies altText state/setter, altText in ImageUploadResult interface, useId import, per-instance inputId/altInputId bound to DOM id attributes.
+- AC5 (durable storage volume): compose.dev.yml and compose.prod.yml verified to contain sfus_media_uploads volume configuration and MEDIA_STORAGE_PATH env var (source-contract assertion).
+
+Implementation branch or worktree context:
+- Branch: ms3-subtask-2-tester-20260603
+- Worktree: /home/tstephen/repos/worktrees/ms3-subtask-2-tester-20260603
+- Implementer commit: 4880813 feat(media): complete MS3 media pipeline
+- Tester test commit: a44a81e test(media): add getImageForServing, controller auth, and alt-text/useId coverage
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/package.json
+- apps/api/src/media/media.controller.ts
+- apps/api/src/media/media.service.ts
+- apps/web/components/image-upload.module.css
+- apps/web/components/image-upload.tsx
+- cicd/docker/compose.dev.yml
+- cicd/docker/compose.prod.yml
+- pnpm-lock.yaml
+- apps/api/src/media/media.service.test.ts
+- apps/api/src/media/media.controller.test.ts
+- apps/web/components/authoring-components.spec.ts
+
+Test commit:
+- a44a81e
+
+Commands executed:
+- pnpm --dir apps/api test
+- pnpm --dir apps/web test
+- pnpm --dir apps/api typecheck
+- pnpm --dir apps/api lint
+- pnpm --dir apps/web typecheck
+- pnpm --dir apps/web lint
+
+Final test outcomes:
+- API: 185/185 passed (14 test files) - includes 8 new getImageForServing tests and 7 new controller auth tests
+- Web: 107/107 passed (5 test files) - includes 6 new ImageUpload alt-text/useId tests (authoring-components.spec.ts: 30 to 36)
+- Typecheck: clean for both apps/api and apps/web
+- Lint: 0 warnings for both apps/api and apps/web
+
+Documentation context:
+- MediaService.getImageForServing: path-traversal-safe, MIME-type-guarded file streaming endpoint backed by stored storageKey.
+- MediaController POST /api/media/upload: role-scoped auth (admin for blog-post/standalone-page; any authenticated user for blog-comment; 401 for unauthenticated).
+- MediaController GET /api/media/:id: public read endpoint; streams file with Content-Type, Content-Length, Cache-Control headers.
+- ImageUpload component: altText state captured in controlled input; ImageUploadResult.altText attached to upload result; useId() provides unique per-instance inputId and altInputId.
+- compose.dev.yml and compose.prod.yml: sfus_media_uploads named Docker volume added; MEDIA_STORAGE_PATH=/app/storage/uploads env var set on api and migrate services.
+
+Plan and diff context:
+- Plan: ms3-completion-and-copilot-port-plan.md, subtask-2
+- Shared artifact directory: artifacts/ms3-completion-and-copilot-port/subtask-2
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-completion-and-copilot-port/subtask-2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
