@@ -1,0 +1,66 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- MS3 subtask-4 blog comment behavior: persist comment media reference with blog-comment scope validation, implement 1-level threaded comments with parentId enforcement, implement comment-thread locking (commentsLocked), and confirm existing public-read/auth-member-write/moderation flows.
+
+Acceptance criteria validated:
+- AC1: Guests read visible comments on published posts; authenticated members create comments on eligible published, unlocked posts; replies nest at most one level and deeper nesting is rejected (400 BadRequest).
+- AC2: A comment image upload persists a structured comment media reference validated as blog-comment-scoped; the previously dangling imageId is no longer dropped.
+- AC3: Moderators/admins can lock a post comment thread (blocking new comments) and remove/hide comments through explicit authorized flows.
+- AC4: Comment creation and rendering use the shared sanitization model and never expose unpublished parent content.
+
+Implementation branch or worktree context:
+- Tester branch: ms3-tester-subtask-4-20260603 (worktree of ms3-claude)
+- Test commit: 751e459
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/blog.controller.ts
+- apps/web/app/blog/[slug]/page.tsx
+- apps/web/app/blog/blog-client.ts
+- docs/README.md
+- apps/api/src/blog/blog.service.test.ts
+- apps/web/app/blog/blog.spec.ts
+
+Test commit:
+- 751e459
+
+Commands executed:
+- npx --yes pnpm@10.0.0 install
+- npx --yes pnpm@10.0.0 --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --filter @sfus/web test
+- npx --yes pnpm@10.0.0 test
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api run typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web run typecheck
+
+Final test outcomes:
+- AC1 PASS: Guests read visible comments on published posts; members create comments on eligible published, unlocked posts; replies nest at most one level (BadRequestException when parent already has a parentId); reply buttons and form hidden when commentsLocked.
+- AC2 PASS: imageId validated — BadRequestException when missing or resourceType != 'blog-comment'; mediaReferenceId persisted on created comment; previously dangling imageId no longer dropped.
+- AC3 PASS: lockComments() sets commentsLocked=true; unlockComments() sets commentsLocked=false; both throw NotFoundException for unknown post; adminLockComments/adminUnlockComments exported with credentials:include; page renders locked notice.
+- AC4 PASS: Shared sanitization model enforced for comment bodies (script/iframe/event handler injection rejected); unpublished/draft/future-dated post guard confirmed for createComment.
+- LINT PASS: 0 ESLint warnings.
+- TYPECHECK PASS: tsc --noEmit exits clean for both apps/api and apps/web.
+
+Documentation context:
+- blog.service.ts: new lockComments()/unlockComments() methods; createComment enhanced with commentsLocked check, 1-level parentId threading, imageId scope validation, mediaReferenceId persistence.
+- blog.controller.ts: listComments returns {comments, commentsLocked}; new POST lock-comments and unlock-comments routes; BlogCommentDetail includes parentId, mediaReferenceId, replies[].
+- blog-client.ts: listComments returns {comments, commentsLocked}; createComment extended with parentId; adminLockComments/adminUnlockComments helpers with credentials:include.
+- apps/web/app/blog/[slug]/page.tsx: renders commentsLocked notice, hides form/reply buttons when locked, renders nested replies, inline reply form per top-level comment.
+- docs/README.md: updated for new API endpoints and comment threading behavior.
+
+Plan and diff context:
+- Plan: plans/ms3-completion-and-copilot-port-plan.md
+- Base branch: ms3-claude
+- Subtask-4 of the ms3-completion-and-copilot-port plan
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-completion-and-copilot-port/subtask-4
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
