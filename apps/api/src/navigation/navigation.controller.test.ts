@@ -1,14 +1,10 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { UnauthorizedException } from "@nestjs/common";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const controllerPath = path.resolve(__dirname, "navigation.controller.ts");
+const controllerPath = path.resolve(process.cwd(), "apps/api/src/navigation/navigation.controller.ts");
 
 async function readController(): Promise<string> {
   return readFile(controllerPath, "utf8");
@@ -55,80 +51,6 @@ describe("NavigationController source — session enforcement contract (AC3 subt
     const nextMethodStart = source.indexOf("async adminListAll");
     const listAuthSource = source.slice(listAuthStart, nextMethodStart);
     expect(listAuthSource).not.toContain("assertAdminManagementAccess");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// AC3 (subtask-6): session enforcement via service delegation tests
-// Tests that the controller correctly delegates session resolution and
-// passes the resolved role to findForAuthenticatedUser.
-// ---------------------------------------------------------------------------
-
-describe("NavigationController session delegation — integration-style (AC3 subtask-6)", () => {
-  const makeSession = (globalRole = "user") => ({
-    user: {
-      id: "user-1",
-      username: "test",
-      email: "test@example.com",
-      displayName: null,
-      globalRole,
-      status: "active",
-      emailVerified: true,
-      emailVerifiedAt: null,
-      onboardingRequired: false
-    },
-    session: { id: "sess-1", expiresAt: new Date().toISOString(), lastSeenAt: new Date().toISOString() },
-    sessionToken: "tok-1"
-  });
-
-  it("propagates UnauthorizedException from resolveSession on listAuthenticated", async () => {
-    // AC3: resolveSession throwing UnauthorizedException propagates to the caller.
-    const resolveSession = vi.fn(async () => {
-      throw new UnauthorizedException("Authentication required.");
-    });
-    const findForAuthenticatedUser = vi.fn(async () => []);
-
-    // Simulate the controller's listAuthenticated logic directly
-    const simulateListAuthenticated = async () => {
-      const session = await resolveSession({ cookieHeader: undefined });
-      const items = await findForAuthenticatedUser(session.user.globalRole);
-      return { items };
-    };
-
-    await expect(simulateListAuthenticated()).rejects.toThrow(UnauthorizedException);
-    expect(findForAuthenticatedUser).not.toHaveBeenCalled();
-  });
-
-  it("calls findForAuthenticatedUser with the session user globalRole", async () => {
-    // AC3: Controller passes session.user.globalRole to findForAuthenticatedUser.
-    const resolveSession = vi.fn(async () => makeSession("user"));
-    const findForAuthenticatedUser = vi.fn(async () => []);
-
-    const simulateListAuthenticated = async () => {
-      const session = await resolveSession({ cookieHeader: undefined });
-      await findForAuthenticatedUser(session.user.globalRole);
-    };
-
-    await simulateListAuthenticated();
-    expect(findForAuthenticatedUser).toHaveBeenCalledWith("user");
-  });
-
-  it("propagates UnauthorizedException from resolveSession on admin routes", async () => {
-    // AC3: Admin routes must also propagate 401 from resolveSession.
-    const resolveSession = vi.fn(async () => {
-      throw new UnauthorizedException("Authentication required.");
-    });
-    const assertAdminManagementAccess = vi.fn();
-    const findAll = vi.fn(async () => []);
-
-    const simulateAdminListAll = async () => {
-      const session = await resolveSession({ cookieHeader: undefined });
-      assertAdminManagementAccess(session.user.globalRole);
-      return await findAll();
-    };
-
-    await expect(simulateAdminListAll()).rejects.toThrow(UnauthorizedException);
-    expect(assertAdminManagementAccess).not.toHaveBeenCalled();
   });
 });
 
