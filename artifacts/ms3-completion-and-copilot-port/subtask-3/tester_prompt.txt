@@ -1,0 +1,51 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Remediation cycle 1: replaced 4 bare <img> elements with Next.js <Image /> components to fix @next/next/no-img-element ESLint violations. Lint now passes with --max-warnings=0. All 107 web tests and 178 API tests continue to pass. All 5 original AC from the blog publishing subtask-3 remain implemented.
+
+Modified files:
+- apps/web/app/admin/blog/[id]/edit/page.tsx
+- apps/web/app/admin/blog/new/page.tsx
+- apps/web/app/blog/[slug]/page.tsx
+- apps/web/app/blog/page.tsx
+
+Acceptance criteria to validate (from Planner):
+- A future-dated published post is hidden from public routes until publishedAt<=now, then becomes visible with no manual action or background job; drafts and unpublished posts are never public.
+- Publish-now sets publishedAt to the current time; unpublish returns the post to draft and hides it; the admin UI labels published-future posts as scheduled.
+- Blog post bodies are sanitized/normalized server-side on create and update; unsafe bodies are rejected or neutralized.
+- Featured images upload via ImageUpload in the admin editor and render on public blog views; featuredImageId is validated against existing media.
+- A post can be pinned/featured and surfaces first in the public listing; only admins can toggle it; summary is editable and shown in listings/meta.
+
+Test file locations:
+- apps/api/src/blog/blog.service.test.ts
+- apps/web/app/blog/blog.spec.ts
+- apps/web/components/authoring-components.spec.ts
+
+Implementation context for testing:
+Four bare <img> elements were replaced with Next.js <Image /> from next/image. Admin preview images (admin/blog/new and admin/blog/[id]/edit) use width=180 height=120 with objectFit cover. Public full-width images (blog/page.tsx and blog/[slug]/page.tsx) use a positioned wrapper div with fill prop and overflow:hidden. All changes are minimal localized edits; no other logic was touched. This is a remediation-only cycle addressing the ESLint lint failure reported by the Tester — all 5 original AC remain implemented from the prior code commit (918b6e8).
+
+Key testing notes:
+- Confirm lint passes with 0 warnings: npx --yes pnpm@10.0.0 lint
+- Confirm no bare <img> elements remain in the 4 fixed files
+- Confirm Next.js Image is correctly imported and used in all 4 files
+- Re-verify the 5 AC are functionally satisfied (same as prior tester pass)
+- The multer typecheck/test failure (media.controller.test.ts) is a pre-existing unresolved dependency issue unrelated to blog publishing
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+
+Existing validations expected to fail only because approved behavior changed:
+- None (multer test failure is pre-existing and unrelated)
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-completion-and-copilot-port/subtask-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
