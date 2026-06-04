@@ -35,6 +35,8 @@ export interface CreateCommentInput {
   body: string;
   /** Optional image media reference id to associate with the comment. */
   imageId?: string | null;
+  /** Optional parent comment id — permits exactly one level of replies. */
+  parentId?: string | null;
 }
 
 /**
@@ -302,11 +304,13 @@ export class BlogService {
    * Returns all comments with status "visible" for a given post — safe for
    * public/guest access. Does not expose the parent post itself, so callers
    * must separately confirm the post is published before surfacing comments.
+   * Top-level comments (parentId IS NULL) are loaded; replies are nested under them.
    */
   async findVisibleComments(postId: string): Promise<BlogCommentEntity[]> {
     return this.blogCommentRepository.find({
       where: { postId, status: "visible" },
-      order: { createdAt: "ASC" }
+      order: { createdAt: "ASC" },
+      relations: ["replies"]
     });
   }
 
@@ -328,6 +332,12 @@ export class BlogService {
    * - The parent post must be published AND publishedAt <= now — prevents
    *   comment creation on draft, unpublished, or future-scheduled posts (no
    *   exposure of non-public parent content).
+   * - The parent post must not have commentsLocked set — when locked, new
+   *   comment creation is rejected for all members including moderators.
+   * - If parentId is supplied, the referenced comment must exist, belong to
+   *   the same post, and itself have no parent (enforces max 1-level nesting).
+   * - If imageId is supplied, the referenced media record must exist and have
+   *   resourceType "blog-comment" (usage-scope enforcement).
    * - The comment body is sanitized with the shared markdown sanitizer before
    *   persistence.
    */
@@ -340,6 +350,40 @@ export class BlogService {
     const now = new Date();
     if (post.status !== "published" || !post.publishedAt || post.publishedAt > now) {
       throw new ForbiddenException("Comments can only be added to published posts.");
+    }
+
+    // Enforce thread-lock: reject new comments when the post has commentsLocked.
+    if (post.commentsLocked) {
+      throw new ForbiddenException("Comments are locked on this post.");
+    }
+
+    // Enforce 1-level threading: validate parentId when supplied.
+    let resolvedParentId: string | null = null;
+    if (input.parentId) {
+      const parentComment = await this.blogCommentRepository.findOne({ where: { id: input.parentId } });
+      if (!parentComment) {
+        throw new BadRequestException("Parent comment not found.");
+      }
+      if (parentComment.postId !== postId) {
+        throw new BadRequestException("Parent comment does not belong to this post.");
+      }
+      if (parentComment.parentId !== null) {
+        throw new BadRequestException("Replies cannot be nested more than one level deep.");
+      }
+      resolvedParentId = input.parentId;
+    }
+
+    // Validate imageId scope: must be blog-comment-scoped media.
+    let resolvedMediaReferenceId: string | null = null;
+    if (input.imageId) {
+      const mediaRecord = await this.mediaRepository.findOne({ where: { id: input.imageId } });
+      if (!mediaRecord) {
+        throw new BadRequestException("imageId references a media record that does not exist.");
+      }
+      if (mediaRecord.resourceType !== "blog-comment") {
+        throw new BadRequestException("imageId must reference a blog-comment-scoped media record.");
+      }
+      resolvedMediaReferenceId = input.imageId;
     }
 
     // Sanitize the body with the shared markdown sanitizer.
@@ -356,14 +400,44 @@ export class BlogService {
     const comment = this.blogCommentRepository.create({
       id,
       postId,
+      parentId: resolvedParentId,
       authorUserId,
       body: normalizedBody,
       status: "visible",
+      mediaReferenceId: resolvedMediaReferenceId,
       moderatedByUserId: null,
       moderatedAt: null
     });
 
     return this.blogCommentRepository.save(comment) as Promise<BlogCommentEntity>;
+  }
+
+  /**
+   * Locks the comment thread on a blog post — prevents new comments from being
+   * created. Caller must have verified admin access before calling this.
+   */
+  async lockComments(postId: string): Promise<BlogPostEntity> {
+    const post = await this.blogPostRepository.findOne({ where: { id: postId } });
+    if (!post) {
+      throw new NotFoundException("Blog post not found.");
+    }
+    post.commentsLocked = true;
+    await this.blogPostRepository.save(post);
+    return this.blogPostRepository.findOne({ where: { id: postId }, relations: ["postTags"] }) as Promise<BlogPostEntity>;
+  }
+
+  /**
+   * Unlocks the comment thread on a blog post — allows new comments again.
+   * Caller must have verified admin access before calling this.
+   */
+  async unlockComments(postId: string): Promise<BlogPostEntity> {
+    const post = await this.blogPostRepository.findOne({ where: { id: postId } });
+    if (!post) {
+      throw new NotFoundException("Blog post not found.");
+    }
+    post.commentsLocked = false;
+    await this.blogPostRepository.save(post);
+    return this.blogPostRepository.findOne({ where: { id: postId }, relations: ["postTags"] }) as Promise<BlogPostEntity>;
   }
 
   /**

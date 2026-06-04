@@ -199,6 +199,32 @@ export class BlogController {
     return { deleted: true };
   }
 
+  @Post("admin/posts/:id/lock-comments")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Lock comments on a blog post — prevents new comments (admin/moderator)." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({ description: "Post not found." })
+  async adminLockComments(@Req() request: Request, @Param("id") id: string): Promise<{ post: BlogPostDetail }> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    this.blogService.assertModerationAccess(session.user.globalRole);
+    const post = await this.blogService.lockComments(id);
+    return { post: toDetail(post) };
+  }
+
+  @Post("admin/posts/:id/unlock-comments")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Unlock comments on a blog post — re-enables new comments (admin/moderator)." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({ description: "Post not found." })
+  async adminUnlockComments(@Req() request: Request, @Param("id") id: string): Promise<{ post: BlogPostDetail }> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    this.blogService.assertModerationAccess(session.user.globalRole);
+    const post = await this.blogService.unlockComments(id);
+    return { post: toDetail(post) };
+  }
+
   // ---------------------------------------------------------------------------
   // Public comment route — guest-accessible, visible comments only
   // ---------------------------------------------------------------------------
@@ -207,15 +233,17 @@ export class BlogController {
   @ApiOperation({ summary: "List visible comments for a published post (public)." })
   @ApiOkResponse({ description: "Visible comments returned." })
   @ApiNotFoundResponse({ description: "Post not found or not published." })
-  async listComments(@Param("postId") postId: string): Promise<{ comments: BlogCommentDetail[] }> {
+  async listComments(@Param("postId") postId: string): Promise<{ comments: BlogCommentDetail[]; commentsLocked: boolean }> {
     // Verify the post exists and is published before exposing any comments.
     const post = await this.blogService.findPublishedBySlug(postId) ??
       await this.blogService.findById(postId).then((p) => (p?.status === "published" ? p : null));
     if (!post) {
       throw new NotFoundException("Blog post not found or not published.");
     }
-    const comments = await this.blogService.findVisibleComments(post.id);
-    return { comments: comments.map(toCommentDetail) };
+    const allVisible = await this.blogService.findVisibleComments(post.id);
+    // Only surface top-level comments in the list; replies are nested inside.
+    const topLevel = allVisible.filter((c) => c.parentId === null);
+    return { comments: topLevel.map(toCommentDetailWithReplies), commentsLocked: post.commentsLocked ?? false };
   }
 
   // ---------------------------------------------------------------------------
@@ -341,6 +369,7 @@ interface BlogPostSummary {
 interface BlogPostDetail extends BlogPostSummary {
   body: string;
   authorUserId: string;
+  commentsLocked: boolean;
   updatedAt: string;
 }
 
@@ -364,6 +393,7 @@ function toDetail(post: BlogPostEntity): BlogPostDetail {
     ...toSummary(post),
     body: post.body,
     authorUserId: post.authorUserId,
+    commentsLocked: post.commentsLocked ?? false,
     updatedAt: post.updatedAt.toISOString()
   };
 }
@@ -453,27 +483,48 @@ function parsePublishAtInput(body: unknown): Date {
 interface BlogCommentDetail {
   id: string;
   postId: string;
+  parentId: string | null;
   authorUserId: string;
   body: string;
   status: string;
+  mediaReferenceId: string | null;
   moderatedByUserId: string | null;
   moderatedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Visible replies — only present on top-level comments returned by the public list route. */
+  replies?: BlogCommentDetail[];
 }
 
 function toCommentDetail(comment: BlogCommentEntity): BlogCommentDetail {
-  return {
+  const detail: BlogCommentDetail = {
     id: comment.id,
     postId: comment.postId,
+    parentId: comment.parentId,
     authorUserId: comment.authorUserId,
     body: comment.body,
     status: comment.status,
+    mediaReferenceId: comment.mediaReferenceId,
     moderatedByUserId: comment.moderatedByUserId,
     moderatedAt: comment.moderatedAt ? comment.moderatedAt.toISOString() : null,
     createdAt: comment.createdAt.toISOString(),
     updatedAt: comment.updatedAt.toISOString()
   };
+  return detail;
+}
+
+/**
+ * Converts a top-level comment (with loaded replies relation) to a detail
+ * object that includes only visible replies for the public listing endpoint.
+ */
+function toCommentDetailWithReplies(comment: BlogCommentEntity): BlogCommentDetail {
+  const detail = toCommentDetail(comment);
+  if (comment.replies) {
+    detail.replies = comment.replies
+      .filter((r) => r.status === "visible")
+      .map((r) => toCommentDetail(r));
+  }
+  return detail;
 }
 
 // ---------------------------------------------------------------------------
@@ -490,7 +541,8 @@ function parseCreateCommentInput(body: unknown): CreateCommentInput {
   }
   return {
     body: b.body,
-    imageId: typeof b.imageId === "string" ? b.imageId : null
+    imageId: typeof b.imageId === "string" ? b.imageId : null,
+    parentId: typeof b.parentId === "string" ? b.parentId : null
   };
 }
 

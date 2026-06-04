@@ -24,6 +24,7 @@ export interface BlogPostSummary {
 export interface BlogPostDetail extends BlogPostSummary {
   body: string;
   authorUserId: string;
+  commentsLocked: boolean;
   updatedAt: string;
 }
 
@@ -208,13 +209,16 @@ export async function adminDeletePost(id: string): Promise<void> {
 export interface BlogCommentDetail {
   id: string;
   postId: string;
+  parentId: string | null;
   authorUserId: string;
   body: string;
   status: string;
+  mediaReferenceId: string | null;
   moderatedByUserId: string | null;
   moderatedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  replies?: BlogCommentDetail[];
 }
 
 export type BlogCommentStatus = "visible" | "hidden" | "removed";
@@ -223,7 +227,7 @@ export type BlogCommentStatus = "visible" | "hidden" | "removed";
 // Public comment routes — no credentials required
 // ---------------------------------------------------------------------------
 
-export async function listComments(postId: string): Promise<BlogCommentDetail[]> {
+export async function listComments(postId: string): Promise<{ comments: BlogCommentDetail[]; commentsLocked: boolean }> {
   const response = await fetch(`${apiBase}/blog/${encodeURIComponent(postId)}/comments`, {
     cache: "no-store"
   });
@@ -231,8 +235,8 @@ export async function listComments(postId: string): Promise<BlogCommentDetail[]>
     const payload = (await response.json().catch(() => null)) as { message?: string } | null;
     throw new Error(payload?.message || "Failed to load comments.");
   }
-  const data = (await response.json()) as { comments: BlogCommentDetail[] };
-  return data.comments;
+  const data = (await response.json()) as { comments: BlogCommentDetail[]; commentsLocked: boolean };
+  return { comments: data.comments, commentsLocked: data.commentsLocked ?? false };
 }
 
 // ---------------------------------------------------------------------------
@@ -242,13 +246,14 @@ export async function listComments(postId: string): Promise<BlogCommentDetail[]>
 export async function createComment(
   postId: string,
   body: string,
-  imageId?: string | null
+  imageId?: string | null,
+  parentId?: string | null
 ): Promise<BlogCommentDetail> {
   const response = await fetch(`${apiBase}/blog/${encodeURIComponent(postId)}/comments`, {
     method: "POST",
     credentials: "include",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ body, imageId: imageId ?? null })
+    body: JSON.stringify({ body, imageId: imageId ?? null, parentId: parentId ?? null })
   });
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -256,6 +261,32 @@ export async function createComment(
   }
   const data = (await response.json()) as { comment: BlogCommentDetail };
   return data.comment;
+}
+
+export async function adminLockComments(postId: string): Promise<BlogPostDetail> {
+  const response = await fetch(`${apiBase}/blog/admin/posts/${encodeURIComponent(postId)}/lock-comments`, {
+    method: "POST",
+    credentials: "include"
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message || "Failed to lock comments.");
+  }
+  const data = (await response.json()) as { post: BlogPostDetail };
+  return data.post;
+}
+
+export async function adminUnlockComments(postId: string): Promise<BlogPostDetail> {
+  const response = await fetch(`${apiBase}/blog/admin/posts/${encodeURIComponent(postId)}/unlock-comments`, {
+    method: "POST",
+    credentials: "include"
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message || "Failed to unlock comments.");
+  }
+  const data = (await response.json()) as { post: BlogPostDetail };
+  return data.post;
 }
 
 // ---------------------------------------------------------------------------
