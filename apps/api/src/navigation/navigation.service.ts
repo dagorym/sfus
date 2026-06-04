@@ -2,9 +2,11 @@ import crypto from "node:crypto";
 
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { IsNull, Repository } from "typeorm";
+import { IsNull, LessThanOrEqual, Repository } from "typeorm";
 
 import { AuthorizationService } from "../authorization/authorization.service";
+import { BlogPostEntity } from "../blog/entities/blog-post.entity";
+import { StandalonePageEntity } from "../pages/entities/standalone-page.entity";
 import { NavigationItemEntity, NavigationLinkType, NavigationVisibility, navigationLinkTypes, navigationVisibilities } from "./entities/navigation-item.entity";
 
 export interface CreateNavigationItemInput {
@@ -41,6 +43,10 @@ export class NavigationService {
   constructor(
     @InjectRepository(NavigationItemEntity)
     private readonly navigationItemRepository: Repository<NavigationItemEntity>,
+    @InjectRepository(BlogPostEntity)
+    private readonly blogPostRepository: Repository<BlogPostEntity>,
+    @InjectRepository(StandalonePageEntity)
+    private readonly standalonePageRepository: Repository<StandalonePageEntity>,
     private readonly authorizationService: AuthorizationService
   ) {}
 
@@ -56,30 +62,70 @@ export class NavigationService {
 
   /**
    * Returns top-level navigation items visible to guests (visibility "public"),
-   * ordered by sort_order. Includes one level of active children.
+   * ordered by sort_order. Includes one level of active, public children.
+   *
+   * Children are filtered to only include active items with visibility "public".
+   * Any top-level item whose linked internal blog post or standalone page target
+   * is not publicly visible is omitted — preventing leakage of unpublished content.
    *
    * This method is safe for public/guest access. Callers for authenticated
    * users should use findForAuthenticatedUser() instead.
    */
   async findPublic(): Promise<NavigationItemEntity[]> {
-    return this.navigationItemRepository.find({
+    const items = await this.navigationItemRepository.find({
       where: { parentId: IsNull(), isActive: true, visibility: "public" },
       order: { sortOrder: "ASC" },
       relations: ["children"]
     });
+
+    const filtered: NavigationItemEntity[] = [];
+    for (const item of items) {
+      // Filter children: only active children with visibility "public"
+      item.children = (item.children ?? []).filter(
+        (child) => child.isActive && child.visibility === "public"
+      );
+      // Filter children by linked-target publication status
+      item.children = await this.filterByLinkedTargetVisibility(item.children);
+      // Check whether this top-level item's own linked target is publicly visible
+      if (await this.isLinkedTargetPubliclyVisible(item)) {
+        filtered.push(item);
+      }
+    }
+    return filtered;
   }
 
   /**
-   * Returns all active top-level navigation items (both public and
-   * authenticated-visibility), ordered by sort_order. Includes one level of
-   * active children. Safe for authenticated users.
+   * Returns all active top-level navigation items visible to authenticated
+   * users (visibility "public" or "authenticated"), ordered by sort_order.
+   * Includes one level of active, non-admin children.
+   *
+   * Items with visibility "admin" are excluded from non-admin results.
+   * Children are filtered to only include active items with non-admin visibility.
+   * Requires the caller's globalRole to distinguish admin vs. non-admin users.
+   *
+   * Safe for authenticated users (requires a valid session at the controller level).
    */
-  async findForAuthenticatedUser(): Promise<NavigationItemEntity[]> {
-    return this.navigationItemRepository.find({
+  async findForAuthenticatedUser(actorGlobalRole: string): Promise<NavigationItemEntity[]> {
+    const isAdmin = this.authorizationService.hasGlobalRole(actorGlobalRole, "admin");
+    const items = await this.navigationItemRepository.find({
       where: { parentId: IsNull(), isActive: true },
       order: { sortOrder: "ASC" },
       relations: ["children"]
     });
+
+    const filtered: NavigationItemEntity[] = [];
+    for (const item of items) {
+      // Admin-only top-level items are excluded for non-admin users
+      if (!isAdmin && item.visibility === "admin") continue;
+      // Filter children: active children with non-admin visibility (or all if admin)
+      item.children = (item.children ?? []).filter((child) => {
+        if (!child.isActive) return false;
+        if (!isAdmin && child.visibility === "admin") return false;
+        return true;
+      });
+      filtered.push(item);
+    }
+    return filtered;
   }
 
   /**
@@ -232,5 +278,55 @@ export class NavigationService {
     if (!(navigationVisibilities as readonly string[]).includes(visibility)) {
       throw new BadRequestException(`visibility must be one of: ${navigationVisibilities.join(", ")}.`);
     }
+  }
+
+  /**
+   * Filters a list of navigation items by checking whether each item's linked
+   * internal blog post or standalone page target is publicly visible.
+   * Items with linkType "external" or with non-blog/page URLs are kept as-is.
+   */
+  private async filterByLinkedTargetVisibility(items: NavigationItemEntity[]): Promise<NavigationItemEntity[]> {
+    const result: NavigationItemEntity[] = [];
+    for (const item of items) {
+      if (await this.isLinkedTargetPubliclyVisible(item)) {
+        result.push(item);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Returns true if the item's linked target is publicly visible.
+   * External links always pass. Internal links are checked against the
+   * blog post and standalone page tables:
+   *   - /blog/<slug> → must be status=published AND publishedAt<=now
+   *   - /pages/<slug> or /<slug> (standalone page) → must be status=published
+   * Internal links to any other path (static routes) are kept as-is (return true).
+   */
+  private async isLinkedTargetPubliclyVisible(item: NavigationItemEntity): Promise<boolean> {
+    if (item.linkType !== "internal") {
+      return true;
+    }
+    const now = new Date();
+    // Match /blog/<slug>
+    const blogMatch = /^\/blog\/([^/]+)\/?$/.exec(item.url);
+    if (blogMatch) {
+      const slug = blogMatch[1];
+      const post = await this.blogPostRepository.findOne({
+        where: { slug, status: "published", publishedAt: LessThanOrEqual(now) }
+      });
+      return post !== null;
+    }
+    // Match /pages/<slug>
+    const pagesMatch = /^\/pages\/([^/]+)\/?$/.exec(item.url);
+    if (pagesMatch) {
+      const slug = pagesMatch[1];
+      const page = await this.standalonePageRepository.findOne({
+        where: { slug, status: "published" }
+      });
+      return page !== null;
+    }
+    // Non-blog/page internal links (static routes) are always shown
+    return true;
   }
 }

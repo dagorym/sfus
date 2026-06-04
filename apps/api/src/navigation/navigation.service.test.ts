@@ -25,11 +25,19 @@ const createMinimalRepository = <T>(): MinimalRepository<T> => ({
   count: async () => 0
 });
 
-const makeNavigationService = (repoOverrides?: Partial<MinimalRepository<NavigationItemEntity>>): NavigationService => {
+const makeNavigationService = (
+  repoOverrides?: Partial<MinimalRepository<NavigationItemEntity>>,
+  blogRepoOverrides?: Partial<MinimalRepository<{ slug: string; status: string; publishedAt: Date | null }>>,
+  pageRepoOverrides?: Partial<MinimalRepository<{ slug: string; status: string }>>
+): NavigationService => {
   const authorizationService = new AuthorizationService();
   const repo = { ...createMinimalRepository<NavigationItemEntity>(), ...repoOverrides };
+  const blogRepo = { ...createMinimalRepository<never>(), ...blogRepoOverrides };
+  const pageRepo = { ...createMinimalRepository<never>(), ...pageRepoOverrides };
   return new NavigationService(
     repo as never,
+    blogRepo as never,
+    pageRepo as never,
     authorizationService
   );
 };

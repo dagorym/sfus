@@ -3,7 +3,7 @@ import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryColumn 
 export const navigationLinkTypes = ["internal", "external"] as const;
 export type NavigationLinkType = (typeof navigationLinkTypes)[number];
 
-export const navigationVisibilities = ["public", "authenticated"] as const;
+export const navigationVisibilities = ["public", "authenticated", "admin"] as const;
 export type NavigationVisibility = (typeof navigationVisibilities)[number];
 
 @Entity("navigation_items")

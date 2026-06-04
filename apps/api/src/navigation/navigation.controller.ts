@@ -60,10 +60,12 @@ export class NavigationController {
   }
 
   @Get("items/authenticated")
-  @ApiOperation({ summary: "List all active navigation items (authenticated users)." })
+  @ApiOperation({ summary: "List active navigation items for the authenticated user." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
   @ApiOkResponse({ description: "Active navigation items for authenticated users returned." })
-  async listAuthenticated(): Promise<{ items: NavigationItemDetail[] }> {
-    const items = await this.navigationService.findForAuthenticatedUser();
+  async listAuthenticated(@Req() request: Request): Promise<{ items: NavigationItemDetail[] }> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    const items = await this.navigationService.findForAuthenticatedUser(session.user.globalRole);
     return { items: items.map(toDetail) };
   }
 
