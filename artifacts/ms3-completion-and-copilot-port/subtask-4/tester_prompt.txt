@@ -1,5 +1,10 @@
 Your role is 'tester'. Your task is as follows:
 
+Remediation note (pass 2): JSDoc function-level comments were added to
+`adminLockComments` and `adminUnlockComments` in blog.controller.ts (commit c91c177).
+No behavioral changes were made; previously written tests remain valid. The verifier
+WARNINGs about missing JSDoc on those two methods are now resolved.
+
 Task summary:
 Complete Milestone 3 blog comment behavior on ms3-claude: persist comment media reference with
 blog-comment scope validation, implement 1-level threaded comments with parentId enforcement,

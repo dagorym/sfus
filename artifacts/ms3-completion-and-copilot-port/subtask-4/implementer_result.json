@@ -12,7 +12,8 @@
     "apps/web/app/blog/blog-client.ts",
     "docs/README.md"
   ],
-  "code_commit_hash": "33200dc",
+  "code_commit_hash": "c91c177",
+  "prior_code_commit_hash": "33200dc",
   "pass_label": null,
   "status": "success",
   "task_id": "ms3-completion-and-copilot-port/subtask-4",
@@ -21,5 +22,5 @@
     "npx --yes pnpm@10.0.0 typecheck",
     "npx --yes pnpm@10.0.0 test"
   ],
-  "validation_outcome": "lint: PASS. typecheck: PASS (pre-existing multer type error in media.controller.ts, file unchanged, outside scope). test: 193 API tests pass (49 blog), 118 web tests pass; pre-existing multer failure in media.controller.test.ts outside scope."
+  "validation_outcome": "lint: PASS. typecheck: pre-existing multer type error (baseline unchanged). test: 193 API tests pass (49 blog), 118 web tests pass; pre-existing multer failure in media.controller.test.ts outside scope. Remediation (pass 2): lint PASS, blog service 49/49 PASS."
 }

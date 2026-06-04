@@ -4,7 +4,7 @@ Status: success
 
 Task: ms3-completion-and-copilot-port/subtask-4
 Branch: ms3-claude-implementer-subtask-4-20260603
-Implementation commit: 33200dc
+Implementation commit: c91c177 (remediation — JSDoc only; substantive commit: 33200dc)
 
 ## Task Summary
 
@@ -45,6 +45,15 @@ AC3 PASS: lock/unlock routes added (POST /api/blog/admin/posts/:id/lock-comments
 AC4 PASS: Shared sanitization model confirmed: normalizeMarkdownBody + validateMarkdownBody
 applied to all comment bodies. Unpublished/draft/future-scheduled parent post guard confirmed
 (post.status !== "published" || !post.publishedAt || post.publishedAt > now => 403).
+
+## Remediation Notes (Pass 2)
+
+Added JSDoc function-level comments to `adminLockComments` and `adminUnlockComments`
+in `apps/api/src/blog/blog.controller.ts`. Both were identified by the verifier as
+missing JSDoc in violation of repository convention. No logic changes were made.
+
+Validation after remediation: lint PASS, blog service tests 49/49 PASS. Pre-existing
+multer failure unchanged.
 
 ## Implementation Notes
 
