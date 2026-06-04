@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 
+import Image from "next/image";
+
 import { resolveProtectedSession, hasGlobalRole } from "../../../../auth-client";
 import {
   adminGetPost,
@@ -297,10 +299,12 @@ export default function AdminBlogEditPage() {
           Featured image
           {featuredImageId ? (
             <div style={{ marginTop: "0.4rem", marginBottom: "0.4rem" }}>
-              <img
+              <Image
                 src={`/api/media/${featuredImageId}`}
                 alt="Featured image preview"
-                style={{ maxWidth: "180px", maxHeight: "120px", objectFit: "cover", borderRadius: "4px" }}
+                width={180}
+                height={120}
+                style={{ objectFit: "cover", borderRadius: "4px" }}
               />
               <button
                 type="button"

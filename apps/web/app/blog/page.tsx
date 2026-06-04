@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -68,11 +69,14 @@ export default function BlogListPage() {
         {posts.map((post) => (
           <li key={post.id} style={{ borderBottom: "1px solid var(--color-border)", paddingBottom: "1.25rem" }}>
             {post.featuredImageId ? (
-              <img
-                src={`/api/media/${post.featuredImageId}`}
-                alt={post.title}
-                style={{ width: "100%", maxHeight: "200px", objectFit: "cover", borderRadius: "6px", marginBottom: "0.75rem" }}
-              />
+              <div style={{ position: "relative", width: "100%", height: "200px", borderRadius: "6px", marginBottom: "0.75rem", overflow: "hidden" }}>
+                <Image
+                  src={`/api/media/${post.featuredImageId}`}
+                  alt={post.title}
+                  fill
+                  style={{ objectFit: "cover" }}
+                />
+              </div>
             ) : null}
             <Link
               href={`/blog/${encodeURIComponent(post.slug)}`}

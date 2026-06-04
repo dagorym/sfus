@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -145,11 +146,14 @@ export default function BlogPostPage() {
     <article className={styles.panel}>
       <p className={styles.eyebrow}>Star Log</p>
       {post.featuredImageId ? (
-        <img
-          src={`/api/media/${post.featuredImageId}`}
-          alt={post.title}
-          style={{ width: "100%", maxHeight: "360px", objectFit: "cover", borderRadius: "8px", marginBottom: "1rem" }}
-        />
+        <div style={{ position: "relative", width: "100%", maxHeight: "360px", height: "360px", borderRadius: "8px", marginBottom: "1rem", overflow: "hidden" }}>
+          <Image
+            src={`/api/media/${post.featuredImageId}`}
+            alt={post.title}
+            fill
+            style={{ objectFit: "cover" }}
+          />
+        </div>
       ) : null}
       <h2 className={styles.title}>{post.title}</h2>
       {post.summary ? (
