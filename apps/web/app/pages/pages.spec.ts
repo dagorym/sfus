@@ -248,3 +248,124 @@ describe("Admin pages edit source contracts (AC1, AC2)", () => {
     expect(source.toLowerCase()).not.toContain("wiki");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Top-level standalone page catch-all route (AC1 — top-level paths)
+// ---------------------------------------------------------------------------
+
+describe("Top-level catch-all page route source contracts (AC1)", () => {
+  // AC1: Published standalone pages must render at top-level paths (e.g. /about).
+  // The catch-all app/[slug]/page.tsx implements this.
+
+  it("exists as the top-level dynamic segment route", async () => {
+    // AC1: route file must be present at the top-level app/[slug] location
+    const source = await readAppFile("app/[slug]/page.tsx");
+    expect(source).toBeTruthy();
+  });
+
+  it("uses getPublishedPage only (never exposes draft content, AC2)", async () => {
+    const source = await readAppFile("app/[slug]/page.tsx");
+    // AC2: public surface must only call the published-only endpoint
+    expect(source).toContain("getPublishedPage");
+    expect(source).not.toContain("adminGetPage");
+    expect(source).not.toContain("adminListAllPages");
+  });
+
+  it("uses MarkdownRenderer for body rendering (sanitized output, AC4)", async () => {
+    const source = await readAppFile("app/[slug]/page.tsx");
+    expect(source).toContain("MarkdownRenderer");
+  });
+
+  it("renders featured media image when featuredMediaId is present (AC4)", async () => {
+    const source = await readAppFile("app/[slug]/page.tsx");
+    // AC4: featured image must be rendered via the media API endpoint
+    expect(source).toContain("featuredMediaId");
+    expect(source).toContain("/media/");
+  });
+
+  it("defines a RESERVED_SLUGS set mirroring the server-side list (AC1)", async () => {
+    const source = await readAppFile("app/[slug]/page.tsx");
+    // AC1: client-side reserved slug guard must be present
+    expect(source).toContain("RESERVED_SLUGS");
+    expect(source).toContain('"admin"');
+    expect(source).toContain('"blog"');
+    expect(source).toContain('"login"');
+  });
+
+  it("returns a not-found state for reserved slugs without querying the API (AC1)", async () => {
+    const source = await readAppFile("app/[slug]/page.tsx");
+    // AC1: reserved slug interception must happen before any API call
+    expect(source).toContain("isReserved");
+    expect(source).toContain("not published");
+  });
+
+  it("imports from pages-client (consistent client contract, AC1)", async () => {
+    const source = await readAppFile("app/[slug]/page.tsx");
+    expect(source).toContain("pages-client");
+  });
+
+  it("does not reference block-builder or wiki constructs (AC5)", async () => {
+    const source = await readAppFile("app/[slug]/page.tsx");
+    expect(source.toLowerCase()).not.toContain("blockbuilder");
+    expect(source.toLowerCase()).not.toContain("block-builder");
+    expect(source.toLowerCase()).not.toContain("wiki");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Enriched admin authoring — ImageUpload, summary, changeNote (AC3, AC4)
+// ---------------------------------------------------------------------------
+
+describe("Admin pages create enriched authoring contracts (AC3, AC4)", () => {
+  // AC3: Every page creation must support summary and featuredMediaId.
+  // AC4: Featured media must be uploadable via ImageUpload component.
+
+  it("imports ImageUpload for featured image upload on create (AC4)", async () => {
+    const source = await readAppFile("app/admin/pages/new/page.tsx");
+    expect(source).toContain("ImageUpload");
+    expect(source).toContain("image-upload");
+  });
+
+  it("has a summary input field on the create form (AC3)", async () => {
+    const source = await readAppFile("app/admin/pages/new/page.tsx");
+    expect(source).toContain("summary");
+    expect(source).toContain("Summary");
+  });
+
+  it("passes featuredMediaId in the create request payload (AC4)", async () => {
+    const source = await readAppFile("app/admin/pages/new/page.tsx");
+    expect(source).toContain("featuredMediaId");
+    expect(source).toContain("adminCreatePage");
+  });
+});
+
+describe("Admin pages edit enriched authoring contracts (AC3, AC4)", () => {
+  // AC3: Every edit must capture changeNote and summary for durable revision metadata.
+  // AC4: Featured media must be uploadable via ImageUpload.
+
+  it("imports ImageUpload for featured image upload on edit (AC4)", async () => {
+    const source = await readAppFile("app/admin/pages/[id]/edit/page.tsx");
+    expect(source).toContain("ImageUpload");
+    expect(source).toContain("image-upload");
+  });
+
+  it("has a changeNote input field on the edit form (AC3)", async () => {
+    const source = await readAppFile("app/admin/pages/[id]/edit/page.tsx");
+    // AC3: changeNote must be captured per edit and sent with the revision
+    expect(source).toContain("changeNote");
+    expect(source).toContain("Change note");
+  });
+
+  it("has a summary input field on the edit form (AC3)", async () => {
+    const source = await readAppFile("app/admin/pages/[id]/edit/page.tsx");
+    expect(source).toContain("summary");
+    expect(source).toContain("Summary");
+  });
+
+  it("passes changeNote and featuredMediaId in the update request payload (AC3, AC4)", async () => {
+    const source = await readAppFile("app/admin/pages/[id]/edit/page.tsx");
+    expect(source).toContain("changeNote");
+    expect(source).toContain("featuredMediaId");
+    expect(source).toContain("adminUpdatePage");
+  });
+});

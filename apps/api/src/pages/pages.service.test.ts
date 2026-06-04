@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import { AuthorizationService } from "../authorization/authorization.service";
@@ -340,5 +340,196 @@ describe("PagesService.update", () => {
     } as StandalonePageEntity;
     const service = makePagesService({ findOne: async () => page });
     await expect(service.update("page-1", "user-1", { title: "   " })).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reserved slug enforcement (AC1 — security-sensitive: reserved slugs rejected)
+// ---------------------------------------------------------------------------
+
+describe("PagesService reserved slug enforcement", () => {
+  // AC1: Reserved slugs must be rejected on create and update to prevent
+  // standalone pages from shadowing existing application routes.
+
+  it("rejects the 'admin' reserved slug on create", async () => {
+    const service = makePagesService();
+    await expect(service.create("user-1", { title: "Admin", slug: "admin", body: "Body" })).rejects.toThrow(
+      BadRequestException
+    );
+  });
+
+  it("rejects the 'blog' reserved slug on create", async () => {
+    const service = makePagesService();
+    await expect(service.create("user-1", { title: "Blog", slug: "blog", body: "Body" })).rejects.toThrow(
+      BadRequestException
+    );
+  });
+
+  it("rejects the 'api' reserved slug on create", async () => {
+    const service = makePagesService();
+    await expect(service.create("user-1", { title: "API", slug: "api", body: "Body" })).rejects.toThrow(
+      BadRequestException
+    );
+  });
+
+  it("rejects all documented reserved slugs on create", async () => {
+    // AC1: full reserved list must all be rejected
+    const reserved = ["admin", "api", "app", "blog", "login", "register", "onboarding", "profile", "settings", "health"];
+    const service = makePagesService();
+    for (const slug of reserved) {
+      await expect(
+        service.create("user-1", { title: "T", slug, body: "Body" }),
+        `Expected reserved slug "${slug}" to be rejected`
+      ).rejects.toThrow(BadRequestException);
+    }
+  });
+
+  it("rejects a reserved slug on update", async () => {
+    const page = {
+      id: "page-1",
+      title: "About",
+      slug: "about",
+      status: "draft",
+      currentRevisionId: "rev-1",
+      createdByUserId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as StandalonePageEntity;
+    const service = makePagesService({ findOne: async () => page });
+    await expect(service.update("page-1", "user-1", { slug: "login" })).rejects.toThrow(BadRequestException);
+  });
+
+  it("accepts a non-reserved valid slug on create (positive baseline)", async () => {
+    const savedRevision = { id: "rev-1", pageId: "page-1", revisionNumber: 1, title: "About", body: "Content", authorUserId: "u", createdAt: new Date() } as PageRevisionEntity;
+    const savedPage = { id: "page-1", title: "About", slug: "about-us", status: "draft", currentRevisionId: "rev-1", createdByUserId: "u", publishedAt: null, createdAt: new Date(), updatedAt: new Date() } as StandalonePageEntity;
+    const service = makePagesService(
+      { save: vi.fn().mockResolvedValue(savedPage), findOne: vi.fn().mockResolvedValue(savedPage), create: (d) => d as StandalonePageEntity },
+      { save: vi.fn().mockResolvedValue(savedRevision), create: (d) => d as PageRevisionEntity, findOne: async () => null }
+    );
+    await expect(service.create("u", { title: "About", slug: "about-us", body: "Content" })).resolves.toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Body sanitization enforcement (AC4 — security-sensitive: XSS prevention)
+// ---------------------------------------------------------------------------
+
+describe("PagesService body sanitization", () => {
+  // AC4: Page bodies must be sanitized server-side; unsafe HTML/script content
+  // must be rejected at the service layer before reaching the database.
+
+  it("rejects a body containing a <script> tag on create", async () => {
+    const service = makePagesService();
+    await expect(
+      service.create("user-1", { title: "T", slug: "about", body: '<script>alert("xss")</script>' })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a body containing an inline event handler (onclick=) on create", async () => {
+    const service = makePagesService();
+    await expect(
+      service.create("user-1", { title: "T", slug: "about", body: '<a href="#" onclick="evil()">click</a>' })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a body containing javascript: protocol on create", async () => {
+    const service = makePagesService();
+    await expect(
+      service.create("user-1", { title: "T", slug: "about", body: '<a href="javascript:void(0)">link</a>' })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a body containing <iframe> on create", async () => {
+    const service = makePagesService();
+    await expect(
+      service.create("user-1", { title: "T", slug: "about", body: "<iframe src='evil.com'></iframe>" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a body containing <script> on update", async () => {
+    const page = {
+      id: "page-1",
+      title: "About",
+      slug: "about",
+      status: "draft",
+      currentRevisionId: "rev-1",
+      createdByUserId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as StandalonePageEntity;
+    const service = makePagesService({ findOne: async () => page });
+    await expect(
+      service.update("page-1", "user-1", { body: "<script>steal(document.cookie)</script>" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("accepts safe Markdown body on create (positive baseline)", async () => {
+    const savedRevision = { id: "rev-1", pageId: "p-1", revisionNumber: 1, title: "T", body: "# Hello\nSafe content.", authorUserId: "u", createdAt: new Date() } as PageRevisionEntity;
+    const savedPage = { id: "p-1", title: "T", slug: "safe-page", status: "draft", currentRevisionId: "rev-1", createdByUserId: "u", publishedAt: null, createdAt: new Date(), updatedAt: new Date() } as StandalonePageEntity;
+    const service = makePagesService(
+      { save: vi.fn().mockResolvedValue(savedPage), findOne: vi.fn().mockResolvedValue(savedPage), create: (d) => d as StandalonePageEntity },
+      { save: vi.fn().mockResolvedValue(savedRevision), create: (d) => d as PageRevisionEntity, findOne: async () => null }
+    );
+    await expect(service.create("u", { title: "T", slug: "safe-page", body: "# Hello\nSafe content." })).resolves.toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Revision editor user tracking (AC3 — revision metadata)
+// ---------------------------------------------------------------------------
+
+describe("PagesService revision editorUserId tracking", () => {
+  // AC3: Every edit must create a revision that records the editor user id.
+
+  it("sets editorUserId on the revision created during update", async () => {
+    const page = {
+      id: "page-1",
+      title: "About",
+      slug: "about",
+      status: "draft",
+      currentRevisionId: "rev-1",
+      createdByUserId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as StandalonePageEntity;
+    const latestRevision = { id: "rev-1", pageId: "page-1", revisionNumber: 1, title: "About", body: "Body", authorUserId: "user-1", createdAt: new Date() } as PageRevisionEntity;
+    const newRevision = { ...latestRevision, id: "rev-2", revisionNumber: 2, editorUserId: "editor-1" };
+    const updatedPage = { ...page, currentRevisionId: "rev-2" } as StandalonePageEntity;
+
+    const revCreate = vi.fn().mockImplementation((d) => d as PageRevisionEntity);
+    const revSave = vi.fn().mockResolvedValue(newRevision);
+
+    const service = makePagesService(
+      { findOne: vi.fn().mockResolvedValueOnce(page).mockResolvedValueOnce(updatedPage), save: vi.fn().mockResolvedValue(updatedPage), create: (d) => d as StandalonePageEntity },
+      { findOne: vi.fn().mockResolvedValue(latestRevision), save: revSave, create: revCreate }
+    );
+
+    await service.update("page-1", "editor-1", { body: "New body" });
+
+    // The revision entity created for the update must capture the editor user id.
+    expect(revCreate).toHaveBeenCalledOnce();
+    const created = revCreate.mock.calls[0][0] as Record<string, unknown>;
+    expect(created.editorUserId).toBe("editor-1");
+  });
+
+  it("sets editorUserId on the new revision created during restoreRevision", async () => {
+    const page = { id: "page-1", status: "draft", title: "About", currentRevisionId: "rev-2" } as StandalonePageEntity;
+    const sourceRevision = { id: "rev-1", pageId: "page-1", title: "Old Title", body: "Old body", revisionNumber: 1, authorUserId: "u", createdAt: new Date() } as PageRevisionEntity;
+    const latestRevision = { id: "rev-2", pageId: "page-1", revisionNumber: 2, title: "Current", body: "Current body", authorUserId: "u", createdAt: new Date() } as PageRevisionEntity;
+
+    const revCreate = vi.fn().mockImplementation((d) => d as PageRevisionEntity);
+    const revSave = vi.fn().mockResolvedValue({ ...sourceRevision, id: "rev-3", revisionNumber: 3, editorUserId: "restorer-1" });
+    const updatedPage = { ...page, currentRevisionId: "rev-3", title: "Old Title" } as StandalonePageEntity;
+
+    const service = makePagesService(
+      { findOne: vi.fn().mockResolvedValue(updatedPage), save: vi.fn().mockResolvedValue(updatedPage), create: (d) => d as StandalonePageEntity },
+      { findOne: vi.fn().mockResolvedValueOnce(sourceRevision).mockResolvedValueOnce(latestRevision), save: revSave, create: revCreate }
+    );
+
+    await service.restoreRevision("page-1", "rev-1", "restorer-1");
+
+    expect(revCreate).toHaveBeenCalledOnce();
+    const created = revCreate.mock.calls[0][0] as Record<string, unknown>;
+    expect(created.editorUserId).toBe("restorer-1");
   });
 });
