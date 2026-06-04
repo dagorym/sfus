@@ -1,0 +1,72 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Standalone-page behavior implementation (subtask 5). Update documentation to match implemented behaviors: top-level catch-all route, reserved slug enforcement, enriched revision metadata, server-side sanitization, featured media, admin authoring forms. All 5 ACs validated by testing.
+
+Acceptance criteria to verify:
+- AC1 PASS: Published standalone pages at top-level paths; root catch-all evaluated last; reserved slugs (10 total) rejected
+- AC2 PASS: Only published pages public; draft/unpublished protected
+- AC3 PASS: Durable revision metadata (editorUserId, summary, changeNote, featuredMediaId) on edit/restore
+- AC4 PASS: Server-side body sanitization; featured media via ImageUpload; efficient body resolution
+- AC5 PASS: No block-builder or wiki behavior
+
+Implementation branch or worktree context:
+- Implementation branch: ms3-claude
+- Tester branch: ms3-tester-subtask-5-20260604
+- Documenter worktree: ms3-documenter-subtask-5-20260604
+- Plan: plans/ms3-completion-and-copilot-port-plan.md
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/pages/pages.service.ts
+- apps/api/src/pages/pages.controller.ts
+- apps/web/app/pages/pages-client.ts
+- apps/web/app/admin/pages/new/page.tsx
+- apps/web/app/admin/pages/[id]/edit/page.tsx
+- apps/web/app/[slug]/page.tsx
+- apps/api/src/pages/pages.service.test.ts
+- apps/web/app/pages/pages.spec.ts
+- docs/README.md
+
+Commands executed:
+- git diff ms3-claude..HEAD --name-only
+- git diff ms3-claude..HEAD -- apps/api/src/pages/pages.service.ts
+- git diff ms3-claude..HEAD -- apps/api/src/pages/pages.controller.ts
+- git diff ms3-claude..HEAD -- apps/web/app/pages/pages-client.ts
+- git diff ms3-claude..HEAD -- apps/web/app/[slug]/page.tsx
+- git diff ms3-claude..HEAD -- apps/web/app/admin/pages/new/page.tsx
+- git diff ms3-claude..HEAD -- apps/web/app/admin/pages/[id]/edit/page.tsx
+- python3 .myteam/documenter/commit-flow/validate_documenter_state.py --phase docs
+- git add docs/README.md && git commit
+- python3 .myteam/documenter/commit-flow/validate_documenter_state.py --phase artifacts
+
+Final test outcomes:
+- 335 tests pass (206 API, 129 web); 0 failed
+- AC1 PASS: Published standalone pages at top-level paths; root catch-all evaluated last; reserved slugs (10 total) rejected
+- AC2 PASS: Only published pages public; draft/unpublished protected
+- AC3 PASS: Durable revision metadata (editorUserId, summary, changeNote, featuredMediaId) on edit/restore
+- AC4 PASS: Server-side body sanitization; featured media via ImageUpload; efficient body resolution
+- AC5 PASS: No block-builder or wiki behavior
+
+Plan or evaluation context guidance:
+- Plan document: plans/ms3-completion-and-copilot-port-plan.md
+- Shared artifact directory: artifacts/ms3-completion-and-copilot-port/subtask-5
+- This is subtask 5 of the ms3-completion-and-copilot-port plan
+
+Convention-file guidance:
+- docs/README.md is the canonical home for architecture, API contracts, and runtime behavior
+- docs/website-launch-guide.md is the canonical home for commands and environment setup
+- AGENTS.md / .myteam/ define agent workflow and role boundaries
+
+Updated documentation files:
+- docs/README.md
+
+Shared artifact directory:
+- artifacts/ms3-completion-and-copilot-port/subtask-5
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
