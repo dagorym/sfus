@@ -404,8 +404,8 @@ Milestone 3 Subtask 6 adds a configurable admin navigation system. Site navigati
 
 **Public read routes — no authentication required for the public surface:**
 
-- `GET /api/navigation/items/public` — returns all active navigation items with `visibility = "public"`, ordered by `sortOrder` ascending. Returns `{ items: NavigationItemDetail[] }` where each top-level item includes its active children in a `children` array. Safe for guest access.
-- `GET /api/navigation/items/authenticated` — returns all active navigation items (both `public` and `authenticated` visibility), ordered by `sortOrder` ascending, with one level of active children. For use when a session is present.
+- `GET /api/navigation/items/public` — returns all active top-level navigation items with `visibility = "public"`, ordered by `sortOrder` ascending. Returns `{ items: NavigationItemDetail[] }` where each top-level item includes its active, public-visibility children. Children whose linked internal blog post or standalone page target is not publicly visible are omitted before the response is returned. Top-level items whose own linked target is not publicly visible are also omitted entirely. Safe for guest access; `NavigationService.findPublic()` enforces all filtering server-side.
+- `GET /api/navigation/items/authenticated` — returns all active top-level navigation items with `visibility = "public"` or `"authenticated"`, ordered by `sortOrder` ascending, with one level of active, non-admin children. **Requires an active `sfus_session` cookie**; the controller calls `AuthService.resolveSession()` and returns `401` when no session is present. Items with `visibility = "admin"` are excluded for non-admin users; the caller's `globalRole` is used to determine whether admin items should be included. For admin users all visibility levels are returned.
 
 **Admin management routes — require an active `sfus_session` cookie and the global `admin` role:**
 
@@ -435,7 +435,7 @@ Migration `1748736000001-navigation-items.ts` adds the `navigation_items` table:
 | `label` | `varchar(128)` | Display label; required, max 128 characters |
 | `link_type` | `varchar(16)` | `"internal"` or `"external"`; default `"internal"` |
 | `url` | `varchar(512)` | Destination URL; required, max 512 characters |
-| `visibility` | `varchar(32)` | `"public"` or `"authenticated"`; default `"public"` |
+| `visibility` | `varchar(32)` | `"public"`, `"authenticated"`, or `"admin"`; default `"public"` |
 | `sort_order` | `smallint unsigned` | Ascending display order; default `0` |
 | `is_active` | `tinyint(1)` | `1 = active`, `0 = inactive`; default `1` |
 | `created_at` | `datetime(3)` | Set at insert |
@@ -454,7 +454,7 @@ A composite index `idx_navigation_items_parent_sort` on `(parent_id, sort_order)
   label: string,
   linkType: "internal" | "external",
   url: string,
-  visibility: "public" | "authenticated",
+  visibility: "public" | "authenticated" | "admin",
   sortOrder: number,
   isActive: boolean,
   children: NavigationItemDetail[],
@@ -470,7 +470,7 @@ Top-level items always include a `children` array (empty when no children exist)
 `/admin/navigation` — admin navigation management page (`apps/web/app/admin/navigation/page.tsx`). Requires an active session with the global `admin` role. Redirects unauthenticated users to `/login?next=/admin/navigation`. Non-admin sessions see an "Admin access required" error.
 
 Features available from the admin navigation page:
-- **Create** — form with Label, URL, Link Type (`internal`/`external`), Visibility (`public`/`authenticated only`), Sort Order, and optional Parent selector (limited to top-level items). Submits `POST /api/navigation/admin`.
+- **Create** — form with Label, URL, Link Type (`internal`/`external`), Visibility (`public`/`authenticated only`/`admin only`), Sort Order, and optional Parent selector (limited to top-level items). Submits `POST /api/navigation/admin`.
 - **Toggle visibility** — "Show"/"Hide" buttons toggle `isActive` per item via `PATCH /api/navigation/admin/:id`. Applies to both top-level and child items.
 - **Reorder** — up/down arrow buttons swap `sortOrder` values between adjacent siblings within the same level, via two concurrent `PATCH` calls.
 - **Delete** — confirms with a browser dialog before calling `DELETE /api/navigation/admin/:id`. Cascade removes children automatically.
@@ -483,6 +483,10 @@ Features available from the admin navigation page:
 - Authenticated sessions call `GET /api/navigation/items/authenticated`.
 
 A fetch error falls back silently to an empty dynamic items list so the shell still renders. After dynamic items, the shell always appends the fixed auth-state links (Sign in / Register for guests; App / Profile / Settings for authenticated users).
+
+**Child item rendering — `NavDropdown`:** When a top-level item has visible children (active children whose visibility is compatible with the current session state), it renders as a keyboard-accessible dropdown using the `NavDropdown` component. The dropdown trigger is a `<button>` with `aria-expanded` and `aria-haspopup="menu"`. The panel has `role="menu"` with an `aria-label`. Pressing Escape or moving focus outside the container closes the dropdown; clicking the trigger toggles it.
+
+**External link rendering — `NavItemLink`:** Items with `linkType = "external"` render as a plain `<a>` element with `target="_blank"` and `rel="noopener noreferrer"` to prevent tab-napping. Items with `linkType = "internal"` render as a Next.js `<Link>` with active-state styling derived from the current pathname.
 
 `apps/web/app/navigation/navigation-client.ts` is the typed API client for navigation calls. It exports `adminListNavItems`, `adminCreateNavItem`, `adminUpdateNavItem`, and `adminDeleteNavItem` (all admin, `credentials: "include"`) as well as the `NavigationItemDetail`, `CreateNavigationItemInput`, and `UpdateNavigationItemInput` TypeScript interfaces.
 
