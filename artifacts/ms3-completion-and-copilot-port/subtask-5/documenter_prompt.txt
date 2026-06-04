@@ -1,0 +1,65 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Standalone-page behavior implementation (subtask 5 of ms3-completion-and-copilot-port plan). New behaviors confirmed by testing: top-level catch-all route (app/[slug]/page.tsx) serves published standalone pages at top-level paths; reserved slug enforcement (10 slugs) on create and update rejects route-collision slugs; enriched revision metadata captures editorUserId, summary, changeNote, and featuredMediaId on every edit and restore; server-side body sanitization rejects unsafe HTML/script before storage; admin create/edit forms include ImageUpload component and summary/changeNote fields; featured image renders publicly at top-level route via media API.
+
+Acceptance criteria validated:
+- AC1: Published standalone pages render at top-level paths; root catch-all evaluated last; reserved slugs (all 10) rejected on create/edit — PASS
+- AC2: Only published pages public; draft/unpublished protected — PASS
+- AC3: Every edit creates durable revision with summary, changeNote, editor user, featured media; restore creates new revision — PASS
+- AC4: Page bodies sanitized server-side; featured media via ImageUpload renders publicly; efficient body resolution — PASS
+- AC5: No block-builder or wiki behavior — PASS
+
+Implementation branch or worktree context:
+- Branch: ms3-claude
+- Worktree: ms3-tester-subtask-5-20260604
+- Implementer commit: 2a470b6
+- Tester commit: 991477c
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/pages/pages.service.ts — RESERVED_PAGE_SLUGS set; assertSlugValid rejects reserved slugs; body sanitization via validateMarkdownBody; editorUserId on revision create/restore
+- apps/api/src/pages/pages.controller.ts — resolveCurrentRevision() for efficient body fetch; toDetail() enriched with summary and featuredMediaId; parseCreateInput/parseUpdateInput for new fields
+- apps/web/app/pages/pages-client.ts — PageDetail and RevisionDetail interfaces enriched with summary, featuredMediaId, editorUserId, changeNote
+- apps/web/app/pages/[slug]/page.tsx — minor update
+- apps/web/app/admin/pages/new/page.tsx — ImageUpload component, summary field, featuredMediaId in payload
+- apps/web/app/admin/pages/[id]/edit/page.tsx — ImageUpload, summary, changeNote fields; revision history panel with preview and restore
+- apps/web/app/[slug]/page.tsx — NEW file: top-level catch-all for published standalone pages, RESERVED_SLUGS guard, MarkdownRenderer, featured image rendering
+- apps/api/src/pages/pages.service.test.ts — added reserved slug, sanitization, editorUserId tests
+- apps/web/app/pages/pages.spec.ts — added top-level route, enriched authoring tests
+
+Test commit:
+- 991477c
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/pages/pages.service.test.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/pages/pages.spec.ts
+- npx --yes pnpm@10.0.0 test
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+
+Final test outcomes:
+- 335 tests pass (206 API, 129 web) across 14 test files. Pre-existing media.controller.test.ts multer failure excluded (expected noise). Lint: 0 warnings. Typecheck: clean except pre-existing multer type error in media.controller.ts only. All 5 AC satisfied.
+
+Documentation context:
+- pages.service.ts: document RESERVED_PAGE_SLUGS, reserved-slug rejection behavior, sanitization gate, editorUserId on revisions
+- pages.controller.ts: document enriched PageDetail/RevisionDetail shapes, resolveCurrentRevision(), new optional fields (summary, changeNote, featuredMediaId)
+- app/[slug]/page.tsx: document new top-level standalone page route, reserved-slug guard, published-only access
+- admin pages (new/edit): document ImageUpload integration, summary and changeNote fields in revision flow
+- Any existing standalone-pages docs (docs/ or README) should be updated to reflect these behaviors
+
+Plan and diff context:
+- Plan: plans/ms3-completion-and-copilot-port-plan.md
+- Base branch: ms3-claude
+- Subtask 5 of the ms3-completion-and-copilot-port plan
+- Infer comparison base and any missing plan details from repository context when needed, and label those choices as assumptions
+
+Startup behavior:
+- If branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-completion-and-copilot-port/subtask-5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
