@@ -1,19 +1,13 @@
 Your role is 'tester'. Your task is as follows:
 
 Task summary:
-Implement Milestone 3 blog publishing behavior: publishedAt-driven visibility (no background job), scheduled-post UI labels, server-side body sanitization on create/update, ImageUpload wired in admin editor for featured image with media validation, and pin/feature toggle for admin-only ordering control. Security-sensitive subtask.
+- Remediation cycle 1: replaced 4 bare <img> elements with Next.js <Image /> components to fix @next/next/no-img-element ESLint violations. Lint now passes with --max-warnings=0. All 107 web tests and 178 API tests continue to pass. All 5 original AC from the blog publishing subtask-3 remain implemented.
 
 Modified files:
-- apps/api/src/blog/blog.service.ts
-- apps/api/src/blog/blog.module.ts
-- apps/api/src/blog/blog.controller.ts
-- apps/api/src/blog/blog.service.test.ts
-- apps/web/app/blog/blog-client.ts
-- apps/web/app/admin/blog/page.tsx
-- apps/web/app/admin/blog/new/page.tsx
 - apps/web/app/admin/blog/[id]/edit/page.tsx
-- apps/web/app/blog/page.tsx
+- apps/web/app/admin/blog/new/page.tsx
 - apps/web/app/blog/[slug]/page.tsx
+- apps/web/app/blog/page.tsx
 
 Acceptance criteria to validate (from Planner):
 - A future-dated published post is hidden from public routes until publishedAt<=now, then becomes visible with no manual action or background job; drafts and unpublished posts are never public.
@@ -23,31 +17,35 @@ Acceptance criteria to validate (from Planner):
 - A post can be pinned/featured and surfaces first in the public listing; only admins can toggle it; summary is editable and shown in listings/meta.
 
 Test file locations:
-- New tests for publishedAt-driven visibility, post body sanitization, and featuredImageId validation: apps/api/src/blog/blog.service.test.ts
-- New tests for featured image rendering, pin/feature ordering, and scheduled label display: apps/web/app/blog/blog.spec.ts or apps/web/components/authoring-components.spec.ts
+- apps/api/src/blog/blog.service.test.ts
+- apps/web/app/blog/blog.spec.ts
+- apps/web/components/authoring-components.spec.ts
 
-Implementation context:
-- (1) findPublished/findPublishedBySlug use TypeORM LessThanOrEqual(now) for publishedAt filter — future-dated published posts are invisible until their publishedAt time is reached; no background job needed.
-- (2) unpublish() now returns status='draft' and clears publishedAt to null (was returning 'unpublished' status).
-- (3) create()/update() sanitize body via normalizeMarkdownBody+validateMarkdownBody — same path as comments; unsafe bodies throw BadRequestException.
-- (4) New publishAt(id, date) service method and POST /blog/admin/posts/:id/publish-at endpoint — sets status=published with a future publishedAt for scheduling.
-- (5) New toggleFeatured(id) service method and POST /blog/admin/posts/:id/toggle-featured endpoint — flips isFeatured boolean (admin-only).
-- (6) featuredImageId validated against MediaReferenceEntity on create/update; throws BadRequestException for missing media.
-- (7) BlogService constructor takes 4 repos (added MediaReferenceEntity). BlogModule now registers MediaReferenceEntity.
-- (8) blog-client: adminSchedulePost replaced by adminPublishAt (calls /publish-at); adminToggleFeatured added (calls /toggle-featured); types updated with summary/isFeatured fields.
-- (9) createComment() now also checks publishedAt <= now — future-dated published posts block comment creation.
-- Pre-existing failure: apps/api/src/media/media.controller.test.ts — "Cannot find package 'multer'" — pnpm isolated nodeLinker resolution issue from subtask-2, not introduced by this subtask.
+Implementation context for testing:
+Four bare <img> elements were replaced with Next.js <Image /> from next/image. Admin preview images (admin/blog/new and admin/blog/[id]/edit) use width=180 height=120 with objectFit cover. Public full-width images (blog/page.tsx and blog/[slug]/page.tsx) use a positioned wrapper div with fill prop and overflow:hidden. All changes are minimal localized edits; no other logic was touched. This is a remediation-only cycle addressing the ESLint lint failure reported by the Tester — all 5 original AC remain implemented from the prior code commit (918b6e8).
 
-Suggested test commands:
+Key testing notes:
+- Confirm lint passes with 0 warnings: npx --yes pnpm@10.0.0 lint
+- Confirm no bare <img> elements remain in the 4 fixed files
+- Confirm Next.js Image is correctly imported and used in all 4 files
+- Re-verify the 5 AC are functionally satisfied (same as prior tester pass)
+- The multer typecheck/test failure (media.controller.test.ts) is a pre-existing unresolved dependency issue unrelated to blog publishing
+
+Suggested test command(s):
 - npx --yes pnpm@10.0.0 lint
-- npx --yes pnpm@10.0.0 --filter @sfus/web run typecheck
-- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/blog/blog.service.test.ts
+- npx --yes pnpm@10.0.0 typecheck
 - npx --yes pnpm@10.0.0 test
 
-Existing validations expected to fail only because approved behavior changed: none.
+Existing validations expected to fail only because approved behavior changed:
+- None (multer test failure is pre-existing and unrelated)
 
-Shared artifact directory: artifacts/ms3-completion-and-copilot-port/subtask-3
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
 
-If acceptance criteria and implementation context are present, begin testing work immediately in the same run without waiting for additional clarification.
+Shared artifact directory:
+- artifacts/ms3-completion-and-copilot-port/subtask-3
 
-Do not report success unless all required artifacts exist and all changes are committed.
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

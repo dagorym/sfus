@@ -4,6 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthModule } from "../auth/auth.module";
 import { AuthorizationModule } from "../authorization/authorization.module";
 import type { ApplicationEnvironment } from "../config/environment";
+import { MediaReferenceEntity } from "../media/entities/media-reference.entity";
 import { BlogCommentEntity } from "./entities/blog-comment.entity";
 import { BlogPostEntity } from "./entities/blog-post.entity";
 import { BlogPostTagEntity } from "./entities/blog-post-tag.entity";
@@ -16,7 +17,7 @@ export class BlogModule {
     return {
       module: BlogModule,
       imports: [
-        TypeOrmModule.forFeature([BlogPostEntity, BlogPostTagEntity, BlogCommentEntity]),
+        TypeOrmModule.forFeature([BlogPostEntity, BlogPostTagEntity, BlogCommentEntity, MediaReferenceEntity]),
         AuthorizationModule,
         AuthModule.register(environment)
       ],

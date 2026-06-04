@@ -3,9 +3,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+import Image from "next/image";
+
 import { resolveProtectedSession, hasGlobalRole } from "../../../auth-client";
 import { adminCreatePost } from "../../../../app/blog/blog-client";
 import { MarkdownEditor } from "../../../../components/markdown-editor";
+import { ImageUpload, type ImageUploadResult } from "../../../../components/image-upload";
 import styles from "../../../auth-shell.module.css";
 
 export default function AdminBlogNewPage() {
@@ -13,8 +16,10 @@ export default function AdminBlogNewPage() {
   const [authorized, setAuthorized] = useState(false);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
+  const [summary, setSummary] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState("");
+  const [featuredImageId, setFeaturedImageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -48,7 +53,14 @@ export default function AdminBlogNewPage() {
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean);
-      const post = await adminCreatePost({ title, slug, body, tags: tagList });
+      const post = await adminCreatePost({
+        title,
+        slug,
+        body,
+        summary: summary.trim() || null,
+        featuredImageId,
+        tags: tagList
+      });
       router.replace(`/admin/blog/${post.id}/edit`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create post.");
@@ -107,6 +119,17 @@ export default function AdminBlogNewPage() {
           />
         </label>
         <label className={styles.label}>
+          Summary (optional — shown in listings and meta)
+          <input
+            className={styles.input}
+            type="text"
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            placeholder="Brief summary of this post"
+            disabled={saving}
+          />
+        </label>
+        <label className={styles.label}>
           Tags (comma-separated)
           <input
             className={styles.input}
@@ -117,6 +140,35 @@ export default function AdminBlogNewPage() {
             disabled={saving}
           />
         </label>
+        <div className={styles.label}>
+          Featured image
+          {featuredImageId ? (
+            <div style={{ marginTop: "0.4rem", marginBottom: "0.4rem" }}>
+              <Image
+                src={`/api/media/${featuredImageId}`}
+                alt="Featured image preview"
+                width={180}
+                height={120}
+                style={{ objectFit: "cover", borderRadius: "4px" }}
+              />
+              <button
+                type="button"
+                onClick={() => setFeaturedImageId(null)}
+                style={{ marginLeft: "0.75rem", cursor: "pointer", color: "#ffb4b4", background: "none", border: "none" }}
+                disabled={saving}
+              >
+                Remove
+              </button>
+            </div>
+          ) : null}
+          <ImageUpload
+            resourceType="blog-post"
+            onUpload={(result: ImageUploadResult) => setFeaturedImageId(result.id)}
+            onError={(msg) => setError(msg)}
+            disabled={saving}
+            label={featuredImageId ? "Replace featured image" : "Upload featured image"}
+          />
+        </div>
         <div className={styles.label}>
           Body
           <MarkdownEditor value={body} onChange={setBody} disabled={saving} />

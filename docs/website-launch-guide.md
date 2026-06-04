@@ -185,10 +185,10 @@ Current user-facing website behavior is intentionally narrow:
 
 Guests and unauthenticated users can browse the public blog at:
 
-- `http://localhost:3000/blog` — lists all published posts
-- `http://localhost:3000/blog/<slug>` — reads a single published post
+- `http://localhost:3000/blog` — lists all published posts whose `publishedAt` is at or before now; featured/pinned posts appear first
+- `http://localhost:3000/blog/<slug>` — reads a single published post (returns "Post not found" when the post is missing, a draft, or scheduled for the future)
 
-Draft and unpublished posts are never returned by the public API endpoints. A request for a non-published slug returns a "Post not found" message.
+Draft posts and future-scheduled posts are never returned by the public API endpoints.
 
 ### Publishing a Blog Post (Admin)
 
@@ -197,11 +197,15 @@ To create and publish a blog post, you need an account whose global role is `adm
 1. Sign in at `http://localhost:3000/login`.
 2. Navigate to `http://localhost:3000/admin/blog`.
 3. Click **New post** to open the creation form.
-4. Fill in Title, Slug (lowercase hyphenated, e.g. `my-first-post`), optional Tags (comma-separated), and Body (Markdown).
+4. Fill in Title, Slug (lowercase hyphenated, e.g. `my-first-post`), optional Summary, optional Tags (comma-separated), optional Featured Image (via the image upload widget), and Body (Markdown). The body is validated server-side and rejected if it contains unsafe HTML or script content.
 5. Click **Create draft**. The new post is created with `draft` status and the editor opens.
-6. In the editor, click **Publish now** to publish immediately. A post with a future `published_at` time is treated as published once that time is reached.
+6. In the editor:
+   - Click **Publish now** to publish immediately (sets `publishedAt` to the current time; post appears on the public blog index right away).
+   - Use **Schedule** (publish-at) to supply a future ISO 8601 datetime; the post is stored as `published` but remains hidden from public routes until `publishedAt <= now` — no background job required.
+   - Click **Pin/Unpin** to toggle the featured (pinned) state; pinned posts surface first in the public listing.
+7. To retract a published or scheduled post, click **Unpublish**. The post returns to `draft` status and `publishedAt` is cleared.
 
-Published posts appear immediately on the public `/blog` index.
+Published posts appear immediately on the public `/blog` index. Scheduled posts go live automatically at their `publishedAt` time without any manual action.
 
 ### Blog Comments
 

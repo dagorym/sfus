@@ -2,10 +2,11 @@ import crypto from "node:crypto";
 
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { LessThanOrEqual, Repository } from "typeorm";
 
 import { AuthorizationService } from "../authorization/authorization.service";
 import { validateMarkdownBody, normalizeMarkdownBody } from "../media/markdown-sanitizer";
+import { MediaReferenceEntity } from "../media/entities/media-reference.entity";
 import { BlogCommentEntity, BlogCommentStatus } from "./entities/blog-comment.entity";
 import { BlogPostEntity } from "./entities/blog-post.entity";
 import { BlogPostTagEntity } from "./entities/blog-post-tag.entity";
@@ -14,7 +15,9 @@ export interface CreateBlogPostInput {
   title: string;
   slug: string;
   body: string;
+  summary?: string | null;
   featuredImageId?: string | null;
+  isFeatured?: boolean;
   tags?: string[];
 }
 
@@ -22,7 +25,9 @@ export interface UpdateBlogPostInput {
   title?: string;
   slug?: string;
   body?: string;
+  summary?: string | null;
   featuredImageId?: string | null;
+  isFeatured?: boolean;
   tags?: string[];
 }
 
@@ -53,6 +58,8 @@ export class BlogService {
     private readonly blogPostTagRepository: Repository<BlogPostTagEntity>,
     @InjectRepository(BlogCommentEntity)
     private readonly blogCommentRepository: Repository<BlogCommentEntity>,
+    @InjectRepository(MediaReferenceEntity)
+    private readonly mediaRepository: Repository<MediaReferenceEntity>,
     private readonly authorizationService: AuthorizationService
   ) {}
 
@@ -77,24 +84,30 @@ export class BlogService {
   }
 
   /**
-   * Returns only published blog posts — safe for public/guest access.
+   * Returns only published blog posts whose publishedAt is at or before now —
+   * safe for public/guest access. Future-dated published posts are hidden until
+   * their publishedAt time is reached (no background job needed; the filter is
+   * evaluated at query time). Featured/pinned posts are surfaced first.
    */
   async findPublished(): Promise<BlogPostEntity[]> {
+    const now = new Date();
     return this.blogPostRepository.find({
-      where: { status: "published" },
-      order: { publishedAt: "DESC" },
+      where: { status: "published", publishedAt: LessThanOrEqual(now) },
+      order: { isFeatured: "DESC", publishedAt: "DESC" },
       relations: ["postTags"]
     });
   }
 
   /**
-   * Returns a single published post by slug. Returns null when the post does
-   * not exist or is not published, so callers never expose draft or unpublished
-   * content through public routes.
+   * Returns a single published post by slug whose publishedAt is at or before
+   * now. Returns null when the post does not exist, is not published, or its
+   * publishedAt is in the future, so callers never expose draft, unpublished,
+   * or future-scheduled content through public routes.
    */
   async findPublishedBySlug(slug: string): Promise<BlogPostEntity | null> {
+    const now = new Date();
     return this.blogPostRepository.findOne({
-      where: { slug, status: "published" },
+      where: { slug, status: "published", publishedAt: LessThanOrEqual(now) },
       relations: ["postTags"]
     });
   }
@@ -123,11 +136,22 @@ export class BlogService {
 
   /**
    * Creates a new blog post in draft status.
+   * Body is sanitized with the shared markdown sanitizer before persistence.
    * Caller must have verified admin access before calling this.
    */
   async create(authorUserId: string, input: CreateBlogPostInput): Promise<BlogPostEntity> {
     this.assertSlugValid(input.slug);
     this.assertTitleValid(input.title);
+
+    const normalizedBody = normalizeMarkdownBody(input.body ?? "");
+    const sanitizationResult = validateMarkdownBody(normalizedBody);
+    if (!sanitizationResult.safe) {
+      throw new BadRequestException(`Post body contains unsafe content: ${sanitizationResult.reason}`);
+    }
+
+    if (input.featuredImageId) {
+      await this.assertFeaturedImageExists(input.featuredImageId);
+    }
 
     const id = crypto.randomUUID();
     const post = this.blogPostRepository.create({
@@ -135,8 +159,10 @@ export class BlogService {
       authorUserId,
       title: input.title,
       slug: input.slug,
-      body: input.body,
+      body: normalizedBody,
+      summary: input.summary ?? null,
       status: "draft",
+      isFeatured: input.isFeatured ?? false,
       featuredImageId: input.featuredImageId ?? null,
       publishedAt: null
     });
@@ -150,7 +176,8 @@ export class BlogService {
   }
 
   /**
-   * Updates an existing blog post (title, slug, body, featured image, tags).
+   * Updates an existing blog post (title, slug, body, summary, featured image,
+   * isFeatured, tags). Body is sanitized with the shared markdown sanitizer.
    * Caller must have verified admin access before calling this.
    */
   async update(id: string, input: UpdateBlogPostInput): Promise<BlogPostEntity> {
@@ -168,10 +195,24 @@ export class BlogService {
       post.title = input.title;
     }
     if (input.body !== undefined) {
-      post.body = input.body;
+      const normalizedBody = normalizeMarkdownBody(input.body);
+      const sanitizationResult = validateMarkdownBody(normalizedBody);
+      if (!sanitizationResult.safe) {
+        throw new BadRequestException(`Post body contains unsafe content: ${sanitizationResult.reason}`);
+      }
+      post.body = normalizedBody;
+    }
+    if (input.summary !== undefined) {
+      post.summary = input.summary;
     }
     if (input.featuredImageId !== undefined) {
+      if (input.featuredImageId) {
+        await this.assertFeaturedImageExists(input.featuredImageId);
+      }
       post.featuredImageId = input.featuredImageId;
+    }
+    if (input.isFeatured !== undefined) {
+      post.isFeatured = input.isFeatured;
     }
 
     await this.blogPostRepository.save(post);
@@ -200,7 +241,7 @@ export class BlogService {
   }
 
   /**
-   * Unpublishes a blog post (moves it back to unpublished status).
+   * Unpublishes a blog post (returns it to draft status, hides from public).
    * Caller must have verified admin access before calling this.
    */
   async unpublish(id: string): Promise<BlogPostEntity> {
@@ -208,7 +249,40 @@ export class BlogService {
     if (!post) {
       throw new NotFoundException("Blog post not found.");
     }
-    post.status = "unpublished";
+    post.status = "draft";
+    post.publishedAt = null;
+    await this.blogPostRepository.save(post);
+    return this.blogPostRepository.findOne({ where: { id }, relations: ["postTags"] }) as Promise<BlogPostEntity>;
+  }
+
+  /**
+   * Schedules a blog post for future publication by setting status=published
+   * and publishedAt to the chosen future datetime. The post remains hidden from
+   * public routes until publishedAt <= now (evaluated at query time, no background
+   * job needed). Caller must have verified admin access before calling this.
+   */
+  async publishAt(id: string, publishedAt: Date): Promise<BlogPostEntity> {
+    const post = await this.blogPostRepository.findOne({ where: { id } });
+    if (!post) {
+      throw new NotFoundException("Blog post not found.");
+    }
+    post.status = "published";
+    post.publishedAt = publishedAt;
+    await this.blogPostRepository.save(post);
+    return this.blogPostRepository.findOne({ where: { id }, relations: ["postTags"] }) as Promise<BlogPostEntity>;
+  }
+
+  /**
+   * Toggles the isFeatured (pin) state of a post. Featured posts surface first
+   * in the public listing. Only admins may toggle this.
+   * Caller must have verified admin access before calling this.
+   */
+  async toggleFeatured(id: string): Promise<BlogPostEntity> {
+    const post = await this.blogPostRepository.findOne({ where: { id } });
+    if (!post) {
+      throw new NotFoundException("Blog post not found.");
+    }
+    post.isFeatured = !post.isFeatured;
     await this.blogPostRepository.save(post);
     return this.blogPostRepository.findOne({ where: { id }, relations: ["postTags"] }) as Promise<BlogPostEntity>;
   }
@@ -251,18 +325,20 @@ export class BlogService {
    * Creates a new comment on a published post by an authenticated member.
    *
    * Guards:
-   * - The parent post must be published — prevents comment creation on draft or
-   *   unpublished posts (no exposure of non-public parent content).
+   * - The parent post must be published AND publishedAt <= now — prevents
+   *   comment creation on draft, unpublished, or future-scheduled posts (no
+   *   exposure of non-public parent content).
    * - The comment body is sanitized with the shared markdown sanitizer before
    *   persistence.
    */
   async createComment(postId: string, authorUserId: string, input: CreateCommentInput): Promise<BlogCommentEntity> {
-    // Confirm parent post exists and is published.
+    // Confirm parent post exists and is publicly visible (published + publishedAt <= now).
     const post = await this.blogPostRepository.findOne({ where: { id: postId } });
     if (!post) {
       throw new NotFoundException("Blog post not found.");
     }
-    if (post.status !== "published") {
+    const now = new Date();
+    if (post.status !== "published" || !post.publishedAt || post.publishedAt > now) {
       throw new ForbiddenException("Comments can only be added to published posts.");
     }
 
@@ -333,6 +409,13 @@ export class BlogService {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  private async assertFeaturedImageExists(featuredImageId: string): Promise<void> {
+    const media = await this.mediaRepository.findOne({ where: { id: featuredImageId } });
+    if (!media) {
+      throw new BadRequestException("featuredImageId references a media record that does not exist.");
+    }
+  }
 
   private assertSlugValid(slug: string): void {
     if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {

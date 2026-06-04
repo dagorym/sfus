@@ -1,0 +1,72 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- MS3 subtask-3 — blog publishing behavior: publishedAt-driven visibility (LessThanOrEqual filter, no background job), scheduled-post UI labels in admin, server-side body sanitization on create/update, ImageUpload wired in admin editor for featured image with media validation, and pin/feature toggle for admin-only ordering control. The implementer delivered the feature and fixed a lint defect (bare img elements replaced with Next.js Image) identified in a first tester pass. All acceptance criteria now validated.
+
+Acceptance criteria to verify:
+- AC1: A future-dated published post is hidden from public routes until publishedAt<=now, then becomes visible with no manual action or background job; drafts and unpublished posts are never public.
+- AC2: Publish-now sets publishedAt to the current time; unpublish returns the post to draft and hides it; the admin UI labels published-future posts as scheduled.
+- AC3: Blog post bodies are sanitized/normalized server-side on create and update; unsafe bodies are rejected or neutralized.
+- AC4: Featured images upload via ImageUpload in the admin editor and render on public blog views; featuredImageId is validated against existing media.
+- AC5: A post can be pinned/featured and surfaces first in the public listing; only admins can toggle it; summary is editable and shown in listings/meta.
+
+Implementation branch or worktree context:
+- Tester branch: ms3-tester-20260603
+- Implementer commits: 918b6e8 (initial implementation), 3fc4cb7 (lint fix — replace bare img with Next.js Image)
+- Tester commit: 7c14d17 (test coverage for publishedAt visibility, sanitization, featured image, pin/feature)
+- Remediation artifact commit: 48b306e
+- Documenter commit: 9902b64 (docs(blog): document publishedAt-driven visibility, sanitization, featured image, and pin/feature)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/blog.module.ts
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.service.test.ts
+- apps/web/app/blog/blog-client.ts
+- apps/web/app/admin/blog/page.tsx
+- apps/web/app/admin/blog/new/page.tsx
+- apps/web/app/admin/blog/[id]/edit/page.tsx
+- apps/web/app/blog/page.tsx
+- apps/web/app/blog/[slug]/page.tsx
+- apps/web/app/blog/blog.spec.ts
+- docs/README.md
+- docs/website-launch-guide.md
+
+Final test outcomes:
+- 318 tests passed (200 API, 118 web), 0 failed
+- All 5 AC verified by tester
+- Lint: PASS (0 warnings)
+- Typecheck: PASS
+
+Plan or evaluation context guidance:
+- Plan file: plans/ms3-completion-and-copilot-port-plan.md
+- Subtask 3 completes blog publishing: publishedAt-driven visibility (no background job), publish-at scheduling, unpublish to draft, body sanitization, featured image with media validation, pin/feature toggle, summary field.
+- Security-sensitive: publish-state leakage and server-side post-body sanitization.
+
+Convention-file guidance:
+- Repository documentation lives in docs/README.md (architecture, API contract) and docs/website-launch-guide.md (startup and user workflows).
+- In-code JSDoc comments are used on service methods in apps/api/src/blog/blog.service.ts; updated comments were already provided by the implementer.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+
+Updated documentation files:
+- docs/README.md (Blog Publishing Lifecycle section updated)
+- docs/website-launch-guide.md (Blog Content Management section updated)
+
+Shared artifact directory:
+- artifacts/ms3-completion-and-copilot-port/subtask-3
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Confirm publishedAt-driven visibility filter (LessThanOrEqual) is applied in findPublished() and findPublishedBySlug(), with no background-job dependency.
+- Confirm unpublish() sets status to 'draft' and clears publishedAt (not 'unpublished' status).
+- Confirm publishAt() and toggleFeatured() are present and routed correctly.
+- Confirm body sanitization (normalizeMarkdownBody + validateMarkdownBody) applies on create and update.
+- Confirm featuredImageId is validated against media_references on create and update.
+- Confirm isFeatured and summary fields are accepted in create/update inputs and appear in response shapes.
+- Confirm public listing order is isFeatured DESC, publishedAt DESC.
+- Confirm comment creation also guards on publishedAt <= now.
+- Confirm docs accurately reflect implemented behavior (no doc-vs-reality drift).
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

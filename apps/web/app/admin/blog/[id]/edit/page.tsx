@@ -3,16 +3,20 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 
+import Image from "next/image";
+
 import { resolveProtectedSession, hasGlobalRole } from "../../../../auth-client";
 import {
   adminGetPost,
   adminUpdatePost,
   adminPublishPost,
   adminUnpublishPost,
-  adminSchedulePost,
+  adminPublishAt,
+  adminToggleFeatured,
   type BlogPostDetail
 } from "../../../../../app/blog/blog-client";
 import { MarkdownEditor } from "../../../../../components/markdown-editor";
+import { ImageUpload, type ImageUploadResult } from "../../../../../components/image-upload";
 import styles from "../../../../auth-shell.module.css";
 
 export default function AdminBlogEditPage() {
@@ -23,8 +27,10 @@ export default function AdminBlogEditPage() {
   const [post, setPost] = useState<BlogPostDetail | null>(null);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
+  const [summary, setSummary] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState("");
+  const [featuredImageId, setFeaturedImageId] = useState<string | null>(null);
   const [scheduleValue, setScheduleValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -52,8 +58,10 @@ export default function AdminBlogEditPage() {
         setPost(fetched);
         setTitle(fetched.title);
         setSlug(fetched.slug);
+        setSummary(fetched.summary ?? "");
         setBody(fetched.body);
         setTags(fetched.tags.join(", "));
+        setFeaturedImageId(fetched.featuredImageId);
       } catch (e) {
         if (mounted) setError(e instanceof Error ? e.message : "Failed to load post.");
       }
@@ -73,7 +81,14 @@ export default function AdminBlogEditPage() {
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean);
-      const updated = await adminUpdatePost(id, { title, slug, body, tags: tagList });
+      const updated = await adminUpdatePost(id, {
+        title,
+        slug,
+        body,
+        summary: summary.trim() || null,
+        featuredImageId,
+        tags: tagList
+      });
       setPost(updated);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to save changes.");
@@ -116,11 +131,24 @@ export default function AdminBlogEditPage() {
     }
     setSaving(true);
     try {
-      const updated = await adminSchedulePost(id, new Date(scheduleValue).toISOString());
+      const updated = await adminPublishAt(id, new Date(scheduleValue).toISOString());
       setPost(updated);
       setScheduleValue("");
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to schedule.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleFeatured = async () => {
+    setActionError(null);
+    setSaving(true);
+    try {
+      const updated = await adminToggleFeatured(id);
+      setPost(updated);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to toggle featured.");
     } finally {
       setSaving(false);
     }
@@ -150,11 +178,22 @@ export default function AdminBlogEditPage() {
     <section className={styles.panel}>
       <p className={styles.eyebrow}>Admin · Blog · Edit</p>
       <h2 className={styles.title}>Edit Post</h2>
-      <p className={styles.description}>
-        Status: <strong>{post.status}</strong>
-        {post.publishedAt ? ` · Published ${new Date(post.publishedAt).toLocaleDateString()}` : ""}
-        {post.scheduledAt ? ` · Scheduled ${new Date(post.scheduledAt).toLocaleDateString()}` : ""}
-      </p>
+      {(() => {
+        const isScheduled =
+          post.status === "published" &&
+          post.publishedAt !== null &&
+          new Date(post.publishedAt) > new Date();
+        const statusLabel = isScheduled
+          ? `scheduled / goes live at ${new Date(post.publishedAt!).toLocaleString()}`
+          : post.status;
+        return (
+          <p className={styles.description}>
+            Status: <strong>{statusLabel}</strong>
+            {post.isFeatured ? " · ★ Pinned/Featured" : ""}
+            {post.publishedAt && !isScheduled ? ` · Published ${new Date(post.publishedAt).toLocaleDateString()}` : ""}
+          </p>
+        );
+      })()}
       {actionError ? <p className={styles.error}>{actionError}</p> : null}
 
       {/* Publish-state controls */}
@@ -179,6 +218,14 @@ export default function AdminBlogEditPage() {
             Unpublish
           </button>
         )}
+        <button
+          type="button"
+          className={styles.secondaryAction}
+          onClick={() => void handleToggleFeatured()}
+          disabled={saving}
+        >
+          {post.isFeatured ? "Unpin" : "Pin/feature"}
+        </button>
       </div>
 
       {/* Schedule controls */}
@@ -228,6 +275,17 @@ export default function AdminBlogEditPage() {
           />
         </label>
         <label className={styles.label}>
+          Summary (optional — shown in listings and meta)
+          <input
+            className={styles.input}
+            type="text"
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            placeholder="Brief summary of this post"
+            disabled={saving}
+          />
+        </label>
+        <label className={styles.label}>
           Tags (comma-separated)
           <input
             className={styles.input}
@@ -237,6 +295,35 @@ export default function AdminBlogEditPage() {
             disabled={saving}
           />
         </label>
+        <div className={styles.label}>
+          Featured image
+          {featuredImageId ? (
+            <div style={{ marginTop: "0.4rem", marginBottom: "0.4rem" }}>
+              <Image
+                src={`/api/media/${featuredImageId}`}
+                alt="Featured image preview"
+                width={180}
+                height={120}
+                style={{ objectFit: "cover", borderRadius: "4px" }}
+              />
+              <button
+                type="button"
+                onClick={() => setFeaturedImageId(null)}
+                style={{ marginLeft: "0.75rem", cursor: "pointer", color: "#ffb4b4", background: "none", border: "none" }}
+                disabled={saving}
+              >
+                Remove
+              </button>
+            </div>
+          ) : null}
+          <ImageUpload
+            resourceType="blog-post"
+            onUpload={(result: ImageUploadResult) => setFeaturedImageId(result.id)}
+            onError={(msg) => setActionError(msg)}
+            disabled={saving}
+            label={featuredImageId ? "Replace featured image" : "Upload featured image"}
+          />
+        </div>
         <div className={styles.label}>
           Body
           <MarkdownEditor value={body} onChange={setBody} disabled={saving} />

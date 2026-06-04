@@ -32,6 +32,7 @@ const makeBlogService = (): BlogService => {
     createMinimalRepository() as never,
     createMinimalRepository() as never,
     createMinimalRepository() as never,
+    createMinimalRepository() as never,
     authorizationService
   );
 };
@@ -91,6 +92,7 @@ describe("BlogService publish-state transitions", () => {
       postRepo as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     const result = await service.publish("post-1");
@@ -98,7 +100,7 @@ describe("BlogService publish-state transitions", () => {
     expect(result.publishedAt).not.toBeNull();
   });
 
-  it("unpublish() sets status to unpublished", async () => {
+  it("unpublish() sets status to draft and clears publishedAt", async () => {
     const post = {
       id: "post-1",
       status: "published",
@@ -108,17 +110,19 @@ describe("BlogService publish-state transitions", () => {
     const authorizationService = new AuthorizationService();
     const postRepo = {
       ...createMinimalRepository(),
-      findOne: vi.fn().mockResolvedValueOnce(post).mockResolvedValueOnce({ ...post, status: "unpublished", postTags: [] }),
+      findOne: vi.fn().mockResolvedValueOnce(post).mockResolvedValueOnce({ ...post, status: "draft", publishedAt: null, postTags: [] }),
       save: vi.fn().mockResolvedValue(post)
     };
     const service = new BlogService(
       postRepo as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     const result = await service.unpublish("post-1");
-    expect(result.status).toBe("unpublished");
+    expect(result.status).toBe("draft");
+    expect(result.publishedAt).toBeNull();
   });
 
   it("publish() throws NotFoundException for unknown post id", async () => {
@@ -156,7 +160,7 @@ describe("BlogService publish-state transitions", () => {
     await expect(service.update("nonexistent", { title: "New Title" })).rejects.toThrow(NotFoundException);
   });
 
-  it("findPublished() only queries for status=published (public-route filtering)", async () => {
+  it("findPublished() only queries for status=published with publishedAt<=now (public-route filtering)", async () => {
     const authorizationService = new AuthorizationService();
     const findSpy = vi.fn().mockResolvedValue([]);
     const postRepo = {
@@ -167,6 +171,7 @@ describe("BlogService publish-state transitions", () => {
       postRepo as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     await service.findPublished();
@@ -175,7 +180,7 @@ describe("BlogService publish-state transitions", () => {
     }));
   });
 
-  it("findPublishedBySlug() only queries for status=published (public-route filtering)", async () => {
+  it("findPublishedBySlug() only queries for status=published with publishedAt<=now (public-route filtering)", async () => {
     const authorizationService = new AuthorizationService();
     const findOneSpy = vi.fn().mockResolvedValue(null);
     const postRepo = {
@@ -186,12 +191,369 @@ describe("BlogService publish-state transitions", () => {
       postRepo as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     await service.findPublishedBySlug("my-post");
     expect(findOneSpy).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ slug: "my-post", status: "published" })
     }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC3: Body sanitization on create and update
+// ---------------------------------------------------------------------------
+
+describe("BlogService body sanitization on create and update (AC3)", () => {
+  it("create() rejects a body containing a <script> tag", async () => {
+    const service = makeBlogService();
+    await expect(
+      service.create("user-1", { title: "Valid Title", slug: "valid-slug", body: "<script>alert(1)</script>" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("create() rejects a body containing an iframe injection", async () => {
+    const service = makeBlogService();
+    await expect(
+      service.create("user-1", { title: "Valid Title", slug: "valid-slug", body: '<iframe src="https://evil.example"></iframe>' })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("create() rejects a body with an event handler attribute (onerror)", async () => {
+    const service = makeBlogService();
+    await expect(
+      service.create("user-1", { title: "Valid Title", slug: "valid-slug", body: '<img src=x onerror="alert(1)">' })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("create() accepts a safe markdown body without error", async () => {
+    const authorizationService = new AuthorizationService();
+    const savedPost = {
+      id: "post-new",
+      title: "Safe Post",
+      slug: "safe-post",
+      body: "# Hello\n\nWorld.",
+      status: "draft",
+      postTags: []
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      create: vi.fn().mockReturnValue(savedPost),
+      save: vi.fn().mockResolvedValue(savedPost),
+      findOne: vi.fn().mockResolvedValue({ ...savedPost, postTags: [] })
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.create("user-1", { title: "Safe Post", slug: "safe-post", body: "# Hello\n\nWorld." })
+    ).resolves.toBeDefined();
+  });
+
+  it("update() rejects a body containing a <script> tag", async () => {
+    const existingPost = {
+      id: "post-1",
+      title: "Existing",
+      slug: "existing",
+      body: "original",
+      status: "draft",
+      summary: null,
+      featuredImageId: null,
+      isFeatured: false,
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(existingPost),
+      save: vi.fn().mockResolvedValue(existingPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.update("post-1", { body: "<script>document.cookie</script>" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("update() accepts a safe body change without error", async () => {
+    const existingPost = {
+      id: "post-1",
+      title: "Existing",
+      slug: "existing",
+      body: "original",
+      status: "draft",
+      summary: null,
+      featuredImageId: null,
+      isFeatured: false,
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue({ ...existingPost, postTags: [] }),
+      save: vi.fn().mockResolvedValue(existingPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.update("post-1", { body: "Updated **safe** body." })
+    ).resolves.toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC4: featuredImageId validation against media_references
+// ---------------------------------------------------------------------------
+
+describe("BlogService featuredImageId validation (AC4)", () => {
+  it("create() throws BadRequestException when featuredImageId does not exist in media_references", async () => {
+    const authorizationService = new AuthorizationService();
+    // mediaRepository.findOne returns null (media record not found)
+    const mediaRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(null)
+    };
+    const service = new BlogService(
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      mediaRepo as never,
+      authorizationService
+    );
+    await expect(
+      service.create("user-1", {
+        title: "Post With Image",
+        slug: "post-with-image",
+        body: "Body text",
+        featuredImageId: "nonexistent-media-id"
+      })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("update() throws BadRequestException when featuredImageId does not exist in media_references", async () => {
+    const existingPost = {
+      id: "post-1",
+      title: "Existing",
+      slug: "existing",
+      body: "original",
+      status: "draft",
+      summary: null,
+      featuredImageId: null,
+      isFeatured: false,
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(existingPost),
+      save: vi.fn().mockResolvedValue(existingPost)
+    };
+    const mediaRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(null)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      mediaRepo as never,
+      authorizationService
+    );
+    await expect(
+      service.update("post-1", { featuredImageId: "nonexistent-media-id" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("create() succeeds when featuredImageId references an existing media record", async () => {
+    const authorizationService = new AuthorizationService();
+    const savedPost = {
+      id: "post-new",
+      title: "Image Post",
+      slug: "image-post",
+      body: "Body",
+      status: "draft",
+      postTags: []
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      create: vi.fn().mockReturnValue(savedPost),
+      save: vi.fn().mockResolvedValue(savedPost),
+      findOne: vi.fn().mockResolvedValue({ ...savedPost, postTags: [] })
+    };
+    const mediaRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue({ id: "media-123", filename: "photo.jpg" })
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      mediaRepo as never,
+      authorizationService
+    );
+    await expect(
+      service.create("user-1", {
+        title: "Image Post",
+        slug: "image-post",
+        body: "Body",
+        featuredImageId: "media-123"
+      })
+    ).resolves.toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC5: publishAt and toggleFeatured behavior
+// ---------------------------------------------------------------------------
+
+describe("BlogService.publishAt (scheduling) (AC5/AC2)", () => {
+  it("publishAt() sets status=published with a future publishedAt", async () => {
+    const futureDate = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+    const post = {
+      id: "post-1",
+      status: "draft",
+      publishedAt: null,
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValueOnce(post).mockResolvedValueOnce({
+        ...post,
+        status: "published",
+        publishedAt: futureDate,
+        postTags: []
+      }),
+      save: vi.fn().mockResolvedValue(post)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const result = await service.publishAt("post-1", futureDate);
+    expect(result.status).toBe("published");
+    expect(result.publishedAt).toBe(futureDate);
+  });
+
+  it("publishAt() throws NotFoundException for unknown post id", async () => {
+    const service = makeBlogService();
+    await expect(service.publishAt("nonexistent", new Date())).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe("BlogService.toggleFeatured (pin/unpin) (AC5)", () => {
+  it("toggleFeatured() flips isFeatured from false to true", async () => {
+    const post = {
+      id: "post-1",
+      status: "published",
+      isFeatured: false,
+      publishedAt: new Date(),
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValueOnce(post).mockResolvedValueOnce({
+        ...post,
+        isFeatured: true,
+        postTags: []
+      }),
+      save: vi.fn().mockResolvedValue(post)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const result = await service.toggleFeatured("post-1");
+    expect(result.isFeatured).toBe(true);
+  });
+
+  it("toggleFeatured() flips isFeatured from true to false", async () => {
+    const post = {
+      id: "post-1",
+      status: "published",
+      isFeatured: true,
+      publishedAt: new Date(),
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValueOnce(post).mockResolvedValueOnce({
+        ...post,
+        isFeatured: false,
+        postTags: []
+      }),
+      save: vi.fn().mockResolvedValue(post)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const result = await service.toggleFeatured("post-1");
+    expect(result.isFeatured).toBe(false);
+  });
+
+  it("toggleFeatured() throws NotFoundException for unknown post id", async () => {
+    const service = makeBlogService();
+    await expect(service.toggleFeatured("nonexistent")).rejects.toThrow(NotFoundException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC1: createComment blocks on future-dated published post
+// ---------------------------------------------------------------------------
+
+describe("BlogService.createComment future-dated post guard (AC1)", () => {
+  it("throws ForbiddenException when post is published but publishedAt is in the future", async () => {
+    const futureDatedPost = {
+      id: "post-future",
+      status: "published",
+      publishedAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour from now
+      title: "Future Post",
+      slug: "future-post",
+      body: "body",
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(futureDatedPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.createComment(futureDatedPost.id, "user-1", { body: "Comment on future post" })
+    ).rejects.toThrow(ForbiddenException);
   });
 });
 
@@ -229,6 +591,7 @@ describe("BlogService.createComment", () => {
   const publishedPost = {
     id: "post-published",
     status: "published",
+    publishedAt: new Date(Date.now() - 1000), // published 1 second ago
     title: "Test Post",
     slug: "test-post",
     body: "body",
@@ -270,6 +633,7 @@ describe("BlogService.createComment", () => {
       postRepo as never,
       createMinimalRepository() as never,
       commentRepo as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     const result = await service.createComment(publishedPost.id, "user-1", { body: "Great post!" });
@@ -285,6 +649,7 @@ describe("BlogService.createComment", () => {
     };
     const service = new BlogService(
       postRepo as never,
+      createMinimalRepository() as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       authorizationService
@@ -311,6 +676,7 @@ describe("BlogService.createComment", () => {
       postRepo as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     await expect(
@@ -326,6 +692,7 @@ describe("BlogService.createComment", () => {
     };
     const service = new BlogService(
       postRepo as never,
+      createMinimalRepository() as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       authorizationService
@@ -346,6 +713,7 @@ describe("BlogService.createComment", () => {
       postRepo as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     await expect(
@@ -364,6 +732,7 @@ describe("BlogService.createComment", () => {
       postRepo as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     await expect(
@@ -376,6 +745,7 @@ describe("BlogService.createComment", () => {
     const unpublishedPost = {
       id: "post-unpublished",
       status: "unpublished",
+      publishedAt: null,
       title: "Unpublished Post",
       slug: "unpublished-post",
       body: "body",
@@ -388,6 +758,7 @@ describe("BlogService.createComment", () => {
     };
     const service = new BlogService(
       postRepo as never,
+      createMinimalRepository() as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       authorizationService
@@ -427,6 +798,7 @@ describe("BlogService.moderateComment", () => {
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       commentRepo as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     const result = await service.moderateComment("comment-1", "hidden", "mod-1");
@@ -457,6 +829,7 @@ describe("BlogService.deleteComment", () => {
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       commentRepo as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     await expect(service.deleteComment("comment-1")).resolves.toBeUndefined();
@@ -485,6 +858,7 @@ describe("BlogService.findVisibleComments", () => {
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       commentRepo as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     await service.findVisibleComments("post-1");

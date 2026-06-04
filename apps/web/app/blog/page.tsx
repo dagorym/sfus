@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -67,12 +68,28 @@ export default function BlogListPage() {
       <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "1.5rem" }}>
         {posts.map((post) => (
           <li key={post.id} style={{ borderBottom: "1px solid var(--color-border)", paddingBottom: "1.25rem" }}>
+            {post.featuredImageId ? (
+              <div style={{ position: "relative", width: "100%", height: "200px", borderRadius: "6px", marginBottom: "0.75rem", overflow: "hidden" }}>
+                <Image
+                  src={`/api/media/${post.featuredImageId}`}
+                  alt={post.title}
+                  fill
+                  style={{ objectFit: "cover" }}
+                />
+              </div>
+            ) : null}
             <Link
               href={`/blog/${encodeURIComponent(post.slug)}`}
               style={{ fontWeight: 700, fontSize: "1.2rem", color: "var(--color-text)" }}
             >
+              {post.isFeatured ? <span title="Featured" style={{ marginRight: "0.35rem", color: "var(--color-accent)" }}>★</span> : null}
               {post.title}
             </Link>
+            {post.summary ? (
+              <p style={{ margin: "0.4rem 0 0", fontSize: "0.95rem", color: "var(--color-text-muted)" }}>
+                {post.summary}
+              </p>
+            ) : null}
             <div style={{ marginTop: "0.4rem", color: "var(--color-text-muted)", fontSize: "0.85rem" }}>
               {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : ""}
               {post.tags.length > 0 ? (
