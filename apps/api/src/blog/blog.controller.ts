@@ -199,6 +199,10 @@ export class BlogController {
     return { deleted: true };
   }
 
+  /**
+   * Locks the comment thread for a post, preventing any new comments from being
+   * created. Requires moderator or admin role. Returns the updated post detail.
+   */
   @Post("admin/posts/:id/lock-comments")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Lock comments on a blog post — prevents new comments (admin/moderator)." })
@@ -212,6 +216,10 @@ export class BlogController {
     return { post: toDetail(post) };
   }
 
+  /**
+   * Unlocks the comment thread for a post, re-enabling new comment creation.
+   * Requires moderator or admin role. Returns the updated post detail.
+   */
   @Post("admin/posts/:id/unlock-comments")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Unlock comments on a blog post — re-enables new comments (admin/moderator)." })
