@@ -1,0 +1,79 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+Complete Milestone 3 blog comment behavior on ms3-claude: persist comment media reference with
+blog-comment scope validation, implement 1-level threaded comments with parentId enforcement,
+implement comment-thread locking (commentsLocked), and confirm existing
+public-read/auth-member-write/moderation flows.
+
+Modified files:
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/blog.controller.ts
+- apps/web/app/blog/[slug]/page.tsx
+- apps/web/app/blog/blog-client.ts
+- docs/README.md
+
+Acceptance criteria to validate (from Planner):
+1. Guests read visible comments on published posts; authenticated members create comments on
+   eligible published, unlocked posts; replies nest at most one level and deeper nesting is
+   rejected (400 BadRequest).
+2. A comment image upload persists a structured comment media reference validated as
+   blog-comment-scoped; the previously dangling imageId is no longer dropped.
+3. Moderators/admins can lock a post's comment thread (blocking new comments) and
+   remove/hide comments through explicit authorized flows.
+4. Comment creation and rendering use the shared sanitization model and never expose
+   unpublished parent content.
+
+Test file locations:
+- API unit tests: apps/api/src/blog/blog.service.test.ts (existing, add new describe blocks)
+- Web client tests: apps/web/app/blog/blog.spec.ts (existing, add new describe blocks)
+- Additional integration/controller tests may go in apps/api/src/blog/blog.controller.test.ts
+  (does not yet exist; create if needed)
+
+Key behaviors to test (new tests required):
+- createComment rejects parentId whose parent already has a parentId (deeper than 1 level) with BadRequestException
+- createComment rejects imageId whose resourceType != "blog-comment" with BadRequestException
+- createComment rejects imageId that does not exist with BadRequestException
+- createComment rejects with ForbiddenException when post.commentsLocked = true
+- lockComments() sets commentsLocked=true; unlockComments() sets commentsLocked=false
+- lockComments/unlockComments throw NotFoundException for unknown post id
+- findVisibleComments loads the replies relation (so visible replies appear nested)
+- listComments public route returns {comments, commentsLocked} with top-level comments only
+  (replies nested in each comment's replies array)
+- Confirm all existing sanitization and published-post-guard tests still pass
+
+Implementation context:
+- blog.service.ts: createComment now (1) checks commentsLocked — throws ForbiddenException when
+  locked, (2) validates parentId for 1-level nesting — throws BadRequestException if parent has
+  a non-null parentId, (3) validates imageId resourceType = "blog-comment" — throws
+  BadRequestException on scope mismatch or missing record, (4) persists parentId and
+  mediaReferenceId on the created comment entity. Added lockComments() and unlockComments()
+  methods. findVisibleComments now loads the "replies" relation.
+- blog.controller.ts: listComments now returns {comments: BlogCommentDetail[], commentsLocked:
+  boolean}; top-level filter applied (parentId === null); visible replies nested via
+  toCommentDetailWithReplies helper. Added POST lock-comments and unlock-comments routes
+  (moderator/admin gated). BlogCommentDetail now includes parentId, mediaReferenceId, replies[].
+- blog-client.ts: listComments returns {comments, commentsLocked}; createComment signature
+  extended with optional parentId param; added adminLockComments/adminUnlockComments helpers.
+- page.tsx: renders commentsLocked notice, hides comment form and reply buttons when locked,
+  renders nested replies in an indented list, adds inline reply form per top-level comment.
+
+Suggested test commands:
+  npx --yes pnpm@10.0.0 lint
+  npx --yes pnpm@10.0.0 typecheck
+  npx --yes pnpm@10.0.0 test
+
+Existing validations expected to fail only because of pre-existing issues (NOT regressions):
+- apps/api/src/media/media.controller.test.ts: pre-existing multer package resolution failure,
+  file unchanged from HEAD, outside allowed scope for this subtask. Document and carry forward.
+
+Shared artifact directory:
+  artifacts/ms3-completion-and-copilot-port/subtask-4
+
+Startup behavior:
+If acceptance criteria and implementation context are present, begin testing work immediately
+and continue in the same run. Infer missing test-location or test-command details from
+repository conventions when repository evidence is sufficient, and label those choices as
+assumptions instead of treating them as blockers.
+
+Do not report success unless all required artifacts exist and all changes are committed.
