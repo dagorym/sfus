@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { resolveProtectedSession, hasGlobalRole } from "../../../auth-client";
 import { adminCreatePage } from "../../../../app/pages/pages-client";
 import { MarkdownEditor } from "../../../../components/markdown-editor";
+import { ImageUpload, type ImageUploadResult } from "../../../../components/image-upload";
 import styles from "../../../auth-shell.module.css";
 
 export default function AdminPagesNewPage() {
@@ -14,6 +15,8 @@ export default function AdminPagesNewPage() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [body, setBody] = useState("");
+  const [summary, setSummary] = useState("");
+  const [featuredMediaId, setFeaturedMediaId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -43,13 +46,23 @@ export default function AdminPagesNewPage() {
     setError(null);
     setSaving(true);
     try {
-      const page = await adminCreatePage({ title, slug, body });
+      const page = await adminCreatePage({
+        title,
+        slug,
+        body,
+        summary: summary.trim() || null,
+        featuredMediaId
+      });
       router.replace(`/admin/pages/${page.id}/edit`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create page.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleFeaturedImageUpload = (result: ImageUploadResult) => {
+    setFeaturedMediaId(result.id);
   };
 
   if (error && !authorized) {
@@ -101,6 +114,38 @@ export default function AdminPagesNewPage() {
             disabled={saving}
           />
         </label>
+        <label className={styles.label}>
+          Summary
+          <input
+            className={styles.input}
+            type="text"
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            placeholder="Optional brief description of this page"
+            disabled={saving}
+          />
+        </label>
+        <div className={styles.label}>
+          Featured Image
+          <ImageUpload
+            resourceType="standalone-page"
+            onUpload={handleFeaturedImageUpload}
+            disabled={saving}
+            label="Upload featured image"
+          />
+          {featuredMediaId ? (
+            <span style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
+              Featured image set (id: {featuredMediaId}){" "}
+              <button
+                type="button"
+                style={{ background: "none", border: "none", color: "var(--color-accent)", cursor: "pointer", fontSize: "0.85rem" }}
+                onClick={() => setFeaturedMediaId(null)}
+              >
+                Remove
+              </button>
+            </span>
+          ) : null}
+        </div>
         <div className={styles.label}>
           Body
           <MarkdownEditor value={body} onChange={setBody} disabled={saving} />

@@ -16,6 +16,7 @@ import {
 } from "../../../../../app/pages/pages-client";
 import { MarkdownEditor } from "../../../../../components/markdown-editor";
 import { MarkdownRenderer } from "../../../../../components/markdown-renderer";
+import { ImageUpload, type ImageUploadResult } from "../../../../../components/image-upload";
 import styles from "../../../../auth-shell.module.css";
 
 export default function AdminPagesEditPage() {
@@ -27,6 +28,9 @@ export default function AdminPagesEditPage() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [body, setBody] = useState("");
+  const [summary, setSummary] = useState("");
+  const [changeNote, setChangeNote] = useState("");
+  const [featuredMediaId, setFeaturedMediaId] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<RevisionDetail[] | null>(null);
   const [previewRevision, setPreviewRevision] = useState<RevisionDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +64,8 @@ export default function AdminPagesEditPage() {
         setTitle(fetched.title);
         setSlug(fetched.slug);
         setBody(fetched.body);
+        setSummary(fetched.summary ?? "");
+        setFeaturedMediaId(fetched.featuredMediaId ?? null);
         setRevisions(fetchedRevisions);
       } catch (e) {
         if (mounted) setError(e instanceof Error ? e.message : "Failed to load page.");
@@ -76,9 +82,19 @@ export default function AdminPagesEditPage() {
     setActionError(null);
     setSaving(true);
     try {
-      const updated = await adminUpdatePage(id, { title, slug, body });
+      const updated = await adminUpdatePage(id, {
+        title,
+        slug,
+        body,
+        summary: summary.trim() || null,
+        changeNote: changeNote.trim() || null,
+        featuredMediaId
+      });
       setPage(updated);
       setBody(updated.body);
+      setSummary(updated.summary ?? "");
+      setFeaturedMediaId(updated.featuredMediaId ?? null);
+      setChangeNote("");
       // Refresh revision list after save.
       const updatedRevisions = await adminListRevisions(id);
       setRevisions(updatedRevisions);
@@ -87,6 +103,10 @@ export default function AdminPagesEditPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleFeaturedImageUpload = (result: ImageUploadResult) => {
+    setFeaturedMediaId(result.id);
   };
 
   const handlePublish = async () => {
@@ -124,6 +144,8 @@ export default function AdminPagesEditPage() {
       setPage(updated);
       setTitle(updated.title);
       setBody(updated.body);
+      setSummary(updated.summary ?? "");
+      setFeaturedMediaId(updated.featuredMediaId ?? null);
       // Refresh revision list.
       const updatedRevisions = await adminListRevisions(id);
       setRevisions(updatedRevisions);
@@ -282,10 +304,53 @@ export default function AdminPagesEditPage() {
             disabled={saving}
           />
         </label>
+        <label className={styles.label}>
+          Summary
+          <input
+            className={styles.input}
+            type="text"
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            placeholder="Optional brief description of this page"
+            disabled={saving}
+          />
+        </label>
+        <div className={styles.label}>
+          Featured Image
+          <ImageUpload
+            resourceType="standalone-page"
+            onUpload={handleFeaturedImageUpload}
+            disabled={saving}
+            label="Upload featured image"
+          />
+          {featuredMediaId ? (
+            <span style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
+              Featured image set (id: {featuredMediaId}){" "}
+              <button
+                type="button"
+                style={{ background: "none", border: "none", color: "var(--color-accent)", cursor: "pointer", fontSize: "0.85rem" }}
+                onClick={() => setFeaturedMediaId(null)}
+              >
+                Remove
+              </button>
+            </span>
+          ) : null}
+        </div>
         <div className={styles.label}>
           Body
           <MarkdownEditor value={body} onChange={setBody} disabled={saving} />
         </div>
+        <label className={styles.label}>
+          Change note
+          <input
+            className={styles.input}
+            type="text"
+            value={changeNote}
+            onChange={(e) => setChangeNote(e.target.value)}
+            placeholder="Optional note describing this edit (saved with the revision)"
+            disabled={saving}
+          />
+        </label>
         <div className={styles.actions}>
           <button type="submit" className={styles.action} disabled={saving}>
             {saving ? "Saving…" : "Save changes"}

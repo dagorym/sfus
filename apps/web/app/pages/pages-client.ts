@@ -19,14 +19,20 @@ export interface PageDetail {
   createdByUserId: string;
   createdAt: string;
   updatedAt: string;
+  summary: string | null;
+  featuredMediaId: string | null;
 }
 
 export interface RevisionDetail {
   id: string;
   pageId: string;
   authorUserId: string;
+  editorUserId: string | null;
   title: string;
   body: string;
+  summary: string | null;
+  changeNote: string | null;
+  featuredMediaId: string | null;
   revisionNumber: number;
   createdAt: string;
 }
@@ -35,12 +41,18 @@ export interface CreatePageInput {
   title: string;
   slug: string;
   body: string;
+  summary?: string | null;
+  changeNote?: string | null;
+  featuredMediaId?: string | null;
 }
 
 export interface UpdatePageInput {
   title?: string;
   slug?: string;
   body?: string;
+  summary?: string | null;
+  changeNote?: string | null;
+  featuredMediaId?: string | null;
 }
 
 // ---------------------------------------------------------------------------

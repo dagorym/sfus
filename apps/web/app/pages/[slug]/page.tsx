@@ -58,9 +58,19 @@ export default function PublicPageBySlug() {
     );
   }
 
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_PATH ?? "/api";
+
   return (
     <section className={styles.panel}>
       <h2 className={styles.title}>{page.title}</h2>
+      {page.featuredMediaId ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`${apiBase}/media/${encodeURIComponent(page.featuredMediaId)}`}
+          alt={page.title}
+          style={{ maxWidth: "100%", marginBottom: "1rem", borderRadius: "8px" }}
+        />
+      ) : null}
       <MarkdownRenderer content={page.body} />
     </section>
   );

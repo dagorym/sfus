@@ -57,9 +57,10 @@ export class PagesController {
     if (!page) {
       throw new NotFoundException("Standalone page not found.");
     }
-    // Load the current revision to supply the body content.
-    const body = await this.resolveCurrentBody(page.id, page.currentRevisionId);
-    return { page: toDetail(page, body) };
+    // Load the current revision for body and metadata via direct id lookup.
+    const currentRevision = await this.resolveCurrentRevision(page.currentRevisionId);
+    const body = currentRevision?.body ?? "";
+    return { page: toDetail(page, body, currentRevision) };
   }
 
   // ---------------------------------------------------------------------------
@@ -93,8 +94,9 @@ export class PagesController {
     if (!page) {
       throw new NotFoundException("Standalone page not found.");
     }
-    const body = await this.resolveCurrentBody(page.id, page.currentRevisionId);
-    return { page: toDetail(page, body) };
+    const currentRevision = await this.resolveCurrentRevision(page.currentRevisionId);
+    const body = currentRevision?.body ?? "";
+    return { page: toDetail(page, body, currentRevision) };
   }
 
   @Post("admin/pages")
@@ -110,7 +112,9 @@ export class PagesController {
     this.pagesService.assertAdminManagementAccess(session.user.globalRole);
     const input = parseCreateInput(body);
     const page = await this.pagesService.create(session.user.id, input);
-    return { page: toDetail(page, input.body) };
+    const currentRevision = await this.resolveCurrentRevision(page.currentRevisionId);
+    const bodyContent = currentRevision?.body ?? input.body;
+    return { page: toDetail(page, bodyContent, currentRevision) };
   }
 
   @Patch("admin/pages/:id")
@@ -127,8 +131,9 @@ export class PagesController {
     this.pagesService.assertAdminManagementAccess(session.user.globalRole);
     const input = parseUpdateInput(body);
     const page = await this.pagesService.update(id, session.user.id, input);
-    const bodyContent = await this.resolveCurrentBody(page.id, page.currentRevisionId);
-    return { page: toDetail(page, bodyContent) };
+    const currentRevision = await this.resolveCurrentRevision(page.currentRevisionId);
+    const bodyContent = currentRevision?.body ?? "";
+    return { page: toDetail(page, bodyContent, currentRevision) };
   }
 
   @Post("admin/pages/:id/publish")
@@ -143,8 +148,9 @@ export class PagesController {
     const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
     this.pagesService.assertAdminManagementAccess(session.user.globalRole);
     const page = await this.pagesService.publish(id);
-    const body = await this.resolveCurrentBody(page.id, page.currentRevisionId);
-    return { page: toDetail(page, body) };
+    const currentRevision = await this.resolveCurrentRevision(page.currentRevisionId);
+    const body = currentRevision?.body ?? "";
+    return { page: toDetail(page, body, currentRevision) };
   }
 
   @Post("admin/pages/:id/unpublish")
@@ -159,8 +165,9 @@ export class PagesController {
     const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
     this.pagesService.assertAdminManagementAccess(session.user.globalRole);
     const page = await this.pagesService.unpublish(id);
-    const body = await this.resolveCurrentBody(page.id, page.currentRevisionId);
-    return { page: toDetail(page, body) };
+    const currentRevision = await this.resolveCurrentRevision(page.currentRevisionId);
+    const body = currentRevision?.body ?? "";
+    return { page: toDetail(page, body, currentRevision) };
   }
 
   @Get("admin/pages/:id/revisions")
@@ -195,8 +202,9 @@ export class PagesController {
     const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
     this.pagesService.assertAdminManagementAccess(session.user.globalRole);
     const page = await this.pagesService.restoreRevision(id, revisionId, session.user.id);
-    const body = await this.resolveCurrentBody(page.id, page.currentRevisionId);
-    return { page: toDetail(page, body) };
+    const currentRevision = await this.resolveCurrentRevision(page.currentRevisionId);
+    const body = currentRevision?.body ?? "";
+    return { page: toDetail(page, body, currentRevision) };
   }
 
   // ---------------------------------------------------------------------------
@@ -204,14 +212,21 @@ export class PagesController {
   // ---------------------------------------------------------------------------
 
   /**
-   * Loads the body from the current revision. Returns empty string when no
-   * current revision is set (e.g., freshly created page with no revisions yet).
+   * Loads the body from the current revision by direct id lookup.
+   * Returns empty string when no current revision is set.
    */
-  private async resolveCurrentBody(pageId: string, currentRevisionId: string | null): Promise<string> {
+  private async resolveCurrentBody(_pageId: string, currentRevisionId: string | null): Promise<string> {
     if (!currentRevisionId) return "";
-    const revisions = await this.pagesService.findRevisions(pageId);
-    const current = revisions.find((r) => r.id === currentRevisionId);
-    return current?.body ?? "";
+    const revision = await this.pagesService.findRevisionById(currentRevisionId);
+    return revision?.body ?? "";
+  }
+
+  /**
+   * Loads the current revision for detail responses (includes all metadata fields).
+   */
+  private async resolveCurrentRevision(currentRevisionId: string | null): Promise<import("./entities/page-revision.entity").PageRevisionEntity | null> {
+    if (!currentRevisionId) return null;
+    return this.pagesService.findRevisionById(currentRevisionId);
   }
 }
 
@@ -230,19 +245,29 @@ interface PageDetail {
   createdByUserId: string;
   createdAt: string;
   updatedAt: string;
+  summary: string | null;
+  featuredMediaId: string | null;
 }
 
 interface RevisionDetail {
   id: string;
   pageId: string;
   authorUserId: string;
+  editorUserId: string | null;
   title: string;
   body: string;
+  summary: string | null;
+  changeNote: string | null;
+  featuredMediaId: string | null;
   revisionNumber: number;
   createdAt: string;
 }
 
-function toDetail(page: StandalonePageEntity, body: string): PageDetail {
+function toDetail(
+  page: StandalonePageEntity,
+  body: string,
+  currentRevision?: import("./entities/page-revision.entity").PageRevisionEntity | null
+): PageDetail {
   return {
     id: page.id,
     title: page.title,
@@ -253,7 +278,9 @@ function toDetail(page: StandalonePageEntity, body: string): PageDetail {
     currentRevisionId: page.currentRevisionId,
     createdByUserId: page.createdByUserId,
     createdAt: page.createdAt.toISOString(),
-    updatedAt: page.updatedAt.toISOString()
+    updatedAt: page.updatedAt.toISOString(),
+    summary: currentRevision?.summary ?? null,
+    featuredMediaId: currentRevision?.featuredMediaId ?? null
   };
 }
 
@@ -262,8 +289,12 @@ function toRevisionDetail(revision: PageRevisionEntity): RevisionDetail {
     id: revision.id,
     pageId: revision.pageId,
     authorUserId: revision.authorUserId,
+    editorUserId: revision.editorUserId ?? null,
     title: revision.title,
     body: revision.body,
+    summary: revision.summary ?? null,
+    changeNote: revision.changeNote ?? null,
+    featuredMediaId: revision.featuredMediaId ?? null,
     revisionNumber: revision.revisionNumber,
     createdAt: revision.createdAt.toISOString()
   };
@@ -287,7 +318,20 @@ function parseCreateInput(body: unknown): CreatePageInput {
   if (typeof b.body !== "string") {
     throw new BadRequestException("body is required.");
   }
-  return { title: b.title, slug: b.slug, body: b.body };
+  const input: CreatePageInput = { title: b.title, slug: b.slug, body: b.body };
+  if (b.summary !== undefined) {
+    if (b.summary !== null && typeof b.summary !== "string") throw new BadRequestException("summary must be a string or null.");
+    input.summary = b.summary as string | null;
+  }
+  if (b.changeNote !== undefined) {
+    if (b.changeNote !== null && typeof b.changeNote !== "string") throw new BadRequestException("changeNote must be a string or null.");
+    input.changeNote = b.changeNote as string | null;
+  }
+  if (b.featuredMediaId !== undefined) {
+    if (b.featuredMediaId !== null && typeof b.featuredMediaId !== "string") throw new BadRequestException("featuredMediaId must be a string or null.");
+    input.featuredMediaId = b.featuredMediaId as string | null;
+  }
+  return input;
 }
 
 function parseUpdateInput(body: unknown): UpdatePageInput {
@@ -307,6 +351,18 @@ function parseUpdateInput(body: unknown): UpdatePageInput {
   if (b.body !== undefined) {
     if (typeof b.body !== "string") throw new BadRequestException("body must be a string.");
     input.body = b.body;
+  }
+  if (b.summary !== undefined) {
+    if (b.summary !== null && typeof b.summary !== "string") throw new BadRequestException("summary must be a string or null.");
+    input.summary = b.summary as string | null;
+  }
+  if (b.changeNote !== undefined) {
+    if (b.changeNote !== null && typeof b.changeNote !== "string") throw new BadRequestException("changeNote must be a string or null.");
+    input.changeNote = b.changeNote as string | null;
+  }
+  if (b.featuredMediaId !== undefined) {
+    if (b.featuredMediaId !== null && typeof b.featuredMediaId !== "string") throw new BadRequestException("featuredMediaId must be a string or null.");
+    input.featuredMediaId = b.featuredMediaId as string | null;
   }
   return input;
 }

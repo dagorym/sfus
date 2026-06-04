@@ -5,19 +5,43 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 
 import { AuthorizationService } from "../authorization/authorization.service";
+import { validateMarkdownBody, normalizeMarkdownBody } from "../media/markdown-sanitizer";
 import { PageRevisionEntity } from "./entities/page-revision.entity";
 import { StandalonePageEntity } from "./entities/standalone-page.entity";
+
+/**
+ * Slugs that are reserved and must never be used for a standalone page because
+ * they collide with Next.js app routes or protected API/admin surfaces.
+ */
+export const RESERVED_PAGE_SLUGS: ReadonlySet<string> = new Set([
+  "admin",
+  "api",
+  "app",
+  "blog",
+  "login",
+  "register",
+  "onboarding",
+  "profile",
+  "settings",
+  "health"
+]);
 
 export interface CreatePageInput {
   title: string;
   slug: string;
   body: string;
+  summary?: string | null;
+  changeNote?: string | null;
+  featuredMediaId?: string | null;
 }
 
 export interface UpdatePageInput {
   title?: string;
   slug?: string;
   body?: string;
+  summary?: string | null;
+  changeNote?: string | null;
+  featuredMediaId?: string | null;
 }
 
 /**
@@ -96,6 +120,12 @@ export class PagesService {
     this.assertSlugValid(input.slug);
     this.assertTitleValid(input.title);
 
+    const sanitationResult = validateMarkdownBody(input.body);
+    if (!sanitationResult.safe) {
+      throw new BadRequestException(`Page body contains unsafe content: ${sanitationResult.reason}`);
+    }
+    const normalizedBody = normalizeMarkdownBody(input.body);
+
     const pageId = crypto.randomUUID();
     const revisionId = crypto.randomUUID();
 
@@ -104,7 +134,10 @@ export class PagesService {
       pageId,
       authorUserId,
       title: input.title,
-      body: input.body,
+      body: normalizedBody,
+      summary: input.summary ?? null,
+      changeNote: input.changeNote ?? null,
+      featuredMediaId: input.featuredMediaId ?? null,
       revisionNumber: 1
     });
     // Save revision first (page's current_revision_id FK references it).
@@ -143,6 +176,22 @@ export class PagesService {
       page.title = input.title;
     }
 
+    // Sanitize and normalize body when provided.
+    let resolvedBody: string;
+    if (input.body !== undefined) {
+      const sanitationResult = validateMarkdownBody(input.body);
+      if (!sanitationResult.safe) {
+        throw new BadRequestException(`Page body contains unsafe content: ${sanitationResult.reason}`);
+      }
+      resolvedBody = normalizeMarkdownBody(input.body);
+    } else {
+      // Fall back to the current revision's body when body is not being changed.
+      const currentRevision = page.currentRevisionId
+        ? await this.revisionRepository.findOne({ where: { id: page.currentRevisionId } })
+        : null;
+      resolvedBody = currentRevision?.body ?? "";
+    }
+
     // Determine next revision number.
     const latestRevision = await this.revisionRepository.findOne({
       where: { pageId: id },
@@ -155,8 +204,12 @@ export class PagesService {
       id: revisionId,
       pageId: id,
       authorUserId,
+      editorUserId: authorUserId,
       title: input.title ?? page.title,
-      body: input.body ?? (latestRevision?.body ?? ""),
+      body: resolvedBody,
+      summary: input.summary !== undefined ? input.summary : null,
+      changeNote: input.changeNote !== undefined ? input.changeNote : null,
+      featuredMediaId: input.featuredMediaId !== undefined ? input.featuredMediaId : null,
       revisionNumber: nextRevisionNumber
     });
     const savedRevision = await this.revisionRepository.save(revision);
@@ -217,13 +270,20 @@ export class PagesService {
     });
     const nextRevisionNumber = latestRevision ? latestRevision.revisionNumber + 1 : 1;
 
+    // Normalize body from source revision (sanitization already passed when it was first stored).
+    const normalizedBody = normalizeMarkdownBody(source.body);
+
     const newRevisionId = crypto.randomUUID();
     const newRevision = this.revisionRepository.create({
       id: newRevisionId,
       pageId,
       authorUserId,
+      editorUserId: authorUserId,
       title: source.title,
-      body: source.body,
+      body: normalizedBody,
+      summary: source.summary ?? null,
+      featuredMediaId: source.featuredMediaId ?? null,
+      changeNote: `Restored from revision ${source.revisionNumber}`,
       revisionNumber: nextRevisionNumber
     });
     const savedRevision = await this.revisionRepository.save(newRevision);
@@ -247,6 +307,14 @@ export class PagesService {
     });
   }
 
+  /**
+   * Returns a single revision by its id. Used for efficient current-body
+   * resolution without scanning the full revision list.
+   */
+  async findRevisionById(revisionId: string): Promise<PageRevisionEntity | null> {
+    return this.revisionRepository.findOne({ where: { id: revisionId } });
+  }
+
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
@@ -255,6 +323,11 @@ export class PagesService {
     if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
       throw new BadRequestException(
         "Slug must be lowercase alphanumeric words separated by hyphens (e.g. 'about-us')."
+      );
+    }
+    if (RESERVED_PAGE_SLUGS.has(slug)) {
+      throw new BadRequestException(
+        `Slug "${slug}" is reserved and cannot be used for a standalone page.`
       );
     }
   }
