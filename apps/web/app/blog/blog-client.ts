@@ -1,9 +1,16 @@
 /**
  * Blog API client helpers.
  *
- * Public routes (listPublished, getPublishedBySlug) need no session cookie.
- * Admin routes require an active session and the admin global role on the
- * server side — the cookie is forwarded automatically via credentials:include.
+ * Public routes (listPublishedPosts, getPublishedPost, listComments) need no
+ * session cookie.
+ * Member comment routes (createComment) require any authenticated session.
+ * Admin routes (adminListAllPosts, adminCreate/Update/Delete/Publish, etc.)
+ * require an active session and the admin global role on the server side.
+ * Moderation/lock routes (moderationListComments, moderateCommentStatus,
+ * deleteComment, adminLockComments, adminUnlockComments) require the moderator
+ * or admin global role.
+ * Session cookies are forwarded automatically via credentials:include on all
+ * authenticated routes.
  */
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api";
@@ -218,6 +225,7 @@ export interface BlogCommentDetail {
   moderatedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Visible replies — populated only on top-level comments from the public list route. */
   replies?: BlogCommentDetail[];
 }
 

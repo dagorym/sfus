@@ -200,9 +200,9 @@ Comment creation is also gated on `publishedAt <= now`; attempting to comment on
 
 #### Response Shapes
 
-`BlogPostSummary` (public list and admin list): `id`, `title`, `slug`, `summary`, `status`, `isFeatured`, `commentsLocked`, `publishedAt`, `featuredImageId`, `tags`, `createdAt`.
+`BlogPostSummary` (public list and admin list): `id`, `title`, `slug`, `summary`, `status`, `isFeatured`, `publishedAt`, `featuredImageId`, `tags`, `createdAt`.
 
-`BlogPostDetail` (admin or single-post views): all summary fields plus `body` and `authorUserId` and `updatedAt`.
+`BlogPostDetail` (admin or single-post views): all summary fields plus `body`, `authorUserId`, `commentsLocked`, and `updatedAt`.
 
 #### Body Sanitization
 
