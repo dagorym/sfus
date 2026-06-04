@@ -1,7 +1,7 @@
 Your role is 'verifier'. Your task is as follows:
 
 Original task summary:
-- MS3 subtask-4 blog comment behavior: persist comment media reference with blog-comment scope validation, implement 1-level threaded comments with parentId enforcement, implement comment-thread locking (commentsLocked), and confirm existing public-read/auth-member-write/moderation flows.
+- MS3 subtask-4 blog comment behavior: persist comment media reference with blog-comment scope validation, implement 1-level threaded comments with parentId enforcement, implement comment-thread locking (commentsLocked), and confirm existing public-read/auth-member-write/moderation flows. Remediation pass 2 added JSDoc to adminLockComments and adminUnlockComments in blog.controller.ts (commit c91c177), resolving WARNINGs from verifier pass 1.
 
 Acceptance criteria to verify:
 - AC1: Guests read visible comments on published posts; authenticated members create comments on eligible published, unlocked posts; replies nest at most one level and deeper nesting is rejected (400 BadRequest).
@@ -10,9 +10,10 @@ Acceptance criteria to verify:
 - AC4: Comment creation and rendering use the shared sanitization model and never expose unpublished parent content.
 
 Implementation branch or worktree context:
-- Tester branch: ms3-tester-subtask-4-20260603 (worktree of ms3-claude)
-- Test commit: 751e459
-- Documenter branch: ms3-documenter-subtask-4-20260603
+- Tester remediation branch: ms3-tester-subtask-4-remediation-20260603 (worktree of ms3-claude)
+- Original test commit: 751e459
+- JSDoc remediation commit: c91c177
+- Documenter branch: ms3-documenter-subtask-4-remediation-20260603
 
 Files modified by the Implementer, Tester, and Documenter:
 - apps/api/src/blog/blog.service.ts
@@ -24,21 +25,20 @@ Files modified by the Implementer, Tester, and Documenter:
 - apps/web/app/blog/blog.spec.ts
 
 Commands executed:
-- npx --yes pnpm@10.0.0 install
 - npx --yes pnpm@10.0.0 --filter @sfus/api test
 - npx --yes pnpm@10.0.0 --filter @sfus/web test
-- npx --yes pnpm@10.0.0 test
 - npx --yes pnpm@10.0.0 lint
 - npx --yes pnpm@10.0.0 --filter @sfus/api run typecheck
 - npx --yes pnpm@10.0.0 --filter @sfus/web run typecheck
 
 Final test outcomes:
 - AC1 PASS: Guests read visible comments on published posts; members create comments on eligible published, unlocked posts; replies nest at most one level (BadRequestException when parent already has a parentId); reply buttons and form hidden when commentsLocked.
-- AC2 PASS: imageId validated — BadRequestException when missing or resourceType != 'blog-comment'; mediaReferenceId persisted on created comment; previously dangling imageId no longer dropped.
+- AC2 PASS: imageId validated — BadRequestException when missing or resourceType != blog-comment; mediaReferenceId persisted on created comment; previously dangling imageId no longer dropped.
 - AC3 PASS: lockComments() sets commentsLocked=true; unlockComments() sets commentsLocked=false; both throw NotFoundException for unknown post; adminLockComments/adminUnlockComments exported with credentials:include; page renders locked notice.
 - AC4 PASS: Shared sanitization model enforced for comment bodies (script/iframe/event handler injection rejected); unpublished/draft/future-dated post guard confirmed for createComment.
 - LINT PASS: 0 ESLint warnings.
-- TYPECHECK PASS: tsc --noEmit exits clean for both apps/api and apps/web.
+- TYPECHECK PASS: tsc --noEmit exits clean for apps/web. apps/api multer pre-existing failure unchanged from HEAD.
+- REMEDIATION NOTE: JSDoc added to adminLockComments and adminUnlockComments in blog.controller.ts resolves verifier WARNINGs from pass 1. No behavior changes; all previously written tests remain valid.
 
 Plan or evaluation context guidance:
 - Plan: plans/ms3-completion-and-copilot-port-plan.md
@@ -49,16 +49,19 @@ Convention-file guidance:
 - Repository requires function-level JSDoc comments on all service and controller methods (enforced by myteam scan_in_code_doc_requirements.py).
 - File header comments are required on client modules to describe their access surfaces.
 - All in-code documentation changes must be comment-only — no behavioral changes.
+- The JSDoc WARNINGs from verifier pass 1 have been resolved in commit c91c177.
 
 Updated documentation files:
-- docs/README.md
-- apps/web/app/blog/blog-client.ts
+- docs/README.md (updated in prior documenter pass da47351)
+- apps/web/app/blog/blog-client.ts (updated in prior documenter pass da47351)
 
 Shared artifact directory:
 - artifacts/ms3-completion-and-copilot-port/subtask-4
 
 Verification scope:
 - Review implementation, tests, and updated documentation together.
+- Confirm that adminLockComments and adminUnlockComments in apps/api/src/blog/blog.controller.ts now have JSDoc comments (commit c91c177).
+- Confirm no WARNINGs remain for missing JSDoc on these two methods.
 - Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
 - Continue in the same run when blockers are absent.
 
