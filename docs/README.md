@@ -306,7 +306,7 @@ A comment body that fails either step is rejected with `400 Bad Request` before 
 
 ### Standalone Pages (Milestone 3 Subtask 5)
 
-Milestone 3 Subtask 5 adds versioned standalone page management with full admin CRUD, revision history, restore capability, and public routing for published pages.
+Milestone 3 Subtask 5 adds versioned standalone page management with full admin CRUD, revision history, restore capability, server-side body sanitization, featured media, enriched revision metadata, and public routing for published pages at both `/pages/:slug` and top-level `/:slug` paths.
 
 #### PagesModule API Routes
 
@@ -320,12 +320,12 @@ Milestone 3 Subtask 5 adds versioned standalone page management with full admin 
 
 - `GET /api/pages/admin/pages` — lists all pages regardless of status as `{ pages: PageDetail[] }`.
 - `GET /api/pages/admin/pages/:id` — fetches a single page by UUID.
-- `POST /api/pages/admin/pages` — creates a new page in `draft` status. Body: `{ title, slug, body }`.
-- `PATCH /api/pages/admin/pages/:id` — updates page fields and creates a new revision. All fields optional; only supplied fields change.
+- `POST /api/pages/admin/pages` — creates a new page in `draft` status. Body: `{ title, slug, body, summary?, changeNote?, featuredMediaId? }`. The `body` is validated and normalized with the shared Markdown sanitizer before persistence; unsafe bodies are rejected with `400`. A `summary` and `changeNote` are recorded on revision 1 when supplied. `featuredMediaId` links an uploaded media reference to the initial revision.
+- `PATCH /api/pages/admin/pages/:id` — updates page fields and creates a new revision. All fields optional; only supplied fields change. Body sanitization applies when `body` is present; when `body` is omitted the existing revision body is preserved without re-sanitization. `summary`, `changeNote`, and `featuredMediaId` on the update input are recorded on the new revision.
 - `POST /api/pages/admin/pages/:id/publish` — transitions a page to `published` status and records the current UTC timestamp in `publishedAt`.
 - `POST /api/pages/admin/pages/:id/unpublish` — transitions a page to `unpublished` status.
 - `GET /api/pages/admin/pages/:id/revisions` — lists all revisions for a page ordered by revision number ascending as `{ revisions: RevisionDetail[] }`.
-- `POST /api/pages/admin/pages/:id/restore/:revisionId` — restores a page to the content of a prior revision by creating a new revision that copies the source revision's title and body, then updating `currentRevisionId`.
+- `POST /api/pages/admin/pages/:id/restore/:revisionId` — restores a page to the content of a prior revision by creating a new revision that copies the source revision's title, body, summary, and featuredMediaId, sets `changeNote` to `"Restored from revision <N>"`, and records `editorUserId`. The original revision is preserved in the audit trail; `restoreRevision` does not overwrite existing records.
 
 All admin routes return `401` when no session is present and `403` when the session's global role is not `admin`. Authorization is enforced by `PagesService.assertAdminManagementAccess(session.user.globalRole)` called at the top of every admin handler.
 
@@ -335,10 +335,19 @@ All admin routes return `401` when no session is present and `403` when the sess
 
 #### Revision History Contract
 
-- Every `create` call records revision 1 with the initial title and body.
-- Every `update` call appends a new revision; the revision number is monotonically incremented from the current highest revision on that page. `currentRevisionId` is updated to the new revision after each save.
-- Every `restore` call appends a new revision copying the source revision's title and body, then updates `currentRevisionId` to the new revision. The original revision is preserved in the audit trail; `restoreRevision` does not overwrite existing records.
+- Every `create` call records revision 1 with the initial title, body, summary, changeNote, and featuredMediaId.
+- Every `update` call appends a new revision; the revision number is monotonically incremented from the current highest revision on that page. `currentRevisionId` is updated to the new revision after each save. The `editorUserId` field on the new revision is set to the acting user's id.
+- Every `restore` call appends a new revision copying the source revision's title, body, summary, and featuredMediaId, sets `changeNote` to `"Restored from revision <N>"`, sets `editorUserId` to the acting user's id, and updates `currentRevisionId` to the new revision.
 - Revision history is an admin-only surface; guests cannot access the revisions endpoint.
+
+#### Body Sanitization
+
+All standalone page bodies are sanitized server-side on create and update using the shared Markdown sanitizer (`apps/api/src/media/markdown-sanitizer.ts`):
+
+1. `validateMarkdownBody(body)` — blocks `<script>`, `<iframe>`, `<object>`, `<embed>`, `<form>`, `<input>`, `<button>`, inline event handlers (`on*=`), and `javascript:` / `vbscript:` / `data:` URI schemes. Returns `{ safe: false, reason }` on violation.
+2. `normalizeMarkdownBody(body)` — normalizes line endings to LF and trims whitespace.
+
+A body that fails validation is rejected with `400 Bad Request` before persistence. When `body` is not supplied on an update, the body is read from the current revision by direct id lookup (`findRevisionById`) rather than scanning the revision list, and the already-stored body passes through `normalizeMarkdownBody` only (no re-validation needed).
 
 #### Page Status Lifecycle
 
@@ -350,31 +359,36 @@ unpublished → published (publish)
 
 The public `GET /api/pages/:slug` route filters exclusively on `status = "published"` regardless of how the record was last modified. Draft and unpublished pages are never exposed through the public route.
 
-#### Slug Validation
+#### Slug Validation and Reserved Slugs
 
 Slugs must match `^[a-z0-9]+(?:-[a-z0-9]+)*$` (lowercase alphanumeric words separated by hyphens). Invalid slugs are rejected with `400 Bad Request` on both create and update.
 
+In addition, ten slugs are reserved at the service layer via `RESERVED_PAGE_SLUGS` (exported from `pages.service.ts`) and are always rejected with `400 Bad Request` regardless of format validity: `admin`, `api`, `app`, `blog`, `login`, `register`, `onboarding`, `profile`, `settings`, `health`. These slugs collide with existing Next.js app routes or protected API/admin surfaces and must never be claimed by a standalone page. The client-side catch-all route (`apps/web/app/[slug]/page.tsx`) mirrors this list as a defence-in-depth guard and redirects reserved slugs to a not-found state without querying the API.
+
 #### Response Shapes
 
-`PageDetail` (all views): `id`, `title`, `slug`, `body`, `status`, `publishedAt`, `currentRevisionId`, `createdByUserId`, `createdAt`, `updatedAt`.
+`PageDetail` (all views): `id`, `title`, `slug`, `body`, `status`, `publishedAt`, `currentRevisionId`, `createdByUserId`, `createdAt`, `updatedAt`, `summary` (nullable; from the current revision), `featuredMediaId` (nullable; from the current revision).
 
-`RevisionDetail` (revisions list): `id`, `pageId`, `authorUserId`, `editorUserId` (nullable; set when a different user edited the revision), `title`, `summary` (nullable), `body`, `changeNote` (nullable; free-text note describing the change), `featuredMediaId` (nullable), `revisionNumber`, `createdAt`.
+`RevisionDetail` (revisions list): `id`, `pageId`, `authorUserId`, `editorUserId` (nullable; set to the acting user's id on update and restore), `title`, `body`, `summary` (nullable), `changeNote` (nullable; free-text note describing the change; auto-set to `"Restored from revision <N>"` on restore), `featuredMediaId` (nullable), `revisionNumber`, `createdAt`.
 
 #### Web Routes — Public Standalone Pages
 
-- `/pages/:slug` — public standalone page view (`apps/web/app/pages/[slug]/page.tsx`). No session required. Fetches `GET /api/pages/:slug` and renders the page body via `MarkdownRenderer`. Displays a "not published" message when the API returns `null` (page missing or not published). Never exposes the edit UI.
+Published standalone pages are reachable through two complementary routes:
+
+- `/:slug` — top-level catch-all route (`apps/web/app/[slug]/page.tsx`). No session required. Because the route is a Next.js dynamic segment `[slug]`, it is evaluated after all static segments in the app directory and never shadows existing routes (`/`, `/blog`, `/login`, `/register`, etc.). Reserved slugs (`RESERVED_SLUGS`, mirroring the API-side list) are rejected at routing time with a not-found state rather than querying the API. Fetches `GET /api/pages/:slug` for the given slug; renders the page title, optional featured image (via `GET /api/media/:featuredMediaId`), and body via `MarkdownRenderer`. Displays a "not published" message when the API returns `null`.
+- `/pages/:slug` — secondary public standalone page view (`apps/web/app/pages/[slug]/page.tsx`). No session required. Fetches `GET /api/pages/:slug` and renders via `MarkdownRenderer`. Displays a "not published" message when the API returns `null`. Never exposes the edit UI.
 
 #### Web Routes — Admin Standalone Page Management
 
-All admin pages pages in `apps/web/app/admin/pages/` call `resolveProtectedSession()` followed by `hasGlobalRole(session.user, "admin")` on mount and redirect unauthenticated users to `/login?next=<current-route>`. A non-admin authenticated session shows an "Admin access required" error in place of the management UI.
+All admin pages in `apps/web/app/admin/pages/` call `resolveProtectedSession()` followed by `hasGlobalRole(session.user, "admin")` on mount and redirect unauthenticated users to `/login?next=<current-route>`. A non-admin authenticated session shows an "Admin access required" error in place of the management UI.
 
 - `/admin/pages` — admin pages list (`apps/web/app/admin/pages/page.tsx`). Shows all pages (all statuses) with inline Publish / Unpublish actions and a link to create a new page.
-- `/admin/pages/new` — create a new draft page (`apps/web/app/admin/pages/new/page.tsx`). Form fields: Title, Slug, Body (via `MarkdownEditor`). On submit, calls `adminCreatePage()` and redirects to the edit page for the newly created page.
-- `/admin/pages/:id/edit` — edit an existing page (`apps/web/app/admin/pages/[id]/edit/page.tsx`). Shows current status and publish/unpublish controls, the content editor form, and a Revision History panel listing all prior revisions with Preview and Restore actions. Saving calls `adminUpdatePage()`; lifecycle transitions call `adminPublishPage` or `adminUnpublishPage`; restore calls `adminRestoreRevision`.
+- `/admin/pages/new` — create a new draft page (`apps/web/app/admin/pages/new/page.tsx`). Form fields: Title, Slug, Summary (optional), Featured Image (via `ImageUpload`, `resourceType="standalone-page"`), Body (via `MarkdownEditor`). On submit, calls `adminCreatePage()` with `summary` and `featuredMediaId` and redirects to the edit page for the newly created page.
+- `/admin/pages/:id/edit` — edit an existing page (`apps/web/app/admin/pages/[id]/edit/page.tsx`). Shows current status and publish/unpublish controls, the content editor form (Title, Slug, Summary, Featured Image, Body, Change Note), and a Revision History panel listing all prior revisions with Preview and Restore actions. Loads the existing `summary` and `featuredMediaId` from the current page detail on mount and repopulates them after each save. The Change Note field is cleared after each successful save. Saving calls `adminUpdatePage()` with `summary`, `changeNote`, and `featuredMediaId`; lifecycle transitions call `adminPublishPage` or `adminUnpublishPage`; restore calls `adminRestoreRevision`.
 
 #### pages-client.ts
 
-`apps/web/app/pages/pages-client.ts` is the typed API client for all standalone pages calls. The public helper (`getPublishedPage`) fetches without credentials. Admin helpers (`adminListAllPages`, `adminGetPage`, `adminCreatePage`, `adminUpdatePage`, `adminPublishPage`, `adminUnpublishPage`, `adminListRevisions`, `adminRestoreRevision`) send `credentials: "include"` so the session cookie is forwarded.
+`apps/web/app/pages/pages-client.ts` is the typed API client for all standalone pages calls. The `PageDetail` interface includes `summary` and `featuredMediaId`. The `RevisionDetail` interface includes `editorUserId`, `summary`, `changeNote`, and `featuredMediaId`. The `CreatePageInput` and `UpdatePageInput` interfaces accept optional `summary`, `changeNote`, and `featuredMediaId` fields. The public helper (`getPublishedPage`) fetches without credentials. Admin helpers (`adminListAllPages`, `adminGetPage`, `adminCreatePage`, `adminUpdatePage`, `adminPublishPage`, `adminUnpublishPage`, `adminListRevisions`, `adminRestoreRevision`) send `credentials: "include"` so the session cookie is forwarded.
 
 #### Scope Boundaries
 
