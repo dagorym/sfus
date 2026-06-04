@@ -1,0 +1,78 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- MS3 subtask-3 — blog publishing behavior: publishedAt-driven visibility (LessThanOrEqual filter, no background job), scheduled-post UI labels in admin, server-side body sanitization on create/update, ImageUpload wired in admin editor for featured image with media validation, and pin/feature toggle for admin-only ordering control. The implementer delivered the feature and fixed a lint defect (bare img elements replaced with Next.js Image) identified in a first tester pass. All acceptance criteria now validated.
+
+Acceptance criteria validated:
+- A future-dated published post is hidden from public routes until publishedAt<=now, then becomes visible with no manual action or background job; drafts and unpublished posts are never public.
+- Publish-now sets publishedAt to the current time; unpublish returns the post to draft and hides it; the admin UI labels published-future posts as scheduled.
+- Blog post bodies are sanitized/normalized server-side on create and update; unsafe bodies are rejected or neutralized.
+- Featured images upload via ImageUpload in the admin editor and render on public blog views; featuredImageId is validated against existing media.
+- A post can be pinned/featured and surfaces first in the public listing; only admins can toggle it; summary is editable and shown in listings/meta.
+
+Implementation branch or worktree context:
+- Branch: ms3-tester-20260603
+- Implementer commits: 918b6e8 (initial implementation), 3fc4cb7 (lint fix — replace bare img with Next.js Image)
+- Tester commit: 7c14d17 (test coverage for publishedAt visibility, sanitization, featured image, pin/feature)
+- Remediation artifact commit: 48b306e
+- Comparison base: main branch or the commit preceding 918b6e8
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/blog.module.ts
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.service.test.ts
+- apps/web/app/blog/blog-client.ts
+- apps/web/app/admin/blog/page.tsx
+- apps/web/app/admin/blog/new/page.tsx
+- apps/web/app/admin/blog/[id]/edit/page.tsx
+- apps/web/app/blog/page.tsx
+- apps/web/app/blog/[slug]/page.tsx
+- apps/web/app/blog/blog.spec.ts
+
+Test commit:
+- 7c14d17
+
+Commands executed:
+- npx --yes pnpm@10.0.0 install
+- npx --yes pnpm@10.0.0 test
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web run typecheck
+
+Final test outcomes:
+- 318 tests passed (200 API, 118 web), 0 failed
+- AC1 PASS: publishedAt<=now filter via LessThanOrEqual; future-dated posts hidden; createComment blocks future-dated posts
+- AC2 PASS: publish/unpublish transitions correct; admin UI shows "scheduled" label for future-dated published posts
+- AC3 PASS: create/update body sanitized; unsafe content (script/iframe/event handlers) rejected
+- AC4 PASS: ImageUpload wired in admin editors; featuredImageId validated; featured image shown on public views
+- AC5 PASS: toggleFeatured flips isFeatured; featured posts ordered first; summary shown in listing
+- Lint: PASS (0 warnings after implementer fixed bare img elements)
+- Typecheck: PASS
+
+Documentation context:
+- New BlogService public methods: publishAt(id, date) and toggleFeatured(id) — available at POST /blog/admin/posts/:id/publish-at and POST /blog/admin/posts/:id/toggle-featured respectively.
+- findPublished() and findPublishedBySlug() now use LessThanOrEqual(now) for publishedAt — no cron or background job required for scheduled post visibility.
+- unpublish() returns the post to draft status and clears publishedAt.
+- Body sanitization via normalizeMarkdownBody + validateMarkdownBody applied on create and update — unsafe content returns HTTP 400.
+- featuredImageId is validated against the media_references table on create and update.
+- Public listing orders posts by isFeatured DESC, publishedAt DESC — featured/pinned posts surface first.
+- Admin UI computes isScheduled = status === "published" && publishedAt > now and shows a "goes live at" label.
+- ImageUpload component wired in admin blog create and edit editors for featured image upload.
+- BlogPostSummary type includes summary and isFeatured fields for listing and meta use.
+- adminToggleFeatured client helper exported with credentials:include enforcing admin-only access.
+- Relevant docs to update: docs/README.md (API contract section), any blog feature documentation in docs/.
+
+Plan and diff context:
+- Plan path: plans/ms3-completion-and-copilot-port-plan.md (infer subtask-3 scope from that plan)
+- Comparison base: main branch (assumption — use git diff main...ms3-tester-20260603 for full diff)
+
+Startup behavior:
+- If branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-completion-and-copilot-port/subtask-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
