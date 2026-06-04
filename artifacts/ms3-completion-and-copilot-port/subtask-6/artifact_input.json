@@ -1,0 +1,47 @@
+{
+  "status": "success",
+  "task_summary": "Implement admin-managed navigation behavior: dropdown child rendering (keyboard-accessible), external-link handling, publication-aware filtering in findPublic, authenticated endpoint session enforcement with admin-visibility exclusion, and admin visibility level in entity.",
+  "branch_name": "ms3-claude-implementer-subtask-6-20260604",
+  "code_commit_hash": "8245ba9",
+  "changed_files": [
+    "apps/api/src/navigation/entities/navigation-item.entity.ts",
+    "apps/api/src/navigation/navigation.controller.ts",
+    "apps/api/src/navigation/navigation.module.ts",
+    "apps/api/src/navigation/navigation.service.test.ts",
+    "apps/api/src/navigation/navigation.service.ts",
+    "apps/web/components/navigation.tsx"
+  ],
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/navigation/navigation.service.test.ts",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec tsc --noEmit",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web exec tsc --noEmit",
+    "npx --yes pnpm@10.0.0 lint",
+    "npx --yes pnpm@10.0.0 test"
+  ],
+  "validation_outcome": "All navigation service tests pass (21/21). All web tests pass (144/144). Full suite: 220 tests pass across 13 test files. Pre-existing multer MODULE_NOT_FOUND failure in media.controller.test.ts is an unrelated subtask-2 defect, not a regression from this subtask. API typecheck: only pre-existing multer TS2307 error; no navigation errors. Web typecheck clean. Lint passes with --max-warnings=0.",
+  "acceptance_criteria": [
+    "Shell renders one level of dropdown children, keyboard-accessible (aria-haspopup, aria-expanded, Escape/blur to close); external links render with target=_blank rel=noopener noreferrer; internal links use Next.js Link.",
+    "Public nav API filters children by isActive/visibility=public and omits entries whose linked /blog/<slug> or /pages/<slug> target is not publicly visible; no unpublished or hidden destination leaks to guests.",
+    "Authenticated nav endpoint requires valid session via authService.resolveSession (throws 401 on invalid/missing session); admin-visibility items excluded for non-admin users; children filtered by isActive/non-admin-visibility.",
+    "On nav API error/empty/invalid response, the shell falls back to no content links ([]) — safe [] fallback from ms3-claude preserved; no hardcoded routes added.",
+    "NotFoundException was never imported in navigation.controller.ts; lint passes with --max-warnings=0."
+  ],
+  "test_location_guidance": [
+    "apps/api/src/navigation/navigation.service.test.ts (existing — factory already updated to match new constructor signature)",
+    "apps/api/src/navigation/navigation.controller.test.ts (new file — Tester should create tests for session enforcement, admin exclusion)",
+    "apps/web/components/navigation.spec.ts or apps/web/app/public-shell.spec.ts (Tester should add dropdown, external-link, and fallback tests)"
+  ],
+  "implementation_context": [
+    "Added 'admin' to navigationVisibilities enum in navigation-item.entity.ts; migration uses varchar so no DB schema change is required for the new visibility value.",
+    "NavigationService now injects BlogPostRepository and StandalonePageRepository (via NavigationModule) to check linked-target publication status.",
+    "findPublic: children filtered to isActive+visibility=public in-memory after DB fetch; each item checked by isLinkedTargetPubliclyVisible which matches /blog/<slug> (published+publishedAt<=now) and /pages/<slug> (published).",
+    "findForAuthenticatedUser: accepts actorGlobalRole, uses authorizationService.hasGlobalRole to determine admin; admin-visibility top-level items and children excluded for non-admins.",
+    "listAuthenticated controller method now calls authService.resolveSession which throws UnauthorizedException on invalid/missing session before calling findForAuthenticatedUser.",
+    "navigation.tsx: NavItemLink sub-component handles internal (Next.js Link) vs external (<a target=_blank rel=noopener noreferrer>). NavDropdown sub-component wraps items with children, uses useRef for blur detection, keyboard Escape handler, aria-haspopup=menu, aria-expanded, role=menu on dropdown container.",
+    "The safe [] fallback in fetchNavItems (catch block and non-ok response) is unchanged from ms3-claude's original implementation."
+  ],
+  "expected_validation_failures": [
+    "media.controller.test.ts: Cannot find package 'multer' — pre-existing subtask-2 defect, not introduced by this subtask."
+  ]
+}
