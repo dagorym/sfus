@@ -869,6 +869,410 @@ describe("BlogService.findVisibleComments", () => {
 });
 
 // ---------------------------------------------------------------------------
+// AC1: createComment rejects commentsLocked post
+// ---------------------------------------------------------------------------
+
+describe("BlogService.createComment commentsLocked guard (AC1)", () => {
+  it("throws ForbiddenException when post.commentsLocked is true", async () => {
+    const lockedPost = {
+      id: "post-locked",
+      status: "published",
+      publishedAt: new Date(Date.now() - 1000),
+      commentsLocked: true,
+      title: "Locked Post",
+      slug: "locked-post",
+      body: "body",
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(lockedPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.createComment(lockedPost.id, "user-1", { body: "New comment on locked post" })
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("allows comment creation when commentsLocked is false", async () => {
+    const unlockedPost = {
+      id: "post-unlocked",
+      status: "published",
+      publishedAt: new Date(Date.now() - 1000),
+      commentsLocked: false,
+      title: "Unlocked Post",
+      slug: "unlocked-post",
+      body: "body",
+      postTags: []
+    };
+    const savedComment = {
+      id: "comment-new",
+      postId: unlockedPost.id,
+      authorUserId: "user-1",
+      body: "Valid comment",
+      status: "visible",
+      parentId: null,
+      mediaReferenceId: null,
+      moderatedByUserId: null,
+      moderatedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(unlockedPost)
+    };
+    const commentRepo = {
+      ...createMinimalRepository(),
+      create: vi.fn().mockReturnValue(savedComment),
+      save: vi.fn().mockResolvedValue(savedComment)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      commentRepo as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.createComment(unlockedPost.id, "user-1", { body: "Valid comment" })
+    ).resolves.toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC1: createComment 1-level threading enforcement
+// ---------------------------------------------------------------------------
+
+describe("BlogService.createComment parentId 1-level nesting enforcement (AC1)", () => {
+  const publishedPost = {
+    id: "post-published",
+    status: "published",
+    publishedAt: new Date(Date.now() - 1000),
+    commentsLocked: false,
+    title: "Test Post",
+    slug: "test-post",
+    body: "body",
+    postTags: []
+  };
+
+  it("throws BadRequestException when parentId references a comment that already has a parentId (depth > 1)", async () => {
+    const authorizationService = new AuthorizationService();
+    // Parent comment itself has a parentId — this is already a reply, so nesting would exceed 1 level.
+    const alreadyReply = {
+      id: "comment-already-reply",
+      postId: publishedPost.id,
+      parentId: "some-top-level-comment-id", // non-null — it IS already a reply
+      body: "I am a reply",
+      status: "visible"
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(publishedPost)
+    };
+    const commentRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(alreadyReply)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      commentRepo as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.createComment(publishedPost.id, "user-1", { body: "Deep reply", parentId: alreadyReply.id })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException when parentId comment does not exist", async () => {
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(publishedPost)
+    };
+    const commentRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(null) // parent not found
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      commentRepo as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.createComment(publishedPost.id, "user-1", { body: "Reply", parentId: "nonexistent-parent" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("allows comment with a valid top-level parentId (parentId.parentId is null)", async () => {
+    const authorizationService = new AuthorizationService();
+    const topLevelParent = {
+      id: "comment-top",
+      postId: publishedPost.id,
+      parentId: null, // true top-level — depth 0
+      body: "Top level",
+      status: "visible"
+    };
+    const savedReply = {
+      id: "reply-new",
+      postId: publishedPost.id,
+      authorUserId: "user-1",
+      body: "A valid reply",
+      status: "visible",
+      parentId: topLevelParent.id,
+      mediaReferenceId: null,
+      moderatedByUserId: null,
+      moderatedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(publishedPost)
+    };
+    const commentRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(topLevelParent),
+      create: vi.fn().mockReturnValue(savedReply),
+      save: vi.fn().mockResolvedValue(savedReply)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      commentRepo as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.createComment(publishedPost.id, "user-1", { body: "A valid reply", parentId: topLevelParent.id })
+    ).resolves.toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC2: createComment imageId scope validation
+// ---------------------------------------------------------------------------
+
+describe("BlogService.createComment imageId scope validation (AC2)", () => {
+  const publishedPost = {
+    id: "post-pub",
+    status: "published",
+    publishedAt: new Date(Date.now() - 1000),
+    commentsLocked: false,
+    title: "Post",
+    slug: "post",
+    body: "body",
+    postTags: []
+  };
+
+  it("throws BadRequestException when imageId does not exist in media_references", async () => {
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(publishedPost)
+    };
+    const mediaRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(null) // media record not found
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      mediaRepo as never,
+      authorizationService
+    );
+    await expect(
+      service.createComment(publishedPost.id, "user-1", { body: "Comment with image", imageId: "missing-media-id" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException when imageId references a media record with wrong resourceType", async () => {
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(publishedPost)
+    };
+    const wrongScopeMedia = {
+      id: "media-wrong-scope",
+      resourceType: "blog-post", // Not "blog-comment" — wrong scope
+      filename: "photo.jpg"
+    };
+    const mediaRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(wrongScopeMedia)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      mediaRepo as never,
+      authorizationService
+    );
+    await expect(
+      service.createComment(publishedPost.id, "user-1", { body: "Comment with wrong scope image", imageId: wrongScopeMedia.id })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("succeeds when imageId references a blog-comment-scoped media record", async () => {
+    const authorizationService = new AuthorizationService();
+    const savedComment = {
+      id: "comment-with-img",
+      postId: publishedPost.id,
+      authorUserId: "user-1",
+      body: "Comment with valid image",
+      status: "visible",
+      parentId: null,
+      mediaReferenceId: "media-blog-comment",
+      moderatedByUserId: null,
+      moderatedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(publishedPost)
+    };
+    const correctScopeMedia = {
+      id: "media-blog-comment",
+      resourceType: "blog-comment",
+      filename: "comment-photo.jpg"
+    };
+    const mediaRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(correctScopeMedia)
+    };
+    const commentRepo = {
+      ...createMinimalRepository(),
+      create: vi.fn().mockReturnValue(savedComment),
+      save: vi.fn().mockResolvedValue(savedComment)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      commentRepo as never,
+      mediaRepo as never,
+      authorizationService
+    );
+    const result = await service.createComment(publishedPost.id, "user-1", {
+      body: "Comment with valid image",
+      imageId: correctScopeMedia.id
+    });
+    expect(result.mediaReferenceId).toBe("media-blog-comment");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC3: lockComments / unlockComments
+// ---------------------------------------------------------------------------
+
+describe("BlogService.lockComments and unlockComments (AC3)", () => {
+  it("lockComments() sets commentsLocked=true and returns updated post", async () => {
+    const post = {
+      id: "post-1",
+      status: "published",
+      commentsLocked: false,
+      publishedAt: new Date(Date.now() - 1000),
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const lockedPost = { ...post, commentsLocked: true, postTags: [] };
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn()
+        .mockResolvedValueOnce(post)
+        .mockResolvedValueOnce(lockedPost),
+      save: vi.fn().mockResolvedValue(lockedPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const result = await service.lockComments("post-1");
+    expect(result.commentsLocked).toBe(true);
+  });
+
+  it("unlockComments() sets commentsLocked=false and returns updated post", async () => {
+    const post = {
+      id: "post-1",
+      status: "published",
+      commentsLocked: true,
+      publishedAt: new Date(Date.now() - 1000),
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const unlockedPost = { ...post, commentsLocked: false, postTags: [] };
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn()
+        .mockResolvedValueOnce(post)
+        .mockResolvedValueOnce(unlockedPost),
+      save: vi.fn().mockResolvedValue(unlockedPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const result = await service.unlockComments("post-1");
+    expect(result.commentsLocked).toBe(false);
+  });
+
+  it("lockComments() throws NotFoundException for unknown post id", async () => {
+    const service = makeBlogService();
+    await expect(service.lockComments("nonexistent")).rejects.toThrow(NotFoundException);
+  });
+
+  it("unlockComments() throws NotFoundException for unknown post id", async () => {
+    const service = makeBlogService();
+    await expect(service.unlockComments("nonexistent")).rejects.toThrow(NotFoundException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findVisibleComments — replies relation loaded
+// ---------------------------------------------------------------------------
+
+describe("BlogService.findVisibleComments replies relation (AC1)", () => {
+  it("loads the replies relation so visible replies appear nested", async () => {
+    const authorizationService = new AuthorizationService();
+    const findSpy = vi.fn().mockResolvedValue([]);
+    const commentRepo = {
+      ...createMinimalRepository(),
+      find: findSpy
+    };
+    const service = new BlogService(
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      commentRepo as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await service.findVisibleComments("post-1");
+    expect(findSpy).toHaveBeenCalledWith(expect.objectContaining({
+      relations: expect.arrayContaining(["replies"])
+    }));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC2 / AC7: BlogPostStatus type normalization — no scheduled value
 // ---------------------------------------------------------------------------
 

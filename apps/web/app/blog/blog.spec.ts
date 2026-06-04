@@ -421,3 +421,106 @@ describe("blog-client.ts type contracts for summary and isFeatured (AC5)", () =>
     expect(source).toContain("toggle-featured");
   });
 });
+
+// ---------------------------------------------------------------------------
+// AC1: blog-client comment threading and lock helpers
+// ---------------------------------------------------------------------------
+
+describe("blog-client.ts comment threading and lock API contracts (AC1, AC2, AC3)", () => {
+  it("listComments returns {comments, commentsLocked} shape (AC1)", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    // AC1: listComments must return both the comment list and the locked flag.
+    expect(source).toContain("commentsLocked:");
+    expect(source).toContain("commentsLocked: boolean");
+  });
+
+  it("createComment accepts optional parentId parameter for 1-level replies (AC1)", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    // AC1: createComment signature must accept parentId for reply threading.
+    const createBlock = source.slice(
+      source.indexOf("export async function createComment"),
+      source.indexOf("export async function adminLockComments") + 1
+    );
+    expect(createBlock).toContain("parentId");
+  });
+
+  it("adminLockComments is exported with credentials:include (AC3)", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    // AC3: lock route requires moderator/admin session.
+    expect(source).toContain("export async function adminLockComments");
+    expect(source).toContain("lock-comments");
+    const lockBlock = source.slice(
+      source.indexOf("export async function adminLockComments"),
+      source.indexOf("export async function adminUnlockComments") + 1
+    );
+    expect(lockBlock).toContain('credentials: "include"');
+  });
+
+  it("adminUnlockComments is exported with credentials:include (AC3)", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    // AC3: unlock route requires moderator/admin session.
+    expect(source).toContain("export async function adminUnlockComments");
+    expect(source).toContain("unlock-comments");
+    const unlockBlock = source.slice(
+      source.indexOf("export async function adminUnlockComments"),
+      source.indexOf("// ---------------------------------------------------------------------------\n// Moderation routes")
+    );
+    expect(unlockBlock).toContain('credentials: "include"');
+  });
+
+  it("BlogCommentDetail includes parentId, mediaReferenceId, and replies fields (AC1, AC2)", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    // AC1: replies support; AC2: mediaReferenceId persisted.
+    expect(source).toContain("parentId:");
+    expect(source).toContain("mediaReferenceId:");
+    expect(source).toContain("replies?:");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC1, AC3: Blog post detail page renders locked state and nested replies
+// ---------------------------------------------------------------------------
+
+describe("Blog post detail page commentsLocked and reply rendering (AC1, AC3)", () => {
+  it("renders a commentsLocked notice when the thread is locked (AC3)", async () => {
+    const source = await readAppFile("app/blog/[slug]/page.tsx");
+    // AC3: locked thread must be communicated to users.
+    expect(source).toContain("commentsLocked");
+    expect(source).toContain("Comments are locked");
+  });
+
+  it("hides the comment form when commentsLocked is true (AC3)", async () => {
+    const source = await readAppFile("app/blog/[slug]/page.tsx");
+    // AC3: comment form must not render when thread is locked.
+    // The form is guarded by: commentsLocked ? null : (<form>)
+    expect(source).toContain("commentsLocked ? null");
+  });
+
+  it("hides reply buttons when commentsLocked is true (AC1)", async () => {
+    const source = await readAppFile("app/blog/[slug]/page.tsx");
+    // AC1: reply button must not render when thread is locked.
+    expect(source).toContain("!commentsLocked");
+  });
+
+  it("renders nested replies under each top-level comment (AC1)", async () => {
+    const source = await readAppFile("app/blog/[slug]/page.tsx");
+    // AC1: visible replies are rendered in a nested list.
+    expect(source).toContain("c.replies");
+    expect(source).toContain("c.replies.map");
+  });
+
+  it("renders inline reply form with parentId forwarding (AC1)", async () => {
+    const source = await readAppFile("app/blog/[slug]/page.tsx");
+    // AC1: reply form calls createComment with the parent comment id.
+    expect(source).toContain("handleSubmitReply");
+    expect(source).toContain("replyingTo");
+    expect(source).toContain("parentCommentId");
+  });
+
+  it("reads commentsLocked from listComments result and tracks it in state (AC3)", async () => {
+    const source = await readAppFile("app/blog/[slug]/page.tsx");
+    // AC3: state correctly reflects server-side lock flag.
+    expect(source).toContain("setCommentsLocked");
+    expect(source).toContain("result.commentsLocked");
+  });
+});
