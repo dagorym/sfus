@@ -51,7 +51,7 @@ describe("blog-client.ts source contracts", () => {
     expect(source).toContain("export async function adminUpdatePost");
     expect(source).toContain("export async function adminPublishPost");
     expect(source).toContain("export async function adminUnpublishPost");
-    expect(source).toContain("export async function adminSchedulePost");
+    expect(source).toContain("export async function adminPublishAt");
     expect(source).toContain("export async function adminDeletePost");
     // All admin routes must forward the session cookie
     const adminSection = source.slice(source.indexOf("// Admin routes"));
@@ -64,10 +64,10 @@ describe("blog-client.ts source contracts", () => {
     expect(source).toContain("`${apiBase}/blog`");
   });
 
-  it("schedule helper sends scheduledAt as ISO string", async () => {
+  it("schedule helper sends publishedAt as ISO string (adminPublishAt)", async () => {
     const source = await readAppFile("app/blog/blog-client.ts");
-    expect(source).toContain("scheduledAt");
-    expect(source).toContain("/schedule");
+    expect(source).toContain("publishedAt");
+    expect(source).toContain("/publish-at");
   });
 });
 
@@ -206,7 +206,7 @@ describe("Admin blog edit page source contracts (AC1, AC3)", () => {
     const source = await readAppFile("app/admin/blog/[id]/edit/page.tsx");
     expect(source).toContain("adminPublishPost");
     expect(source).toContain("adminUnpublishPost");
-    expect(source).toContain("adminSchedulePost");
+    expect(source).toContain("adminPublishAt");
   });
 
   it("uses MarkdownEditor for body editing (shared authoring component AC4)", async () => {
@@ -217,7 +217,8 @@ describe("Admin blog edit page source contracts (AC1, AC3)", () => {
   it("handles schedule with a future datetime input", async () => {
     const source = await readAppFile("app/admin/blog/[id]/edit/page.tsx");
     expect(source).toContain("datetime-local");
-    expect(source).toContain("scheduledAt");
+    // The schedule form field captures a date-time value and passes it as publishedAt
+    expect(source).toContain("scheduleValue");
   });
 
   it("uses adminUpdatePost to save content changes", async () => {
@@ -324,5 +325,99 @@ describe("Blog post detail page comment surface contracts (AC2, AC3)", () => {
     // AC3: only public endpoint used
     expect(source).not.toContain("adminGetPost");
     expect(source).not.toContain("adminListAllPosts");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC1: publishedAt-driven visibility — scheduled label in admin UI
+// ---------------------------------------------------------------------------
+
+describe("Admin blog list scheduled-post label contracts (AC2)", () => {
+  it("renders scheduled label for published+future-dated posts", async () => {
+    const source = await readAppFile("app/admin/blog/page.tsx");
+    // AC2: posts with status=published and publishedAt > now show a scheduled label
+    expect(source).toContain("isScheduled");
+    expect(source).toContain("goes live at");
+  });
+
+  it("computes isScheduled as published+publishedAt>now", async () => {
+    const source = await readAppFile("app/admin/blog/page.tsx");
+    // The condition distinguishes a future-dated published post from a live one
+    expect(source).toContain('post.status === "published"');
+    expect(source).toContain("new Date(post.publishedAt)");
+  });
+
+  it("provides toggle-featured (pin/unpin) control per post (AC5)", async () => {
+    const source = await readAppFile("app/admin/blog/page.tsx");
+    // AC5: admin-only pin/unpin toggle visible in list
+    expect(source).toContain("adminToggleFeatured");
+    expect(source).toContain("Unpin");
+    expect(source).toContain("Pin");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC4: Featured image — admin create/edit wires ImageUpload; public shows img
+// ---------------------------------------------------------------------------
+
+describe("Admin blog editor featured image contracts (AC4)", () => {
+  it("create page imports and uses ImageUpload for featured image", async () => {
+    const source = await readAppFile("app/admin/blog/new/page.tsx");
+    // AC4: ImageUpload wired in admin editor
+    expect(source).toContain("ImageUpload");
+    expect(source).toContain("featuredImageId");
+    expect(source).toContain("onUpload");
+  });
+
+  it("edit page imports and uses ImageUpload for featured image", async () => {
+    const source = await readAppFile("app/admin/blog/[id]/edit/page.tsx");
+    expect(source).toContain("ImageUpload");
+    expect(source).toContain("featuredImageId");
+  });
+
+  it("edit page imports adminToggleFeatured for pin/unpin (AC5)", async () => {
+    const source = await readAppFile("app/admin/blog/[id]/edit/page.tsx");
+    expect(source).toContain("adminToggleFeatured");
+  });
+});
+
+describe("Public blog listing featured image and summary contracts (AC4, AC5)", () => {
+  it("renders featured image when featuredImageId is set (AC4)", async () => {
+    const source = await readAppFile("app/blog/page.tsx");
+    // AC4: public listing renders the featured image
+    expect(source).toContain("featuredImageId");
+    expect(source).toContain("/api/media/");
+  });
+
+  it("renders post summary in the listing (AC5)", async () => {
+    const source = await readAppFile("app/blog/page.tsx");
+    // AC5: summary shown in public listing
+    expect(source).toContain("post.summary");
+  });
+
+  it("surfaces featured/pinned posts with a visual indicator (AC5)", async () => {
+    const source = await readAppFile("app/blog/page.tsx");
+    // AC5: isFeatured posts marked distinctly in the listing
+    expect(source).toContain("post.isFeatured");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC5: blog-client summary and isFeatured type fields
+// ---------------------------------------------------------------------------
+
+describe("blog-client.ts type contracts for summary and isFeatured (AC5)", () => {
+  it("BlogPostSummary includes summary and isFeatured fields", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    // AC5: types carry summary and isFeatured for listing/meta use
+    expect(source).toContain("summary:");
+    expect(source).toContain("isFeatured:");
+  });
+
+  it("adminToggleFeatured is exported as admin-only route (AC5)", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    // AC5: pin/unpin is admin-only; client enforces credentials:include
+    expect(source).toContain("export async function adminToggleFeatured");
+    expect(source).toContain("toggle-featured");
   });
 });
