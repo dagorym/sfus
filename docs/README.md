@@ -117,15 +117,17 @@ All three are validated by `loadEnvironment()` at startup; a missing or invalid 
 
 Milestone 3 Subtask 2 adds the shared authoring infrastructure — a protected image-upload API, a server-side Markdown sanitizer, and three reusable web components — used across blog posts, standalone pages, and blog comments.
 
-#### MediaModule Upload API
+#### MediaModule Upload and Serve API
 
 `MediaModule.register(environment)` is a dynamic NestJS module that exposes:
 
 - `POST /api/media/upload?resourceType=<type>` — uploads an image for Milestone 3 content. Requires an active session (HTTP-only `sfus_session` cookie). Returns a `MediaUploadResult` with `id`, `storageKey`, `url`, `mimeType`, `sizeBytes`, `originalFilename`, and `createdAt`.
-- `resourceType` must be one of `blog-post`, `standalone-page`, or `blog-comment`.
-- The endpoint rejects requests from unauthenticated users with `401 Unauthorized`.
-- `MediaService.uploadImage()` enforces the configured MIME allow-list and size limit, both read from the `media` environment block; any violation produces `400 Bad Request` with a human-readable message.
-- Files are stored under `MEDIA_STORAGE_PATH` organized by `<resourceType>/<uuid><ext>`. The original filename is sanitized before persistence (directory traversal removed, non-word characters replaced with `_`, capped at 255 characters).
+  - `resourceType` must be one of `blog-post`, `standalone-page`, or `blog-comment`.
+  - **Role-scoped authorization:** uploading for `blog-post` or `standalone-page` requires the `admin` global role; uploading for `blog-comment` requires any authenticated user. Unauthenticated requests receive `401 Unauthorized`; authenticated non-admin requests for admin-only resource types receive `403 Forbidden`.
+  - `MediaService.uploadImage()` enforces the configured MIME allow-list and size limit, both read from the `media` environment block; any violation produces `400 Bad Request` with a human-readable message.
+  - Files are stored under `MEDIA_STORAGE_PATH` organized by `<resourceType>/<uuid><ext>`. The original filename is sanitized before persistence (directory traversal removed, non-word characters replaced with `_`, capped at 255 characters).
+- `GET /api/media/:id` — serves a stored media file by its UUID. This endpoint is **public** (no authentication required). The file path is resolved from the stored `storageKey` (server-generated), never from any user-supplied path, preventing path traversal. Only MIME types in the configured allow-list are served (defence-in-depth). Returns the file with `Content-Type`, `Content-Length`, and `Cache-Control: public, max-age=31536000, immutable` headers. Returns `404` when the record does not exist or the file is absent from disk, and `400` when the stored MIME type is not in the allow-list.
+  - `MediaService.getImageForServing(id)` performs a path-containment guard on the resolved path even though `storageKey` is server-generated, so that any corrupted or injected database value still cannot escape the configured storage root.
 - `MediaModule` imports `AuthModule.register(environment)` to resolve sessions on the upload endpoint. The module exports `MediaService` and `TypeOrmModule` for reuse in later content modules.
 
 #### MarkdownSanitizer (server-side)
@@ -141,14 +143,17 @@ Three shared components live in `apps/web/components/` and are reusable across a
 
 - `MarkdownEditor` (`markdown-editor.tsx`) — a fully controlled write/preview toggle. Props: `value`, `onChange`, `placeholder`, `rows`, `label`, `disabled`, `id`. Write mode shows a `<textarea>`; Preview mode renders via `MarkdownRenderer`. Owns no internal body state; callers decide when to persist.
 - `MarkdownRenderer` (`markdown-renderer.tsx`) — renders stored Markdown as sanitized HTML in the browser. Strips all raw HTML tags from the Markdown source before conversion (defence-in-depth on top of the server sanitizer), converts a safe Markdown subset (headings, bold, italic, inline code, fenced code blocks, blockquotes, unordered lists, links, images), and rejects `javascript:`, `vbscript:`, and `data:` URI schemes in link and image attributes. Uses `dangerouslySetInnerHTML` with a purpose-built converter; no external Markdown library is required.
-- `ImageUpload` (`image-upload.tsx`) — a shared image-upload widget. Props: `resourceType` (`"blog-post" | "standalone-page" | "blog-comment"`), `onUpload`, `onError`, `apiBasePath`, `disabled`, `label`. Posts `multipart/form-data` to `POST /api/media/upload?resourceType=<type>` with `credentials: "include"`. Handles `401` by surfacing an authentication-required message; delegates MIME and size enforcement to the server. Calls `onUpload(result)` on success so callers can insert the returned URL into the Markdown body.
+- `ImageUpload` (`image-upload.tsx`) — a shared image-upload widget. Props: `resourceType` (`"blog-post" | "standalone-page" | "blog-comment"`), `onUpload`, `onError`, `apiBasePath`, `disabled`, `label`. Posts `multipart/form-data` to `POST /api/media/upload?resourceType=<type>` with `credentials: "include"`. Handles `401` by surfacing an authentication-required message; delegates MIME and size enforcement to the server. Calls `onUpload(result)` on success so callers can insert the returned URL and alt text into the Markdown body as `![altText](url)`.
+  - `ImageUploadResult` includes an `altText` field (the value from the controlled alt-text input at upload time) so callers receive both the URL and the accessibility description in a single callback.
+  - Each `ImageUpload` instance uses React `useId()` to generate stable, unique DOM ids for both the file input (`image-upload-input-<id>`) and the alt-text input (`image-upload-alt-<id>`), preventing id collisions when multiple instances appear on the same page.
 
 #### Security Contract Summary
 
 - Server-side MIME type and file-size validation in `MediaService` is authoritative. The `ImageUpload` component performs an early client-side `image/*` check only as a UX aid.
+- Upload authorization is role-scoped: `blog-post` and `standalone-page` uploads require the `admin` global role; `blog-comment` uploads require any authenticated user. Unauthenticated requests are rejected with `401`; non-admin requests for admin-only resource types are rejected with `403`. Authorization relies entirely on the `sfus_session` cookie resolved by `AuthService.resolveSession()`; the upload endpoint has no separate capability token.
+- `GET /api/media/:id` is intentionally public for read access. Write-time authorization (above) controls what is stored; the serve endpoint does not re-authenticate the reader.
 - All Markdown body content stored through Milestone 3 write paths must be validated through `validateMarkdownBody` before persistence; content that fails validation must be rejected with a `400` response.
 - `MarkdownRenderer` applies a client-side HTML-strip pass before rendering so that any raw HTML that escaped the server sanitizer becomes a no-op in the browser.
-- Upload authorization relies entirely on the `sfus_session` cookie resolved by `AuthService.resolveSession()`; the upload endpoint has no separate capability token.
 
 ### Blog Publishing Lifecycle (Milestone 3 Subtask 3)
 
@@ -450,6 +455,8 @@ Milestone 1 local development is hybrid by default:
 
 The same local Compose file also supports full-stack container validation with the `fullstack` profile, while `cicd/docker/compose.prod.yml` is the single production Compose definition for long-lived `web` and `api` services. Production routing stays behind the existing reverse-proxy integration, so production-oriented Compose does not bind host ports for either app service.
 The production `migrate` service is independently runnable as a one-off pre-rollout step and does not depend on starting `api`.
+
+Both Compose files declare a `sfus_media_uploads` named Docker volume that is mounted into the `api` container at `/app/storage/uploads` and the `MEDIA_STORAGE_PATH` environment variable is set to that path in both `compose.dev.yml` and `compose.prod.yml`. The production `migrate` service also mounts the same volume so migrations that touch media records can access the storage root. The named volume ensures uploaded files survive container restarts and image rebuilds; in production, this volume must be backed by durable storage and included in backup procedures.
 
 ## Environment Ownership
 

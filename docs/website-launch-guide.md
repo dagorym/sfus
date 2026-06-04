@@ -75,6 +75,8 @@ For the full-stack container path, the Compose file overrides the API container
 database connection to `DB_HOST=mysql` and `DB_PORT=3306`. Those container-only
 values should not be copied into a host-run hybrid API process.
 
+The full-stack Compose files (`compose.dev.yml` and `compose.prod.yml`) mount the `sfus_media_uploads` named Docker volume into the `api` container at `/app/storage/uploads` and set `MEDIA_STORAGE_PATH=/app/storage/uploads` automatically. When running the containerized stack you do not need to set `MEDIA_STORAGE_PATH` in `apps/api/.env`; the Compose environment override takes precedence. The named volume persists uploaded files across container restarts and image rebuilds. In production, ensure this volume is backed by durable storage and included in backup and disaster-recovery procedures.
+
 Optional local port overrides are supported through the root `.env` invocation environment:
 
 ```bash
@@ -131,6 +133,11 @@ The current local auth API surface is available under `/api/auth`:
 - `GET /api/auth/profile` returns profile basics (`username`, `email`, `displayName`) for authenticated users; `PATCH /api/auth/profile` updates `displayName` and returns the same profile payload.
 - `GET /api/auth/settings` returns account settings basics (`username`, `email`, `emailVerified`, `mfaEnabled`) for authenticated users; `PATCH /api/auth/settings` updates `username` only (with uniqueness enforcement) and returns the same settings payload.
 - The account profile/settings routes now evaluate the shared authorization contract (global roles + ACL grants) and support representative cross-account checks through `?userId=<targetUserId>` when the caller is authorized.
+
+The media API surface is available under `/api/media`:
+
+- `POST /api/media/upload?resourceType=<type>` — uploads an image for use in Milestone 3 content. Requires an active `sfus_session` cookie. Role-scoped: `blog-post` and `standalone-page` uploads require the `admin` global role; `blog-comment` uploads require any authenticated user. Returns `{ id, storageKey, url, mimeType, sizeBytes, originalFilename, createdAt }`.
+- `GET /api/media/:id` — serves a stored media file by UUID. **Public** — no authentication required. The response includes `Content-Type`, `Content-Length`, and `Cache-Control: public, max-age=31536000, immutable` headers.
 
 Session-cookie behavior is intentionally deployment-aware:
 
@@ -209,7 +216,7 @@ Any authenticated user may leave a comment on a published post:
 1. Sign in at `http://localhost:3000/login`.
 2. Navigate to any published blog post at `http://localhost:3000/blog/<slug>`.
 3. A **Leave a comment** form appears below the post body. Write your comment using the Markdown editor.
-4. Optionally click **Attach image** to upload a supported image; the image URL is inserted into the comment body automatically.
+4. Optionally click **Attach image** to upload a supported image. Enter alt text in the provided field before uploading; the image is inserted into the comment body as `![altText](url)` automatically.
 5. Click **Post comment**. The comment appears in the comments list immediately.
 
 Comments are rejected if the body is empty or contains unsafe HTML/script content (the API enforces the shared Markdown sanitizer).
