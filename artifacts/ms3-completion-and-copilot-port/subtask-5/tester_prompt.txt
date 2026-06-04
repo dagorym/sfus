@@ -1,0 +1,109 @@
+Your role is 'tester'. Your task is as follows:
+
+Verify the Milestone 3 standalone-page behavior implementation from subtask 5 of the ms3-completion-and-copilot-port plan. This subtask is security-sensitive and will receive specialist Security review. Add or update automated tests for the changed behaviors. Continue in the same run after startup — do not stop after reading this prompt.
+
+## Shared Artifact Directory
+
+`artifacts/ms3-completion-and-copilot-port/subtask-5`
+
+## Branch
+
+`ms3-claude-implementer-subtask-5-20260604`
+
+## Implementation Commit
+
+`2a470b6`
+
+## Changed Files
+
+- `apps/api/src/pages/pages.service.ts` — reserved slugs, sanitization on create/update/restore, enriched revision creation with summary/changeNote/featuredMediaId/editorUserId, `findRevisionById()` helper
+- `apps/api/src/pages/pages.controller.ts` — efficient body resolution via `findRevisionById`, enriched `PageDetail`/`RevisionDetail` shapes, updated input parsers
+- `apps/web/app/pages/pages-client.ts` — updated TypeScript interfaces (summary, featuredMediaId, changeNote, editorUserId)
+- `apps/web/app/pages/[slug]/page.tsx` — featured image rendering from `featuredMediaId`
+- `apps/web/app/admin/pages/new/page.tsx` — ImageUpload, summary field, featuredMediaId
+- `apps/web/app/admin/pages/[id]/edit/page.tsx` — ImageUpload, summary, changeNote, featuredMediaId
+- `apps/web/app/[slug]/page.tsx` — NEW: top-level catch-all for published standalone pages, reserved-slug guard
+
+## Acceptance Criteria
+
+AC1: Published standalone pages render at top-level paths (e.g., /about); the root catch-all is evaluated last and never shadows existing or reserved routes; reserved slugs are rejected on create/edit.
+
+AC2: Only published pages are public; draft/unpublished revisions remain protected.
+
+AC3: Every edit creates a durable revision capturing summary, change note, editor user, and featured media; restore creates a new revision (audit trail preserved).
+
+AC4: Page bodies are sanitized/normalized server-side on create/update/restore; featured media uploads via ImageUpload and renders publicly; current-body resolution no longer scans the full revision list per fetch.
+
+AC5: No block-builder or wiki behavior is introduced.
+
+## Tester Test File Locations
+
+- `apps/api/src/pages/pages.service.test.ts` — primary API unit test file for PagesService
+- `apps/web/app/pages/pages.spec.ts` — primary web source-contract test file for the standalone pages system
+- `apps/web/app/[slug]/page.tsx` — new top-level catch-all (source-contract tests are appropriate here)
+
+## Key Behaviors To Test
+
+### AC1 — Top-level routing and reserved-slug enforcement
+- Reserved slugs must be rejected by `PagesService.assertSlugValid()` (create and update) with BadRequestException
+- Test each slug in the reserved list: admin, api, app, blog, login, register, onboarding, profile, settings, health
+- Hyphenated slugs that start with a reserved word but are not exact matches (e.g., `admin-notes`) must be accepted
+- The new `app/[slug]/page.tsx` component must import `getPublishedPage`, not admin helpers
+- It must render a not-found state for reserved slugs without hitting the API
+- It must use `MarkdownRenderer` for body content
+- It must render a featured image when `featuredMediaId` is present
+
+### AC2 — Published-only public visibility
+- `findPublishedBySlug` must only return pages with `status = "published"`
+- The public route must render a not-found state when page is null
+
+### AC3 — Durable revision metadata
+- `PagesService.create()` must store summary, changeNote, featuredMediaId in the revision
+- `PagesService.update()` must set editorUserId on new revisions and capture summary/changeNote/featuredMediaId
+- `PagesService.restoreRevision()` must set editorUserId, auto-set changeNote to reference the source revision, and carry forward summary/featuredMediaId from the source revision
+- `RevisionDetail` in the API response must include editorUserId, summary, changeNote, featuredMediaId
+
+### AC4 — Sanitization and efficient body resolution
+- `PagesService.create()` must reject bodies containing unsafe patterns (script tags, event handlers, javascript:)
+- `PagesService.update()` must reject unsafe bodies
+- `pages-client.ts` PageDetail interface must include `summary` and `featuredMediaId`
+- `pages-client.ts` RevisionDetail interface must include `editorUserId`, `summary`, `changeNote`, `featuredMediaId`
+- The controller's `resolveCurrentBody` must not call `findRevisions` (full list scan); it must use `findRevisionById`
+- The edit and new admin pages must import `ImageUpload` from the shared components
+
+### AC5 — Scope discipline
+- No block-builder, wiki, document-tree constructs in any changed file
+
+## Validation Commands
+
+```bash
+# Run API pages tests
+npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/pages/pages.service.test.ts
+
+# Run all web tests
+npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/pages/pages.spec.ts
+
+# Run full test suite
+npx --yes pnpm@10.0.0 test
+
+# Run lint
+npx --yes pnpm@10.0.0 lint
+
+# Run typecheck (note: pre-existing multer error in media.controller.ts is expected and unrelated)
+npx --yes pnpm@10.0.0 typecheck
+```
+
+## Known Pre-Existing Failures
+
+`src/media/media.controller.test.ts` fails with `Cannot find package 'multer'` — this is a pre-existing dependency issue not introduced by this subtask. It should be treated as expected noise, not a regression.
+
+## Security Note
+
+This subtask is flagged for specialist Security review. Pay special attention to:
+- Reserved-slug bypass attempts (URL encoding, case, unicode normalization)
+- The catch-all route must never expose draft pages
+- Input validation coverage for summary/changeNote/featuredMediaId in the API input parsers
+
+## Completion Gate
+
+Do not report success unless all required artifacts exist and all changes are committed.
