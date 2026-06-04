@@ -338,3 +338,193 @@ describe("NavigationService.delete (AC1)", () => {
     await expect(service.delete("nonexistent")).rejects.toThrow(NotFoundException);
   });
 });
+
+// ---------------------------------------------------------------------------
+// AC2 (subtask-6): findPublic — publication-aware filtering
+// ---------------------------------------------------------------------------
+
+const makePublicItem = (overrides: Partial<NavigationItemEntity> = {}): NavigationItemEntity =>
+  ({
+    id: "item-pub",
+    parentId: null,
+    label: "Blog",
+    url: "/blog/some-post",
+    linkType: "internal",
+    visibility: "public",
+    sortOrder: 0,
+    isActive: true,
+    children: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides
+  } as NavigationItemEntity);
+
+describe("NavigationService.findPublic — publication-aware filtering (AC2 subtask-6)", () => {
+  it("returns a top-level item whose linked blog post is published and publishedAt<=now", async () => {
+    // AC2: /blog/<slug> target must be status=published and publishedAt<=now to appear.
+    const item = makePublicItem({ url: "/blog/published-post" });
+    const mockPost = { slug: "published-post", status: "published", publishedAt: new Date(Date.now() - 1000) };
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      { findOne: vi.fn().mockResolvedValue(mockPost) }
+    );
+    const result = await service.findPublic();
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe("/blog/published-post");
+  });
+
+  it("omits a top-level item whose linked blog post is not published", async () => {
+    // AC2: Unpublished blog post target must not leak to guests.
+    const item = makePublicItem({ url: "/blog/draft-post" });
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      { findOne: vi.fn().mockResolvedValue(null) }  // no published post found
+    );
+    const result = await service.findPublic();
+    expect(result).toHaveLength(0);
+  });
+
+  it("omits a top-level item whose linked standalone page is not published", async () => {
+    // AC2: /pages/<slug> target must be status=published to appear.
+    const item = makePublicItem({ url: "/pages/draft-page" });
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      undefined,
+      { findOne: vi.fn().mockResolvedValue(null) }  // no published page found
+    );
+    const result = await service.findPublic();
+    expect(result).toHaveLength(0);
+  });
+
+  it("returns a top-level item whose linked standalone page is published", async () => {
+    // AC2: Published /pages/<slug> target must be included.
+    const item = makePublicItem({ url: "/pages/about" });
+    const mockPage = { slug: "about", status: "published" };
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      undefined,
+      { findOne: vi.fn().mockResolvedValue(mockPage) }
+    );
+    const result = await service.findPublic();
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe("/pages/about");
+  });
+
+  it("keeps external-link items regardless of publication status", async () => {
+    // AC2: External links always pass the filter — they have no linked internal target.
+    const item = makePublicItem({ url: "https://example.com", linkType: "external" });
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) }
+    );
+    const result = await service.findPublic();
+    expect(result).toHaveLength(1);
+  });
+
+  it("keeps static internal routes (non-blog/page) always visible", async () => {
+    // AC2: Internal links to routes other than /blog/ or /pages/ are kept as-is.
+    const item = makePublicItem({ url: "/about", linkType: "internal" });
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) }
+    );
+    const result = await service.findPublic();
+    expect(result).toHaveLength(1);
+  });
+
+  it("filters out inactive children from public results", async () => {
+    // AC2: Children filtered to isActive=true + visibility=public.
+    const activeChild = makePublicItem({ id: "child-a", parentId: "item-pub", label: "Active", url: "/about", isActive: true });
+    const inactiveChild = makePublicItem({ id: "child-b", parentId: "item-pub", label: "Inactive", url: "/other", isActive: false });
+    const parent = makePublicItem({ url: "/static", children: [activeChild, inactiveChild] });
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([parent]) }
+    );
+    const result = await service.findPublic();
+    expect(result).toHaveLength(1);
+    expect(result[0].children).toHaveLength(1);
+    expect(result[0].children[0].id).toBe("child-a");
+  });
+
+  it("filters out non-public children from public results", async () => {
+    // AC2: Children with visibility != public are excluded from public results.
+    const publicChild = makePublicItem({ id: "child-a", parentId: "item-pub", label: "Public", url: "/about", visibility: "public" });
+    const authChild = makePublicItem({ id: "child-b", parentId: "item-pub", label: "Auth", url: "/app", visibility: "authenticated" });
+    const parent = makePublicItem({ url: "/static", children: [publicChild, authChild] });
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([parent]) }
+    );
+    const result = await service.findPublic();
+    expect(result).toHaveLength(1);
+    expect(result[0].children).toHaveLength(1);
+    expect(result[0].children[0].id).toBe("child-a");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC3 (subtask-6): findForAuthenticatedUser — admin visibility exclusion
+// ---------------------------------------------------------------------------
+
+describe("NavigationService.findForAuthenticatedUser — admin visibility exclusion (AC3 subtask-6)", () => {
+  const adminItem = makePublicItem({ id: "admin-item", url: "/admin", visibility: "admin", label: "Admin" });
+  const publicItem = makePublicItem({ id: "public-item", url: "/blog", visibility: "public", label: "Blog" });
+
+  it("excludes admin-visibility top-level items for non-admin users", async () => {
+    // AC3: admin-visibility items excluded for non-admin users.
+    const service = makeNavigationService({
+      find: vi.fn().mockResolvedValue([adminItem, publicItem])
+    });
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result.map((i) => i.id)).not.toContain("admin-item");
+    expect(result.map((i) => i.id)).toContain("public-item");
+  });
+
+  it("includes admin-visibility top-level items for admin users", async () => {
+    // AC3: Admin sees admin-visibility items.
+    const service = makeNavigationService({
+      find: vi.fn().mockResolvedValue([adminItem, publicItem])
+    });
+    const result = await service.findForAuthenticatedUser("admin");
+    expect(result.map((i) => i.id)).toContain("admin-item");
+    expect(result.map((i) => i.id)).toContain("public-item");
+  });
+
+  it("excludes admin-visibility children for non-admin users", async () => {
+    // AC3: Children visibility-filtered for non-admin users.
+    const adminChild = makePublicItem({ id: "child-admin", parentId: "parent", label: "Manage", url: "/admin/manage", visibility: "admin" });
+    const publicChild = makePublicItem({ id: "child-pub", parentId: "parent", label: "View", url: "/view", visibility: "public" });
+    const parent = makePublicItem({ id: "parent", url: "/section", visibility: "public", children: [adminChild, publicChild] });
+    const service = makeNavigationService({
+      find: vi.fn().mockResolvedValue([parent])
+    });
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result).toHaveLength(1);
+    expect(result[0].children.map((c) => c.id)).not.toContain("child-admin");
+    expect(result[0].children.map((c) => c.id)).toContain("child-pub");
+  });
+
+  it("includes all children for admin users", async () => {
+    // AC3: Admin users see admin-visibility children.
+    const adminChild = makePublicItem({ id: "child-admin", parentId: "parent", label: "Manage", url: "/admin/manage", visibility: "admin" });
+    const publicChild = makePublicItem({ id: "child-pub", parentId: "parent", label: "View", url: "/view", visibility: "public" });
+    const parent = makePublicItem({ id: "parent", url: "/section", visibility: "public", children: [adminChild, publicChild] });
+    const service = makeNavigationService({
+      find: vi.fn().mockResolvedValue([parent])
+    });
+    const result = await service.findForAuthenticatedUser("admin");
+    expect(result).toHaveLength(1);
+    expect(result[0].children.map((c) => c.id)).toContain("child-admin");
+    expect(result[0].children.map((c) => c.id)).toContain("child-pub");
+  });
+
+  it("excludes inactive children for all users", async () => {
+    // AC3: Inactive children are always excluded.
+    const inactiveChild = makePublicItem({ id: "child-inactive", parentId: "parent", label: "Gone", url: "/gone", isActive: false });
+    const activeChild = makePublicItem({ id: "child-active", parentId: "parent", label: "Active", url: "/active", isActive: true });
+    const parent = makePublicItem({ id: "parent", url: "/section", visibility: "public", children: [inactiveChild, activeChild] });
+    const service = makeNavigationService({
+      find: vi.fn().mockResolvedValue([parent])
+    });
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result[0].children.map((c) => c.id)).not.toContain("child-inactive");
+    expect(result[0].children.map((c) => c.id)).toContain("child-active");
+  });
+});
