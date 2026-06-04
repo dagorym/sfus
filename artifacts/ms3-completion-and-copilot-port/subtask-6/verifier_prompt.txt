@@ -1,0 +1,59 @@
+Your role is 'verifier'. Your task is as follows:
+
+Verify the ms3-completion-and-copilot-port subtask-6 implementation, tests, and documentation for the Navigation feature (child rendering, external links, publication-aware filtering, endpoint authz, safe fallback).
+
+## Task Summary
+
+Subtask-6 completes the Milestone 3 admin-managed navigation behavior: dropdown child rendering, keyboard accessibility, external-link handling, publication-aware public filtering, authenticated endpoint session enforcement, and admin-visibility exclusion. Documentation has been updated in docs/README.md to reflect all these behaviors.
+
+## Acceptance Criteria to Verify
+
+- AC1: Shell renders dropdown children, keyboard-accessible; external links render with target/rel
+- AC2: Public nav API filters children by visibility and publication status
+- AC3: Authenticated endpoint requires session; excludes admin-visibility items for non-admins
+- AC4: Safe fallback preserved; no hardcoded routes
+- AC5: No NotFoundException import; lint clean
+
+## Implementation Branch
+
+`ms3-claude` (implementation and documentation on branch `ms3-documenter-subtask-6-20260604`)
+
+## Full Modified-File Review Surface
+
+Implementer files:
+- `apps/api/src/navigation/entities/navigation-item.entity.ts` — added `"admin"` to `navigationVisibilities`
+- `apps/api/src/navigation/navigation.controller.ts` — session enforcement on authenticated endpoint; removed NotFoundException import
+- `apps/api/src/navigation/navigation.module.ts` — registered BlogPostEntity and StandalonePageEntity repositories
+- `apps/api/src/navigation/navigation.service.ts` — publication-aware findPublic(), admin-visibility filtering in findForAuthenticatedUser(), private helpers
+
+Tester files:
+- `apps/api/src/navigation/navigation.service.test.ts`
+- `apps/api/src/navigation/navigation.controller.test.ts`
+- `apps/web/components/navigation.spec.ts`
+
+Documenter files:
+- `docs/README.md` — updated subtask-6 section: admin visibility, authenticated endpoint authz, publication filtering, NavDropdown, NavItemLink
+
+## Test Outcomes
+
+406 tests pass (249 API, 157 web), 0 failures. Lint clean.
+
+## Documentation Commit Hash
+
+50157501f01f5a2fa345599e0972cc76ef83234e
+
+## Shared Artifact Directory
+
+`artifacts/ms3-completion-and-copilot-port/subtask-6/` (repository-root-relative)
+
+## Plan Source
+
+`plans/ms3-completion-and-copilot-port-plan.md` — Subtask 6 section (lines ~167-227).
+
+## Instructions
+
+- If blocking inputs are present, continue in the same run rather than stopping after activation.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Verify implementation, tests, and updated documentation together.
+- Confirm that the documentation commit hash in documenter_result.json (`50157501f01f5a2fa345599e0972cc76ef83234e`) matches the actual documentation commit on this branch.
+- Do not report success unless all required artifacts exist and all changes are committed.
