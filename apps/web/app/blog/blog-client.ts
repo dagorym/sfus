@@ -12,9 +12,10 @@ export interface BlogPostSummary {
   id: string;
   title: string;
   slug: string;
+  summary: string | null;
   status: string;
+  isFeatured: boolean;
   publishedAt: string | null;
-  scheduledAt: string | null;
   featuredImageId: string | null;
   tags: string[];
   createdAt: string;
@@ -30,7 +31,9 @@ export interface CreateBlogPostInput {
   title: string;
   slug: string;
   body: string;
+  summary?: string | null;
   featuredImageId?: string | null;
+  isFeatured?: boolean;
   tags?: string[];
 }
 
@@ -38,7 +41,9 @@ export interface UpdateBlogPostInput {
   title?: string;
   slug?: string;
   body?: string;
+  summary?: string | null;
   featuredImageId?: string | null;
+  isFeatured?: boolean;
   tags?: string[];
 }
 
@@ -157,16 +162,29 @@ export async function adminUnpublishPost(id: string): Promise<BlogPostDetail> {
   return data.post;
 }
 
-export async function adminSchedulePost(id: string, scheduledAt: string): Promise<BlogPostDetail> {
-  const response = await fetch(`${apiBase}/blog/admin/posts/${encodeURIComponent(id)}/schedule`, {
+export async function adminPublishAt(id: string, publishedAt: string): Promise<BlogPostDetail> {
+  const response = await fetch(`${apiBase}/blog/admin/posts/${encodeURIComponent(id)}/publish-at`, {
     method: "POST",
     credentials: "include",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ scheduledAt })
+    body: JSON.stringify({ publishedAt })
   });
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { message?: string } | null;
     throw new Error(payload?.message || "Failed to schedule blog post.");
+  }
+  const data = (await response.json()) as { post: BlogPostDetail };
+  return data.post;
+}
+
+export async function adminToggleFeatured(id: string): Promise<BlogPostDetail> {
+  const response = await fetch(`${apiBase}/blog/admin/posts/${encodeURIComponent(id)}/toggle-featured`, {
+    method: "POST",
+    credentials: "include"
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message || "Failed to toggle featured state.");
   }
   const data = (await response.json()) as { post: BlogPostDetail };
   return data.post;

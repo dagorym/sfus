@@ -32,6 +32,7 @@ const makeBlogService = (): BlogService => {
     createMinimalRepository() as never,
     createMinimalRepository() as never,
     createMinimalRepository() as never,
+    createMinimalRepository() as never,
     authorizationService
   );
 };
@@ -91,6 +92,7 @@ describe("BlogService publish-state transitions", () => {
       postRepo as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     const result = await service.publish("post-1");
@@ -98,7 +100,7 @@ describe("BlogService publish-state transitions", () => {
     expect(result.publishedAt).not.toBeNull();
   });
 
-  it("unpublish() sets status to unpublished", async () => {
+  it("unpublish() sets status to draft and clears publishedAt", async () => {
     const post = {
       id: "post-1",
       status: "published",
@@ -108,17 +110,19 @@ describe("BlogService publish-state transitions", () => {
     const authorizationService = new AuthorizationService();
     const postRepo = {
       ...createMinimalRepository(),
-      findOne: vi.fn().mockResolvedValueOnce(post).mockResolvedValueOnce({ ...post, status: "unpublished", postTags: [] }),
+      findOne: vi.fn().mockResolvedValueOnce(post).mockResolvedValueOnce({ ...post, status: "draft", publishedAt: null, postTags: [] }),
       save: vi.fn().mockResolvedValue(post)
     };
     const service = new BlogService(
       postRepo as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     const result = await service.unpublish("post-1");
-    expect(result.status).toBe("unpublished");
+    expect(result.status).toBe("draft");
+    expect(result.publishedAt).toBeNull();
   });
 
   it("publish() throws NotFoundException for unknown post id", async () => {
@@ -156,7 +160,7 @@ describe("BlogService publish-state transitions", () => {
     await expect(service.update("nonexistent", { title: "New Title" })).rejects.toThrow(NotFoundException);
   });
 
-  it("findPublished() only queries for status=published (public-route filtering)", async () => {
+  it("findPublished() only queries for status=published with publishedAt<=now (public-route filtering)", async () => {
     const authorizationService = new AuthorizationService();
     const findSpy = vi.fn().mockResolvedValue([]);
     const postRepo = {
@@ -167,6 +171,7 @@ describe("BlogService publish-state transitions", () => {
       postRepo as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     await service.findPublished();
@@ -175,7 +180,7 @@ describe("BlogService publish-state transitions", () => {
     }));
   });
 
-  it("findPublishedBySlug() only queries for status=published (public-route filtering)", async () => {
+  it("findPublishedBySlug() only queries for status=published with publishedAt<=now (public-route filtering)", async () => {
     const authorizationService = new AuthorizationService();
     const findOneSpy = vi.fn().mockResolvedValue(null);
     const postRepo = {
@@ -184,6 +189,7 @@ describe("BlogService publish-state transitions", () => {
     };
     const service = new BlogService(
       postRepo as never,
+      createMinimalRepository() as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       authorizationService
@@ -229,6 +235,7 @@ describe("BlogService.createComment", () => {
   const publishedPost = {
     id: "post-published",
     status: "published",
+    publishedAt: new Date(Date.now() - 1000), // published 1 second ago
     title: "Test Post",
     slug: "test-post",
     body: "body",
@@ -270,6 +277,7 @@ describe("BlogService.createComment", () => {
       postRepo as never,
       createMinimalRepository() as never,
       commentRepo as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     const result = await service.createComment(publishedPost.id, "user-1", { body: "Great post!" });
@@ -285,6 +293,7 @@ describe("BlogService.createComment", () => {
     };
     const service = new BlogService(
       postRepo as never,
+      createMinimalRepository() as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       authorizationService
@@ -311,6 +320,7 @@ describe("BlogService.createComment", () => {
       postRepo as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     await expect(
@@ -326,6 +336,7 @@ describe("BlogService.createComment", () => {
     };
     const service = new BlogService(
       postRepo as never,
+      createMinimalRepository() as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       authorizationService
@@ -346,6 +357,7 @@ describe("BlogService.createComment", () => {
       postRepo as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     await expect(
@@ -364,6 +376,7 @@ describe("BlogService.createComment", () => {
       postRepo as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     await expect(
@@ -376,6 +389,7 @@ describe("BlogService.createComment", () => {
     const unpublishedPost = {
       id: "post-unpublished",
       status: "unpublished",
+      publishedAt: null,
       title: "Unpublished Post",
       slug: "unpublished-post",
       body: "body",
@@ -388,6 +402,7 @@ describe("BlogService.createComment", () => {
     };
     const service = new BlogService(
       postRepo as never,
+      createMinimalRepository() as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       authorizationService
@@ -427,6 +442,7 @@ describe("BlogService.moderateComment", () => {
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       commentRepo as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     const result = await service.moderateComment("comment-1", "hidden", "mod-1");
@@ -457,6 +473,7 @@ describe("BlogService.deleteComment", () => {
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       commentRepo as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     await expect(service.deleteComment("comment-1")).resolves.toBeUndefined();
@@ -485,6 +502,7 @@ describe("BlogService.findVisibleComments", () => {
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       commentRepo as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     await service.findVisibleComments("post-1");

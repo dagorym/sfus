@@ -157,6 +157,36 @@ export class BlogController {
     return { post: toDetail(post) };
   }
 
+  @Post("admin/posts/:id/publish-at")
+  @ApiOperation({ summary: "Schedule a blog post for future publication (admin)." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Admin role required." })
+  @ApiNotFoundResponse({ description: "Post not found." })
+  @ApiBadRequestResponse({ description: "Invalid or missing publishedAt datetime." })
+  async adminPublishAt(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Body() body: unknown
+  ): Promise<{ post: BlogPostDetail }> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    this.blogService.assertAdminManagementAccess(session.user.globalRole);
+    const publishedAt = parsePublishAtInput(body);
+    const post = await this.blogService.publishAt(id, publishedAt);
+    return { post: toDetail(post) };
+  }
+
+  @Post("admin/posts/:id/toggle-featured")
+  @ApiOperation({ summary: "Toggle pin/featured state of a blog post (admin)." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Admin role required." })
+  @ApiNotFoundResponse({ description: "Post not found." })
+  async adminToggleFeatured(@Req() request: Request, @Param("id") id: string): Promise<{ post: BlogPostDetail }> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    this.blogService.assertAdminManagementAccess(session.user.globalRole);
+    const post = await this.blogService.toggleFeatured(id);
+    return { post: toDetail(post) };
+  }
+
   @Delete("admin/posts/:id")
   @ApiOperation({ summary: "Delete a blog post (admin)." })
   @ApiUnauthorizedResponse({ description: "No active session." })
@@ -299,7 +329,9 @@ interface BlogPostSummary {
   id: string;
   title: string;
   slug: string;
+  summary: string | null;
   status: string;
+  isFeatured: boolean;
   publishedAt: string | null;
   featuredImageId: string | null;
   tags: string[];
@@ -317,7 +349,9 @@ function toSummary(post: BlogPostEntity): BlogPostSummary {
     id: post.id,
     title: post.title,
     slug: post.slug,
+    summary: post.summary ?? null,
     status: post.status,
+    isFeatured: post.isFeatured ?? false,
     publishedAt: post.publishedAt ? post.publishedAt.toISOString() : null,
     featuredImageId: post.featuredImageId,
     tags: post.postTags ? post.postTags.map((t) => t.tag) : [],
@@ -356,7 +390,9 @@ function parseCreateInput(body: unknown): CreateBlogPostInput {
     title: b.title,
     slug: b.slug,
     body: b.body,
+    summary: typeof b.summary === "string" ? b.summary : null,
     featuredImageId: typeof b.featuredImageId === "string" ? b.featuredImageId : null,
+    isFeatured: b.isFeatured === true,
     tags: Array.isArray(b.tags) ? (b.tags as unknown[]).filter((t): t is string => typeof t === "string") : []
   };
 }
@@ -379,14 +415,35 @@ function parseUpdateInput(body: unknown): UpdateBlogPostInput {
     if (typeof b.body !== "string") throw new BadRequestException("body must be a string.");
     input.body = b.body;
   }
+  if (b.summary !== undefined) {
+    input.summary = typeof b.summary === "string" ? b.summary : null;
+  }
   if (b.featuredImageId !== undefined) {
     input.featuredImageId = typeof b.featuredImageId === "string" ? b.featuredImageId : null;
+  }
+  if (b.isFeatured !== undefined) {
+    input.isFeatured = b.isFeatured === true;
   }
   if (b.tags !== undefined) {
     if (!Array.isArray(b.tags)) throw new BadRequestException("tags must be an array.");
     input.tags = (b.tags as unknown[]).filter((t): t is string => typeof t === "string");
   }
   return input;
+}
+
+function parsePublishAtInput(body: unknown): Date {
+  if (!body || typeof body !== "object") {
+    throw new BadRequestException("Request body must be a JSON object with a publishedAt field.");
+  }
+  const b = body as Record<string, unknown>;
+  if (typeof b.publishedAt !== "string" || !b.publishedAt) {
+    throw new BadRequestException("publishedAt must be an ISO 8601 datetime string.");
+  }
+  const d = new Date(b.publishedAt);
+  if (isNaN(d.getTime())) {
+    throw new BadRequestException("publishedAt must be a valid ISO 8601 datetime string.");
+  }
+  return d;
 }
 
 // ---------------------------------------------------------------------------

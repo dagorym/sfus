@@ -144,7 +144,19 @@ export default function BlogPostPage() {
   return (
     <article className={styles.panel}>
       <p className={styles.eyebrow}>Star Log</p>
+      {post.featuredImageId ? (
+        <img
+          src={`/api/media/${post.featuredImageId}`}
+          alt={post.title}
+          style={{ width: "100%", maxHeight: "360px", objectFit: "cover", borderRadius: "8px", marginBottom: "1rem" }}
+        />
+      ) : null}
       <h2 className={styles.title}>{post.title}</h2>
+      {post.summary ? (
+        <p style={{ fontSize: "1rem", color: "var(--color-text-muted)", marginBottom: "0.5rem" }}>
+          {post.summary}
+        </p>
+      ) : null}
       <div style={{ color: "var(--color-text-muted)", fontSize: "0.85rem", marginBottom: "0.5rem" }}>
         {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : ""}
         {post.tags.length > 0 ? (

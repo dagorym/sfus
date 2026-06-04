@@ -67,12 +67,25 @@ export default function BlogListPage() {
       <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "1.5rem" }}>
         {posts.map((post) => (
           <li key={post.id} style={{ borderBottom: "1px solid var(--color-border)", paddingBottom: "1.25rem" }}>
+            {post.featuredImageId ? (
+              <img
+                src={`/api/media/${post.featuredImageId}`}
+                alt={post.title}
+                style={{ width: "100%", maxHeight: "200px", objectFit: "cover", borderRadius: "6px", marginBottom: "0.75rem" }}
+              />
+            ) : null}
             <Link
               href={`/blog/${encodeURIComponent(post.slug)}`}
               style={{ fontWeight: 700, fontSize: "1.2rem", color: "var(--color-text)" }}
             >
+              {post.isFeatured ? <span title="Featured" style={{ marginRight: "0.35rem", color: "var(--color-accent)" }}>★</span> : null}
               {post.title}
             </Link>
+            {post.summary ? (
+              <p style={{ margin: "0.4rem 0 0", fontSize: "0.95rem", color: "var(--color-text-muted)" }}>
+                {post.summary}
+              </p>
+            ) : null}
             <div style={{ marginTop: "0.4rem", color: "var(--color-text-muted)", fontSize: "0.85rem" }}>
               {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : ""}
               {post.tags.length > 0 ? (

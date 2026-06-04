@@ -10,6 +10,7 @@ import {
   adminPublishPost,
   adminUnpublishPost,
   adminDeletePost,
+  adminToggleFeatured,
   type BlogPostDetail
 } from "../../../app/blog/blog-client";
 import styles from "../../auth-shell.module.css";
@@ -63,6 +64,16 @@ export default function AdminBlogListPage() {
       setPosts((prev) => prev ? prev.map((p) => (p.id === id ? updated : p)) : prev);
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "Unpublish failed.");
+    }
+  };
+
+  const handleToggleFeatured = async (id: string) => {
+    setActionError(null);
+    try {
+      const updated = await adminToggleFeatured(id);
+      setPosts((prev) => prev ? prev.map((p) => (p.id === id ? updated : p)) : prev);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Toggle featured failed.");
     }
   };
 
@@ -123,44 +134,64 @@ export default function AdminBlogListPage() {
             </tr>
           </thead>
           <tbody>
-            {posts.map((post) => (
-              <tr key={post.id} style={{ borderBottom: "1px solid var(--color-border)" }}>
-                <td style={{ padding: "0.5rem" }}>{post.title}</td>
-                <td style={{ padding: "0.5rem" }}>{post.status}</td>
-                <td style={{ padding: "0.5rem" }}>
-                  {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : "—"}
-                </td>
-                <td style={{ padding: "0.5rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                  <Link href={`/admin/blog/${post.id}/edit`} style={{ color: "var(--color-accent)" }}>
-                    Edit
-                  </Link>
-                  {post.status !== "published" ? (
+            {posts.map((post) => {
+              const isScheduled =
+                post.status === "published" &&
+                post.publishedAt !== null &&
+                new Date(post.publishedAt) > new Date();
+              const statusLabel = isScheduled
+                ? `scheduled / goes live at ${new Date(post.publishedAt!).toLocaleString()}`
+                : post.status;
+              return (
+                <tr key={post.id} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                  <td style={{ padding: "0.5rem" }}>
+                    {post.isFeatured ? <span title="Pinned/Featured" style={{ marginRight: "0.35rem" }}>★</span> : null}
+                    {post.title}
+                  </td>
+                  <td style={{ padding: "0.5rem" }}>{statusLabel}</td>
+                  <td style={{ padding: "0.5rem" }}>
+                    {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : "—"}
+                  </td>
+                  <td style={{ padding: "0.5rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <Link href={`/admin/blog/${post.id}/edit`} style={{ color: "var(--color-accent)" }}>
+                      Edit
+                    </Link>
+                    {post.status !== "published" ? (
+                      <button
+                        type="button"
+                        onClick={() => void handlePublish(post.id)}
+                        style={{ cursor: "pointer", color: "var(--color-accent)", background: "none", border: "none" }}
+                      >
+                        Publish
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void handleUnpublish(post.id)}
+                        style={{ cursor: "pointer", color: "var(--color-text-muted)", background: "none", border: "none" }}
+                      >
+                        Unpublish
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => void handlePublish(post.id)}
-                      style={{ cursor: "pointer", color: "var(--color-accent)", background: "none", border: "none" }}
+                      onClick={() => void handleToggleFeatured(post.id)}
+                      style={{ cursor: "pointer", color: post.isFeatured ? "var(--color-accent)" : "var(--color-text-muted)", background: "none", border: "none" }}
+                      title={post.isFeatured ? "Unpin post" : "Pin/feature post"}
                     >
-                      Publish
+                      {post.isFeatured ? "Unpin" : "Pin"}
                     </button>
-                  ) : (
                     <button
                       type="button"
-                      onClick={() => void handleUnpublish(post.id)}
-                      style={{ cursor: "pointer", color: "var(--color-text-muted)", background: "none", border: "none" }}
+                      onClick={() => void handleDelete(post.id)}
+                      style={{ cursor: "pointer", color: "#ffb4b4", background: "none", border: "none" }}
                     >
-                      Unpublish
+                      Delete
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => void handleDelete(post.id)}
-                    style={{ cursor: "pointer", color: "#ffb4b4", background: "none", border: "none" }}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
