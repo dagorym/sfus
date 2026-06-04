@@ -1,0 +1,67 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- MS3 subtask-6 navigation: dropdown child rendering (keyboard-accessible with aria-haspopup/aria-expanded/Escape/blur), external-link handling (target=_blank rel=noopener noreferrer), publication-aware filtering in findPublic (blog post published+publishedAt<=now, standalone page published), authenticated endpoint (listAuthenticated) with session enforcement via authService.resolveSession (throws 401 on invalid/missing session), admin-visibility exclusion for non-admins in findForAuthenticatedUser, and admin visibility level added to navigationVisibilities enum.
+
+Acceptance criteria validated:
+- AC1: Shell renders one level of dropdown children, keyboard-accessible (aria-haspopup, aria-expanded, Escape/blur to close); external links render with target=_blank rel=noopener noreferrer
+- AC2: Public nav API filters children by isActive/visibility=public and omits entries whose linked /blog/slug or /pages/slug target is not publicly visible
+- AC3: Authenticated nav endpoint requires valid session (throws 401 on invalid/missing); admin-visibility items excluded for non-admins; children visibility-filtered
+- AC4: On nav API error/empty/invalid response, shell falls back to no content links ([]) — safe [] fallback preserved; no hardcoded routes
+- AC5: NotFoundException not imported in navigation.controller.ts; lint passes
+
+Implementation branch or worktree context:
+- Tester branch: ms3-tester-subtask-6-20260604 (worktree branched from ms3-claude-implementer-subtask-6-20260604 at 133564e)
+- Base branch for diff: ms3-claude
+- Worktree path: /home/tstephen/repos/worktrees/ms3-tester-subtask-6-20260604
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/navigation/entities/navigation-item.entity.ts (admin added to navigationVisibilities)
+- apps/api/src/navigation/navigation.service.ts (findPublic publication-aware, findForAuthenticatedUser added)
+- apps/api/src/navigation/navigation.controller.ts (listAuthenticated added; NotFoundException not imported)
+- apps/api/src/navigation/navigation.module.ts (BlogPostRepository and StandalonePageRepository injected)
+- apps/web/components/navigation.tsx (NavDropdown, NavItemLink, fetchNavItems with safe fallback)
+- apps/api/src/navigation/navigation.service.test.ts (13 new tests for findPublic and findForAuthenticatedUser)
+- apps/api/src/navigation/navigation.controller.test.ts (new: 9 tests for session enforcement and AC5)
+- apps/web/components/navigation.spec.ts (new: 13 tests for dropdown/external-link/fallback)
+
+Test commit:
+- ae23624db9f9b415d6c3d335bcf6351547ef2182
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-tester-subtask-6-20260604 --filter @sfus/api exec vitest run src/navigation/navigation.service.test.ts
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-tester-subtask-6-20260604 --filter @sfus/api exec vitest run src/navigation/navigation.controller.test.ts
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-tester-subtask-6-20260604 --filter @sfus/web exec vitest run components/navigation.spec.ts
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-tester-subtask-6-20260604 test
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-tester-subtask-6-20260604 lint
+
+Final test outcomes:
+- 406 tests pass (249 API, 157 web), 0 failures, lint clean (0 warnings)
+- AC1 PASS: 13 navigation.spec.ts tests confirm aria-haspopup, aria-expanded, Escape key handler, onBlur/containerRef close, role=menu, item.children.map, target=_blank, rel=noopener noreferrer, linkType=external branch, Next.js Link for internal
+- AC2 PASS: 8 new navigation.service.test.ts tests confirm findPublic filters blog post by published+publishedAt<=now, page by published, external links and static routes always pass, inactive children excluded, non-public children excluded
+- AC3 PASS: 5 new navigation.service.test.ts tests confirm findForAuthenticatedUser admin-visibility exclusion; 9 navigation.controller.test.ts tests confirm resolveSession called before routes, UnauthorizedException propagated, assertAdminManagementAccess on admin routes
+- AC4 PASS: 4 navigation.spec.ts tests confirm catch-block [], !response.ok [], data.items??[], no publicNavigation array
+- AC5 PASS: Source scan confirms NotFoundException absent from all @nestjs/common imports in controller; lint 0 warnings
+
+Documentation context:
+- navigation-item.entity.ts: navigationVisibilities now exports ['public','authenticated','admin'] — document the new 'admin' visibility level
+- navigation.service.ts: findPublic() now performs publication-status checks for /blog/<slug> and /pages/<slug> links; document the isLinkedTargetPubliclyVisible logic. findForAuthenticatedUser() is a new method — document it
+- navigation.controller.ts: New GET /navigation/items/authenticated endpoint — document session requirement and admin-visibility exclusion behavior; NotFoundException is intentionally absent
+- navigation.tsx: NavDropdown component and keyboard accessibility behavior documented; NavItemLink internal/external branching; fetchNavItems safe [] fallback preserved from ms3-claude
+- Likely documentation targets: docs/README.md (API contract for new /navigation/items/authenticated endpoint), plans/ms3-completion-and-copilot-port-plan.md context
+
+Plan and diff context:
+- Plan: plans/ms3-completion-and-copilot-port-plan.md
+- Base branch: ms3-claude (assumption from worktree branch lineage)
+- Subtask-6 of the ms3-completion-and-copilot-port plan
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-completion-and-copilot-port/subtask-6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

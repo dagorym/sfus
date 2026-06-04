@@ -1,0 +1,31 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms3-completion-and-copilot-port/subtask-6/tester_report.md",
+    "artifacts/ms3-completion-and-copilot-port/subtask-6/tester_result.json",
+    "artifacts/ms3-completion-and-copilot-port/subtask-6/documenter_prompt.txt"
+  ],
+  "branch_name": "ms3-tester-subtask-6-20260604",
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-tester-subtask-6-20260604 --filter @sfus/api exec vitest run src/navigation/navigation.service.test.ts",
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-tester-subtask-6-20260604 --filter @sfus/api exec vitest run src/navigation/navigation.controller.test.ts",
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-tester-subtask-6-20260604 --filter @sfus/web exec vitest run components/navigation.spec.ts",
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-tester-subtask-6-20260604 test",
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-tester-subtask-6-20260604 lint"
+  ],
+  "pass_fail_totals": {
+    "failed": "0",
+    "passed": "406 (249 API, 157 web)",
+    "pre_existing_excluded": "media.controller.test.ts multer error was noted as pre-existing but resolved as passing (7 tests passed)",
+    "total": "406"
+  },
+  "pass_label": null,
+  "status": "pass",
+  "task_id": null,
+  "test_commit_hash": "ae23624db9f9b415d6c3d335bcf6351547ef2182",
+  "test_files_changed": [
+    "apps/api/src/navigation/navigation.service.test.ts",
+    "apps/api/src/navigation/navigation.controller.test.ts",
+    "apps/web/components/navigation.spec.ts"
+  ],
+  "unmet_acceptance_criteria": []
+}
