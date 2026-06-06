@@ -320,7 +320,7 @@ Milestone 3 Subtask 5 adds versioned standalone page management with full admin 
 
 - `GET /api/pages/admin/pages` — lists all pages regardless of status as `{ pages: PageDetail[] }`.
 - `GET /api/pages/admin/pages/:id` — fetches a single page by UUID.
-- `POST /api/pages/admin/pages` — creates a new page in `draft` status. Body: `{ title, slug, body, summary?, changeNote?, featuredMediaId? }`. The `body` is validated and normalized with the shared Markdown sanitizer before persistence; unsafe bodies are rejected with `400`. A `summary` and `changeNote` are recorded on revision 1 when supplied. `featuredMediaId` links an uploaded media reference to the initial revision.
+- `POST /api/pages/admin/pages` — creates a new page in `draft` status. Body: `{ title, slug, body, summary?, changeNote?, featuredMediaId? }`. The `body` is validated and normalized with the shared Markdown sanitizer before persistence; unsafe bodies are rejected with `400`. A `summary` and `changeNote` are recorded on revision 1 when supplied. `featuredMediaId` links an uploaded media reference to the initial revision. The entire three-step write sequence (insert `standalone_pages` → insert `page_revisions` → update `currentRevisionId`) runs inside a single database transaction; a failure at any step rolls back all writes so no orphaned page row or revision row can remain and the slug is immediately reusable on retry.
 - `PATCH /api/pages/admin/pages/:id` — updates page fields and creates a new revision. All fields optional; only supplied fields change. Body sanitization applies when `body` is present; when `body` is omitted the existing revision body is preserved without re-sanitization. `summary`, `changeNote`, and `featuredMediaId` on the update input are recorded on the new revision.
 - `POST /api/pages/admin/pages/:id/publish` — transitions a page to `published` status and records the current UTC timestamp in `publishedAt`.
 - `POST /api/pages/admin/pages/:id/unpublish` — transitions a page to `unpublished` status.
@@ -335,7 +335,7 @@ All admin routes return `401` when no session is present and `403` when the sess
 
 #### Revision History Contract
 
-- Every `create` call records revision 1 with the initial title, body, summary, changeNote, and featuredMediaId.
+- Every `create` call records revision 1 with the initial title, body, summary, changeNote, and featuredMediaId. The three-step write sequence runs in a single database transaction; a mid-create failure rolls back all writes atomically (no orphaned page or revision row, slug immediately reusable).
 - Every `update` call appends a new revision; the revision number is monotonically incremented from the current highest revision on that page. `currentRevisionId` is updated to the new revision after each save. The `editorUserId` field on the new revision is set to the acting user's id.
 - Every `restore` call appends a new revision copying the source revision's title, body, summary, and featuredMediaId, sets `changeNote` to `"Restored from revision <N>"`, sets `editorUserId` to the acting user's id, and updates `currentRevisionId` to the new revision.
 - Revision history is an admin-only surface; guests cannot access the revisions endpoint.
