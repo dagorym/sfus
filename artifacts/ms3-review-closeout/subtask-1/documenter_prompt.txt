@@ -1,0 +1,55 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Replace three stale Milestone 2 strings in apps/web/app/layout.tsx with approved Milestone 3 copy (metadata description, header eyebrow, footer second line). Tester updated public-shell.spec.ts assertions and added login-client source-contract assertions for status-code branching and error messages, closing reviewer NOTE 2.
+
+Acceptance criteria validated:
+- apps/web/app/layout.tsx contains no 'Milestone 2' text; the three new strings match the approved copy exactly.
+- No other shell behavior (navigation, layout structure, routes) changes.
+- The web app builds, lints, and typechecks clean.
+
+Implementation branch or worktree context:
+- Implementer branch/worktree: ms3-claude-subtask-1-tester-20260606 (branched from ms3-claude).
+- Implementer modified apps/web/app/layout.tsx with 3 minimal string replacements.
+- Tester modified apps/web/app/public-shell.spec.ts to update assertions and add login-client source contracts.
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/layout.tsx
+- apps/web/app/public-shell.spec.ts
+
+Test commit:
+- f3af555
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/web run lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web run test
+
+Final test outcomes:
+- AC1 PASS: layout.tsx contains no 'Milestone 2' text; all three MS3 strings present and verified.
+- AC2 PASS: No other shell behavior changed; navigation, layout structure, and routes unchanged.
+- AC3 PASS: Web app lint clean (0 warnings), typecheck clean (apps/api and apps/web), 172/172 tests pass across 7 files.
+- NOTE 2 CLOSED: login-client source-contract assertions added for response.status >= 500 branching, service-unavailable message, and invalid-credentials message.
+
+Documentation context:
+- docs/README.md or docs/website-launch-guide.md may reference the old MS2 shell copy strings ('Milestone 2 Auth Foundation', 'Built for the Milestone 2 auth launch baseline.'). Check and update to MS3 equivalents.
+- Approved MS3 metadata description: 'Blog, standalone pages, and site navigation for the Star Frontiers US Milestone 3 content platform.'
+- Approved MS3 header eyebrow: 'Milestone 3 Content Platform'.
+- Approved MS3 footer second line: 'Built for the Milestone 3 content launch baseline.'
+
+Plan and diff context:
+- Plan: plans/ms3-review-closeout-plan.md, subtask 1 (shell copy refresh).
+- Base branch for diff: ms3-claude.
+- Comparison assumption: diff HEAD against ms3-claude to see both implementer and tester changes.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
