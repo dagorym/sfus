@@ -426,7 +426,7 @@ Navigation supports exactly one level of nesting. A child item's `parentId` must
 
 #### `navigation_items` Table Schema
 
-Migration `1748736000001-navigation-items.ts` adds the `navigation_items` table:
+Migration `1748736000000-milestone-three-content-foundation.ts` adds the `navigation_items` table:
 
 | Column | Type | Notes |
 |---|---|---|

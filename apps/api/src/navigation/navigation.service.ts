@@ -6,6 +6,7 @@ import { IsNull, LessThanOrEqual, Repository } from "typeorm";
 
 import { AuthorizationService } from "../authorization/authorization.service";
 import { BlogPostEntity } from "../blog/entities/blog-post.entity";
+import { RESERVED_PAGE_SLUGS } from "../pages/pages.service";
 import { StandalonePageEntity } from "../pages/entities/standalone-page.entity";
 import { NavigationItemEntity, NavigationLinkType, NavigationVisibility, navigationLinkTypes, navigationVisibilities } from "./entities/navigation-item.entity";
 
@@ -67,6 +68,8 @@ export class NavigationService {
    * Children are filtered to only include active items with visibility "public".
    * Any top-level item whose linked internal blog post or standalone page target
    * is not publicly visible is omitted — preventing leakage of unpublished content.
+   * This includes items using the canonical top-level /<slug> route in addition
+   * to the explicit /blog/<slug> and /pages/<slug> routes.
    *
    * This method is safe for public/guest access. Callers for authenticated
    * users should use findForAuthenticatedUser() instead.
@@ -283,7 +286,8 @@ export class NavigationService {
   /**
    * Filters a list of navigation items by checking whether each item's linked
    * internal blog post or standalone page target is publicly visible.
-   * Items with linkType "external" or with non-blog/page URLs are kept as-is.
+   * Items with linkType "external" or with static-route URLs are kept as-is.
+   * See isLinkedTargetPubliclyVisible for the full resolution rules.
    */
   private async filterByLinkedTargetVisibility(items: NavigationItemEntity[]): Promise<NavigationItemEntity[]> {
     const result: NavigationItemEntity[] = [];
@@ -300,7 +304,11 @@ export class NavigationService {
    * External links always pass. Internal links are checked against the
    * blog post and standalone page tables:
    *   - /blog/<slug> → must be status=published AND publishedAt<=now
-   *   - /pages/<slug> or /<slug> (standalone page) → must be status=published
+   *   - /pages/<slug> → must be status=published
+   *   - /<slug> (single-segment, non-reserved path) → resolved against
+   *     standalone_pages; must be status=published. Slugs in the
+   *     RESERVED_PAGE_SLUGS denylist are treated as static routes and
+   *     are always shown.
    * Internal links to any other path (static routes) are kept as-is (return true).
    */
   private async isLinkedTargetPubliclyVisible(item: NavigationItemEntity): Promise<boolean> {
@@ -321,6 +329,20 @@ export class NavigationService {
     const pagesMatch = /^\/pages\/([^/]+)\/?$/.exec(item.url);
     if (pagesMatch) {
       const slug = pagesMatch[1];
+      const page = await this.standalonePageRepository.findOne({
+        where: { slug, status: "published" }
+      });
+      return page !== null;
+    }
+    // Match /<slug> — single-segment, non-reserved top-level path
+    const topLevelMatch = /^\/([^/]+)\/?$/.exec(item.url);
+    if (topLevelMatch) {
+      const slug = topLevelMatch[1];
+      // Reserved slugs are static routes; always visible
+      if (RESERVED_PAGE_SLUGS.has(slug)) {
+        return true;
+      }
+      // Non-reserved single-segment paths resolve against standalone_pages
       const page = await this.standalonePageRepository.findOne({
         where: { slug, status: "published" }
       });
