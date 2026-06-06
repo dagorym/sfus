@@ -94,8 +94,8 @@ export async function adminListAllPosts(): Promise<BlogPostDetail[]> {
     cache: "no-store"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to load blog posts.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to load blog posts.");
   }
   const data = (await response.json()) as { posts: BlogPostDetail[] };
   return data.posts;
@@ -107,8 +107,8 @@ export async function adminGetPost(id: string): Promise<BlogPostDetail> {
     cache: "no-store"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to load blog post.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to load blog post.");
   }
   const data = (await response.json()) as { post: BlogPostDetail };
   return data.post;
@@ -137,8 +137,8 @@ export async function adminUpdatePost(id: string, input: UpdateBlogPostInput): P
     body: JSON.stringify(input)
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to update blog post.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to update blog post.");
   }
   const data = (await response.json()) as { post: BlogPostDetail };
   return data.post;
@@ -150,8 +150,8 @@ export async function adminPublishPost(id: string): Promise<BlogPostDetail> {
     credentials: "include"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to publish blog post.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to publish blog post.");
   }
   const data = (await response.json()) as { post: BlogPostDetail };
   return data.post;
@@ -163,8 +163,8 @@ export async function adminUnpublishPost(id: string): Promise<BlogPostDetail> {
     credentials: "include"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to unpublish blog post.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to unpublish blog post.");
   }
   const data = (await response.json()) as { post: BlogPostDetail };
   return data.post;
@@ -178,8 +178,8 @@ export async function adminPublishAt(id: string, publishedAt: string): Promise<B
     body: JSON.stringify({ publishedAt })
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to schedule blog post.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to schedule blog post.");
   }
   const data = (await response.json()) as { post: BlogPostDetail };
   return data.post;
@@ -191,8 +191,8 @@ export async function adminToggleFeatured(id: string): Promise<BlogPostDetail> {
     credentials: "include"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to toggle featured state.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to toggle featured state.");
   }
   const data = (await response.json()) as { post: BlogPostDetail };
   return data.post;
@@ -204,8 +204,8 @@ export async function adminDeletePost(id: string): Promise<void> {
     credentials: "include"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to delete blog post.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to delete blog post.");
   }
 }
 
@@ -240,8 +240,8 @@ export async function listComments(postId: string): Promise<{ comments: BlogComm
     cache: "no-store"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to load comments.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to load comments.");
   }
   const data = (await response.json()) as { comments: BlogCommentDetail[]; commentsLocked: boolean };
   return { comments: data.comments, commentsLocked: data.commentsLocked ?? false };
@@ -264,8 +264,8 @@ export async function createComment(
     body: JSON.stringify({ body, imageId: imageId ?? null, parentId: parentId ?? null })
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to create comment.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to create comment.");
   }
   const data = (await response.json()) as { comment: BlogCommentDetail };
   return data.comment;
@@ -277,8 +277,8 @@ export async function adminLockComments(postId: string): Promise<BlogPostDetail>
     credentials: "include"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to lock comments.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to lock comments.");
   }
   const data = (await response.json()) as { post: BlogPostDetail };
   return data.post;
@@ -290,8 +290,8 @@ export async function adminUnlockComments(postId: string): Promise<BlogPostDetai
     credentials: "include"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to unlock comments.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to unlock comments.");
   }
   const data = (await response.json()) as { post: BlogPostDetail };
   return data.post;
@@ -307,8 +307,8 @@ export async function moderationListComments(postId: string): Promise<BlogCommen
     cache: "no-store"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to load comments for moderation.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to load comments for moderation.");
   }
   const data = (await response.json()) as { comments: BlogCommentDetail[] };
   return data.comments;
@@ -328,8 +328,8 @@ export async function moderateCommentStatus(
     }
   );
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to update comment status.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to update comment status.");
   }
   const data = (await response.json()) as { comment: BlogCommentDetail };
   return data.comment;
@@ -344,7 +344,7 @@ export async function deleteComment(commentId: string): Promise<void> {
     }
   );
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to delete comment.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to delete comment.");
   }
 }
