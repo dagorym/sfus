@@ -51,8 +51,8 @@ export default function HomePage() {
         ))}
       </section>
 
-      <section className={styles.whatsNew} aria-label="What's new in Milestone 3">
-        <h2 className={styles.sectionHeading}>What's new in Milestone 3</h2>
+      <section className={styles.whatsNew} aria-label="What&apos;s new in Milestone 3">
+        <h2 className={styles.sectionHeading}>What&apos;s new in Milestone 3</h2>
         <div className={styles.whatsNewGrid}>
           <div className={styles.feedColumn}>
             <h3 className={styles.columnHeading}>Recent posts</h3>
