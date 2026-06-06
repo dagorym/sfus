@@ -153,6 +153,14 @@ export class BlogService {
 
   /**
    * Creates a new blog post in draft status.
+   *
+   * Slug resolution: when `input.slug` is non-empty the provided value is
+   * validated against the slug format (`^[a-z0-9]+(?:-[a-z0-9]+)*$`) and used
+   * unchanged. When `input.slug` is absent or blank, a URL-safe slug is derived
+   * from the title via `slugifyTitle` and made unique via `deriveUniqueSlug`
+   * (appends `-2`, `-3`, … until no collision exists; falls back to a random
+   * 8-character hex suffix if all numeric candidates are exhausted).
+   *
    * Body is sanitized with the shared markdown sanitizer before persistence.
    * Caller must have verified admin access before calling this.
    */
