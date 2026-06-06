@@ -10,6 +10,11 @@
  * Acceptance criterion: TOCTOU read-stream hardening (serveImage)
  *  - ENOENT stream error → 404 response (file vanished after DB lookup)
  *  - Normal stream → piped through unchanged
+ *
+ * Acceptance criterion: serveImage happy path (NOTE 5, ms3-review-closeout subtask-6)
+ *  - Content-Type header set to the stored mimeType before the pipe begins
+ *  - Content-Length header set to the stored sizeBytes before the pipe begins
+ *  - File bytes are piped byte-for-byte to the response stream
  */
 
 import fs from "node:fs";
