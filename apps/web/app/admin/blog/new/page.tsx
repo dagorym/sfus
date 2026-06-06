@@ -114,9 +114,11 @@ export default function AdminBlogNewPage() {
             value={slug}
             onChange={(e) => setSlug(e.target.value)}
             placeholder="my-post-slug"
-            required
             disabled={saving}
           />
+          <span style={{ fontSize: "0.8em", color: "#aaa" }}>
+            Optional — auto-generated from the title when left blank.
+          </span>
         </label>
         <label className={styles.label}>
           Summary (optional — shown in listings and meta)

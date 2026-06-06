@@ -37,7 +37,7 @@ export interface BlogPostDetail extends BlogPostSummary {
 
 export interface CreateBlogPostInput {
   title: string;
-  slug: string;
+  slug?: string | null;
   body: string;
   summary?: string | null;
   featuredImageId?: string | null;
@@ -122,8 +122,8 @@ export async function adminCreatePost(input: CreateBlogPostInput): Promise<BlogP
     body: JSON.stringify(input)
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to create blog post.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to create blog post.");
   }
   const data = (await response.json()) as { post: BlogPostDetail };
   return data.post;

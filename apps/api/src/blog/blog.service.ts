@@ -13,7 +13,7 @@ import { BlogPostTagEntity } from "./entities/blog-post-tag.entity";
 
 export interface CreateBlogPostInput {
   title: string;
-  slug: string;
+  slug?: string | null;
   body: string;
   summary?: string | null;
   featuredImageId?: string | null;
@@ -157,8 +157,16 @@ export class BlogService {
    * Caller must have verified admin access before calling this.
    */
   async create(authorUserId: string, input: CreateBlogPostInput): Promise<BlogPostEntity> {
-    this.assertSlugValid(input.slug);
     this.assertTitleValid(input.title);
+
+    // Resolve slug: use provided slug (validated) or auto-derive from title.
+    let resolvedSlug: string;
+    if (input.slug && input.slug.trim()) {
+      this.assertSlugValid(input.slug.trim());
+      resolvedSlug = input.slug.trim();
+    } else {
+      resolvedSlug = await this.deriveUniqueSlug(input.title);
+    }
 
     const normalizedBody = normalizeMarkdownBody(input.body ?? "");
     const sanitizationResult = validateMarkdownBody(normalizedBody);
@@ -175,7 +183,7 @@ export class BlogService {
       id,
       authorUserId,
       title: input.title,
-      slug: input.slug,
+      slug: resolvedSlug,
       body: normalizedBody,
       summary: input.summary ?? null,
       status: "draft",
@@ -512,6 +520,47 @@ export class BlogService {
         "Slug must be lowercase alphanumeric words separated by hyphens (e.g. 'my-post-title')."
       );
     }
+  }
+
+  /**
+   * Converts a title string into a URL-safe slug:
+   * lowercase, non-alphanumeric runs collapsed to single hyphens,
+   * leading/trailing hyphens trimmed.
+   * Falls back to "post" if the result would be empty.
+   */
+  private slugifyTitle(title: string): string {
+    const slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return slug || "post";
+  }
+
+  /**
+   * Derives a unique slug from a title by slugifying it and appending
+   * an incrementing numeric suffix (-2, -3, …) until no existing post
+   * uses the same slug.
+   */
+  private async deriveUniqueSlug(title: string): Promise<string> {
+    const base = this.slugifyTitle(title);
+    // Check if base slug is already taken.
+    const existing = await this.blogPostRepository.findOne({ where: { slug: base } });
+    if (!existing) {
+      return base;
+    }
+    // Append incrementing suffix until unique. Guard with a safety ceiling to
+    // satisfy the linter's no-constant-condition rule — in practice the loop
+    // terminates long before the ceiling is reached.
+    const maxSuffix = 10_000;
+    for (let suffix = 2; suffix <= maxSuffix; suffix++) {
+      const candidate = `${base}-${suffix}`;
+      const taken = await this.blogPostRepository.findOne({ where: { slug: candidate } });
+      if (!taken) {
+        return candidate;
+      }
+    }
+    // Fallback: append a random segment if all suffix candidates are taken.
+    return `${base}-${crypto.randomUUID().slice(0, 8)}`;
   }
 
   private assertTitleValid(title: string): void {

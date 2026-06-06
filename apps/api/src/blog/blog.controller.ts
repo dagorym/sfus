@@ -421,15 +421,12 @@ function parseCreateInput(body: unknown): CreateBlogPostInput {
   if (typeof b.title !== "string" || !b.title.trim()) {
     throw new BadRequestException("title is required.");
   }
-  if (typeof b.slug !== "string" || !b.slug.trim()) {
-    throw new BadRequestException("slug is required.");
-  }
   if (typeof b.body !== "string") {
     throw new BadRequestException("body is required.");
   }
   return {
     title: b.title,
-    slug: b.slug,
+    slug: typeof b.slug === "string" && b.slug.trim() ? b.slug : null,
     body: b.body,
     summary: typeof b.summary === "string" ? b.summary : null,
     featuredImageId: typeof b.featuredImageId === "string" ? b.featuredImageId : null,
