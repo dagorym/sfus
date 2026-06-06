@@ -147,6 +147,26 @@ export class MediaController {
     );
 
     const stream = fs.createReadStream(media.filePath);
+
+    stream.on("error", (err: NodeJS.ErrnoException) => {
+      // If response headers have already been flushed (partial body sent) we
+      // cannot write a new HTTP status line — destroy the socket to signal an
+      // incomplete response to the client.
+      if (res.headersSent) {
+        res.destroy();
+        return;
+      }
+      if (err.code === "ENOENT") {
+        // File vanished between the DB lookup and the stream open (TOCTOU race).
+        // Return a controlled 404 instead of letting the error propagate as an
+        // unhandled stream error or leaving the connection hung.
+        res.status(404).json({ statusCode: 404, message: "Media file not found." });
+        return;
+      }
+      // For unexpected I/O errors send a 500 so the connection is closed cleanly.
+      res.status(500).json({ statusCode: 500, message: "Internal server error." });
+    });
+
     stream.pipe(res);
   }
 }
