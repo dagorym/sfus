@@ -1,0 +1,54 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Replace three stale Milestone 2 strings in apps/web/app/layout.tsx with approved Milestone 3 copy: metadata description, header eyebrow, and footer second line. Title template, first footer line, Navigation component, and all shell structure unchanged.
+
+Modified files:
+- apps/web/app/layout.tsx
+
+Acceptance criteria to validate (from Planner):
+- apps/web/app/layout.tsx contains no "Milestone 2" text; the three new strings match the approved copy exactly.
+- No other shell behavior (navigation, layout structure, routes) changes.
+- The web app builds, lints, and typechecks clean.
+
+Create test files in:
+- apps/web/app/public-shell.spec.ts (existing file — update assertions at lines 52-53)
+
+Test location guidance:
+Tester-owned web specs live under apps/web/app/**/*.spec.ts. The primary file is apps/web/app/public-shell.spec.ts.
+
+Update the "keeps the homepage branded and static" test (the second `it` block):
+- Remove: expect(layoutSource).toContain("Milestone 2 Auth Foundation");
+- Remove: expect(layoutSource).toContain("Built for the Milestone 2 auth launch baseline.");
+- Add: expect(layoutSource).toContain("Milestone 3 Content Platform");
+- Add: expect(layoutSource).toContain("Built for the Milestone 3 content launch baseline.");
+- Add: expect(layoutSource).toContain("Blog, standalone pages, and site navigation for the Star Frontiers US Milestone 3 content platform.");
+- Add: expect(layoutSource).not.toContain("Milestone 2");
+
+Additionally, add source-contract assertions for the login client's service-unavailable and credential message strings and their status-code branching (mirroring the existing register coverage in the "includes registration flow source contracts" test), closing the final reviewer's NOTE 2. The loginClientSource variable is already loaded in the "gates authenticated routes and profile/settings contracts" test (line ~94-96). Add assertions there or in the "includes registration flow source contracts" test that assert:
+- statusCode === 401 or statusCode >= 500 branching in login-client.tsx
+- The service-unavailable message string (e.g. "The service is temporarily unavailable")
+- The invalid-credentials message string (e.g. "Invalid email or password" or similar)
+
+Implementation context:
+Three minimal string replacements in apps/web/app/layout.tsx:
+1. Metadata description (line 13-14): replaced "Public landing page and auth-enabled shell foundation for the Star Frontiers US Milestone 2 experience." with "Blog, standalone pages, and site navigation for the Star Frontiers US Milestone 3 content platform."
+2. Header eyebrow (line 29): replaced "Milestone 2 Auth Foundation" with "Milestone 3 Content Platform".
+3. Footer second line (line 46): replaced "Built for the Milestone 2 auth launch baseline." with "Built for the Milestone 3 content launch baseline."
+All other structure, components, and content unchanged.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/web run lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/web run test
+
+Existing validations expected to fail only because approved behavior changed:
+- public-shell.spec.ts lines 52-53 currently assert the old Milestone 2 strings and will fail until the tester updates them. The tester must update those assertions (not skip or suppress them).
+- Workspace-wide lint in apps/api (navigation.controller.test.ts unused import) and API source-reader tests fail in this worktree — these are pre-existing failures on the ms3-claude branch, unrelated to this change.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
