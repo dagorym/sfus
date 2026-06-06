@@ -32,6 +32,7 @@ This repository now includes the Milestone 1 foundation baseline for the monorep
 ## Frontend Shell Baseline
 
 - `apps/web` is a Next.js App Router frontend shell for the Milestone 3 public landing experience, auth-entry routes, authenticated-shell foundation, and Milestone 3 content surfaces (blog, standalone pages, navigation, media).
+- The shared shell (`apps/web/app/layout.tsx`) carries Milestone 3 branding: header eyebrow `Milestone 3 Content Platform`, footer second line `Built for the Milestone 3 content launch baseline.`, and Next.js site metadata description `Blog, standalone pages, and site navigation for the Star Frontiers US Milestone 3 content platform.`
 - Styling stays within the Milestone 1 architecture baseline: CSS Modules for component/page styles plus shared global CSS custom-property tokens in `apps/web/app/globals.css`.
 - Public-facing routes include the branded homepage (`/`) with a `RecentPostsFeed` client component showing up to 3 recent published posts and links to `/blog` and `/about`; branded `404`; branded runtime error surface; returning-user sign-in (`/login`); and provider-first registration (`/register`) with local email/password fallback.
 - The authenticated shell includes `/app`, `/profile`, `/settings`, and `/onboarding/username`; `/app`, `/profile`, and `/settings` all preserve destination intent for unauthenticated users with `/login?next=<route>`, and all authenticated routes redirect `user.onboardingRequired` sessions into username completion before normal authenticated use.
@@ -508,7 +509,7 @@ The public homepage at `/` was refreshed to describe Milestone 3 capabilities an
 3. **What's new in Milestone 3** — a two-column section containing the `RecentPostsFeed` component with a "View all posts →" link to `/blog`, and an explore list with links to `/blog` (blog index), `/about` (standalone page), `/admin/navigation` (admin navigation), and a copy note about threaded comments.
 4. **Runtime notes** — the shared API path contract and current content scope description.
 
-All Milestone 2 references have been removed from the landing page copy.
+All Milestone 2 references have been removed from the landing page copy and the shared site shell (`layout.tsx`).
 
 #### RecentPostsFeed Component
 
