@@ -228,8 +228,11 @@ describe("MediaController.serveImage TOCTOU stream hardening", () => {
 
     const { res, statusFn, jsonFn } = makeMockResponse();
 
-    // Act: call serveImage and then trigger the ENOENT on the stream
+    // Act: call serveImage and yield so that serveImage's internal
+    // await getImageForServing() resolves and the stream error handler
+    // is registered before we emit the error.
     const servePromise = controller.serveImage("media-id", res as unknown as import("express").Response);
+    await Promise.resolve();
 
     const enoentErr = Object.assign(new Error("ENOENT: no such file or directory"), { code: "ENOENT" });
     fakeStream.emit("error", enoentErr);
@@ -256,7 +259,10 @@ describe("MediaController.serveImage TOCTOU stream hardening", () => {
     // Simulate headers already sent (partial body flushed)
     res.headersSent = true;
 
+    // Yield so that serveImage's internal await resolves and the stream
+    // error handler is registered before we emit the error.
     const servePromise = controller.serveImage("media-id", res as unknown as import("express").Response);
+    await Promise.resolve();
 
     const enoentErr = Object.assign(new Error("ENOENT: no such file or directory"), { code: "ENOENT" });
     fakeStream.emit("error", enoentErr);
@@ -266,5 +272,32 @@ describe("MediaController.serveImage TOCTOU stream hardening", () => {
     // No new status/json call — socket is destroyed instead
     expect(statusFn).not.toHaveBeenCalled();
     expect(res.destroy).toHaveBeenCalled();
+  });
+
+  it("returns 500 when the file stream emits a non-ENOENT I/O error", async () => {
+    // AC: unexpected I/O errors (non-ENOENT, headers not yet sent) → 500
+    const mediaService = {
+      ...makeMockMediaService(),
+      getImageForServing: vi.fn().mockResolvedValue(makeFakeMedia())
+    } as unknown as MediaService;
+    const authService = makeMockAuthService(makeAuthenticatedSession("admin"));
+    const controller = new MediaController(mediaService, authService);
+
+    const fakeStream = new Readable({ read() {} });
+    vi.mocked(fs.createReadStream).mockReturnValue(fakeStream as unknown as ReturnType<typeof fs.createReadStream>);
+
+    const { res, statusFn, jsonFn } = makeMockResponse();
+
+    const servePromise = controller.serveImage("media-id", res as unknown as import("express").Response);
+    await Promise.resolve();
+
+    // Emit a generic I/O error (not ENOENT)
+    const ioErr = Object.assign(new Error("EIO: i/o error"), { code: "EIO" });
+    fakeStream.emit("error", ioErr);
+
+    await servePromise;
+
+    expect(statusFn).toHaveBeenCalledWith(500);
+    expect(jsonFn).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 500 }));
   });
 });
