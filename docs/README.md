@@ -238,6 +238,8 @@ All admin blog pages in `apps/web/app/admin/blog/` call `resolveProtectedSession
 - `adminPublishAt(id, publishedAt)` — calls `POST /api/blog/admin/posts/:id/publish-at` with `{ publishedAt }` (ISO 8601 string) to schedule future publication.
 - `adminToggleFeatured(id)` — calls `POST /api/blog/admin/posts/:id/toggle-featured` to toggle the pin/featured state.
 
+All admin helpers (and the comment helpers `listComments`, `moderationListComments`, `moderateCommentStatus`, `deleteComment`, `adminLockComments`, `adminUnlockComments`) surface the real server error by reading `payload?.error?.message` first, then falling back to `payload?.message`, then to a generic fallback string. This matches the `JsonExceptionFilter` envelope shape `{ error: { code, message, statusCode }, request: {...} }` used by all API error responses. When no JSON body is available (network failure, non-JSON response), the generic fallback is used.
+
 ### Blog Comments (Milestone 3 Subtask 4)
 
 Milestone 3 Subtask 4 adds blog comments: publicly readable, authenticated-member writable, and moderator/admin moderated.
@@ -388,7 +390,7 @@ All admin pages in `apps/web/app/admin/pages/` call `resolveProtectedSession()` 
 
 #### pages-client.ts
 
-`apps/web/app/pages/pages-client.ts` is the typed API client for all standalone pages calls. The `PageDetail` interface includes `summary` and `featuredMediaId`. The `RevisionDetail` interface includes `editorUserId`, `summary`, `changeNote`, and `featuredMediaId`. The `CreatePageInput` and `UpdatePageInput` interfaces accept optional `summary`, `changeNote`, and `featuredMediaId` fields. The public helper (`getPublishedPage`) fetches without credentials. Admin helpers (`adminListAllPages`, `adminGetPage`, `adminCreatePage`, `adminUpdatePage`, `adminPublishPage`, `adminUnpublishPage`, `adminListRevisions`, `adminRestoreRevision`) send `credentials: "include"` so the session cookie is forwarded.
+`apps/web/app/pages/pages-client.ts` is the typed API client for all standalone pages calls. The `PageDetail` interface includes `summary` and `featuredMediaId`. The `RevisionDetail` interface includes `editorUserId`, `summary`, `changeNote`, and `featuredMediaId`. The `CreatePageInput` and `UpdatePageInput` interfaces accept optional `summary`, `changeNote`, and `featuredMediaId` fields. The public helper (`getPublishedPage`) fetches without credentials. Admin helpers (`adminListAllPages`, `adminGetPage`, `adminCreatePage`, `adminUpdatePage`, `adminPublishPage`, `adminUnpublishPage`, `adminListRevisions`, `adminRestoreRevision`) send `credentials: "include"` so the session cookie is forwarded. All admin helpers surface the real server error by reading `payload?.error?.message` first, then falling back to `payload?.message`, then to a generic fallback string, matching the `JsonExceptionFilter` envelope shape used by all API error responses.
 
 #### Scope Boundaries
 
