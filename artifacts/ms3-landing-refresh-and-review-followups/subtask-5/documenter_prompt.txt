@@ -1,0 +1,71 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Validate the TOCTOU hardening fix for the media serveImage() route. The Implementer attached an fs.createReadStream() error handler that returns 404 on ENOENT (file vanished after DB lookup), destroys the socket when headers are already flushed, and returns 500 for other I/O errors.
+
+Acceptance criteria validated:
+- ENOENT stream error (file vanished after DB lookup) returns 404 when headers not yet sent
+- Headers already flushed during stream error: socket destroyed, no new HTTP response written
+- Non-ENOENT I/O stream error returns 500 when headers not yet sent (additional coverage added by tester)
+- Upload auth: 401 for unauthenticated requests
+- Upload auth: 403 for non-admin attempting blog-post or standalone-page upload
+- Upload auth: 200 for admin uploading blog-post or standalone-page
+- Upload auth: 200 for any authenticated user uploading blog-comment
+
+Implementation branch or worktree context:
+- Implementation branch: ms3-subtask-5-tester-20260606 (implementer commit 36f66434a792927766f64d32026db5718925b418)
+- Worktree: /home/tstephen/repos/worktrees/ms3-subtask-5-tester-20260606
+- Main repo context: branch ms3-claude
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/media/media.controller.ts — TOCTOU fix: stream error handler attached in serveImage()
+- apps/api/src/media/media.controller.test.ts — TOCTOU test timing fix + non-ENOENT 500 coverage added by Tester
+
+Test commit:
+- 936d2222c11062c79ed9483a1446854c26fe5fc9
+
+Commands executed:
+- env -C <worktree> npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/media/media.controller.test.ts --reporter=verbose
+- env -C <worktree> npx --yes pnpm@10.0.0 --filter @sfus/api test
+- env -C <worktree> npx --yes pnpm@10.0.0 typecheck
+- env -C <worktree> npx --yes pnpm@10.0.0 lint
+- env -C <worktree> npx --yes pnpm@10.0.0 --filter @sfus/api build
+
+Final test outcomes:
+- PASS: MediaController.uploadImage authorization — throws UnauthorizedException (401) when no active session
+- PASS: MediaController.uploadImage authorization — throws ForbiddenException (403) when non-admin uploads for blog-post
+- PASS: MediaController.uploadImage authorization — throws ForbiddenException (403) when non-admin uploads for standalone-page
+- PASS: MediaController.uploadImage authorization — succeeds (200) when admin uploads for blog-post
+- PASS: MediaController.uploadImage authorization — succeeds (200) when admin uploads for standalone-page
+- PASS: MediaController.uploadImage authorization — succeeds (200) when authenticated user (non-admin) uploads for blog-comment
+- PASS: MediaController.uploadImage authorization — succeeds (200) when admin uploads for blog-comment
+- PASS: MediaController.serveImage TOCTOU — returns 404 when file stream emits ENOENT (file vanished after DB lookup)
+- PASS: MediaController.serveImage TOCTOU — does not send new response when headers already flushed during stream error (destroy called)
+- PASS: MediaController.serveImage TOCTOU — returns 500 when file stream emits non-ENOENT I/O error
+- SKIP (pre-existing): navigation.controller.test.ts — 6 tests fail with doubled-path ENOENT (not in scope)
+- SKIP (pre-existing): lint — navigation.controller.test.ts unused import 'UnauthorizedException' (not in scope)
+- Build: PASS
+- Typecheck: PASS
+
+Documentation context:
+- The serveImage() route now has explicit TOCTOU race documentation inline in the implementation
+- All three error branches are tested: ENOENT->404, headersSent->destroy, other->500
+- The test timing fix (await Promise.resolve()) is documented in the test file and commit message
+- Pre-existing failures: navigation lint (unused import) and navigation controller test doubled-path ENOENT are not in scope
+
+Plan and diff context:
+- Plan: ms3-landing-refresh-and-review-followups-plan.md — subtask-5 is the media TOCTOU hardening subtask
+- Implementer diff: apps/api/src/media/media.controller.ts adds 20-line stream error handler in serveImage()
+- Implementer diff: apps/api/src/media/media.controller.test.ts adds vi.mock('node:fs') + 2 TOCTOU tests
+- Tester diff: adds await Promise.resolve() before both fakeStream.emit() calls; adds third test for non-ENOENT->500 branch
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

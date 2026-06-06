@@ -1,0 +1,30 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-5/tester_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-5/tester_result.json",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-5/documenter_prompt.txt"
+  ],
+  "branch_name": "ms3-subtask-5-tester-20260606",
+  "commands_run": [
+    "env -C <worktree> npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/media/media.controller.test.ts --reporter=verbose",
+    "env -C <worktree> npx --yes pnpm@10.0.0 --filter @sfus/api test",
+    "env -C <worktree> npx --yes pnpm@10.0.0 typecheck",
+    "env -C <worktree> npx --yes pnpm@10.0.0 lint",
+    "env -C <worktree> npx --yes pnpm@10.0.0 --filter @sfus/api build"
+  ],
+  "pass_fail_totals": {
+    "full_api_suite_failed": 6,
+    "full_api_suite_passed": 249,
+    "full_api_suite_pre_existing_failures": 6,
+    "media_controller_tests_failed": 0,
+    "media_controller_tests_passed": 10
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ms3-landing-refresh-and-review-followups/subtask-5",
+  "test_commit_hash": "936d2222c11062c79ed9483a1446854c26fe5fc9",
+  "test_files_changed": [
+    "apps/api/src/media/media.controller.test.ts"
+  ],
+  "unmet_acceptance_criteria": []
+}
