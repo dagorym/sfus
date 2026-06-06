@@ -49,8 +49,13 @@ describe("public web shell source contracts", () => {
     // page.tsx remains a server component — no fetch() or useEffect at top level
     expect(pageSource).not.toMatch(/\bfetch\s*\(/);
     expect(pageSource).not.toContain("useEffect(");
-    expect(layoutSource).toContain("Milestone 2 Auth Foundation");
-    expect(layoutSource).toContain("Built for the Milestone 2 auth launch baseline.");
+    // MS3 shell copy: layout.tsx must use updated MS3 strings with no MS2 remnants
+    expect(layoutSource).toContain("Milestone 3 Content Platform");
+    expect(layoutSource).toContain("Built for the Milestone 3 content launch baseline.");
+    expect(layoutSource).toContain(
+      "Blog, standalone pages, and site navigation for the Star Frontiers US Milestone 3 content platform."
+    );
+    expect(layoutSource).not.toContain("Milestone 2");
     expect(layoutSource).not.toContain("Milestone 1");
   });
 
@@ -161,6 +166,10 @@ describe("public web shell source contracts", () => {
     expect(loginClientSource).toContain("Returning Users");
     expect(loginClientSource).toContain("New here? Start at Register for");
     expect(loginClientSource).toContain("New here? Create an account");
+    // NOTE 2 login-client source contracts: status-code branching and error messages
+    expect(loginClientSource).toContain("response.status >= 500");
+    expect(loginClientSource).toContain("The service is temporarily unavailable. Please try again in a moment.");
+    expect(loginClientSource).toContain("Sign-in failed. Verify your credentials and try again.");
     expect(registerSource).toContain('router.replace("/app")');
   });
 });
