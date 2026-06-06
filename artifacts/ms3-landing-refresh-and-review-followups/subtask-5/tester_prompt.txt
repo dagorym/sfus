@@ -1,0 +1,45 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Harden the media image-serving route against a vanished-file TOCTOU race. Attach an on('error') handler to fs.createReadStream() in MediaController.serveImage() so that ENOENT returns a controlled 404 instead of an unhandled stream error or hung connection.
+
+Modified files:
+- apps/api/src/media/media.controller.ts
+- apps/api/src/media/media.controller.test.ts
+
+Acceptance criteria to validate (from Planner):
+- If the resolved media file is missing at stream time, the serving route returns a controlled 404 with no unhandled stream crash and no hung connection.
+- Normal image serving for existing files is unchanged: correct bytes, content type, and status.
+
+Create test files in:
+- apps/api/src/media/media.controller.test.ts — describe block 'MediaController.serveImage TOCTOU stream hardening'
+- Run with: npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/media/media.controller.test.ts --reporter=verbose (after checking out branch ms3-subtask-5-implementer-20260606)
+
+Implementation context for testing:
+- serveImage() uses @Res() (raw Express response), so NestJS exception filters cannot catch errors thrown inside stream event callbacks.
+- The on('error') handler calls res.status(404).json() directly for ENOENT when headers are not yet sent.
+- When res.headersSent is true (partial body flushed), the handler calls res.destroy() to close the connection cleanly.
+- Non-ENOENT I/O errors send a 500 response.
+- stream.pipe(res) is unchanged — the error handler only intercepts the error event, not the normal data flow.
+- vi.mock('node:fs') is added at module level so tests can inject fake Readable streams that emit controlled errors.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/media/media.controller.test.ts --reporter=verbose
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 test
+
+Existing validations expected to fail only because approved behavior changed:
+- npx --yes pnpm@10.0.0 lint — apps/api/src/navigation/navigation.controller.test.ts: 'UnauthorizedException' is defined but never used (pre-existing, not introduced here)
+- npx --yes pnpm@10.0.0 test — apps/api/src/navigation/navigation.controller.test.ts: ENOENT reading controller source file (doubled path, pre-existing, not introduced here)
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
