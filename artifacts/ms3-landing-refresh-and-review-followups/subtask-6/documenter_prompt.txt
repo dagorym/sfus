@@ -1,0 +1,61 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Blog post slug made optional on creation; when absent or blank, derived from title via slugifyTitle (lowercase, non-alphanumeric runs collapsed to hyphens, trimmed, fallback "post") with numeric suffix uniqueness (-2/-3/..., ceiling 10000, UUID fallback). Explicit slugs validated unchanged. Admin create form slug field marked optional with helper text. adminCreatePost error parsing reads payload?.error?.message first so real NestJS exception filter messages surface.
+
+Acceptance criteria validated:
+- Creating a blog post with no slug succeeds and produces a unique URL-safe slug derived from the title; the post is retrievable at that slug.
+- Two posts whose titles slugify identically both succeed with distinct slugs (the second gets a -2 numeric suffix).
+- Creating a blog post with an explicit slug is validated and used unchanged.
+- The blog admin create form accepts an empty slug and indicates auto-generation; blog admin API errors surface the real server message rather than only a generic fallback.
+
+Implementation branch or worktree context:
+- Branch: ms3-subtask-6-implementer-20260606
+- Worktree: /home/tstephen/repos/worktrees/ms3-subtask-6-implementer-20260606
+- Implementer code commit: a658573
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/blog/blog.service.ts (slugifyTitle, deriveUniqueSlug private methods; create() auto-derive path)
+- apps/api/src/blog/blog.controller.ts (parseCreateInput maps blank/absent slug to null)
+- apps/web/app/admin/blog/new/page.tsx (slug input optional, helper text added)
+- apps/web/app/blog/blog-client.ts (adminCreatePost error parsing: payload?.error?.message || payload?.message)
+- apps/api/src/blog/blog.service.test.ts (tester: added slug auto-generation describe block, 6 new tests)
+- apps/web/app/blog/blog.spec.ts (tester: added optional slug source contracts and adminCreatePost error surfacing, 4 new tests)
+
+Test commit:
+- 48272ac
+
+Commands executed:
+- vitest run --root <worktree>/apps/api src/blog/blog.service.test.ts
+- vitest run --root <worktree>/apps/web app/blog/blog.spec.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web typecheck
+
+Final test outcomes:
+- apps/api/src/blog/blog.service.test.ts: 72 passed, 0 failed (6 new slug auto-generation tests all pass)
+- apps/web/app/blog/blog.spec.ts: 62 passed, 0 failed (4 new tests covering optional slug form and error surfacing all pass)
+- Typecheck: PASS for both @sfus/api and @sfus/web
+- Pre-existing failures: navigation.controller.test.ts ENOENT bug (commit 5d3e83b, outside scope)
+
+Documentation context:
+- docs/README.md may need updating to reflect that slug is now optional on POST /api/blog/admin/posts
+- The CreateBlogPostInput interface now has slug?: string | null (already reflected in blog.service.ts)
+- Admin blog create form behavior change: slug is no longer required; auto-generation from title is the default path
+- Error message improvement in adminCreatePost: surface-level client now shows real server errors
+- No new public API endpoints; behavior change is additive (optional field, auto-generation logic)
+
+Plan and diff context:
+- Plan: plans/ms3-landing-refresh-and-review-followups-plan.md
+- Subtask 6 in that plan covers optional slug auto-generation
+- Comparison base: branch ms3-claude (main coordination branch for this milestone)
+
+Startup behavior:
+- If branch/worktree context and enough diff and story context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
