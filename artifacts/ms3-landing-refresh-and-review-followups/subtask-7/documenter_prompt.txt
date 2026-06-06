@@ -1,0 +1,51 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Fix FK violation in standalone page creation by reordering inserts in PagesService.create: insert parent standalone_pages row first (with currentRevisionId=null), then page_revisions, then update page.currentRevisionId. Added one new test to verify FK-correct insert order.
+
+Acceptance criteria validated:
+- PagesService.create inserts standalone_pages row before page_revisions row — verified by new call-order test (pageSave index < revisionSave index in call sequence)
+- Creation succeeds without FK constraint violation — all 38 pages service tests pass
+- Existing page creation tests pass without modification — all 37 pre-existing tests unchanged and passing
+
+Implementation branch or worktree context:
+- Implementation branch: ms3-claude (commit e05440f)
+- Tester branch: ms3-subtask-7-tester-20260606 (branched from ms3-claude at 6b118f0)
+- Modified file: apps/api/src/pages/pages.service.ts
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/pages/pages.service.ts
+- apps/api/src/pages/pages.service.test.ts
+
+Test commit:
+- ac71ca1
+
+Commands executed:
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-subtask-7-tester-20260606 --filter @sfus/api exec vitest run src/pages/pages.service.test.ts
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-subtask-7-tester-20260606 typecheck
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-subtask-7-tester-20260606 test
+
+Final test outcomes:
+- pages.service.test.ts: 38 passed (38) — all pages service tests pass including new FK insert order test
+- typecheck: pass
+- full suite: 262 passed, 6 pre-existing failures in navigation.controller.test.ts (ENOENT path bug, pre-existing on ms3-claude before this change)
+
+Documentation context:
+- PagesService.create now uses a three-step insert: (1) save page with null currentRevisionId, (2) save revision with valid pageId, (3) update page.currentRevisionId. Caller API contract unchanged.
+- No new public API surface introduced. Internal FK ordering fix only.
+- The page temporarily has currentRevisionId=null between step 1 and step 3 — non-transactional but always reaches a consistent final state.
+
+Plan and diff context:
+- Plan: plans/ directory or plans/prompt.txt for ms3-landing-refresh-and-review-followups subtask-7
+- Base: ms3-claude branch; compare e05440f (implementer fix) and ac71ca1 (tester test addition)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-7
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
