@@ -1,0 +1,64 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Refresh the public landing page for Milestone 3: add RecentPostsFeed, update copy to describe MS3 capabilities, add /blog and /about links, remove all Milestone 2 references from page.tsx, keep page.tsx as server component.
+
+Acceptance criteria validated:
+- No remaining 'Milestone 2' references in page.tsx; Milestone 3 capabilities are described
+- Homepage renders RecentPostsFeed of up to 3 published posts with /blog/<slug> links; zero posts shows graceful empty state; fetch failure shows non-fatal error state
+- Homepage shows visible /blog and /about links, plus navigation and comments copy
+- Landing page builds and lints clean, renders without runtime errors
+
+Implementation branch or worktree context:
+- Branch: ms3-subtask-2-tester-20260606 (tester worktree at /home/tstephen/repos/worktrees/ms3-subtask-2-tester-20260606)
+- Implementer branch: ms3-subtask-2-implementer-20260606
+- Implementer code commit: 49543f4 (remediation-1: escape apostrophe in page.tsx heading)
+- Test commit: a8bc1da (update public-shell spec and add recent-posts-feed spec for MS3 landing)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/page.tsx
+- apps/web/app/page.module.css
+- apps/web/components/recent-posts-feed.tsx
+- apps/web/components/recent-posts-feed.module.css
+- apps/web/app/public-shell.spec.ts
+- apps/web/components/recent-posts-feed.spec.ts
+
+Test commit:
+- a8bc1da
+
+Commands executed:
+- /home/tstephen/repos/sfus/node_modules/.bin/vitest run --passWithNoTests --root /home/tstephen/repos/worktrees/ms3-subtask-2-tester-20260606/apps/web
+
+Final test outcomes:
+- 168/168 tests pass across 7 test files
+- apps/web/app/public-shell.spec.ts (6 tests): PASS — updated 'keeps the homepage branded and static': checks MS3 copy, /blog link, /about link, no Milestone 2, no fetch/useEffect
+- apps/web/components/recent-posts-feed.spec.ts (11 tests): PASS — new spec covers use client, loading/empty/error states, /blog/<slug> link, summary, date formatting, state ordering
+- apps/web/app/blog/blog.spec.ts (58 tests): PASS unchanged
+- apps/web/app/pages/pages.spec.ts (42 tests): PASS unchanged
+- apps/web/components/authoring-components.spec.ts (36 tests): PASS unchanged
+- apps/web/components/navigation.spec.ts (13 tests): PASS unchanged
+- apps/web/next.config.spec.ts (2 tests): PASS unchanged
+- Implementer also validated: web lint PASS (apostrophe escaped as &apos; in commit 49543f4), typecheck PASS
+- Pre-existing unrelated API lint failure (navigation.controller.test.ts unused import) not introduced by this task
+
+Documentation context:
+- docs/README.md may need updates to reflect the new RecentPostsFeed component in the web app and the MS3 content platform landing page
+- docs/website-launch-guide.md may need updates to describe MS3 landing page structure and RecentPostsFeed
+- The /about link on the landing page intentionally may 404 until an admin publishes a standalone page with slug 'about' — this is by design and worth noting in docs
+- All four acceptance criteria are met; the implementation is complete for this subtask
+
+Plan and diff context:
+- Plan: plans/ms3-landing-refresh-and-review-followups-plan.md
+- Base branch for comparison: ms3-claude (assumption — the coordination branch for this plan)
+- Subtask artifact directory: artifacts/ms3-landing-refresh-and-review-followups/subtask-2
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
