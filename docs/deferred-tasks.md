@@ -13,3 +13,7 @@
 - Milestone 3: Complete a full WCAG 2.1 AA accessibility sweep beyond the keyboard-accessible navigation delivered in Milestone 3 (design §11.1; roadmap Phase 5).
 - Milestone 3: Add a true WYSIWYG editing surface; Milestone 3 ships Markdown authoring with live preview only.
 - Milestone 3: Add comment rate-limiting / anti-spam controls (design rate-limits to Phase 5 and forum anti-spam to Milestone 4; the current stack has no Redis).
+- Milestone 3: Harden blog-post `deriveUniqueSlug` against the concurrent-create TOCTOU (catch the duplicate-key error on save and retry derivation with a suffix) so a losing concurrent create succeeds instead of surfacing a 500. Accepted characteristic per the MS3 final review (2026-06): the DB unique constraint already prevents any corruption and the surface is admin-only.
+- Milestone 3: Trim the public blog-comment payload to what the UI needs — it currently exposes `authorUserId`, `moderatedByUserId`, and `moderatedAt` (data-minimization note from the retroactive MS3 security review, 2026-06).
+- Milestone 3: Batch or cache the navigation publication-filter lookups if the nav tree grows — the public (and, post-closeout, authenticated) nav paths perform bounded per-item indexed point queries today (performance note from the retroactive MS3 security review, 2026-06).
+- Milestone 3: Harden `validateUrl` for internal navigation items to require a leading `/` (defense-in-depth; admin-only input today — note from the retroactive MS3 security review, 2026-06).
