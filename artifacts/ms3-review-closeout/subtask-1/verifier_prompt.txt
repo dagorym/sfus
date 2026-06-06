@@ -1,0 +1,56 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Subtask 1 (ms3-review-closeout): Replace three stale Milestone 2 strings in apps/web/app/layout.tsx with approved Milestone 3 copy (metadata description, header eyebrow, footer second line). Tester updated public-shell.spec.ts assertions and added login-client source-contract assertions for status-code branching and error messages, closing reviewer NOTE 2. Documenter updated docs/README.md to record the MS3 shell branding in the Frontend Shell Baseline section.
+
+Acceptance criteria to verify:
+- apps/web/app/layout.tsx contains no 'Milestone 2' text; the three new strings match the approved copy exactly.
+- No other shell behavior (navigation, layout structure, routes) changes.
+- The web app builds, lints, and typechecks clean.
+- docs/README.md Frontend Shell Baseline section documents the layout.tsx MS3 branding strings.
+
+Implementation branch or worktree context:
+- Implementer branch: ms3-claude-subtask-1-implementer-20260606
+- Tester branch: ms3-claude-subtask-1-tester-20260606 (test commit: f3af555)
+- Documenter branch: ms3-claude-subtask-1-documenter-20260606 (doc commit: 5af2d4f)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/layout.tsx
+- apps/web/app/public-shell.spec.ts
+- docs/README.md
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/public-shell.spec.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/web run lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web run test
+
+Final test outcomes:
+- AC1 PASS: layout.tsx contains no 'Milestone 2' text; all three MS3 strings present and verified.
+- AC2 PASS: No other shell behavior changed; navigation, layout structure, and routes unchanged.
+- AC3 PASS: lint clean (0 warnings), typecheck clean (apps/api and apps/web), 172/172 tests pass across 7 files.
+- NOTE 2 CLOSED: login-client source-contract assertions added for response.status >= 500 branching, service-unavailable message, and invalid-credentials message.
+
+Plan or evaluation context guidance:
+- Plan: plans/ms3-review-closeout-plan.md, Subtask 1.
+- Base branch: ms3-claude.
+- Documentation Impact per plan: none expected; if docs quote the shell copy, the Documenter aligns it.
+
+Convention-file guidance:
+- Repository has no mandatory function-level docblock requirements for TSX shell layout files; layout.tsx has no in-code documentation gap.
+- docs/README.md is the canonical home for architecture and behavior facts per AGENTS.md.
+- docs/website-launch-guide.md required no changes; no MS2 copy strings were found in it.
+
+Updated documentation files:
+- docs/README.md
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-1
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
