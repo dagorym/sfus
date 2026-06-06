@@ -403,6 +403,63 @@ describe("Public blog listing featured image and summary contracts (AC4, AC5)", 
 });
 
 // ---------------------------------------------------------------------------
+// Admin blog create form: optional slug with auto-generation indicator
+// ---------------------------------------------------------------------------
+
+describe("Admin blog create page optional slug source contracts", () => {
+  // AC: The blog admin create form accepts an empty slug and indicates auto-generation.
+  it("slug input has no required attribute (slug is optional)", async () => {
+    const source = await readAppFile("app/admin/blog/new/page.tsx");
+    // Find the slug input section and confirm it does not have `required` immediately
+    // adjacent to the slug field name.
+    const slugSection = source.slice(
+      source.lastIndexOf('"slug"'),
+      source.indexOf('"tags"')
+    );
+    // The slug input must not carry a required attribute.
+    expect(slugSection).not.toMatch(/\brequired\b/);
+  });
+
+  it("slug input shows an auto-generation helper hint", async () => {
+    const source = await readAppFile("app/admin/blog/new/page.tsx");
+    // AC: indicates auto-generation when left blank.
+    expect(source).toContain("auto-generated from the title when left blank");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// adminCreatePost error message surfacing
+// ---------------------------------------------------------------------------
+
+describe("blog-client.ts adminCreatePost error message surfacing", () => {
+  // AC: adminCreatePost parses payload?.error?.message first so NestJS exception
+  // filter messages surface to the caller instead of only a generic fallback.
+  it("adminCreatePost error parsing reads payload.error.message before payload.message", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    const adminCreateBlock = source.slice(
+      source.indexOf("export async function adminCreatePost"),
+      source.indexOf("export async function adminUpdatePost")
+    );
+    // Must read payload?.error?.message (NestJS exception filter shape)
+    expect(adminCreateBlock).toContain("payload?.error?.message");
+    // Must also fall back to payload?.message
+    expect(adminCreateBlock).toContain("payload?.message");
+  });
+
+  it("adminCreatePost error chain prefers error.message over the generic fallback", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    const adminCreateBlock = source.slice(
+      source.indexOf("export async function adminCreatePost"),
+      source.indexOf("export async function adminUpdatePost")
+    );
+    // The expression must chain with || so both paths are tried before the
+    // hard-coded fallback message.
+    const errorExpr = adminCreateBlock.match(/payload\?\.error\?\.message.*?\|\|.*?payload\?\.message.*?\|\|/s);
+    expect(errorExpr).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC5: blog-client summary and isFeatured type fields
 // ---------------------------------------------------------------------------
 

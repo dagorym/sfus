@@ -1378,6 +1378,153 @@ describe("BlogService.findVisibleComments replies relation (AC1)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Slug auto-generation — no-slug path, collision (-2 suffix), empty fallback
+// ---------------------------------------------------------------------------
+
+describe("BlogService slug auto-generation", () => {
+  // Shared helper: build a BlogService whose blogPostRepository.findOne returns
+  // null (no existing slug collision) so the auto-derive path succeeds.
+  const makeBlogServiceWithPostRepo = (postRepo: MinimalRepo): BlogService => {
+    const authorizationService = new AuthorizationService();
+    return new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+  };
+
+  // AC: creating with no slug succeeds and produces a URL-safe slug from the title.
+  it("create() with no slug auto-derives a URL-safe slug from the title", async () => {
+    const savedPost = {
+      id: "post-auto",
+      title: "Hello World",
+      slug: "hello-world",
+      body: "body",
+      status: "draft",
+      postTags: []
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      // findOne: first call checks slug uniqueness (returns null = not taken),
+      // second call is the reload after save.
+      findOne: vi.fn()
+        .mockResolvedValueOnce(null)        // slug "hello-world" not taken
+        .mockResolvedValueOnce(savedPost),  // reload after save
+      create: vi.fn().mockReturnValue(savedPost),
+      save: vi.fn().mockResolvedValue(savedPost)
+    };
+    const service = makeBlogServiceWithPostRepo(postRepo);
+    const result = await service.create("user-1", { title: "Hello World", body: "body" });
+    // Slug must be URL-safe (lowercase alphanumeric with hyphens).
+    expect(result.slug).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+    expect(result.slug).toBe("hello-world");
+  });
+
+  // AC: creating with blank slug (empty string) triggers auto-generation.
+  it("create() with blank slug string auto-derives from the title", async () => {
+    const savedPost = {
+      id: "post-blank",
+      title: "My Post",
+      slug: "my-post",
+      body: "body",
+      status: "draft",
+      postTags: []
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn()
+        .mockResolvedValueOnce(null)       // slug "my-post" not taken
+        .mockResolvedValueOnce(savedPost), // reload
+      create: vi.fn().mockReturnValue(savedPost),
+      save: vi.fn().mockResolvedValue(savedPost)
+    };
+    const service = makeBlogServiceWithPostRepo(postRepo);
+    const result = await service.create("user-1", { title: "My Post", slug: "", body: "body" });
+    expect(result.slug).toBe("my-post");
+  });
+
+  // AC: when the base slug is already taken, a -2 numeric suffix is appended.
+  it("create() appends -2 suffix when base slug is already in use", async () => {
+    const savedPost = {
+      id: "post-new",
+      title: "Hello World",
+      slug: "hello-world-2",
+      body: "body",
+      status: "draft",
+      postTags: []
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn()
+        .mockResolvedValueOnce({ id: "existing", slug: "hello-world" }) // base slug taken
+        .mockResolvedValueOnce(null)         // "hello-world-2" not taken
+        .mockResolvedValueOnce(savedPost),   // reload after save
+      create: vi.fn().mockReturnValue(savedPost),
+      save: vi.fn().mockResolvedValue(savedPost)
+    };
+    const service = makeBlogServiceWithPostRepo(postRepo);
+    const result = await service.create("user-1", { title: "Hello World", body: "body" });
+    expect(result.slug).toBe("hello-world-2");
+  });
+
+  // AC: titles that slugify to empty string fall back to "post".
+  it("create() uses 'post' as fallback when title slugifies to empty string", async () => {
+    const savedPost = {
+      id: "post-fallback",
+      title: "!!!",
+      slug: "post",
+      body: "body",
+      status: "draft",
+      postTags: []
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn()
+        .mockResolvedValueOnce(null)          // "post" not taken
+        .mockResolvedValueOnce(savedPost),    // reload
+      create: vi.fn().mockReturnValue(savedPost),
+      save: vi.fn().mockResolvedValue(savedPost)
+    };
+    const service = makeBlogServiceWithPostRepo(postRepo);
+    const result = await service.create("user-1", { title: "!!!", body: "body" });
+    expect(result.slug).toBe("post");
+  });
+
+  // AC: providing an explicit valid slug uses it unchanged.
+  it("create() uses an explicit slug unchanged when it is valid", async () => {
+    const savedPost = {
+      id: "post-explicit",
+      title: "Some Title",
+      slug: "my-explicit-slug",
+      body: "body",
+      status: "draft",
+      postTags: []
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      // findOne is only called once (reload after save) — no slug-uniqueness check
+      // when an explicit slug is provided.
+      findOne: vi.fn().mockResolvedValue(savedPost),
+      create: vi.fn().mockReturnValue(savedPost),
+      save: vi.fn().mockResolvedValue(savedPost)
+    };
+    const service = makeBlogServiceWithPostRepo(postRepo);
+    const result = await service.create("user-1", { title: "Some Title", slug: "my-explicit-slug", body: "body" });
+    expect(result.slug).toBe("my-explicit-slug");
+  });
+
+  // AC: providing an explicit invalid slug still throws BadRequestException.
+  it("create() throws BadRequestException for an invalid explicit slug", async () => {
+    const service = makeBlogService();
+    await expect(
+      service.create("user-1", { title: "Some Title", slug: "INVALID SLUG!", body: "body" })
+    ).rejects.toThrow(BadRequestException);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC2 / AC7: BlogPostStatus type normalization — no scheduled value
 // ---------------------------------------------------------------------------
 
