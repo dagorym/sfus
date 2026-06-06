@@ -1,0 +1,51 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Distinguish service-unavailable (HTTP >= 500, network/transport failure) from credential/validation errors (4xx) on register and login pages. Remove misleading 'local prerequisites/migrations' register error message. Show a clear service-unavailable message for 5xx and network failures on both pages.
+
+Modified files:
+- apps/web/app/register/page.tsx
+- apps/web/app/login/login-client.tsx
+
+Acceptance criteria to validate (from Planner):
+- A 500/503 API response on register shows 'The service is temporarily unavailable. Please try again in a moment.' — never the removed prerequisites/migrations text.
+- A network/transport failure on register shows the service-unavailable message.
+- A network/transport failure on login shows the service-unavailable message.
+- Register still shows the duplicate-account message on 409.
+- Register still shows the invalid-input message on 400.
+- Login still shows the credential message ('Sign-in failed. Verify your credentials and try again.') on 400/401.
+- HTTP >= 500 on login shows the service-unavailable message.
+- MFA-challenge, onboarding, and success-redirect flows are unchanged.
+
+Create test files in:
+- apps/web/app/public-shell.spec.ts — test 'includes registration flow source contracts' (~line 146) asserts the old message text and must be updated to assert: 'The service is temporarily unavailable. Please try again in a moment.' (tester-owned file).
+- The assertion `statusCode >= 500` at ~line 145 remains valid and should be kept.
+
+Implementation context for testing:
+- register/page.tsx: Renamed registrationSetupErrorMessage to serviceUnavailableMessage with value 'The service is temporarily unavailable. Please try again in a moment.'
+- register/page.tsx describeRegistrationError: changed 5xx branch from `statusCode !== null && statusCode >= 500` to `statusCode === null || statusCode >= 500` so network/transport failures (null statusCode) also return service-unavailable.
+- login-client.tsx submitPasswordLogin: added inner try/catch around the fetch call — catches network/transport failures and immediately shows service-unavailable.
+- login-client.tsx: after a successful response, !response.ok || !payload now branches: response.status >= 500 shows service-unavailable; otherwise shows credential message.
+- login-client.tsx: removed the outer catch block that collapsed all errors to the credential message.
+- submitMfaChallenge (MFA-challenge flow) is unchanged.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/web run lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+
+Existing validations expected to fail only because approved behavior changed:
+- apps/web/app/public-shell.spec.ts > includes registration flow source contracts — asserts removed 'Registration is unavailable while local prerequisites are incomplete' text; tester-owned file update required.
+- apps/api/src/navigation/navigation.controller.test.ts — 6 pre-existing ENOENT failures from doubled worktree path resolution; unrelated to these changes.
+- apps/api lint — pre-existing unused-var in navigation.controller.test.ts; unrelated.
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
