@@ -13,7 +13,7 @@
  */
 
 import fs from "node:fs";
-import { EventEmitter, Readable } from "node:stream";
+import { EventEmitter, PassThrough, Readable } from "node:stream";
 
 import { ForbiddenException, UnauthorizedException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
@@ -299,5 +299,58 @@ describe("MediaController.serveImage TOCTOU stream hardening", () => {
 
     expect(statusFn).toHaveBeenCalledWith(500);
     expect(jsonFn).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 500 }));
+  });
+
+  it("happy path: sets Content-Type, Content-Length headers and pipes file bytes to response", async () => {
+    // NOTE 5 (ms3-review-closeout subtask-6): happy-path coverage for serveImage —
+    // verify correct headers are set and that stream bytes flow to the response.
+    const fakeMedia = makeFakeMedia();
+    const mediaService = {
+      ...makeMockMediaService(),
+      getImageForServing: vi.fn().mockResolvedValue(fakeMedia)
+    } as unknown as MediaService;
+    const authService = makeMockAuthService(makeAuthenticatedSession("admin"));
+    const controller = new MediaController(mediaService, authService);
+
+    // Build a readable that emits one data chunk then ends
+    const fakeStream = new Readable({ read() {} });
+    vi.mocked(fs.createReadStream).mockReturnValue(fakeStream as unknown as ReturnType<typeof fs.createReadStream>);
+
+    // Use a PassThrough as the response body sink so that stream.pipe() works
+    // correctly (PassThrough implements the full Writable protocol).
+    const passThroughSink = new PassThrough();
+    const setHeaderFn = vi.fn();
+    const res = Object.assign(passThroughSink, {
+      headersSent: false,
+      setHeader: setHeaderFn,
+      status: vi.fn(),
+      json: vi.fn(),
+      destroy: vi.fn()
+    });
+
+    const servePromise = controller.serveImage("media-id", res as unknown as import("express").Response);
+
+    // Yield so serveImage's internal await resolves and pipe() is registered
+    await Promise.resolve();
+
+    // Collect piped bytes
+    const chunks: Buffer[] = [];
+    passThroughSink.on("data", (chunk: Buffer) => chunks.push(chunk));
+
+    // Push data and end the stream
+    const payload = Buffer.from("image-bytes");
+    fakeStream.push(payload);
+    fakeStream.push(null);
+
+    // Wait for both serveImage and the sink to drain
+    await servePromise;
+    await new Promise<void>((resolve) => passThroughSink.on("end", resolve));
+
+    // Headers must be set before the pipe
+    expect(setHeaderFn).toHaveBeenCalledWith("Content-Type", fakeMedia.mimeType);
+    expect(setHeaderFn).toHaveBeenCalledWith("Content-Length", fakeMedia.sizeBytes);
+    // Bytes were piped through
+    const received = Buffer.concat(chunks);
+    expect(received).toEqual(payload);
   });
 });
