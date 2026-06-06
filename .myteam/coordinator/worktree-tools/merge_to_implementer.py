@@ -3,17 +3,28 @@
 Usage:
   python merge_to_implementer.py BRANCH_PREFIX
 
-Finds local branches created from the given prefix using the naming pattern:
-  <branch-prefix>-<agent-name>-<YYYYMMDD>
+BRANCH_PREFIX is the subtask's implementer branch name without its
+-implementer-<date> suffix, i.e. <base>-<subtask> under the
+<base>-<subtask>-<stage>-<date> naming convention.
+
+Finds local branches named <branch-prefix>-<stage>-<YYYYMMDD> where <stage>
+is one of: implementer, tester, documenter, verifier. Branches with any
+other trailing segment are ignored, including plan-level reviewer branches.
+All matched branches must share the same date (later stages inherit the
+Implementer's start date); mixed dates indicate stale branches from an
+earlier pass and abort the merge.
 
 Merge order:
   1. verifier -> documenter
-  2. documenter -> testing (or tester)
-  3. testing (or tester) -> implementer
+  2. documenter -> tester
+  3. tester -> implementer
 
-After all merges succeed, the script force-removes worktrees for all
-downstream agent branches and deletes those branches. The implementer
+After all merges succeed, the script removes the worktrees for the
+downstream agent branches and deletes those branches; the implementer
 branch and worktree are preserved so remediation can continue there.
+Removal and deletion are never forced: each downstream branch must be
+fully merged into the implementer branch, and a worktree containing
+uncommitted or untracked files aborts cleanup so nothing unmerged is lost.
 """
 
 import re
@@ -39,13 +50,20 @@ def require_clean_prefix(value):
         fail("branch prefix may only contain letters, numbers, dot, underscore, and hyphen")
 
 
+CHAIN_STAGES = {"implementer", "tester", "documenter", "verifier"}
+
+
 def parse_agent_branch(branch, prefix):
-    """Returns (agent_name, date) or None."""
+    """Returns (stage_name, date) or None.
+
+    Matches only <prefix>-<stage>-<YYYYMMDD> where <stage> is a known chain
+    stage; anything else (including plan-level reviewer branches) is ignored.
+    """
     if not branch.startswith(f"{prefix}-"):
         return None
     rest = branch[len(prefix) + 1:]
-    m = re.fullmatch(r"(.+)-([0-9]{8})", rest)
-    if not m:
+    m = re.fullmatch(r"([A-Za-z0-9_.]+)-([0-9]{8})", rest)
+    if not m or m.group(1) not in CHAIN_STAGES:
         return None
     return m.group(1), m.group(2)
 
@@ -118,37 +136,43 @@ def main():
     all_branches = git("for-each-ref", "--format=%(refname:short)", "refs/heads").splitlines()
     matching_branches = []
     branch_by_agent = {}
+    branch_dates = set()
 
     for branch in all_branches:
         parsed = parse_agent_branch(branch, branch_prefix)
         if parsed is None:
             continue
-        agent_name = parsed[0]
+        agent_name, branch_date = parsed
         if agent_name in branch_by_agent:
             fail(f"multiple branches found for agent '{agent_name}': {branch_by_agent[agent_name]} and {branch}")
         branch_by_agent[agent_name] = branch
+        branch_dates.add(branch_date)
         matching_branches.append(branch)
 
     if not matching_branches:
         fail(f"no local branches found for prefix '{branch_prefix}'")
 
-    if "testing" in branch_by_agent and "tester" in branch_by_agent:
-        fail(f"found both testing and tester branches for prefix '{branch_prefix}'; keep only one naming convention")
+    if len(branch_dates) > 1:
+        fail(
+            f"matched branches have mixed dates ({', '.join(sorted(branch_dates))}); all stages of a "
+            f"subtask must share the Implementer's start date — remove stale branches and retry: "
+            f"{', '.join(sorted(matching_branches))}"
+        )
 
     worktree_by_branch = parse_worktrees()
 
-    testing_branch = branch_by_agent.get("testing") or branch_by_agent.get("tester")
+    tester_branch = branch_by_agent.get("tester")
     implementer_branch = branch_by_agent.get("implementer")
     verifier_branch = branch_by_agent.get("verifier")
     documenter_branch = branch_by_agent.get("documenter")
 
     if not implementer_branch:
         fail(f"no implementer branch found for prefix '{branch_prefix}'")
-    if not testing_branch and not documenter_branch and not verifier_branch:
+    if not tester_branch and not documenter_branch and not verifier_branch:
         fail(f"no downstream tester/documenter/verifier branches found for prefix '{branch_prefix}'")
 
-    if documenter_branch and not testing_branch:
-        fail("found a documenter branch but no testing/tester branch to merge it into")
+    if documenter_branch and not tester_branch:
+        fail("found a documenter branch but no tester branch to merge it into")
 
     if verifier_branch and not documenter_branch:
         fail("found a verifier branch but no documenter branch to merge it into")
@@ -156,8 +180,8 @@ def main():
     if implementer_branch not in worktree_by_branch:
         fail(f"implementer branch does not have an attached worktree: {implementer_branch}")
 
-    if testing_branch and testing_branch not in worktree_by_branch:
-        fail(f"testing branch does not have an attached worktree: {testing_branch}")
+    if tester_branch and tester_branch not in worktree_by_branch:
+        fail(f"tester branch does not have an attached worktree: {tester_branch}")
 
     if documenter_branch and documenter_branch not in worktree_by_branch:
         fail(f"documenter branch does not have an attached worktree: {documenter_branch}")
@@ -165,7 +189,7 @@ def main():
     if verifier_branch and verifier_branch not in worktree_by_branch:
         fail(f"verifier branch does not have an attached worktree: {verifier_branch}")
 
-    removable_branches = [b for b in [verifier_branch, documenter_branch, testing_branch] if b]
+    removable_branches = [b for b in [verifier_branch, documenter_branch, tester_branch] if b]
 
     for branch in removable_branches:
         if current_branch == branch:
@@ -173,24 +197,65 @@ def main():
 
     implementer_worktree = worktree_by_branch[implementer_branch]
 
+    # Pre-check every removable worktree is clean (including untracked files)
+    # before merging or removing anything, so an abort never leaves the merge
+    # or cleanup half-done and a re-run starts from an untouched state. The
+    # implementer worktree is exempt: it is preserved, never removed.
+    for branch in removable_branches:
+        worktree_path = worktree_by_branch.get(branch)
+        if not worktree_path:
+            continue
+        status = git_at(worktree_path, "status", "--porcelain")
+        if status:
+            fail(
+                f"worktree {worktree_path} contains uncommitted or untracked files:\n{status}\n"
+                "Inspect it, commit or clean anything that matters, then re-run this script."
+            )
+
     if verifier_branch:
         merge_into_branch(verifier_branch, documenter_branch, worktree_by_branch[documenter_branch])
 
     if documenter_branch:
-        merge_into_branch(documenter_branch, testing_branch, worktree_by_branch[testing_branch])
+        merge_into_branch(documenter_branch, tester_branch, worktree_by_branch[tester_branch])
 
-    if testing_branch:
-        merge_into_branch(testing_branch, implementer_branch, implementer_worktree)
+    if tester_branch:
+        merge_into_branch(tester_branch, implementer_branch, implementer_worktree)
+
+    # Verify every downstream branch is fully merged into the implementer branch
+    # before any cleanup. `git branch -d` can't be used here because it checks
+    # merged-ness against HEAD, not against the implementer branch.
+    for branch in removable_branches:
+        check = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", branch, implementer_branch],
+            capture_output=True,
+        )
+        if check.returncode != 0:
+            fail(
+                f"branch {branch} is not fully merged into {implementer_branch}; "
+                "complete the downstream merge chain before cleanup"
+            )
 
     for branch in removable_branches:
         worktree_path = worktree_by_branch.get(branch)
         if worktree_path:
-            note(f"Force-removing worktree {worktree_path}")
-            subprocess.run(["git", "worktree", "remove", "--force", worktree_path], check=True)
+            note(f"Removing worktree {worktree_path}")
+            result = subprocess.run(
+                ["git", "worktree", "remove", worktree_path],
+                capture_output=True, text=True,
+            )
+            if result.returncode != 0:
+                fail(
+                    f"could not remove worktree {worktree_path}: {result.stderr.strip()}\n"
+                    "The worktree likely contains uncommitted or untracked files. Inspect it, commit or "
+                    "clean anything that matters, then re-run this script to finish the merge and cleanup."
+                )
 
     for branch in removable_branches:
         note(f"Deleting branch {branch}")
-        subprocess.run(["git", "branch", "-D", branch], check=True)
+        # Safe: ancestry into the implementer branch was verified above.
+        result = subprocess.run(["git", "branch", "-D", branch], capture_output=True, text=True)
+        if result.returncode != 0:
+            fail(f"could not delete branch {branch}: {result.stderr.strip()}")
 
     note(f"Merged downstream agent branches into {implementer_branch} and preserved implementer worktree {implementer_worktree}")
 

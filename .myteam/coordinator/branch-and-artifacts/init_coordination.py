@@ -5,7 +5,6 @@ import argparse
 import json
 import re
 import subprocess
-from datetime import datetime
 from pathlib import Path
 
 
@@ -46,7 +45,7 @@ def main() -> int:
         coordination_branch = branch
         branch_action = "reuse-current-branch"
     else:
-        coordination_branch = f"coord-{plan_slug}-{datetime.now().strftime('%Y%m%d')}"
+        coordination_branch = f"coord-{plan_slug}"
         branch_action = "create-and-checkout-required"
 
     artifact_root = Path(args.artifact_root)

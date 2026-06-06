@@ -10,7 +10,7 @@ Load this skill only when all subtasks have completed successfully and been merg
 ## Required Actions
 
 - Verify that no planned subtask remains pending, in flight, failed, or awaiting a user decision before launching the Reviewer.
-- Create a dedicated review worktree from the coordination base branch.
+- Create a dedicated review worktree from the coordination base branch by invoking `create_worktree.py` with the full branch name `<base>-reviewer-<YYYYMMDD>` (the review is plan-level, so the name has no subtask segment).
 - Resolve reviewer artifacts to the plan-level artifact directory.
 - Reread `.myteam/reviewer/role.md` immediately before writing the Reviewer prompt.
 - Compose the Reviewer launch prompt from the approved plan, completed subtask outputs, and the current reviewer definition.

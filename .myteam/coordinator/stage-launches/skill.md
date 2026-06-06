@@ -10,12 +10,18 @@ Load this skill only when creating a stage worktree or launching a downstream ag
 ## Tool
 
 - Load skill `coordinator/worktree-tools` to access `create_worktree.py` when a new stage worktree must be created.
-  Invoke it as: `python create_worktree.py <TOP_LEVEL_DIR> <AGENT_NAME> [--from-branch <PARENT_BRANCH>]`
-  - Pass `--from-branch <PARENT_BRANCH>` to specify the branch the new worktree is created from:
-    - Implementer: omit `--from-branch` (defaults to the current coordination base branch)
-    - Tester:      `--from-branch <implementer-branch>`
-    - Documenter:  `--from-branch <tester-branch>`
-    - Verifier:    `--from-branch <documenter-branch>`
+  Stage branches and worktrees follow the naming convention `<base>-<subtask>-<stage>-<date>`:
+    - `<base>`: short plan-derived prefix — use the coordination base branch name when it is short, otherwise pick a short plan slug.
+    - `<subtask>`: the subtask identifier from the plan (e.g. `subtask-1` or `st1`).
+    - `<stage>`: the agent that will run in the worktree.
+    - `<date>`: the date the subtask's Implementer was started (`YYYYMMDD`); later stages inherit it automatically.
+  Per-stage invocations:
+    - Implementer: compose the full branch name exactly once per subtask and invoke from the coordination base branch:
+      `python create_worktree.py <TOP_LEVEL_DIR> <base>-<subtask>-implementer-<YYYYMMDD>`
+    - Tester:      `python create_worktree.py <TOP_LEVEL_DIR> tester --from-branch <implementer-branch>`
+    - Documenter:  `python create_worktree.py <TOP_LEVEL_DIR> documenter --from-branch <tester-branch>`
+    - Verifier:    `python create_worktree.py <TOP_LEVEL_DIR> verifier --from-branch <documenter-branch>`
+    For Tester, Documenter, and Verifier the script replaces the stage segment of the `--from-branch` name and preserves its date; do not compose those names manually.
   - If the plan specifies an explicit worktree location, use that as TOP_LEVEL_DIR.
   - Otherwise, default to `~/repos/worktrees` as TOP_LEVEL_DIR.
   - This keeps all stage worktrees isolated outside the repository root, avoiding git confusion and file-system nesting issues.
@@ -25,7 +31,8 @@ Load this skill only when creating a stage worktree or launching a downstream ag
 
 ## Required Actions
 
-- Create each stage worktree from the immediately preceding successful stage branch by passing `--from-branch <parent-stage-branch>` to `create_worktree.py`; the Implementer is the only stage that omits `--from-branch` (it always branches from the coordination base).
+- Create each stage worktree from the immediately preceding successful stage branch by passing `--from-branch <parent-stage-branch>` to `create_worktree.py`; the Implementer is the only stage that omits `--from-branch` (it always branches from the coordination base, with its full branch name composed by the Coordinator).
+- Compose the full Implementer branch name (`<base>-<subtask>-implementer-<date>`) exactly once per subtask; never compose full branch names for Tester, Documenter, or Verifier — pass only the agent name and `--from-branch` so the stage segment and inherited date stay consistent.
 - Do not create the next stage worktree until the previous stage completed successfully, committed all required changes and artifacts, and left a clean branch.
 - Launch every downstream workflow agent as an isolated sub-agent in a separate background-task or equivalent separate-session execution context when the runtime supports it.
 - Treat keeping downstream conversation state out of the Coordinator's active context as a launch-quality requirement, not just a stylistic preference.

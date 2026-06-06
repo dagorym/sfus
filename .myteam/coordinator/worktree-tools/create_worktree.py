@@ -2,28 +2,33 @@
 """
 Usage:
   python create_worktree.py TOP_LEVEL_DIR BRANCH_NAME
-  python create_worktree.py TOP_LEVEL_DIR AGENT_NAME [--subtask SUBTASK_ID]
+  python create_worktree.py TOP_LEVEL_DIR AGENT_NAME [--from-branch BRANCH]
 
-Creates a git worktree on a new branch based on the current branch.
+Creates a git worktree on a new branch.
 
-If the second argument looks like a full branch name ending in -YYYYMMDD,
-that branch name is used directly.
+Stage branches follow the naming convention <base>[-<subtask>]-<stage>-<YYYYMMDD>:
+  base:    short plan-derived prefix chosen by the coordinator
+  subtask: subtask identifier from the plan (omitted for plan-level stages
+           such as the final reviewer)
+  stage:   the agent that will run in the worktree
+  date:    the date the subtask's Implementer was started; later stages
+           inherit it unchanged
 
-Otherwise, the second argument is treated as an agent name and the script
-builds the branch name from the current branch:
-  <current-branch-prefix>-<subtask-id>-<agent-name>-<today>  (if --subtask provided)
-  <current-branch-prefix>-<agent-name>-<today>               (otherwise)
+If the second argument ends in -YYYYMMDD it is treated as a full branch name,
+validated against the convention, and used verbatim. Use this form when
+branching off a non-stage branch (the Implementer from the coordination base,
+or the Reviewer at plan level).
 
-If the current branch already ends in -<subtask>-<agent>-<YYYYMMDD>, that suffix is
-removed before the new agent/date suffix is appended. The --subtask parameter ensures
-consistent subtask organization across all stages for a given subtask.
+Otherwise the second argument is treated as a stage/agent name. The source
+branch (--from-branch, or the current branch) must itself end in
+-<stage>-<YYYYMMDD>; the stage segment is replaced with the new agent name and
+the date is preserved, so all stages of a subtask share the Implementer's date.
 
 If TOP_LEVEL_DIR resolves under /mnt/c/Users/.../Documents, the script uses
 ~/worktrees instead. Git worktrees are unreliable there under WSL.
 """
 
 import argparse
-import datetime
 import os
 import re
 import subprocess
@@ -49,6 +54,10 @@ def looks_like_full_branch_name(value):
     return bool(re.search(r"-[0-9]{8}$", value))
 
 
+STAGE_NAMES = {"implementer", "tester", "documenter", "verifier", "reviewer"}
+STAGE_BRANCH_RE = re.compile(r"(.+)-([A-Za-z0-9_.]+)-([0-9]{8})")
+
+
 def git(*args, check=True):
     result = subprocess.run(["git"] + list(args), capture_output=True, text=True)
     if check and result.returncode != 0:
@@ -69,12 +78,6 @@ def main():
         default=None,
         help="Branch to base the new worktree on. Defaults to the current branch.",
     )
-    parser.add_argument(
-        "--subtask",
-        dest="subtask",
-        default=None,
-        help="Subtask identifier (e.g., 'subtask-1') to include in branch name for organization.",
-    )
     args = parser.parse_args()
 
     top_level_dir = args.top_level_dir
@@ -83,7 +86,6 @@ def main():
     git("rev-parse", "--show-toplevel")  # verify inside a git repo
 
     repo_root = git("rev-parse", "--show-toplevel")
-    today = datetime.date.today().strftime("%Y%m%d")
     top_level_path = Path(os.path.abspath(os.path.expanduser(top_level_dir)))
 
     if args.from_branch:
@@ -108,21 +110,34 @@ def main():
 
     if looks_like_full_branch_name(branch_or_agent):
         branch_name = branch_or_agent
+        m = STAGE_BRANCH_RE.fullmatch(branch_name)
+        if not m or m.group(2) not in STAGE_NAMES:
+            fail(
+                f"full branch name '{branch_name}' does not follow the "
+                f"<base>[-<subtask>]-<stage>-<YYYYMMDD> convention with a known stage name "
+                f"({', '.join(sorted(STAGE_NAMES))})"
+            )
     else:
         agent_name = branch_or_agent
         require_clean_name(agent_name, "agent name")
+        if agent_name not in STAGE_NAMES:
+            fail(
+                f"unknown stage/agent name '{agent_name}' "
+                f"(expected one of: {', '.join(sorted(STAGE_NAMES))}); "
+                "to create a branch outside the stage convention, pass a full branch name"
+            )
 
-        # Remove trailing agent-date suffix if present, accounting for optional subtask
-        # Pattern: -<subtask>-<agent>-YYYYMMDD or -<agent>-YYYYMMDD
-        branch_prefix = re.sub(r"(?:-[a-zA-Z0-9_.-]+-[a-zA-Z0-9_.-]+|-[a-zA-Z0-9_.-]+)-[0-9]{8}$", "", current_branch)
-        if not branch_prefix:
-            fail(f"could not derive a branch prefix from current branch '{current_branch}'")
-
-        if args.subtask:
-            require_clean_name(args.subtask, "subtask identifier")
-            branch_name = f"{branch_prefix}-{args.subtask}-{agent_name}-{today}"
-        else:
-            branch_name = f"{branch_prefix}-{agent_name}-{today}"
+        # Replace the stage segment of the source branch and preserve its date so
+        # every stage of a subtask shares the Implementer's start date.
+        m = STAGE_BRANCH_RE.fullmatch(current_branch)
+        if not m or m.group(2) not in STAGE_NAMES:
+            fail(
+                f"cannot derive a stage branch name from '{current_branch}': it does not end in "
+                f"-<stage>-<YYYYMMDD> with a known stage name ({', '.join(sorted(STAGE_NAMES))}). "
+                "When branching off a non-stage branch (e.g. the coordination base), pass a full "
+                "branch name instead: <base>[-<subtask>]-<agent>-<YYYYMMDD>"
+            )
+        branch_name = f"{m.group(1)}-{agent_name}-{m.group(3)}"
 
     require_clean_name(branch_name, "branch name")
 

@@ -11,7 +11,7 @@ Load this skill only when a subtask chain has completed successfully or stale wo
 
 - Load skill `coordinator/worktree-tools` to access `merge_worktrees.py` when the successful stage chain must be merged back into the coordination branch and the merged worktrees should be cleaned up together.
   Invoke it as: `python merge_worktrees.py <BRANCH_PREFIX>`
-  - BRANCH_PREFIX is the coordination base branch name (e.g. `plan-myfeature`); all stage branches follow the pattern `<BRANCH_PREFIX>-<agent>-<date>`.
+  - BRANCH_PREFIX is the subtask's implementer branch name without its `-implementer-<date>` suffix, i.e. `<base>-<subtask>` (e.g. `plan-myfeature-st1`); the subtask's stage branches all follow the pattern `<BRANCH_PREFIX>-<stage>-<date>`. Do not pass the bare `<base>` — with parallel subtasks in flight it matches multiple subtasks' branches and the merge aborts.
   - Run this script from the coordination base branch in the repository root. The script merges the implementer branch into whatever branch is currently checked out at the repo root — running from a stage worktree silently merges into the wrong branch.
 
 ## Required Actions

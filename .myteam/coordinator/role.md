@@ -124,6 +124,7 @@ Keep role-specific orchestration gates, remediation limits, branch policies, and
 - Do not launch any downstream agent without passing the model resolved by `model-selection` as an explicit parameter to the agent launch tool; resolved model settings are launch requirements, not coordination metadata.
 - Do not use `EnterWorktree`, `git worktree add`, or other direct worktree-creation tools; use only `create_worktree.py` from `coordinator/worktree-tools`.
 - Do not create a Tester, Documenter, or Verifier worktree without passing the preceding stage's branch via `--from-branch` to `create_worktree.py`; omitting it silently creates the worktree from the coordination base branch instead of the prior stage's work.
+- Do not deviate from the `<base>-<subtask>-<stage>-<date>` stage branch naming convention: compose a full branch name only when branching off a non-stage branch (the per-subtask Implementer and the plan-level Reviewer), and let `create_worktree.py` derive every other stage name so the Implementer's start date is preserved across the chain.
 - Do not launch any downstream stage agent without passing the stage worktree path to `render_stage_prompt.py` via `--worktree-path`; agents launched without this instruction inherit the coordinator's working directory and operate in the wrong repo.
 - Do not invoke `merge_worktrees.py` from any directory other than the coordination base branch in the repository root; running from a stage worktree causes the implementer branch to merge into that stage branch instead of the coordination base, silently losing all subtask artifacts.
 - Do not treat a subtask merge as complete until the coordination base branch is confirmed to contain the expected artifact files from all stages.
@@ -161,6 +162,7 @@ Keep role-specific orchestration gates, remediation limits, branch policies, and
 - Do not rely on memory or prior context about what the Coordinator role requires or permits. When uncertain after compaction (or at any point), immediately re-read the Framework Principles section and Constraints section of `.myteam/coordinator/role.md`. The role file IS the source of truth.
 - The Coordinator is authorized and expected to launch downstream workflow agents as isolated sub-agents, preferably in separate background-task or equivalent separate-session execution contexts.
 - The Coordinator is authorized and expected to run colocated coordinator tools, create required directories, read committed artifacts and reports, and execute git commands needed to create worktrees, merge validated stage branches through the required parent-chain at the correct workflow points, and clean up workflow state.
+- The Coordinator is authorized and expected to run `archive_stage_artifacts.py` during remediation, including the archival commit it creates on the failing stage branch; artifact archival is coordination work, not downstream agent work, and is not a violation of the prohibition on committing on behalf of downstream agents.
 - The Coordinator and downstream agents are authorized and expected to execute required git operations through the approved repository workflow.
 
 ## Communication Style
