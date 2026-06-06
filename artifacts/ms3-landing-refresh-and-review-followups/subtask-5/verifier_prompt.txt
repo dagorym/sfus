@@ -1,0 +1,55 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Subtask 5: Media serving read-stream hardening (TOCTOU). The Implementer attached a stream error handler to serveImage() in apps/api/src/media/media.controller.ts so that a file vanishing between the DB lookup and stream open results in a controlled 404 (ENOENT), socket destroy when headers are already flushed, or 500 for other I/O errors. The Tester confirmed 10/10 media controller tests pass. The Documenter updated docs/README.md to reflect the hardened behavior.
+
+Acceptance criteria to verify:
+- If the resolved media file is missing at stream time, the serving route returns a controlled 404 with no unhandled-stream crash and no hung connection.
+- If headers are already sent when the stream error fires, the socket is destroyed to signal an incomplete response.
+- Unexpected I/O errors (non-ENOENT) return 500 with a clean close.
+- docs/README.md accurately describes the TOCTOU-hardened behavior for GET /api/media/:id.
+
+Implementation branch or worktree context:
+- Implementer branch: ms3-subtask-5-implementer-20260606
+- Tester branch: ms3-subtask-5-tester-20260606
+- Test commit: 936d2222c11062c79ed9483a1446854c26fe5fc9
+- Documenter branch: ms3-subtask-5-documenter-20260606
+- Documentation commit: 5972d9a4d7ff98d7b351f2e04f7b04dae4883d8f
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/media/media.controller.ts
+- apps/api/src/media/media.controller.test.ts
+- docs/README.md
+
+Commands executed:
+- None
+
+Final test outcomes:
+- PASS: MediaController.serveImage TOCTOU — returns 404 when file stream emits ENOENT (file vanished after DB lookup)
+- PASS: MediaController.serveImage TOCTOU — does not send new response when headers already flushed during stream error (destroy called)
+- PASS: MediaController.serveImage TOCTOU — returns 500 when file stream emits non-ENOENT I/O error
+- PASS: All 7 pre-existing upload authorization tests
+- Total: 10/10 media controller tests pass; 249 full API suite pass (6 pre-existing failures unrelated to this subtask)
+
+Plan or evaluation context guidance:
+- Plan: plans/ms3-landing-refresh-and-review-followups-plan.md
+- Base branch: ms3-claude
+- Subtask-5 of the ms3-landing-refresh-and-review-followups plan
+
+Convention-file guidance:
+- Repository requires function-level JSDoc comments on all controller methods.
+- The serveImage() JSDoc was already present; the Implementer's changes are behavioral (stream error handler attachment). No additional in-code documentation update was required beyond what the Implementer added.
+
+Updated documentation files:
+- docs/README.md
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-5
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
