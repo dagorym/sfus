@@ -1,0 +1,40 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Fix foreign-key violation in standalone page creation by reordering inserts in PagesService.create: insert the parent standalone_pages row before the child page_revisions row.
+
+Modified files:
+- apps/api/src/pages/pages.service.ts
+
+Acceptance criteria to validate (from Planner):
+- Creating a standalone page via POST /api/pages/admin/standalone-pages succeeds and creates both a parent standalone_pages row and a child page_revisions row in correct FK order, with no foreign-key constraint violation.
+- The created page is retrievable via GET /api/pages/<id>/revisions or similar queries that traverse the FK.
+- Existing page creation tests pass without modification (the fix is FK order only, no API contract or behavior changes).
+
+Create test files in:
+- apps/api/src/pages/pages.service.test.ts
+
+Implementation context for testing:
+- PagesService.create previously saved the revision first (violating page_revisions.page_id → standalone_pages.id FK).
+- Fix: insert standalone_pages with currentRevisionId=null first, then insert page_revisions with valid pageId, then update page.currentRevisionId and save again.
+- Behavior is identical from the API caller's perspective; only DB insert order changed.
+- The page temporarily has currentRevisionId=null between first and third save — this is a sequential non-transactional operation; the final state is always consistent.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/pages/pages.service.test.ts
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+
+Existing validations expected to fail only because approved behavior changed:
+- npx --yes pnpm@10.0.0 lint: 1 pre-existing error in apps/api/src/navigation/navigation.controller.test.ts (unused UnauthorizedException import). This is NOT a regression from this change and is outside the approved file scope.
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-7
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
