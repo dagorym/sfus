@@ -1,0 +1,67 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Subtask 1 of ms3-landing-refresh-and-review-followups plan: Auth error-message disambiguation on register and login pages. Distinguish service-unavailable (HTTP >= 500, network/transport failure) from credential/validation errors (4xx). Remove misleading 'Registration is unavailable while local prerequisites are incomplete.' message. Show clear service-unavailable message ('The service is temporarily unavailable. Please try again in a moment.') for 5xx and network failures on both register and login pages.
+
+Acceptance criteria to verify:
+- AC1: A 500/503 API response on register shows 'The service is temporarily unavailable. Please try again in a moment.' and never the removed prerequisites/migrations text.
+- AC2: A network/transport failure on register shows the service-unavailable message (describeRegistrationError handles statusCode === null).
+- AC3: A network/transport failure on login shows the service-unavailable message (inner try/catch in submitPasswordLogin).
+- AC4: Register still shows the duplicate-account message on 409.
+- AC5: Register still shows the invalid-input message on 400.
+- AC6: Login still shows the credential message ('Sign-in failed. Verify your credentials and try again.') on 400/401.
+- AC7: HTTP >= 500 on login shows the service-unavailable message (response.status >= 500 branch).
+- AC8: MFA-challenge, onboarding, and success-redirect flows are unchanged.
+
+Implementation branch or worktree context:
+- Tester branch: ms3-subtask-1-tester-20260606
+- Worktree: /home/tstephen/repos/worktrees/ms3-subtask-1-tester-20260606
+- Base branch: ms3-claude
+- Implementer commit: 7c1f68d (fix(auth): distinguish service-unavailable from credential errors on register and login)
+- Tester commit: 9a54980 (test(web): update public-shell spec to assert new service-unavailable message)
+- Documenter: no documentation changes needed; documentation commit hash is 96a1b0b (tester artifact commit)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/register/page.tsx (implementer)
+- apps/web/app/login/login-client.tsx (implementer)
+- apps/web/app/public-shell.spec.ts (tester)
+
+Commands executed by Tester:
+- npx --yes pnpm@10.0.0 --filter @sfus/web run lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web test
+
+Final test outcomes:
+- All 157 web tests pass including updated public-shell.spec.ts registration flow contracts test.
+- Updated assertion validates the new service-unavailable message text.
+- Lint and typecheck both pass clean.
+- 6 pre-existing API test failures are ENOENT path resolution failures unrelated to this change.
+
+Plan or evaluation context guidance:
+- Plan file: plans/ms3-landing-refresh-and-review-followups-plan.md
+- Compare ms3-subtask-1-tester-20260606 against ms3-claude base
+- Subtask 1 scope: UI error-presentation logic only; no API contract changes.
+- Error-message taxonomy: service-unavailable message shown for all network failures and 5xx; credential message for 4xx on login; 409 duplicate and 400 invalid-input messages unchanged on register.
+- Old message 'Registration is unavailable while local prerequisites are incomplete.' must not appear anywhere in implementation.
+- New canonical service-unavailable message: 'The service is temporarily unavailable. Please try again in a moment.'
+
+Convention-file guidance:
+- Repository documentation lives in docs/README.md and docs/website-launch-guide.md; neither documents auth error strings.
+- No required in-code docblock policy applies to web React component files in this repository.
+- Artifact paths follow pattern: artifacts/<plan-slug>/subtask-<N>/<role>_<report|result|prompt>.txt
+
+Updated documentation files:
+- None (no documentation changes were required for this subtask; change is user-facing copy only).
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-1
+
+Verification scope:
+- Review implementation and tests together (no documentation files changed).
+- Confirm the old misleading error message is absent from all changed files.
+- Confirm the service-unavailable message appears for the correct code paths in both pages.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
