@@ -201,9 +201,12 @@ describe("BlogService publish-state transitions", () => {
     expect(findOneSpy).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ slug: "my-post", status: "published" })
     }));
-    // Verify that a publishedAt constraint is present in the query (LessThanOrEqual guard)
+    // Verify the publishedAt value is a TypeORM LessThanOrEqual FindOperator, not just a Date.
+    // Key-presence alone would not distinguish LessThanOrEqual from a plain equality filter.
     const calledWith = findOneSpy.mock.calls[0][0] as { where: Record<string, unknown> };
-    expect(calledWith.where).toHaveProperty("publishedAt");
+    const publishedAtOperator = calledWith.where["publishedAt"] as { type?: string };
+    expect(publishedAtOperator).toHaveProperty("type");
+    expect(publishedAtOperator.type).toBe("lessThanOrEqual");
   });
 });
 
@@ -214,7 +217,7 @@ describe("BlogService publish-state transitions", () => {
 // ---------------------------------------------------------------------------
 
 describe("BlogService.findPublishedById public-visibility predicate (security regression)", () => {
-  it("queries with status=published and a publishedAt constraint (LessThanOrEqual guard)", async () => {
+  it("queries with status=published and a publishedAt LessThanOrEqual constraint", async () => {
     const authorizationService = new AuthorizationService();
     const findOneSpy = vi.fn().mockResolvedValue(null);
     const postRepo = {
@@ -232,10 +235,13 @@ describe("BlogService.findPublishedById public-visibility predicate (security re
     expect(findOneSpy).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ id: "some-uuid", status: "published" })
     }));
-    // Verify the publishedAt LessThanOrEqual constraint is present — this is the
-    // security-critical guard that prevents future-scheduled posts from leaking.
+    // Verify the publishedAt value is a TypeORM LessThanOrEqual FindOperator.
+    // Key-presence alone would not distinguish LessThanOrEqual from a plain equality filter;
+    // verifying .type === "lessThanOrEqual" ensures the correct operator is used.
     const calledWith = findOneSpy.mock.calls[0][0] as { where: Record<string, unknown> };
-    expect(calledWith.where).toHaveProperty("publishedAt");
+    const publishedAtOperator = calledWith.where["publishedAt"] as { type?: string };
+    expect(publishedAtOperator).toHaveProperty("type");
+    expect(publishedAtOperator.type).toBe("lessThanOrEqual");
   });
 
   it("returns null for a future-scheduled post (published but publishedAt in the future)", async () => {
@@ -634,7 +640,7 @@ describe("BlogService.toggleFeatured (pin/unpin) (AC5)", () => {
 // ---------------------------------------------------------------------------
 
 describe("BlogService.createComment future-dated post guard (AC1)", () => {
-  it("throws ForbiddenException when post is published but publishedAt is in the future", async () => {
+  it("throws NotFoundException when post is published but publishedAt is in the future", async () => {
     const futureDatedPost = {
       id: "post-future",
       status: "published",
@@ -658,7 +664,7 @@ describe("BlogService.createComment future-dated post guard (AC1)", () => {
     );
     await expect(
       service.createComment(futureDatedPost.id, "user-1", { body: "Comment on future post" })
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toThrow(NotFoundException);
   });
 });
 
@@ -746,7 +752,7 @@ describe("BlogService.createComment", () => {
     expect(result.authorUserId).toBe("user-1");
   });
 
-  it("throws ForbiddenException when post is not published (draft)", async () => {
+  it("throws NotFoundException when post is not published (draft)", async () => {
     const authorizationService = new AuthorizationService();
     const postRepo = {
       ...createMinimalRepository(),
@@ -761,7 +767,7 @@ describe("BlogService.createComment", () => {
     );
     await expect(
       service.createComment(draftPost.id, "user-1", { body: "Comment on draft" })
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toThrow(NotFoundException);
   });
 
   it("throws NotFoundException when post does not exist", async () => {
@@ -846,7 +852,7 @@ describe("BlogService.createComment", () => {
   });
 
   // AC4: Comments cannot expose unpublished parent content — unpublished post guard
-  it("throws ForbiddenException when post is unpublished", async () => {
+  it("throws NotFoundException when post is unpublished", async () => {
     const unpublishedPost = {
       id: "post-unpublished",
       status: "unpublished",
@@ -870,7 +876,7 @@ describe("BlogService.createComment", () => {
     );
     await expect(
       service.createComment(unpublishedPost.id, "user-1", { body: "Comment on unpublished" })
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toThrow(NotFoundException);
   });
 });
 
@@ -1521,6 +1527,202 @@ describe("BlogService slug auto-generation", () => {
     await expect(
       service.create("user-1", { title: "Some Title", slug: "INVALID SLUG!", body: "body" })
     ).rejects.toThrow(BadRequestException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Oracle-parity: createComment produces identical NotFoundException for nonexistent,
+// draft, unpublished, and future-scheduled posts (security invariant: AC closure).
+// A caller with a known UUID must not be able to distinguish post existence from
+// non-public visibility through the createComment path.
+// ---------------------------------------------------------------------------
+
+describe("BlogService.createComment oracle-parity: non-public posts indistinguishable from nonexistent", () => {
+  const EXPECTED_MESSAGE = "Blog post not found.";
+  const userId = "authenticated-user";
+  const body = "Comment body";
+
+  async function expectNotFoundException(postRepo: MinimalRepo): Promise<void> {
+    const authorizationService = new AuthorizationService();
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    // Must throw NotFoundException (not ForbiddenException) so the HTTP status
+    // and envelope message are identical to the truly-nonexistent-post case.
+    await expect(
+      service.createComment("some-post-uuid", userId, { body })
+    ).rejects.toThrow(NotFoundException);
+  }
+
+  it("nonexistent post (null from repo) throws NotFoundException", async () => {
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(null)
+    };
+    await expectNotFoundException(postRepo);
+  });
+
+  it("draft post throws NotFoundException (same as nonexistent)", async () => {
+    const draftPost = {
+      id: "some-post-uuid",
+      status: "draft",
+      publishedAt: null,
+      title: "Draft",
+      slug: "draft",
+      body: "body",
+      postTags: []
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(draftPost)
+    };
+    await expectNotFoundException(postRepo);
+  });
+
+  it("unpublished post throws NotFoundException (same as nonexistent)", async () => {
+    const unpublishedPost = {
+      id: "some-post-uuid",
+      status: "unpublished",
+      publishedAt: null,
+      title: "Unpublished",
+      slug: "unpublished",
+      body: "body",
+      postTags: []
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(unpublishedPost)
+    };
+    await expectNotFoundException(postRepo);
+  });
+
+  it("future-scheduled post throws NotFoundException (same as nonexistent)", async () => {
+    const futurePost = {
+      id: "some-post-uuid",
+      status: "published",
+      publishedAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour in the future
+      title: "Future",
+      slug: "future",
+      body: "body",
+      postTags: []
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(futurePost)
+    };
+    await expectNotFoundException(postRepo);
+  });
+
+  it("all four cases throw NotFoundException with identical message", async () => {
+    const cases = [
+      null,
+      { id: "some-post-uuid", status: "draft", publishedAt: null, title: "D", slug: "d", body: "b", postTags: [] },
+      { id: "some-post-uuid", status: "unpublished", publishedAt: null, title: "U", slug: "u", body: "b", postTags: [] },
+      { id: "some-post-uuid", status: "published", publishedAt: new Date(Date.now() + 3600_000), title: "F", slug: "f", body: "b", postTags: [] }
+    ];
+    const messages: string[] = [];
+    for (const postValue of cases) {
+      const authorizationService = new AuthorizationService();
+      const postRepo = {
+        ...createMinimalRepository(),
+        findOne: vi.fn().mockResolvedValue(postValue)
+      };
+      const service = new BlogService(
+        postRepo as never,
+        createMinimalRepository() as never,
+        createMinimalRepository() as never,
+        createMinimalRepository() as never,
+        authorizationService
+      );
+      try {
+        await service.createComment("some-post-uuid", userId, { body });
+        messages.push("NO_THROW");
+      } catch (err: unknown) {
+        const e = err as { message?: string; name?: string };
+        messages.push(`${e.name ?? "Unknown"}:${e.message ?? ""}`);
+      }
+    }
+    // Every case must produce the same error class and message.
+    const unique = new Set(messages);
+    expect(unique.size).toBe(1);
+    expect(messages[0]).toBe(`NotFoundException:${EXPECTED_MESSAGE}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: commentsLocked ForbiddenException is preserved on public posts.
+// A locked PUBLIC post is legitimately visible; its 403 is not an oracle.
+// ---------------------------------------------------------------------------
+
+describe("BlogService.createComment commentsLocked ForbiddenException regression", () => {
+  it("a locked public post throws ForbiddenException (not NotFoundException)", async () => {
+    const lockedPublicPost = {
+      id: "post-locked-public",
+      status: "published",
+      publishedAt: new Date(Date.now() - 60_000), // in the past — genuinely public
+      commentsLocked: true,
+      title: "Locked Public Post",
+      slug: "locked-public-post",
+      body: "body",
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(lockedPublicPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.createComment(lockedPublicPost.id, "user-1", { body: "Trying to comment on locked post" })
+    ).rejects.toThrow(ForbiddenException);
+    // Must specifically be ForbiddenException (not NotFoundException) — locked posts
+    // are visible and their 403 is the correct, intentional response.
+    await expect(
+      service.createComment(lockedPublicPost.id, "user-1", { body: "Trying again" })
+    ).rejects.not.toThrow(NotFoundException);
+  });
+
+  it("commentsLocked ForbiddenException message is 'Comments are locked on this post.'", async () => {
+    const lockedPublicPost = {
+      id: "post-locked-msg",
+      status: "published",
+      publishedAt: new Date(Date.now() - 60_000),
+      commentsLocked: true,
+      title: "Locked",
+      slug: "locked",
+      body: "body",
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(lockedPublicPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    let caughtMessage = "";
+    try {
+      await service.createComment(lockedPublicPost.id, "user-1", { body: "Comment" });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      caughtMessage = e.message ?? "";
+    }
+    expect(caughtMessage).toBe("Comments are locked on this post.");
   });
 });
 
