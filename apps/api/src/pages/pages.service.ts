@@ -129,6 +129,20 @@ export class PagesService {
     const pageId = crypto.randomUUID();
     const revisionId = crypto.randomUUID();
 
+    // Insert the parent standalone_pages row first so the FK on
+    // page_revisions.page_id → standalone_pages.id is satisfied.
+    // currentRevisionId is nullable and will be set after the revision is saved.
+    const page = this.pageRepository.create({
+      id: pageId,
+      createdByUserId: authorUserId,
+      title: input.title,
+      slug: input.slug,
+      status: "draft",
+      publishedAt: null,
+      currentRevisionId: null
+    });
+    await this.pageRepository.save(page);
+
     const revision = this.revisionRepository.create({
       id: revisionId,
       pageId,
@@ -140,18 +154,10 @@ export class PagesService {
       featuredMediaId: input.featuredMediaId ?? null,
       revisionNumber: 1
     });
-    // Save revision first (page's current_revision_id FK references it).
     const savedRevision = await this.revisionRepository.save(revision);
 
-    const page = this.pageRepository.create({
-      id: pageId,
-      createdByUserId: authorUserId,
-      title: input.title,
-      slug: input.slug,
-      status: "draft",
-      publishedAt: null,
-      currentRevisionId: savedRevision.id
-    });
+    // Update the page to point at its initial revision.
+    page.currentRevisionId = savedRevision.id;
     await this.pageRepository.save(page);
 
     return this.pageRepository.findOne({ where: { id: pageId } }) as Promise<StandalonePageEntity>;
