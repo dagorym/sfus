@@ -37,9 +37,16 @@ describe("public web shell source contracts", () => {
 
     expect(pageSource).toContain("Chart the next frontier for Star Frontiers US.");
     expect(pageSource).toContain("Public Landing Experience");
-    expect(pageSource).toContain("This Milestone 2 foundation delivers");
+    // MS3 copy: no Milestone 2 references remain; MS3 capabilities are described
+    expect(pageSource).not.toContain("This Milestone 2 foundation delivers");
+    expect(pageSource).not.toContain("Milestone 2");
+    expect(pageSource).toContain("Milestone 3");
+    // MS3: /blog and /about links are visible on the homepage
+    expect(pageSource).toContain('href="/blog"');
+    expect(pageSource).toContain('href="/about"');
     expect(pageSource).not.toContain("Milestone 1");
     expect(pageSource).toContain('process.env.NEXT_PUBLIC_API_BASE_PATH || "/api"');
+    // page.tsx remains a server component — no fetch() or useEffect at top level
     expect(pageSource).not.toMatch(/\bfetch\s*\(/);
     expect(pageSource).not.toContain("useEffect(");
     expect(layoutSource).toContain("Milestone 2 Auth Foundation");
