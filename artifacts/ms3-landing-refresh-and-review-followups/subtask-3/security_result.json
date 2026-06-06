@@ -1,0 +1,83 @@
+{
+  "status": "success",
+  "task_id": "subtask-3",
+  "branch_name": "ms3-claude",
+  "review_mode": "retroactive",
+  "outcome": "CONDITIONAL PASS",
+  "blocking_finding_count": 0,
+  "warning_finding_count": 2,
+  "note_finding_count": 5,
+  "artifact_file_paths": [
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-3/security_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-3/security_result.json"
+  ],
+  "plan_path": "plans/ms3-landing-refresh-and-review-followups-plan.md",
+  "review_scope": [
+    "apps/api/src/navigation/navigation.service.ts",
+    "apps/api/src/navigation/navigation.controller.ts",
+    "apps/api/src/navigation/navigation.service.test.ts",
+    "apps/api/src/pages/pages.service.ts",
+    "apps/api/src/pages/pages.controller.ts",
+    "apps/api/src/pages/entities/standalone-page.entity.ts",
+    "apps/web/components/navigation.tsx",
+    "docs/README.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-3/implementer_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-3/tester_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-3/documenter_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-3/verifier_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/final-review/reviewer_report.md"
+  ],
+  "warning_findings": [
+    {
+      "id": "W1",
+      "location": "apps/api/src/navigation/navigation.service.ts:111-132",
+      "summary": "findForAuthenticatedUser applies no linked-target publication filtering; nav items pointing at unpublished pages/posts are served to any self-registered authenticated user (metadata-existence disclosure only; page content still 404s for non-admins). Pre-existing asymmetry, outside this subtask's scoped surface; recommend follow-up to filter for non-admin authenticated callers.",
+      "code_change_needed": true
+    },
+    {
+      "id": "W2",
+      "location": "apps/api/src/navigation/navigation.service.test.ts:362-460",
+      "summary": "Mock-only tests never assert the where-clause (status='published', blog publishedAt<=now) passed to findOne; a regression dropping the status condition would still pass the suite. Recommend tightening assertions on the query predicate.",
+      "code_change_needed": true
+    }
+  ],
+  "note_findings": [
+    {
+      "id": "N1",
+      "location": "apps/api/src/navigation/navigation.service.ts:84-96,292-300",
+      "summary": "Bounded N+1 per-item DB lookups on the unauthenticated public nav endpoint; admin-bounded item count and indexed point queries make this non-exploitable today; consider batching/caching if nav grows.",
+      "code_change_needed": false
+    },
+    {
+      "id": "N2",
+      "location": "apps/api/src/navigation/navigation.service.ts:265-272",
+      "summary": "validateUrl accepts arbitrary non-empty strings <=512 chars for internal nav URLs (admin-only input); consider requiring internal URLs to start with '/'. Pre-existing, hardening only.",
+      "code_change_needed": false
+    },
+    {
+      "id": "N3",
+      "location": "apps/api/src/navigation/navigation.service.ts:338",
+      "summary": "Known item, not re-reported: bare '/pages' URL falls through to the top-level matcher and is fail-closed omitted; fix in flight via plans/ms3-review-closeout-plan.md subtask-5 (adds 'pages' to RESERVED_PAGE_SLUGS).",
+      "code_change_needed": false
+    },
+    {
+      "id": "N4",
+      "location": "apps/api/src/navigation/navigation.service.ts:346-349; apps/api/src/pages/pages.service.ts:91-94",
+      "summary": "status='published' is the complete public predicate today (pages have no scheduled publishing); if a future publishedAt dimension is added for pages, the nav filter and findPublishedBySlug must change in lockstep.",
+      "code_change_needed": false
+    },
+    {
+      "id": "N5",
+      "location": "apps/api/src/blog/blog.service.ts:552-572",
+      "summary": "Known accepted item: deriveUniqueSlug TOCTOU, recorded in the final reviewer report; referenced for completeness only.",
+      "code_change_needed": false
+    }
+  ],
+  "test_sufficiency_summary": [
+    "Leak cases are directly exercised: unpublished /<slug> omitted, published /<slug> included, reserved-slug passthrough, unpublished /pages/<slug> and /blog/<slug> omitted, external links unaffected (36/36 pass; 6 controller-test failures are a pre-existing unrelated cwd defect).",
+    "Gap: mock-only tests do not pin the published-only query predicate (W2); multi-segment-fallback and bare-/pages edges lack dedicated tests (verifier-noted, low risk, latter covered by the closeout plan)."
+  ],
+  "documentation_sufficiency_summary": [
+    "docs/README.md:407-412 documents the full public-nav filtering rules including the /<slug> rule, RESERVED_PAGE_SLUGS membership, and the fallback; method JSDoc matches the implementation; navigation_items migration attribution corrected. Sufficient for safe operation."
+  ]
+}
