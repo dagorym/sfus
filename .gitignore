@@ -3,3 +3,7 @@ dist/
 coverage/
 .pnpm-store/
 worktrees/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
