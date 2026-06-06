@@ -405,6 +405,11 @@ Milestone 3 Subtask 6 adds a configurable admin navigation system. Site navigati
 **Public read routes — no authentication required for the public surface:**
 
 - `GET /api/navigation/items/public` — returns all active top-level navigation items with `visibility = "public"`, ordered by `sortOrder` ascending. Returns `{ items: NavigationItemDetail[] }` where each top-level item includes its active, public-visibility children. Children whose linked internal blog post or standalone page target is not publicly visible are omitted before the response is returned. Top-level items whose own linked target is not publicly visible are also omitted entirely. Safe for guest access; `NavigationService.findPublic()` enforces all filtering server-side.
+  - **Publication-leakage filtering rules** (`NavigationService.isLinkedTargetPubliclyVisible`): external links always pass. Internal links are checked by URL pattern:
+    - `/blog/<slug>` — the linked blog post must have `status = "published"` and `publishedAt <= now`; future-dated or unpublished posts are omitted.
+    - `/pages/<slug>` — the linked standalone page must have `status = "published"`; draft and unpublished pages are omitted.
+    - `/<slug>` (single-segment top-level path) — slugs in `RESERVED_PAGE_SLUGS` (`admin`, `api`, `app`, `blog`, `login`, `register`, `onboarding`, `profile`, `settings`, `health`) are treated as static routes and are always shown. All other single-segment paths are resolved against `standalone_pages`; the page must have `status = "published"` or the item is omitted.
+    - All other internal paths (multi-segment static routes) are always shown (safe `[]` fallback).
 - `GET /api/navigation/items/authenticated` — returns all active top-level navigation items with `visibility = "public"` or `"authenticated"`, ordered by `sortOrder` ascending, with one level of active, non-admin children. **Requires an active `sfus_session` cookie**; the controller calls `AuthService.resolveSession()` and returns `401` when no session is present. Items with `visibility = "admin"` are excluded for non-admin users; the caller's `globalRole` is used to determine whether admin items should be included. For admin users all visibility levels are returned.
 
 **Admin management routes — require an active `sfus_session` cookie and the global `admin` role:**
