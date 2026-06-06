@@ -242,9 +242,12 @@ export class BlogController {
   @ApiOkResponse({ description: "Visible comments returned." })
   @ApiNotFoundResponse({ description: "Post not found or not published." })
   async listComments(@Param("postId") postId: string): Promise<{ comments: BlogCommentDetail[]; commentsLocked: boolean }> {
-    // Verify the post exists and is published before exposing any comments.
+    // Verify the post exists and is publicly visible (status=published AND publishedAt<=now)
+    // before exposing any comments. The UUID fallback uses findPublishedById so that
+    // future-scheduled posts addressed by id are treated identically to those addressed
+    // by slug — both return 404 until their publishedAt time is reached.
     const post = await this.blogService.findPublishedBySlug(postId) ??
-      await this.blogService.findById(postId).then((p) => (p?.status === "published" ? p : null));
+      await this.blogService.findPublishedById(postId);
     if (!post) {
       throw new NotFoundException("Blog post not found or not published.");
     }

@@ -115,6 +115,21 @@ export class BlogService {
   }
 
   /**
+   * Returns a single published post by id whose publishedAt is at or before
+   * now. Returns null when the post does not exist, is not published, or its
+   * publishedAt is in the future — identical visibility predicate to
+   * findPublishedBySlug, used to guard public routes that accept a UUID path
+   * parameter instead of a slug.
+   */
+  async findPublishedById(id: string): Promise<BlogPostEntity | null> {
+    const now = new Date();
+    return this.blogPostRepository.findOne({
+      where: { id, status: "published", publishedAt: LessThanOrEqual(now) },
+      relations: ["postTags"]
+    });
+  }
+
+  /**
    * Returns all blog posts regardless of status — admin-only surface.
    * Caller must have verified admin access before calling this.
    */
