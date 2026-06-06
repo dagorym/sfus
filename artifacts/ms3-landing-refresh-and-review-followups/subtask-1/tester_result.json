@@ -1,0 +1,26 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-1/tester_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-1/tester_result.json",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-1/documenter_prompt.txt"
+  ],
+  "branch_name": "ms3-subtask-1-tester-20260606",
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/web run lint",
+    "npx --yes pnpm@10.0.0 typecheck",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web test",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api test (pre-existing failures confirmed unrelated)"
+  ],
+  "pass_fail_totals": {
+    "web tests failed": 0,
+    "web tests passed": 157
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ms3-landing-refresh-and-review-followups/subtask-1",
+  "test_commit_hash": "9a54980620f8b8063e536bfea1dcd007eac4d6f1",
+  "test_files_changed": [
+    "apps/web/app/public-shell.spec.ts"
+  ],
+  "unmet_acceptance_criteria": []
+}

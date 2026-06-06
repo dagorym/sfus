@@ -1,0 +1,63 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Distinguish service-unavailable (HTTP >= 500, network/transport failure) from credential/validation errors (4xx) on register and login pages. Remove misleading prerequisites/migrations register error message. Show clear service-unavailable message for 5xx and network failures on both pages.
+
+Acceptance criteria validated:
+- A 500/503 API response on register shows 'The service is temporarily unavailable. Please try again in a moment.' - verified by spec source assertion and implementation review
+- A network/transport failure on register shows the service-unavailable message - describeRegistrationError catches statusCode === null
+- A network/transport failure on login shows the service-unavailable message - inner try/catch in submitPasswordLogin
+- Register still shows the duplicate-account message on 409 - spec assertion passes
+- Register still shows the invalid-input message on 400 - spec assertion passes
+- Login still shows the credential message on 400/401 - verified in login-client.tsx branching logic
+- HTTP >= 500 on login shows the service-unavailable message - verified in login-client.tsx response.status >= 500 branch
+- MFA-challenge, onboarding, and success-redirect flows are unchanged
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms3-subtask-1-tester-20260606
+- Branch: ms3-subtask-1-tester-20260606 (branched from ms3-claude implementer branch)
+- Implementer changed: apps/web/app/register/page.tsx, apps/web/app/login/login-client.tsx
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/register/page.tsx
+- apps/web/app/login/login-client.tsx
+- apps/web/app/public-shell.spec.ts
+
+Test commit:
+- 9a54980620f8b8063e536bfea1dcd007eac4d6f1
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/web run lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/web test
+
+Final test outcomes:
+- All 157 web tests pass including the updated public-shell.spec.ts registration flow contracts test
+- Updated assertion now correctly validates the new service-unavailable message text
+- Lint and typecheck both pass clean
+- 6 pre-existing API test failures are ENOENT path resolution failures unrelated to this change
+
+Documentation context:
+- Error-message taxonomy changed: service-unavailable message now shown for all network failures and 5xx on both register and login pages
+- Old message 'Registration is unavailable while local prerequisites are incomplete.' is removed and must not appear in any docs
+- New canonical service-unavailable message: 'The service is temporarily unavailable. Please try again in a moment.'
+- Login flow now distinguishes network failures (inner catch) from 5xx (status check) from 4xx (credential message)
+- Register flow distinguishes null statusCode (network failure) from 5xx from 4xx from 409 duplicate
+- No API contract changes; changes are purely UI error-presentation logic
+
+Plan and diff context:
+- Plan file: plans/ms3-landing-refresh-and-review-followups-plan.md
+- Subtask 1 of the ms3-landing-refresh-and-review-followups plan
+- Comparison base: ms3-claude branch (the main development branch for this milestone)
+- Diff focus: apps/web/app/register/page.tsx and apps/web/app/login/login-client.tsx
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
