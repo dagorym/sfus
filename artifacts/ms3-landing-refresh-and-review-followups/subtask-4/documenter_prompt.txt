@@ -1,0 +1,58 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ms3-landing-refresh-and-review-followups subtask-4: security fix enforcing full public-visibility predicate in listComments UUID-fallback path. GET /api/blog/:postId/comments for a future-scheduled post (published but publishedAt in future) now returns 404 via UUID path via findPublishedById. Modified files: apps/api/src/blog/blog.service.ts (added findPublishedById with full predicate) and apps/api/src/blog/blog.controller.ts (listComments updated to use findPublishedById).
+
+Acceptance criteria validated:
+- AC1: GET /api/blog/:postId/comments for future-scheduled post (published, publishedAt in future) returns 404 via UUID path — PASS
+- AC2: Comment listing for genuinely public posts unchanged (both slug and UUID paths) — PASS
+- AC3: Draft/unpublished posts continue to return 404 via UUID fallback — PASS
+
+Implementation branch or worktree context:
+- Branch: ms3-subtask-4-tester-20260606
+- Implementer commits: 58c14ed (fix: enforce full public-visibility predicate in listComments UUID-fallback), c1f7a24 (chore: write implementer success artifacts)
+- Tester commit: aa795a6 (test: add regression tests for findPublishedById public-visibility predicate)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/blog/blog.service.ts — added findPublishedById with full public-visibility predicate (status=published AND publishedAt<=now)
+- apps/api/src/blog/blog.controller.ts — listComments updated to use findPublishedById for UUID-fallback path
+- apps/api/src/blog/blog.service.test.ts — added 4 new regression tests for findPublishedById; tightened 2 existing predicate assertions
+
+Test commit:
+- aa795a6
+
+Commands executed:
+- pnpm install --frozen-lockfile
+- pnpm --filter @sfus/api test
+- pnpm --filter @sfus/api typecheck
+- pnpm --filter @sfus/api lint (pre-existing navigation.controller.test.ts lint failure — unrelated to this subtask)
+
+Final test outcomes:
+- AC1 PASS: findPublishedById returns null for future-scheduled post (published, publishedAt in future); listComments UUID-fallback path returns 404 as required.
+- AC1 PASS: findPublishedById query includes LessThanOrEqual publishedAt constraint — full public-visibility predicate enforced.
+- AC2 PASS: findPublishedById returns post for genuinely public post (published, publishedAt in past); comment listing path unchanged.
+- AC2 PASS: findPublished and findPublishedBySlug assertions tightened to verify publishedAt constraint is present in the query where clause.
+- AC3 PASS: findPublishedById returns null for draft post; draft/unpublished posts continue to return 404 via UUID fallback.
+- TYPECHECK PASS: tsc --noEmit exits 0.
+- LINT NOTE: 1 pre-existing lint error in navigation.controller.test.ts (unused import of UnauthorizedException) — not introduced by this subtask.
+
+Documentation context:
+- The listComments endpoint (GET /api/blog/:postId/comments) now enforces the full public-visibility predicate for both slug and UUID lookup paths.
+- Future-scheduled posts (status=published, publishedAt in future) are now correctly hidden from the comments endpoint when addressed by UUID, matching the behavior for slug-addressed posts.
+- The new findPublishedById method is a security-critical guard on a publicly reachable endpoint.
+
+Plan and diff context:
+- Plan: plans/ms3-landing-refresh-and-review-followups-plan.md
+- Subtask 4 addresses publication leakage via the UUID-fallback path in listComments.
+- The fix adds findPublishedById with the same LessThanOrEqual(now) publishedAt constraint used by findPublishedBySlug and findPublished.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-4
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
