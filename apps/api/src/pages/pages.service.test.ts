@@ -130,6 +130,58 @@ describe("PagesService.create", () => {
     expect(revisionSave).toHaveBeenCalledOnce();
   });
 
+  it("inserts standalone_pages row before page_revisions row (FK-correct order)", async () => {
+    // AC: The standalone_pages parent row must be persisted before the child
+    // page_revisions row so the FK page_revisions.page_id → standalone_pages.id
+    // is satisfied without a constraint violation.
+    const callOrder: string[] = [];
+
+    const savedRevision = {
+      id: "rev-fk",
+      pageId: "page-fk",
+      revisionNumber: 1,
+      title: "FK Test",
+      body: "Body",
+      authorUserId: "user-1",
+      createdAt: new Date()
+    } as PageRevisionEntity;
+
+    const savedPage = {
+      id: "page-fk",
+      title: "FK Test",
+      slug: "fk-test",
+      status: "draft",
+      currentRevisionId: "rev-fk",
+      createdByUserId: "user-1",
+      publishedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as StandalonePageEntity;
+
+    const pageSave = vi.fn().mockImplementation(async () => {
+      callOrder.push("pageSave");
+      return savedPage;
+    });
+    const revisionSave = vi.fn().mockImplementation(async () => {
+      callOrder.push("revisionSave");
+      return savedRevision;
+    });
+
+    const service = makePagesService(
+      { save: pageSave, findOne: vi.fn().mockResolvedValue(savedPage), create: (d) => d as StandalonePageEntity },
+      { save: revisionSave, create: (d) => d as PageRevisionEntity, findOne: async () => null }
+    );
+
+    await service.create("user-1", { title: "FK Test", slug: "fk-test", body: "Body" });
+
+    // Page must be saved at least once before revision is saved (FK order).
+    const firstPageSaveIdx = callOrder.indexOf("pageSave");
+    const firstRevisionSaveIdx = callOrder.indexOf("revisionSave");
+    expect(firstPageSaveIdx).toBeGreaterThanOrEqual(0);
+    expect(firstRevisionSaveIdx).toBeGreaterThanOrEqual(0);
+    expect(firstPageSaveIdx).toBeLessThan(firstRevisionSaveIdx);
+  });
+
   it("rejects invalid slugs", async () => {
     const service = makePagesService();
     await expect(service.create("user-1", { title: "T", slug: "INVALID SLUG", body: "" })).rejects.toThrow();
