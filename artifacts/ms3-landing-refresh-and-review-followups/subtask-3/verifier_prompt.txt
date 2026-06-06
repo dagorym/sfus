@@ -1,0 +1,61 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Navigation publication-leakage security fix: the Implementer added top-level /<slug> resolution to NavigationService.isLinkedTargetPubliclyVisible() to prevent unpublished standalone pages from leaking through public navigation. Reserved slugs (RESERVED_PAGE_SLUGS) pass through as static routes. The Tester added 2 new tests for the /<slug> resolution and reserved-slug passthrough behaviors. The Documenter updated docs/README.md to document the filtering rules.
+
+Acceptance criteria to verify:
+- Unpublished /<slug> pages are omitted from navigation; published /<slug> pages appear
+- Reserved slugs (RESERVED_PAGE_SLUGS: admin, api, app, blog, login, register, onboarding, profile, settings, health) pass through as static routes unchanged
+- Safe fallback preserved: all other internal paths (multi-segment static routes) always shown
+- /blog/<slug> behavior preserved: must be published AND publishedAt<=now
+- /pages/<slug> behavior preserved: must be published
+- docs/README.md GET /api/navigation/items/public description covers /<slug> resolution, RESERVED_PAGE_SLUGS, and safe fallback
+
+Implementation branch or worktree context:
+- Implementer branch: ms3-subtask-3-implementer-20260606
+- Tester branch: ms3-subtask-3-tester-20260606
+- Documenter branch: ms3-subtask-3-documenter-20260606
+- Worktree: /home/tstephen/repos/worktrees/ms3-subtask-3-documenter-20260606
+- Base branch: ms3-claude
+- Implementer commit: bddafe5 (fix(navigation): close publication-leakage for top-level page slugs)
+- Tester commit: bb9dfd7 (test(navigation): add top-level slug publication-leakage tests)
+- Documenter commit: a537642947c000e210868cda7a5022510877d94c (docs(navigation): document publication-leakage filtering rules for GET /api/navigation/items/public)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/navigation/navigation.service.ts
+- apps/api/src/navigation/navigation.service.test.ts
+- docs/README.md
+
+Commands executed:
+- git add docs/README.md
+- git commit -m 'docs(navigation): document publication-leakage filtering rules for GET /api/navigation/items/public'
+
+Final test outcomes:
+- 242 tests pass (36 in navigation.service.test.ts including 2 new); 6 pre-existing failures in navigation.controller.test.ts (unchanged)
+- TypeScript typecheck: PASS
+- Lint: 1 pre-existing error (unchanged)
+
+Plan or evaluation context guidance:
+- Plan file: plans/ms3-landing-refresh-and-review-followups-plan.md
+- Compare ms3-subtask-3-documenter-20260606 against ms3-claude base
+- Subtask 3 adds /<slug> resolution and RESERVED_PAGE_SLUGS handling to NavigationService.isLinkedTargetPubliclyVisible()
+
+Convention-file guidance:
+- Repository documentation lives in docs/README.md (architecture, API contract)
+- In-code documentation for NavigationService methods follows JSDoc block style — the JSDoc on isLinkedTargetPubliclyVisible() was already updated by the Implementer
+- Artifact paths follow pattern: artifacts/<plan-slug>/subtask-<N>/<role>_<report|result|prompt>.txt
+- Test commands: pnpm --filter api test or pnpm test from repo root
+
+Updated documentation files:
+- docs/README.md
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-3
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
