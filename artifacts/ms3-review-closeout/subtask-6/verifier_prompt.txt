@@ -1,0 +1,62 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Test-infrastructure repair for ms3-review-closeout subtask-6: fixed navigation.controller.test.ts cwd-anchored path resolution (fileURLToPath/import.meta.url replacing process.cwd()) so all 6 source-contract tests pass cwd-independently; added serveImage happy-path unit test to media.controller.test.ts (PassThrough-based, verifying Content-Type, Content-Length headers and byte throughput). Documenter updated the media.controller.test.ts file header docblock to list the new happy-path acceptance criterion. Total suite: 263/263 pass from both repo-root and apps/api invocations.
+
+Acceptance criteria to verify:
+- PASS: npx --yes pnpm@10.0.0 --filter @sfus/api test passes 263/263 — no pre-existing-failure exceptions remain
+- PASS: Fix is cwd-independent — suite passes from repo-root (pnpm filter) and from apps/api (npx vitest run)
+- PASS: No product code changes; assertion strength unchanged; serveImage happy-path test added per NOTE 5
+- PASS: media.controller.test.ts file header docblock updated to document new happy-path acceptance criterion
+
+Implementation branch or worktree context:
+- Implementer branch: ms3-claude-subtask-6-tester-20260606 (shared Implementer+Tester branch)
+- Implementer commit: fixed navigation.controller.test.ts line 7-11 (fileURLToPath path resolution)
+- Tester commit: 314e54c62b03cd02a59711cfadf90198f7b1f183 (added serveImage happy-path test to media.controller.test.ts)
+- Documenter commit: 2f6fa5478179e5431ce75228260e967547f86641 (updated media.controller.test.ts file header docblock)
+- Base branch: ms3-claude
+- Worktree: /home/tstephen/repos/worktrees/ms3-claude-subtask-6-documenter-20260606
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/navigation/navigation.controller.test.ts
+- apps/api/src/media/media.controller.test.ts
+
+Commands executed:
+- npx --yes pnpm@10.0.0 install (worktree root)
+- npx --yes pnpm@10.0.0 --filter @sfus/api test (repo-root, pre-new-test: 262/262)
+- npx vitest run --passWithNoTests (apps/api cwd, pre-new-test: 262/262)
+- npx --yes pnpm@10.0.0 --filter @sfus/api test (repo-root, post-new-test: 263/263)
+- npx vitest run --passWithNoTests (apps/api cwd, post-new-test: 263/263)
+
+Final test outcomes:
+- 263/263 pass (15 test files, 2 invocations verified)
+- navigation.controller.test.ts: 6/6 source-contract tests pass cwd-independently
+- media.controller.test.ts: 11/11 (10 original + 1 new serveImage happy-path test)
+- No pre-existing-failure exceptions remain
+
+Plan or evaluation context guidance:
+- Plan: plans/ms3-review-closeout-plan.md, subtask-6
+- Documentation Impact per plan: remove 6-pre-existing-failure caveat anywhere it appears in docs (not found); note equivalence of repo-root and per-package invocations if useful (not warranted by diff alone).
+- docs/ contained no pre-existing failure caveats — no removal was necessary.
+- navigation.controller.test.ts had no file-level docblock requiring an update.
+- media.controller.test.ts file header docblock updated with new serveImage happy-path acceptance criterion per repository convention.
+
+Convention-file guidance:
+- MediaController test file uses a file-level docblock listing acceptance criteria (established pattern in the repository's test files).
+- New acceptance criteria introduced by new tests should be reflected in the file-level docblock.
+- docs/README.md is the canonical home for external API documentation — not affected by this test-infrastructure change.
+- docs/website-launch-guide.md covers test commands; no behavioral change warranted an update here.
+
+Updated documentation files:
+- apps/api/src/media/media.controller.test.ts
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-6
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

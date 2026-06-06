@@ -1,0 +1,56 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Test-infrastructure repair: confirmed the implementer's fix to navigation.controller.test.ts (fileURLToPath-based path resolution replacing process.cwd()-anchored path) passes all 262 original tests cwd-independently; added serveImage happy-path unit test to media.controller.test.ts per NOTE 5 (PassThrough-based, verifying Content-Type, Content-Length headers and byte throughput). Total suite: 263/263 pass from both repo-root and apps/api invocations.
+
+Acceptance criteria validated:
+- npx --yes pnpm@10.0.0 --filter @sfus/api test passes 263/263 — no pre-existing-failure exceptions remain
+- Fix is cwd-independent: suite passes from repo-root (pnpm filter) and from apps/api (npx vitest run)
+- No product code changes; assertion strength is unchanged; serveImage happy-path test added per NOTE 5
+
+Implementation branch or worktree context:
+- Branch: ms3-claude-subtask-6-tester-20260606
+- Worktree: /home/tstephen/repos/worktrees/ms3-claude-subtask-6-tester-20260606
+- Comparison base: ms3-claude (coordinator branch for ms3-review-closeout plan)
+- Implementer changed: apps/api/src/navigation/navigation.controller.test.ts (line 7-11: replaced process.cwd() anchor with fileURLToPath(new URL('.', import.meta.url)))
+- Tester added: apps/api/src/media/media.controller.test.ts (happy-path serveImage test using PassThrough)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/navigation/navigation.controller.test.ts (implementer fix)
+- apps/api/src/media/media.controller.test.ts (tester addition)
+
+Test commit:
+- 314e54c62b03cd02a59711cfadf90198f7b1f183
+
+Commands executed:
+- npx --yes pnpm@10.0.0 install (worktree root)
+- npx --yes pnpm@10.0.0 --filter @sfus/api test (repo-root invocation, pre-new-test: 262/262)
+- npx vitest run --passWithNoTests (apps/api cwd, pre-new-test: 262/262)
+- npx --yes pnpm@10.0.0 --filter @sfus/api test (repo-root invocation, post-new-test: 263/263)
+- npx vitest run --passWithNoTests (apps/api cwd, post-new-test: 263/263)
+
+Final test outcomes:
+- 263/263 pass (15 test files, 2 invocations verified)
+- navigation.controller.test.ts: 6/6 source-contract tests pass cwd-independently after implementer fix
+- media.controller.test.ts: 11/11 (10 original + 1 new serveImage happy-path test)
+
+Documentation context:
+- Both changes are internal test-infrastructure only; no API surface or public behavior changed
+- docs/website-launch-guide.md test commands section may benefit from noting both repo-root and per-package invocations are equivalent
+- No new dependencies introduced; PassThrough is from node:stream (already in use)
+
+Plan and diff context:
+- Plan: plans/ms3-review-closeout-plan.md, subtask-6
+- Coordinator branch: ms3-claude
+- Compare: ms3-claude..ms3-claude-subtask-6-tester-20260606
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
