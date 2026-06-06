@@ -246,7 +246,7 @@ Milestone 3 Subtask 4 adds blog comments: publicly readable, authenticated-membe
 
 **Public route — no authentication required, visible comments only:**
 
-- `GET /api/blog/:postId/comments` — returns all top-level comments with `status = "visible"` for a published post as `{ comments: BlogCommentDetail[], commentsLocked: boolean }`. Each top-level comment includes a `replies` array of its visible replies (1-level deep). Returns `404` when the post does not exist or is not published, preventing exposure of comments on non-public parent content.
+- `GET /api/blog/:postId/comments` — returns all top-level comments with `status = "visible"` for a published post as `{ comments: BlogCommentDetail[], commentsLocked: boolean }`. Each top-level comment includes a `replies` array of its visible replies (1-level deep). The `:postId` parameter is resolved as a slug first (via `findPublishedBySlug`) and then as a UUID (via `findPublishedById`); both lookup paths enforce the full public-visibility predicate — `status = "published"` AND `publishedAt <= now`. Returns `404` when the post does not exist, is not published, or its `publishedAt` is in the future, so draft, unpublished, and future-scheduled content is never exposed through this route. This is the same scheduled-post visibility invariant enforced by `GET /api/blog` and `GET /api/blog/:slug`.
 
 **Member route — requires an active `sfus_session` cookie (any authenticated role):**
 
