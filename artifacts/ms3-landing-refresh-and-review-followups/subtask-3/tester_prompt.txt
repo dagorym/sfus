@@ -1,0 +1,44 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Close publication-leakage edge case in navigation filtering. Extended isLinkedTargetPubliclyVisible to resolve single-segment non-reserved internal URLs (e.g. /about) against standalone_pages (published-only), omitting items from public navigation when the linked page is not published. Reserved slugs (RESERVED_PAGE_SLUGS) are still passed through as static routes. Existing /blog/<slug> and /pages/<slug> filtering and the safe [] fallback are preserved. Updated JSDoc. Corrected docs/README.md navigation_items schema attribution from deleted 1748736000001-navigation-items.ts to the consolidated 1748736000000-milestone-three-content-foundation.ts migration.
+
+Modified files:
+- apps/api/src/navigation/navigation.service.ts
+- docs/README.md
+
+Acceptance criteria to validate (from Planner):
+- A public navigation response omits any internal nav item linking to an unpublished standalone page, whether linked by /pages/<slug> or by the canonical top-level /<slug> route; published-page links and external/static links still render.
+- Reserved/static single-segment routes (per the existing RESERVED_PAGE_SLUGS denylist) are not misclassified as page links.
+- The safe [] fallback and existing /blog/<slug> filtering behavior are preserved.
+- docs/README.md attributes navigation_items to the consolidated MS3 migration (1748736000000-milestone-three-content-foundation.ts) with no reference to the deleted migration file.
+
+Create test files in:
+- apps/api/src/navigation/navigation.service.test.ts — add coverage for a published top-level page link (renders) and an unpublished top-level page link (omitted)
+
+Implementation context for testing:
+- Fix is in isLinkedTargetPubliclyVisible in NavigationService (apps/api/src/navigation/navigation.service.ts).
+- New regex /^\/([^/]+)\/?$/ matches single-segment URLs after the /blog/<slug> and /pages/<slug> checks.
+- RESERVED_PAGE_SLUGS is imported from pages.service.ts and used to bypass the published-page lookup for reserved slugs (admin, api, app, blog, login, register, onboarding, profile, settings, health).
+- Non-reserved single-segment paths do a published-only standalonePageRepository.findOne({ where: { slug, status: 'published' } }).
+- Security-review-required: this subtask closes a publication-leakage edge case where unpublished standalone pages reachable via canonical top-level /<slug> routes were not filtered from public navigation.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/navigation/navigation.service.test.ts
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 lint
+
+Existing validations expected to fail only because approved behavior changed:
+- Lint: navigation.controller.test.ts has 1 unused import error (UnauthorizedException) — pre-existing before this subtask, not a regression.
+- navigation.controller.test.ts: 6 tests fail due to path resolution bug (ENOENT doubled path) — pre-existing before this subtask, not a regression.
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
