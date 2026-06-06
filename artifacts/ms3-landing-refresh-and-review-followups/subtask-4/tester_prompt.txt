@@ -1,0 +1,64 @@
+Your role is 'tester'. Your task is as follows:
+
+Test the security fix that enforces the full public-visibility predicate in the `listComments` UUID-fallback path on the ms3-subtask-4-implementer-20260606 branch (plan: ms3-landing-refresh-and-review-followups, subtask-4).
+
+## Implementation Summary
+
+A publication-leakage bug was fixed in `GET /api/blog/:postId/comments`. Previously, the UUID-fallback path in `BlogController.listComments()` checked only `status === "published"` when resolving a post by id, which allowed future-scheduled posts (published but `publishedAt` in the future) addressed by UUID to return HTTP 200 with an empty comments array instead of 404.
+
+**Changes made:**
+
+1. **`apps/api/src/blog/blog.service.ts`** — Added `findPublishedById(id: string): Promise<BlogPostEntity | null>` with the same `status: "published", publishedAt: LessThanOrEqual(now)` predicate as `findPublishedBySlug`.
+
+2. **`apps/api/src/blog/blog.controller.ts`** — Updated `listComments()` UUID-fallback from the incomplete `findById(...).then((p) => p?.status === "published" ? p : null)` to `findPublishedById(postId)`, which enforces the full two-part visibility gate.
+
+## Acceptance Criteria
+
+- AC1: GET `/api/blog/:postId/comments` for a future-scheduled post (status=published, publishedAt in the future) addressed by UUID returns 404.
+- AC2: Comment listing for genuinely public posts (status=published, publishedAt <= now) is unchanged, both by slug and by UUID.
+- AC3: Draft/unpublished posts continue to return 404 on this route.
+
+## Test File Location
+
+Tests live at: `apps/api/src/blog/blog.service.test.ts`
+
+Note: There is no dedicated controller test file for the blog module. The tester should add regression tests here or create `apps/api/src/blog/blog.controller.test.ts` if needed. Per the task guidance, tester-owned tests should:
+- Add a regression test for the id-fallback future-scheduled case (expect 404) against `findPublishedById`.
+- Tighten the existing `findPublished` and `findPublishedBySlug` assertions so they verify the `LessThanOrEqual(now)` publishedAt constraint is present in the query, not only the status filter.
+- Add a test for `findPublishedById` verifying it queries with both `status: "published"` and `publishedAt: LessThanOrEqual(now)`.
+
+## Implementation Context
+
+- `BlogService.findPublishedById()` is the new method. It takes a post `id` (UUID) and applies the same `LessThanOrEqual(now)` predicate as `findPublishedBySlug`. Returns `null` for draft, unpublished, or future-dated posts.
+- `BlogController.listComments()` (line ~244): first tries slug lookup via `findPublishedBySlug(postId)`, then falls back to `findPublishedById(postId)`. Both now enforce the full visibility predicate. If neither resolves a publicly-visible post, throws `NotFoundException`.
+- The fix is a two-line controller change + one new service method. No new routes, no schema changes, no migration required.
+- This subtask is marked security-review-required; a specialist Security stage will follow.
+
+## Validation Commands
+
+Run blog service tests:
+```bash
+npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/blog/blog.service.test.ts
+```
+
+Run all API tests (note: pre-existing failure in navigation.controller.test.ts is out of scope):
+```bash
+npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run
+```
+
+Run typecheck:
+```bash
+npx --yes pnpm@10.0.0 typecheck
+```
+
+## Pre-Existing Failures (Not Introduced By This Change)
+
+- `apps/api/src/navigation/navigation.controller.test.ts`: lint error (`UnauthorizedException` unused import) and test error (ENOENT reading controller source). Both are pre-existing issues unrelated to the blog module.
+
+## Shared Artifact Directory
+
+`artifacts/ms3-landing-refresh-and-review-followups/subtask-4`
+
+## Implementation Commit
+
+`58c14ed` on branch `ms3-subtask-4-implementer-20260606`
