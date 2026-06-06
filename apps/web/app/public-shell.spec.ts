@@ -143,7 +143,7 @@ describe("public web shell source contracts", () => {
     expect(registerSource).toContain("statusCode === 409");
     expect(registerSource).toContain("statusCode === 400");
     expect(registerSource).toContain("statusCode >= 500");
-    expect(registerSource).toContain("Registration is unavailable while local prerequisites are incomplete.");
+    expect(registerSource).toContain("The service is temporarily unavailable. Please try again in a moment.");
     expect(registerSource).toContain(
       "An account with this email or username already exists. Try signing in instead."
     );
