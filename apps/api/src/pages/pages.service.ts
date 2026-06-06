@@ -115,6 +115,12 @@ export class PagesService {
   /**
    * Creates a new standalone page in draft status and records revision 1.
    * Caller must have verified admin access before calling this.
+   *
+   * Insert order is FK-aware: the standalone_pages row is persisted first
+   * (currentRevisionId = null) to satisfy fk_page_revisions_page_id, then
+   * the page_revisions row is inserted, then the page is updated to point at
+   * the new revision. The intermediate null currentRevisionId is not visible
+   * to callers; the returned entity always has currentRevisionId set.
    */
   async create(authorUserId: string, input: CreatePageInput): Promise<StandalonePageEntity> {
     this.assertSlugValid(input.slug);
