@@ -178,6 +178,9 @@ describe("BlogService publish-state transitions", () => {
     expect(findSpy).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ status: "published" })
     }));
+    // Verify that a publishedAt constraint is present in the query (LessThanOrEqual guard)
+    const calledWith = findSpy.mock.calls[0][0] as { where: Record<string, unknown> };
+    expect(calledWith.where).toHaveProperty("publishedAt");
   });
 
   it("findPublishedBySlug() only queries for status=published with publishedAt<=now (public-route filtering)", async () => {
@@ -198,6 +201,108 @@ describe("BlogService publish-state transitions", () => {
     expect(findOneSpy).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ slug: "my-post", status: "published" })
     }));
+    // Verify that a publishedAt constraint is present in the query (LessThanOrEqual guard)
+    const calledWith = findOneSpy.mock.calls[0][0] as { where: Record<string, unknown> };
+    expect(calledWith.where).toHaveProperty("publishedAt");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Security regression: findPublishedById enforces full public-visibility predicate
+// (status=published AND publishedAt<=now), same as findPublishedBySlug.
+// This guards the listComments UUID-fallback path against leaking future-scheduled posts.
+// ---------------------------------------------------------------------------
+
+describe("BlogService.findPublishedById public-visibility predicate (security regression)", () => {
+  it("queries with status=published and a publishedAt constraint (LessThanOrEqual guard)", async () => {
+    const authorizationService = new AuthorizationService();
+    const findOneSpy = vi.fn().mockResolvedValue(null);
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: findOneSpy
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await service.findPublishedById("some-uuid");
+    expect(findOneSpy).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "some-uuid", status: "published" })
+    }));
+    // Verify the publishedAt LessThanOrEqual constraint is present — this is the
+    // security-critical guard that prevents future-scheduled posts from leaking.
+    const calledWith = findOneSpy.mock.calls[0][0] as { where: Record<string, unknown> };
+    expect(calledWith.where).toHaveProperty("publishedAt");
+  });
+
+  it("returns null for a future-scheduled post (published but publishedAt in the future)", async () => {
+    // Simulates the DB returning no row because the LessThanOrEqual filter excludes
+    // future-dated posts. The service must propagate null unchanged so the controller
+    // raises 404 rather than exposing the post content or its comments.
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(null) // DB excluded the future-dated post
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const result = await service.findPublishedById("future-post-uuid");
+    // Controller will receive null and must respond with 404 — no comments exposed.
+    expect(result).toBeNull();
+  });
+
+  it("returns the post for a genuinely public post (published and publishedAt in the past)", async () => {
+    const publicPost = {
+      id: "past-post-uuid",
+      status: "published",
+      publishedAt: new Date(Date.now() - 60_000),
+      title: "A public post",
+      slug: "a-public-post",
+      body: "body",
+      postTags: []
+    };
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(publicPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const result = await service.findPublishedById("past-post-uuid");
+    expect(result).not.toBeNull();
+    expect(result!.id).toBe("past-post-uuid");
+    expect(result!.status).toBe("published");
+  });
+
+  it("returns null for a draft post (no published status, no publishedAt)", async () => {
+    // Draft posts must not be accessible through the UUID-fallback path.
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(null) // DB excluded the draft post
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const result = await service.findPublishedById("draft-post-uuid");
+    expect(result).toBeNull();
   });
 });
 
