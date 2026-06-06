@@ -1,0 +1,66 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Validate and update documentation for the blog-post slug auto-generation feature: slug is now optional on creation and auto-generated from the title when omitted. The Implementer added slug-derivation logic to BlogService (slugifyTitle, deriveUniqueSlug); the Tester validated slug auto-generation, collision handling, and adminCreatePost error-message surfacing with comprehensive unit and source-contract tests.
+
+Acceptance criteria to verify:
+- PASS: Creating a blog post with no slug succeeds and produces a unique, URL-safe slug derived from the title; the post is retrievable at that slug.
+- PASS: Two posts whose titles slugify identically both succeed with distinct slugs (the second gets a numeric suffix).
+- PASS: Creating a blog post with an explicit slug is validated and used unchanged (existing behavior).
+- PASS: The blog admin create form accepts an empty slug and indicates auto-generation; blog admin API errors surface the real server message rather than only a generic fallback.
+
+Implementation branch or worktree context:
+- Documenter worktree: ms3-subtask-6-documenter-20260606
+- Branched from tester commits: 48272ac (test), 3d7816b (tester artifacts)
+- Base coordination branch: ms3-claude
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/blog.controller.ts
+- apps/web/app/admin/blog/new/page.tsx
+- apps/web/app/blog/blog-client.ts
+- apps/api/src/blog/blog.service.test.ts
+- apps/web/app/blog/blog.spec.ts
+- docs/README.md
+
+Commands executed:
+- git diff ms3-claude...HEAD --name-only
+- Read apps/api/src/blog/blog.service.ts
+- Read apps/api/src/blog/blog.controller.ts
+- Read docs/README.md
+- Edit docs/README.md - updated POST /api/blog/admin/posts body schema and /admin/blog/new form description
+- Edit apps/api/src/blog/blog.service.ts - expanded create() JSDoc to document slug resolution logic
+- git add apps/api/src/blog/blog.service.ts docs/README.md
+- git commit -m 'docs: document optional slug auto-generation for blog post creation'
+
+Final test outcomes:
+- blog.service.test.ts: 72 passed, 0 failed (6 new for slug auto-generation)
+- blog.spec.ts: 62 passed, 0 failed (4 new for form optional and error surfacing)
+- Typecheck (@sfus/api, @sfus/web): PASS
+
+Plan or evaluation context guidance:
+- Plan: plans/ms3-landing-refresh-and-review-followups-plan.md
+- Subtask 6: Optional blog slug with auto-generation from title
+- Infer plan details from repository context when needed
+
+Convention-file guidance:
+- Repository documentation policy: AGENTS.md and docs/README.md are canonical sources
+- Architecture and API contracts live in docs/README.md
+- Runtime startup and route contracts live in docs/website-launch-guide.md
+- Do not duplicate facts across documentation files
+- In-code documentation (JSDoc) is required for public methods per repository convention
+
+Updated documentation files:
+- docs/README.md
+- apps/api/src/blog/blog.service.ts
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-6
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
