@@ -1,0 +1,39 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Test-infrastructure repair (ms3-review-closeout subtask-6): fix process.cwd()-anchored source-file path resolution in navigation.controller.test.ts so all 262 API tests pass from both the repo-root --filter invocation and the per-package vitest invocation.
+
+Modified files:
+- apps/api/src/navigation/navigation.controller.test.ts
+
+Acceptance criteria to validate (from Planner):
+- npx --yes pnpm@10.0.0 --filter @sfus/api test passes 262/262 — no pre-existing-failure exceptions remain.
+- The fix is cwd-independent: the suite passes when vitest is invoked from the repo root and from apps/api.
+- No product code changes; assertion strength is unchanged.
+
+Test file location guidance:
+- apps/api/src/navigation/navigation.controller.test.ts (the repaired file — verify 6 source-contract tests pass)
+- apps/api/src/media/media.controller.test.ts (add serveImage happy-path unit test per NOTE 5 — present file streams with correct content type, content length, and piped bytes, complementing the existing error-path coverage)
+
+Implementation context for testing:
+- Line 7 of navigation.controller.test.ts previously used path.resolve(process.cwd(), 'apps/api/src/navigation/navigation.controller.ts'). When vitest runs with cwd=apps/api the path doubled to apps/api/apps/api/src/... causing 6 ENOENT failures. Fixed by replacing with fileURLToPath(new URL('.', import.meta.url)) + 'navigation.controller.ts' so the path resolves relative to the test file at compile/run time regardless of vitest cwd.
+- Searched all API test files — environment.test.ts uses process.cwd() as a parameter to loadEnvironment() (correct semantic, not a path-resolution bug) and was left unchanged.
+- No assertions changed; no product code changed.
+
+Suggested test command(s):
+- env -C <worktree-root> npx --yes pnpm@10.0.0 --filter @sfus/api test  (repo-root invocation)
+- env -C <worktree-root>/apps/api npx vitest run --passWithNoTests  (per-package invocation, verifies cwd independence)
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

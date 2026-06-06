@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms3-review-closeout/subtask-6/implementer_report.md",
+    "artifacts/ms3-review-closeout/subtask-6/tester_prompt.txt",
+    "artifacts/ms3-review-closeout/subtask-6/implementer_result.json"
+  ],
+  "branch_name": "ms3-claude-subtask-6-implementer-20260606",
+  "changed_files": [
+    "apps/api/src/navigation/navigation.controller.test.ts"
+  ],
+  "code_commit_hash": "8403fdcfd39938ab26ddc3a4adca8370dd484490",
+  "pass_label": null,
+  "status": "success",
+  "task_id": null,
+  "validation_commands": [
+    "env -C <worktree-root> npx --yes pnpm@10.0.0 --filter @sfus/api test",
+    "env -C <worktree-root>/apps/api npx vitest run --passWithNoTests"
+  ],
+  "validation_outcome": "PASS \u2014 262/262 tests pass from both repo-root (--filter) and per-package (apps/api cwd) invocations. The 6 previously failing navigation source-contract tests now pass."
+}
