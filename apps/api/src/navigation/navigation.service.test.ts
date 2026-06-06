@@ -420,9 +420,10 @@ describe("NavigationService.findPublic — publication-aware filtering (AC2 subt
     expect(result).toHaveLength(1);
   });
 
-  it("keeps static internal routes (non-blog/page) always visible", async () => {
-    // AC2: Internal links to routes other than /blog/ or /pages/ are kept as-is.
-    const item = makePublicItem({ url: "/about", linkType: "internal" });
+  it("keeps reserved single-segment slugs (static routes) always visible", async () => {
+    // AC2: Reserved top-level slugs (RESERVED_PAGE_SLUGS) are treated as static
+    // routes and always pass the visibility filter without querying the page table.
+    const item = makePublicItem({ url: "/app", linkType: "internal" });
     const service = makeNavigationService(
       { find: vi.fn().mockResolvedValue([item]) }
     );
@@ -430,11 +431,40 @@ describe("NavigationService.findPublic — publication-aware filtering (AC2 subt
     expect(result).toHaveLength(1);
   });
 
+  it("omits a top-level item linking to an unpublished top-level page (/<slug> canonical route)", async () => {
+    // New AC (subtask-3): /<slug> canonical route to an unpublished standalone page must be
+    // omitted from public navigation — prevents draft-page leakage via top-level slug.
+    const item = makePublicItem({ url: "/about", linkType: "internal" });
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      undefined,
+      { findOne: vi.fn().mockResolvedValue(null) }  // no published page found for slug "about"
+    );
+    const result = await service.findPublic();
+    expect(result).toHaveLength(0);
+  });
+
+  it("includes a top-level item linking to a published top-level page (/<slug> canonical route)", async () => {
+    // New AC (subtask-3): /<slug> canonical route must appear in public navigation when the
+    // standalone page with that slug is published — published pages must not be hidden.
+    const item = makePublicItem({ url: "/about", linkType: "internal" });
+    const mockPage = { slug: "about", status: "published" };
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      undefined,
+      { findOne: vi.fn().mockResolvedValue(mockPage) }
+    );
+    const result = await service.findPublic();
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe("/about");
+  });
+
   it("filters out inactive children from public results", async () => {
     // AC2: Children filtered to isActive=true + visibility=public.
-    const activeChild = makePublicItem({ id: "child-a", parentId: "item-pub", label: "Active", url: "/about", isActive: true });
-    const inactiveChild = makePublicItem({ id: "child-b", parentId: "item-pub", label: "Inactive", url: "/other", isActive: false });
-    const parent = makePublicItem({ url: "/static", children: [activeChild, inactiveChild] });
+    // Parent and active child use reserved slugs so they pass the publication filter as static routes.
+    const activeChild = makePublicItem({ id: "child-a", parentId: "item-pub", label: "Active", url: "/blog", isActive: true });
+    const inactiveChild = makePublicItem({ id: "child-b", parentId: "item-pub", label: "Inactive", url: "/health", isActive: false });
+    const parent = makePublicItem({ url: "/app", children: [activeChild, inactiveChild] });
     const service = makeNavigationService(
       { find: vi.fn().mockResolvedValue([parent]) }
     );
@@ -446,9 +476,10 @@ describe("NavigationService.findPublic — publication-aware filtering (AC2 subt
 
   it("filters out non-public children from public results", async () => {
     // AC2: Children with visibility != public are excluded from public results.
-    const publicChild = makePublicItem({ id: "child-a", parentId: "item-pub", label: "Public", url: "/about", visibility: "public" });
+    // Parent and public child use reserved slugs so they pass the publication filter as static routes.
+    const publicChild = makePublicItem({ id: "child-a", parentId: "item-pub", label: "Public", url: "/blog", visibility: "public" });
     const authChild = makePublicItem({ id: "child-b", parentId: "item-pub", label: "Auth", url: "/app", visibility: "authenticated" });
-    const parent = makePublicItem({ url: "/static", children: [publicChild, authChild] });
+    const parent = makePublicItem({ url: "/app", children: [publicChild, authChild] });
     const service = makeNavigationService(
       { find: vi.fn().mockResolvedValue([parent]) }
     );
