@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-4/verifier_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-4/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms3-subtask-4-verifier-20260606",
+  "documentation_accuracy_summary": [
+    "Accurate. docs/README.md line 249 correctly documents the dual lookup paths, explicitly states both enforce the full public-visibility predicate (status=published AND publishedAt<=now), and notes future-scheduled posts return 404 consistent with every other public surface. No contradictions or inaccuracies found."
+  ],
+  "note_finding_count": 3,
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ms3-landing-refresh-and-review-followups/subtask-4",
+  "test_sufficiency_summary": [
+    "Sufficient. The 4 new regression tests cover all acceptance criteria cases: query shape verification (status + publishedAt key present), null propagation for future-scheduled posts (AC1), successful return for genuinely public posts (AC2), and null for drafts (AC3). Existing findPublished/findPublishedBySlug assertions were tightened. Minor: LessThanOrEqual operator type not asserted (NOTE). No controller-level integration test exists (NOTE). Overall coverage is adequate for the acceptance criteria and security risk level."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
