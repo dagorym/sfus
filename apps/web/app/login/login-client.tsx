@@ -32,17 +32,23 @@ export function LoginClient() {
     setStatus("submitting");
     setError(null);
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json"
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          email,
-          password
-        })
-      });
+      let response: Response;
+      try {
+        response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json"
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            email,
+            password
+          })
+        });
+      } catch {
+        setError("The service is temporarily unavailable. Please try again in a moment.");
+        return;
+      }
       const payload = (await response.json().catch(() => null)) as
         | {
             mfa?: { challengeToken: string; nextPath: string };
@@ -50,7 +56,12 @@ export function LoginClient() {
           }
         | null;
       if (!response.ok || !payload) {
-        throw new Error("Sign-in failed.");
+        if (response.status >= 500) {
+          setError("The service is temporarily unavailable. Please try again in a moment.");
+        } else {
+          setError("Sign-in failed. Verify your credentials and try again.");
+        }
+        return;
       }
       if (payload.mfa?.challengeToken) {
         const params = new URLSearchParams({
@@ -65,8 +76,6 @@ export function LoginClient() {
         return;
       }
       router.replace(nextPath);
-    } catch {
-      setError("Sign-in failed. Verify your credentials and try again.");
     } finally {
       setStatus("idle");
     }

@@ -17,8 +17,8 @@ type ApiRequestError = Error & {
   statusCode: number | null;
 };
 
-const registrationSetupErrorMessage =
-  "Registration is unavailable while local prerequisites are incomplete. Confirm the API is healthy, the database is reachable, and migrations have been run.";
+const serviceUnavailableMessage =
+  "The service is temporarily unavailable. Please try again in a moment.";
 
 const duplicateAccountErrorMessage =
   "An account with this email or username already exists. Try signing in instead.";
@@ -62,8 +62,8 @@ const describeRegistrationError = (error: unknown): string => {
   if (statusCode === 400) {
     return message || invalidRegistrationErrorMessage;
   }
-  if (statusCode !== null && statusCode >= 500) {
-    return registrationSetupErrorMessage;
+  if (statusCode === null || statusCode >= 500) {
+    return serviceUnavailableMessage;
   }
   if (message) {
     return message;
