@@ -1,0 +1,65 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Fix payload?.message-only error reads in pages-client.ts (8 locations) and blog-client.ts (16 locations) to use payload?.error?.message || payload?.message || fallback, matching API JsonExceptionFilter envelope. Tester added 72 source-contract regression specs covering all 24 call sites to prevent silent regression (final reviewer follow-up 1).
+
+Acceptance criteria validated:
+- AC1: Every error read resolves payload?.error?.message first - PASS
+- AC2: Type annotations include error?: { message?: string } at all 23 locations - PASS
+- AC3: Three-part chain verified: envelope -> legacy -> generic fallback - PASS
+- AC4: No success-path behavior, types, or signatures changed - PASS
+- AC5: Web lint, typecheck, test suite all pass 244/244 - PASS
+- AC6: Source-contract regression specs added per final reviewer follow-up 1 - PASS (72 new tests)
+
+Implementation branch or worktree context:
+- Branch: ms3-claude-subtask-2-tester-20260606 (worktree at /home/tstephen/repos/worktrees/ms3-claude-subtask-2-tester-20260606)
+- Implementer fixed 8 locations in pages-client.ts and 16 in blog-client.ts
+- Pattern: payload?.error?.message || payload?.message || fallback matching JsonExceptionFilter envelope
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/pages/pages-client.ts
+- apps/web/app/blog/blog-client.ts
+- apps/web/app/pages/pages.spec.ts
+- apps/web/app/blog/blog.spec.ts
+
+Test commit:
+- 0d60299539d3593f4070db61d88acc96e7900404
+
+Commands executed:
+- npx --yes pnpm@10.0.0 install
+- npx --yes pnpm@10.0.0 --filter @sfus/web run test
+- npx --yes pnpm@10.0.0 --filter @sfus/web run lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web run typecheck
+
+Final test outcomes:
+- 244 tests passed across 7 test files. 0 failures.
+- lint: clean (exit 0)
+- typecheck: clean (exit 0)
+- AC1 PASS: payload?.error?.message present in all 24 admin function bodies
+- AC2 PASS: error?: { message?: string } type annotation verified in all 24 function bodies
+- AC3 PASS: three-part || chain verified by regex in all 24 function bodies
+- AC4 PASS: 183 pre-existing tests pass unchanged (success paths unaffected)
+- AC5 PASS: lint, typecheck, test suite all clean
+- AC6-followup PASS: 72 new regression specs added (16 blog + 8 pages functions x 3 assertions)
+
+Documentation context:
+- The payload?.error?.message chain is now the consistent pattern across all web client files (blog-client.ts, pages-client.ts).
+- No public API, exported types, or function signatures changed - minimal documentation impact.
+- The JsonExceptionFilter envelope shape { error: { code, message, statusCode }, request: {...} } is now consistently consumed by all admin call sites in both client files.
+- Source-contract regression tests now guard the error chain in pages.spec.ts and blog.spec.ts.
+
+Plan and diff context:
+- Plan: plans/ms3-review-closeout-plan.md, subtask-2
+- Base branch: ms3-claude
+- Comparison: git diff ms3-claude...ms3-claude-subtask-2-tester-20260606
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
