@@ -160,7 +160,7 @@ Registration failure feedback in the UI is now intentionally actionable:
 
 Current user-facing website behavior is intentionally narrow:
 
-- branded homepage at `/` that frames the current web shell as the Milestone 2 auth-enabled foundation
+- branded homepage at `/` describing the Milestone 3 content platform (blog, standalone pages, media, navigation, threaded comments), with a recent-posts feed and links to `/blog` and `/about`
 - branded `404` handling for unknown routes
 - branded runtime error surface
 - sign-in entry page at `/login` for returning users (local password or external provider)

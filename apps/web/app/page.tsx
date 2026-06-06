@@ -1,20 +1,21 @@
 import Link from "next/link";
+import { RecentPostsFeed } from "../components/recent-posts-feed";
 import styles from "./page.module.css";
 
 const apiBasePath = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api";
 
 const highlights = [
   {
-    title: "Public + auth-enabled foundation",
-    body: "The homepage remains fast and content-driven while supporting clear sign-in and registration entry points for Milestone 2."
+    title: "Blog with threaded comments",
+    body: "Publish posts with Markdown bodies, featured images, tags, and pinning. Authenticated members can leave threaded replies; moderators and admins can hide or remove comments."
   },
   {
-    title: "Responsive shared shell",
-    body: "Header, navigation, content framing, and footer all adapt across phone, tablet, and desktop breakpoints."
+    title: "Standalone pages and revision history",
+    body: "Create admin-managed site pages such as About or Rules at any slug. Every save creates a revisioned snapshot that can be previewed and restored at any time."
   },
   {
-    title: "Single-theme token system",
-    body: "Global CSS custom properties define the Milestone 2 color, spacing, and elevation language without introducing a UI package."
+    title: "Dynamic navigation and media uploads",
+    body: "Admins control site navigation in real time through the navigation manager. Images can be attached to posts, pages, and comments via the media upload widget."
   }
 ];
 
@@ -26,13 +27,14 @@ export default function HomePage() {
           <p className={styles.eyebrow}>Public Landing Experience</p>
           <h2 className={styles.title}>Chart the next frontier for Star Frontiers US.</h2>
           <p className={styles.description}>
-            This Milestone 2 foundation delivers the branded public homepage, shared layout,
-            auth-entry routes, and authenticated-shell baseline on the shared API path contract.
+            Milestone 3 brings a full content platform to the Star Frontiers US website — blog posts,
+            standalone pages, media uploads, dynamic navigation, and threaded comments, all built on
+            the shared API path contract.
           </p>
         </div>
         <div className={styles.actions}>
-          <Link className={styles.primaryAction} href="/">
-            Explore the public shell
+          <Link className={styles.primaryAction} href="/blog">
+            Read the blog
           </Link>
           <a className={styles.secondaryAction} href={`${apiBasePath}/health/live`}>
             Check API liveness path
@@ -40,13 +42,53 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className={styles.grid} aria-label="Frontend foundations">
+      <section className={styles.grid} aria-label="Milestone 3 highlights">
         {highlights.map((item) => (
           <article className={styles.card} key={item.title}>
             <h3 className={styles.cardTitle}>{item.title}</h3>
             <p className={styles.cardBody}>{item.body}</p>
           </article>
         ))}
+      </section>
+
+      <section className={styles.whatsNew} aria-label="What&apos;s new in Milestone 3">
+        <h2 className={styles.sectionHeading}>What&apos;s new in Milestone 3</h2>
+        <div className={styles.whatsNewGrid}>
+          <div className={styles.feedColumn}>
+            <h3 className={styles.columnHeading}>Recent posts</h3>
+            <RecentPostsFeed />
+            <Link href="/blog" className={styles.blogIndexLink}>
+              View all posts →
+            </Link>
+          </div>
+          <div className={styles.linksColumn}>
+            <h3 className={styles.columnHeading}>Explore the site</h3>
+            <ul className={styles.exploreList}>
+              <li>
+                <Link href="/blog" className={styles.exploreLink}>
+                  Blog index
+                </Link>
+                <span className={styles.exploreDesc}> — browse all published posts</span>
+              </li>
+              <li>
+                <Link href="/about" className={styles.exploreLink}>
+                  About
+                </Link>
+                <span className={styles.exploreDesc}> — standalone page at /about (published by admin)</span>
+              </li>
+              <li>
+                <span className={styles.exploreLink}>Navigation</span>
+                <span className={styles.exploreDesc}> — admins can manage site nav items in real time at{" "}
+                  <Link href="/admin/navigation" className={styles.inlineLink}>/admin/navigation</Link>
+                </span>
+              </li>
+              <li>
+                <span className={styles.exploreLink}>Comments</span>
+                <span className={styles.exploreDesc}> — threaded replies on any published blog post; moderated by site staff</span>
+              </li>
+            </ul>
+          </div>
+        </div>
       </section>
 
       <section className={styles.metaRow} aria-label="Runtime notes">
@@ -61,11 +103,11 @@ export default function HomePage() {
           </p>
         </article>
         <article className={styles.metaCard}>
-          <p className={styles.metaLabel}>Current navigation scope</p>
-          <p className={styles.metaValue}>Public and authenticated shell routes</p>
+          <p className={styles.metaLabel}>Current content scope</p>
+          <p className={styles.metaValue}>Blog, standalone pages, navigation, and media</p>
           <p className={styles.metaBody}>
-            Public users can sign in or register, while authenticated users can move between app,
-            profile, settings, and onboarding destinations.
+            Admins publish blog posts and standalone pages, manage site navigation, and attach
+            images via the media upload API. Authenticated members can leave threaded comments.
           </p>
         </article>
       </section>

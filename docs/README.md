@@ -31,9 +31,9 @@ This repository now includes the Milestone 1 foundation baseline for the monorep
 
 ## Frontend Shell Baseline
 
-- `apps/web` is a Next.js App Router frontend shell for the Milestone 2 public landing experience, auth-entry routes, and authenticated-shell foundation.
+- `apps/web` is a Next.js App Router frontend shell for the Milestone 3 public landing experience, auth-entry routes, authenticated-shell foundation, and Milestone 3 content surfaces (blog, standalone pages, navigation, media).
 - Styling stays within the Milestone 1 architecture baseline: CSS Modules for component/page styles plus shared global CSS custom-property tokens in `apps/web/app/globals.css`.
-- Public-facing routes include the branded homepage (`/`), branded `404`, branded runtime error surface, returning-user sign-in (`/login`), and provider-first registration (`/register`) with local email/password fallback.
+- Public-facing routes include the branded homepage (`/`) with a `RecentPostsFeed` client component showing up to 3 recent published posts and links to `/blog` and `/about`; branded `404`; branded runtime error surface; returning-user sign-in (`/login`); and provider-first registration (`/register`) with local email/password fallback.
 - The authenticated shell includes `/app`, `/profile`, `/settings`, and `/onboarding/username`; `/app`, `/profile`, and `/settings` all preserve destination intent for unauthenticated users with `/login?next=<route>`, and all authenticated routes redirect `user.onboardingRequired` sessions into username completion before normal authenticated use.
 - Frontend health endpoints are available at `/health/live` and `/health/ready`.
 - Frontend code targets the shared `/api` path contract. `NEXT_PUBLIC_API_BASE_PATH` defaults to `/api`, development rewrites forward to `WEB_API_ORIGIN` (`http://localhost:3001` by default), and non-development containerized routing can target `WEB_API_INTERNAL_URL`.
@@ -489,6 +489,32 @@ A fetch error falls back silently to an empty dynamic items list so the shell st
 **External link rendering — `NavItemLink`:** Items with `linkType = "external"` render as a plain `<a>` element with `target="_blank"` and `rel="noopener noreferrer"` to prevent tab-napping. Items with `linkType = "internal"` render as a Next.js `<Link>` with active-state styling derived from the current pathname.
 
 `apps/web/app/navigation/navigation-client.ts` is the typed API client for navigation calls. It exports `adminListNavItems`, `adminCreateNavItem`, `adminUpdateNavItem`, and `adminDeleteNavItem` (all admin, `credentials: "include"`) as well as the `NavigationItemDetail`, `CreateNavigationItemInput`, and `UpdateNavigationItemInput` TypeScript interfaces.
+
+### Public Landing Page (MS3 Landing Refresh)
+
+The public homepage at `/` was refreshed to describe Milestone 3 capabilities and surface recent blog content.
+
+#### Page Structure
+
+`apps/web/app/page.tsx` is a Next.js server component with no `fetch` calls or `useEffect` hooks. It renders four sections:
+
+1. **Hero** — heading, Milestone 3 description, and a primary link to `/blog`.
+2. **Highlights grid** — three cards describing blog with threaded comments, standalone pages with revision history, and dynamic navigation with media uploads.
+3. **What's new in Milestone 3** — a two-column section containing the `RecentPostsFeed` component with a "View all posts →" link to `/blog`, and an explore list with links to `/blog` (blog index), `/about` (standalone page), `/admin/navigation` (admin navigation), and a copy note about threaded comments.
+4. **Runtime notes** — the shared API path contract and current content scope description.
+
+All Milestone 2 references have been removed from the landing page copy.
+
+#### RecentPostsFeed Component
+
+`apps/web/components/recent-posts-feed.tsx` is a `"use client"` component that calls `listPublishedPosts()` from `blog-client.ts`, slices the result to the first 3 posts, and renders them as a linked list. Each post entry links to `/blog/<slug>` and optionally shows the post summary and formatted `publishedAt` date.
+
+State handling:
+- **Loading** — shows "Loading recent posts…" while the fetch is in progress.
+- **Empty** — shows "No posts yet." when the API returns an empty list.
+- **Error** — shows "Could not load recent posts." as a non-fatal inline message when the fetch fails; the rest of the landing page renders normally.
+
+The `/about` link points to `/:slug` (the top-level catch-all route) for the `about` slug. If an admin has not yet published a standalone page with slug `about`, the link resolves to a "not published" message rather than a `404`; this is intentional.
 
 ## Runtime Contract Overview
 

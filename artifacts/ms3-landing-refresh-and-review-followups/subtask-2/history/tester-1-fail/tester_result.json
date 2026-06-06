@@ -1,0 +1,30 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-2/tester_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-2/tester_result.json"
+  ],
+  "branch_name": "ms3-subtask-2-tester-20260606",
+  "commands_run": [
+    "pnpm --dir /home/tstephen/repos/worktrees/ms3-subtask-2-tester-20260606 --filter @sfus/web test",
+    "pnpm --dir /home/tstephen/repos/worktrees/ms3-subtask-2-tester-20260606 --filter @sfus/web lint",
+    "pnpm --dir /home/tstephen/repos/worktrees/ms3-subtask-2-tester-20260606 --filter @sfus/web typecheck"
+  ],
+  "pass_fail_totals": {
+    "lint_errors": 1,
+    "test_files_passed": 7,
+    "tests_failed": 0,
+    "tests_passed": 168,
+    "typecheck_errors": 0
+  },
+  "pass_label": null,
+  "status": "failure",
+  "task_id": "ms3-landing-refresh-and-review-followups/subtask-2",
+  "test_commit_hash": "a8bc1da",
+  "test_files_changed": [
+    "apps/web/app/public-shell.spec.ts",
+    "apps/web/components/recent-posts-feed.spec.ts"
+  ],
+  "unmet_acceptance_criteria": [
+    "AC4 (lints clean): apps/web/app/page.tsx:55 \u2014 react/no-unescaped-entities: apostrophe in JSX text content 'What's new in Milestone 3' must be escaped (&apos; or &rsquo;). Implementer reported web lint PASS but next/core-web-vitals enforces this rule. Implementation defect in page.tsx \u2014 tester cannot fix."
+  ]
+}
