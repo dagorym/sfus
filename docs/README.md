@@ -196,7 +196,7 @@ draft → draft (publish-at with future date sets status=published + future publ
 
 `unpublish` returns the post to `draft` status and sets `publishedAt` to `null`; there is no separate `"unpublished"` status in the persistence layer. Public routes filter on both `status = "published"` and `publishedAt <= now`, so a future-dated published post is effectively "scheduled" — it is stored as published but hidden until its time arrives. The admin UI labels such posts as scheduled with a "goes live at" timestamp. Drafts and posts with `publishedAt` in the future are never visible through public routes.
 
-Comment creation is also gated on `publishedAt <= now`; attempting to comment on a future-scheduled published post returns `403`.
+Comment creation is also gated on `publishedAt <= now`; attempting to comment on a future-scheduled published post returns `404` (indistinguishable from a nonexistent post, to prevent existence oracle disclosure).
 
 #### Response Shapes
 
@@ -250,7 +250,7 @@ Milestone 3 Subtask 4 adds blog comments: publicly readable, authenticated-membe
 
 **Member route — requires an active `sfus_session` cookie (any authenticated role):**
 
-- `POST /api/blog/:postId/comments` — creates a comment on a published post. Body: `{ body: string, imageId?: string | null, parentId?: string | null }`. The `body` field is run through `normalizeMarkdownBody` then `validateMarkdownBody` before persistence; a comment whose body fails sanitization is rejected with `400`. If `imageId` is supplied, the referenced media record must exist and have `resourceType = "blog-comment"` (scope enforcement); mismatched scope returns `400`. If `parentId` is supplied, the parent must exist, belong to the same post, and itself have no parent (max 1-level threading enforced); deeper nesting is rejected with `400`. Returns `{ comment: BlogCommentDetail }` on success. Returns `401` when no session is present, `403` when the post is not published or its `commentsLocked = true`, and `404` when the post does not exist.
+- `POST /api/blog/:postId/comments` — creates a comment on a published post. Body: `{ body: string, imageId?: string | null, parentId?: string | null }`. The `body` field is run through `normalizeMarkdownBody` then `validateMarkdownBody` before persistence; a comment whose body fails sanitization is rejected with `400`. If `imageId` is supplied, the referenced media record must exist and have `resourceType = "blog-comment"` (scope enforcement); mismatched scope returns `400`. If `parentId` is supplied, the parent must exist, belong to the same post, and itself have no parent (max 1-level threading enforced); deeper nesting is rejected with `400`. Returns `{ comment: BlogCommentDetail }` on success. Returns `401` when no session is present, `403` when the post exists and is published but `commentsLocked = true`, and `404` when the post does not exist, is not published, or its `publishedAt` is in the future (draft, unpublished, and future-scheduled posts are indistinguishable from nonexistent ones on this route to prevent existence oracle disclosure).
 
 **Moderation/admin routes — require an active `sfus_session` cookie and the `moderator` or `admin` global role:**
 
@@ -266,7 +266,7 @@ All moderation routes return `401` for missing sessions and `403` for sessions w
 
 `BlogService.assertModerationAccess(actorGlobalRole: string)` is the single authorization gate for all moderation operations. It throws `ForbiddenException` for any role that is neither `moderator` nor `admin`. All moderation and lock/unlock `BlogController` handlers call this method before performing any data operation.
 
-Comment creation does not require a minimum role beyond an active session, but the parent post must be in `published` status with `publishedAt <= now` and `commentsLocked = false`; attempting to comment on a draft, unpublished, future-scheduled, or locked post returns `403`.
+Comment creation does not require a minimum role beyond an active session, but the parent post must be publicly visible and not thread-locked. Attempting to comment on a draft, unpublished, or future-scheduled post returns `404` (same as a nonexistent post — the route applies the published-only visibility predicate on both the slug and UUID lookup branches so non-public posts are indistinguishable from nonexistent ones). Attempting to comment on a published post with `commentsLocked = true` returns `403`.
 
 #### Comment Sanitization
 
