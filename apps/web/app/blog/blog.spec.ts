@@ -460,6 +460,93 @@ describe("blog-client.ts adminCreatePost error message surfacing", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Envelope error-chain source contracts — all admin/member/moderation calls
+//
+// These tests pin the payload?.error?.message || payload?.message || <fallback>
+// chain at every call site so a regression to payload?.message-only cannot ship
+// silently. The API's JsonExceptionFilter envelope is:
+//   { error: { code, message, statusCode }, request: {...} }
+// Without payload?.error?.message first, every API-layer error collapses to
+// the hard-coded generic fallback.
+// ---------------------------------------------------------------------------
+
+/**
+ * Helper: extract a function body from blog-client.ts source by bounding it
+ * between the named export and the next export keyword.
+ */
+function extractFn(source: string, fnName: string): string {
+  const start = source.indexOf(`export async function ${fnName}`);
+  if (start === -1) throw new Error(`Function ${fnName} not found in source`);
+  const nextExport = source.indexOf("\nexport ", start + 1);
+  return nextExport === -1 ? source.slice(start) : source.slice(start, nextExport);
+}
+
+describe("blog-client.ts envelope error chain — all admin call sites", () => {
+  // Regression guard: every function in this list must use the three-part
+  // payload?.error?.message || payload?.message || <fallback> chain.
+  // A payload?.message-only read (the old, broken pattern) will cause the test
+  // to fail because it would never contain payload?.error?.message.
+
+  const adminFunctions = [
+    "adminListAllPosts",
+    "adminGetPost",
+    "adminCreatePost",
+    "adminUpdatePost",
+    "adminPublishPost",
+    "adminUnpublishPost",
+    "adminPublishAt",
+    "adminToggleFeatured",
+    "adminDeletePost",
+  ];
+
+  const memberAndModerationFunctions = [
+    "listComments",
+    "createComment",
+    "adminLockComments",
+    "adminUnlockComments",
+    "moderationListComments",
+    "moderateCommentStatus",
+    "deleteComment",
+  ];
+
+  const allFunctions = [...adminFunctions, ...memberAndModerationFunctions];
+
+  it.each(allFunctions)(
+    "%s reads payload?.error?.message before payload?.message (envelope first)",
+    async (fnName) => {
+      const source = await readAppFile("app/blog/blog-client.ts");
+      const block = extractFn(source, fnName);
+      // Must contain the envelope shape read
+      expect(block).toContain("payload?.error?.message");
+      // Must also include the legacy fallback
+      expect(block).toContain("payload?.message");
+    }
+  );
+
+  it.each(allFunctions)(
+    "%s uses the three-part || chain: error.message || message || <fallback>",
+    async (fnName) => {
+      const source = await readAppFile("app/blog/blog-client.ts");
+      const block = extractFn(source, fnName);
+      // The full chain must appear in the error branch
+      const chain = block.match(/payload\?\.error\?\.message\s*\|\|\s*payload\?\.message\s*\|\|/s);
+      expect(chain).not.toBeNull();
+    }
+  );
+
+  it.each(allFunctions)(
+    "%s type annotation includes error?: { message?: string } (envelope type)",
+    async (fnName) => {
+      const source = await readAppFile("app/blog/blog-client.ts");
+      const block = extractFn(source, fnName);
+      // The cast must include the envelope error sub-object
+      expect(block).toContain("error?:");
+      expect(block).toContain("message?:");
+    }
+  );
+});
+
+// ---------------------------------------------------------------------------
 // AC5: blog-client summary and isFeatured type fields
 // ---------------------------------------------------------------------------
 

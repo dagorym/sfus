@@ -1,0 +1,64 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Fix payload?.message-only error reads in pages-client.ts (8 locations) and blog-client.ts (16 locations) to use payload?.error?.message || payload?.message || fallback, matching API JsonExceptionFilter envelope. Tester added 72 source-contract regression specs covering all 24 call sites to prevent silent regression (final reviewer follow-up 1).
+
+Acceptance criteria to verify:
+- AC1: Every error read resolves payload?.error?.message first - PASS
+- AC2: Type annotations include error?: { message?: string } at all 23 locations - PASS
+- AC3: Three-part chain verified: envelope -> legacy -> generic fallback - PASS
+- AC4: No success-path behavior, types, or signatures changed - PASS
+- AC5: Web lint, typecheck, test suite all pass 244/244 - PASS
+- AC6: Source-contract regression specs added per final reviewer follow-up 1 - PASS (72 new tests)
+
+Implementation branch or worktree context:
+- Tester branch: ms3-claude-subtask-2-tester-20260606 (worktree at /home/tstephen/repos/worktrees/ms3-claude-subtask-2-tester-20260606)
+- Implementer fixed 8 locations in pages-client.ts and 16 in blog-client.ts
+- Pattern: payload?.error?.message || payload?.message || fallback matching JsonExceptionFilter envelope
+- Tester added 72 regression specs covering all 24 call sites
+- Test commit: 0d60299539d3593f4070db61d88acc96e7900404
+- Documentation commit: 9503df4
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/pages/pages-client.ts
+- apps/web/app/blog/blog-client.ts
+- apps/web/app/pages/pages.spec.ts
+- apps/web/app/blog/blog.spec.ts
+- docs/README.md
+
+Commands executed:
+- npx --yes pnpm@10.0.0 install
+- npx --yes pnpm@10.0.0 --filter @sfus/web run test
+- npx --yes pnpm@10.0.0 --filter @sfus/web run lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web run typecheck
+
+Final test outcomes:
+- 244 tests passed across 7 test files. 0 failures.
+- lint: clean (exit 0)
+- typecheck: clean (exit 0)
+- 72 new regression specs added (16 blog + 8 pages functions x 3 assertions per function)
+
+Plan or evaluation context guidance:
+- Plan: plans/ms3-review-closeout-plan.md, subtask-2
+- Base branch: ms3-claude
+- Comparison: git diff ms3-claude...ms3-claude-subtask-2-documenter-20260606
+- Reviewer finding addressed: WARNINGs 1 and 2 (pages-client and blog-client envelope adoption), Follow-up 1 (source-contract regression specs)
+
+Convention-file guidance:
+- Web client files use file-level header docblocks (no per-function docblocks required by repository guidance)
+- ESLint and TypeScript strict mode enforced via packages/config
+- Test files in apps/web/app/**/*.spec.ts use Vitest
+
+Updated documentation files:
+- docs/README.md
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-2
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

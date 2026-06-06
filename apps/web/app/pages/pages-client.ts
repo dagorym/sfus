@@ -83,8 +83,8 @@ export async function adminListAllPages(): Promise<PageDetail[]> {
     cache: "no-store"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to load pages.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to load pages.");
   }
   const data = (await response.json()) as { pages: PageDetail[] };
   return data.pages;
@@ -96,8 +96,8 @@ export async function adminGetPage(id: string): Promise<PageDetail> {
     cache: "no-store"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to load page.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to load page.");
   }
   const data = (await response.json()) as { page: PageDetail };
   return data.page;
@@ -111,8 +111,8 @@ export async function adminCreatePage(input: CreatePageInput): Promise<PageDetai
     body: JSON.stringify(input)
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to create page.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to create page.");
   }
   const data = (await response.json()) as { page: PageDetail };
   return data.page;
@@ -126,8 +126,8 @@ export async function adminUpdatePage(id: string, input: UpdatePageInput): Promi
     body: JSON.stringify(input)
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to update page.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to update page.");
   }
   const data = (await response.json()) as { page: PageDetail };
   return data.page;
@@ -139,8 +139,8 @@ export async function adminPublishPage(id: string): Promise<PageDetail> {
     credentials: "include"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to publish page.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to publish page.");
   }
   const data = (await response.json()) as { page: PageDetail };
   return data.page;
@@ -152,8 +152,8 @@ export async function adminUnpublishPage(id: string): Promise<PageDetail> {
     credentials: "include"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to unpublish page.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to unpublish page.");
   }
   const data = (await response.json()) as { page: PageDetail };
   return data.page;
@@ -165,8 +165,8 @@ export async function adminListRevisions(id: string): Promise<RevisionDetail[]> 
     cache: "no-store"
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to load revisions.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to load revisions.");
   }
   const data = (await response.json()) as { revisions: RevisionDetail[] };
   return data.revisions;
@@ -181,8 +181,8 @@ export async function adminRestoreRevision(pageId: string, revisionId: string): 
     }
   );
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Failed to restore revision.");
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to restore revision.");
   }
   const data = (await response.json()) as { page: PageDetail };
   return data.page;

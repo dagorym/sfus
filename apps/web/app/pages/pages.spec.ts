@@ -369,3 +369,77 @@ describe("Admin pages edit enriched authoring contracts (AC3, AC4)", () => {
     expect(source).toContain("adminUpdatePage");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Envelope error-chain source contracts — all admin call sites in pages-client
+//
+// These tests pin the payload?.error?.message || payload?.message || <fallback>
+// chain at every admin call site so a regression to payload?.message-only cannot
+// ship silently. The API's JsonExceptionFilter envelope is:
+//   { error: { code, message, statusCode }, request: {...} }
+// Without payload?.error?.message first, every API-layer error collapses to
+// the hard-coded generic fallback.
+// ---------------------------------------------------------------------------
+
+/**
+ * Helper: extract a function body from pages-client.ts source by bounding it
+ * between the named export and the next export keyword (or end of file).
+ */
+function extractPagesFn(source: string, fnName: string): string {
+  const start = source.indexOf(`export async function ${fnName}`);
+  if (start === -1) throw new Error(`Function ${fnName} not found in source`);
+  const nextExport = source.indexOf("\nexport ", start + 1);
+  return nextExport === -1 ? source.slice(start) : source.slice(start, nextExport);
+}
+
+describe("pages-client.ts envelope error chain — all admin call sites", () => {
+  // Regression guard: every admin function must use the three-part
+  // payload?.error?.message || payload?.message || <fallback> chain.
+  // A payload?.message-only read (the old, broken pattern) will fail because
+  // payload?.error?.message would be absent.
+
+  const adminFunctions = [
+    "adminListAllPages",
+    "adminGetPage",
+    "adminCreatePage",
+    "adminUpdatePage",
+    "adminPublishPage",
+    "adminUnpublishPage",
+    "adminListRevisions",
+    "adminRestoreRevision",
+  ];
+
+  it.each(adminFunctions)(
+    "%s reads payload?.error?.message before payload?.message (envelope first)",
+    async (fnName) => {
+      const source = await readAppFile("app/pages/pages-client.ts");
+      const block = extractPagesFn(source, fnName);
+      // Must contain the envelope shape read
+      expect(block).toContain("payload?.error?.message");
+      // Must also include the legacy fallback
+      expect(block).toContain("payload?.message");
+    }
+  );
+
+  it.each(adminFunctions)(
+    "%s uses the three-part || chain: error.message || message || <fallback>",
+    async (fnName) => {
+      const source = await readAppFile("app/pages/pages-client.ts");
+      const block = extractPagesFn(source, fnName);
+      // The full chain must appear in the error branch
+      const chain = block.match(/payload\?\.error\?\.message\s*\|\|\s*payload\?\.message\s*\|\|/s);
+      expect(chain).not.toBeNull();
+    }
+  );
+
+  it.each(adminFunctions)(
+    "%s type annotation includes error?: { message?: string } (envelope type)",
+    async (fnName) => {
+      const source = await readAppFile("app/pages/pages-client.ts");
+      const block = extractPagesFn(source, fnName);
+      // The cast must include the envelope error sub-object
+      expect(block).toContain("error?:");
+      expect(block).toContain("message?:");
+    }
+  );
+});
