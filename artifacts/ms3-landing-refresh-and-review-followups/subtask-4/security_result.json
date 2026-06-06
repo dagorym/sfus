@@ -1,0 +1,38 @@
+{
+  "status": "success",
+  "task_id": "subtask-4",
+  "branch_name": "ms3-claude",
+  "review_mode": "retroactive",
+  "outcome": "CONDITIONAL PASS",
+  "blocking_finding_count": 0,
+  "warning_finding_count": 1,
+  "note_finding_count": 4,
+  "artifact_file_paths": [
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-4/security_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-4/security_result.json"
+  ],
+  "plan_path": "plans/ms3-landing-refresh-and-review-followups-plan.md",
+  "review_scope": [
+    "apps/api/src/blog/blog.controller.ts",
+    "apps/api/src/blog/blog.service.ts",
+    "apps/api/src/blog/blog.service.test.ts",
+    "apps/api/src/blog/entities/blog-post.entity.ts",
+    "docs/README.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-4/implementer_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-4/tester_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-4/documenter_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-4/verifier_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/final-review/reviewer_report.md"
+  ],
+  "warning_findings": [
+    "Pre-existing authenticated existence oracle on POST /api/blog/:postIdOrSlug/comments: resolvePostId (blog.controller.ts:352-360) uses any-status findById and createComment (blog.service.ts:377-384) returns 403 for existing non-public posts vs 404 for nonexistent ones, letting an authenticated member with a known UUID confirm existence of draft/unpublished/future-scheduled posts. Not introduced by subtask-4; recommend planner align to 404 or record formal acceptance."
+  ],
+  "test_sufficiency_summary": [
+    "Four dedicated security-regression tests cover the predicate shape and the future-scheduled, genuinely-public, and draft cases for findPublishedById; findPublished/findPublishedBySlug assertions were tightened to require the publishedAt constraint.",
+    "Residual gaps (reaffirmed verifier NOTEs): the LessThanOrEqual operator type is not asserted (only key presence), and no controller-level test pins the listComments slug-then-id fallback wiring. Both are low risk; coverage is sufficient for this change's risk level."
+  ],
+  "documentation_sufficiency_summary": [
+    "docs/README.md line 249 accurately documents both lookup paths, the full public-visibility predicate, and the 404 behavior for draft/unpublished/future-scheduled posts, consistent with every other public surface.",
+    "The POST route's 403-vs-404 contract is documented at lines 253/269; WARNING 1 asks the planner to confirm or change that contract."
+  ]
+}
