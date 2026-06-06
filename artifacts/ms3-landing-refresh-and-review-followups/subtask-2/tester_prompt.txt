@@ -1,0 +1,48 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Refresh the public landing page to describe Milestone 3 capabilities (blog, standalone pages, media, navigation, threaded comments), add a RecentPostsFeed client component fetching up to 3 published posts with loading/empty/error states, and add a 'What's new in Milestone 3' section with visible /blog and /about links. Remove all Milestone 2 references. Keep page.tsx a server component.
+
+Modified files:
+- apps/web/app/page.tsx
+- apps/web/app/page.module.css
+- apps/web/components/recent-posts-feed.tsx
+- apps/web/components/recent-posts-feed.module.css
+
+Acceptance criteria to validate (from Planner):
+- The landing page has no remaining 'Milestone 2' references and describes Milestone 3 capabilities.
+- The homepage renders a recent-posts feed of up to 3 published posts, each linking to its /blog/<slug> detail page; with zero posts it shows a graceful empty state and the page still renders; on fetch failure it shows a non-fatal error state.
+- The homepage shows a visible link to /blog and a visible link to /about, plus copy surfacing navigation and comments.
+- The landing page builds and lints clean and renders without runtime errors.
+
+Create test files in:
+- apps/web/app/public-shell.spec.ts — update the 'keeps the homepage branded and static' test: replace toContain('This Milestone 2 foundation delivers') with a check for MS3 copy; verify /blog and /about links are present; verify no fetch/useEffect in page.tsx still holds
+- apps/web/components/recent-posts-feed.spec.ts (new, tester-created) — test RecentPostsFeed: loading state, empty state ('No posts yet'), error state (non-fatal), renders up to 3 posts with correct /blog/<slug> links, title, summary, and date
+
+Implementation context for testing:
+- page.tsx is a server component — no fetch, no useEffect. RecentPostsFeed is 'use client'.
+- RecentPostsFeed calls listPublishedPosts() from apps/web/app/blog/blog-client.ts, slices to 3, renders title as Link to /blog/<slug>, summary, and publishedAt formatted date.
+- Loading state: 'Loading recent posts…'. Empty state: 'No posts yet.' Error state: 'Could not load recent posts.'
+- The 'What's new in Milestone 3' section contains: RecentPostsFeed, 'View all posts →' link to /blog, and an explore list with /blog, /about, navigation admin link, and comments copy.
+- /about links to the top-level [slug] standalone page route — may 404 until an admin publishes a standalone page with slug 'about'; this is intentional.
+- Pre-existing api lint failure (navigation.controller.test.ts unused import) is unrelated to this subtask.
+- All 5 other public-shell.spec.ts tests still pass; only 'keeps the homepage branded and static' needs tester update.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-subtask-2-implementer-20260606 --filter @sfus/web exec vitest run app/public-shell.spec.ts
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-subtask-2-implementer-20260606 --filter @sfus/web run lint
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms3-subtask-2-implementer-20260606 typecheck
+
+Existing validations expected to fail only because approved behavior changed:
+- apps/web/app/public-shell.spec.ts: 'keeps the homepage branded and static' — toContain('This Milestone 2 foundation delivers') fails because that copy was intentionally removed per approved plan; the test file is tester-owned and requires update to check for MS3 copy
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-landing-refresh-and-review-followups/subtask-2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
