@@ -1,0 +1,46 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Document the new public GET /pages list endpoint and web /pages index route added in subtask-6.
+
+Tester result: PASS — all 5 acceptance criteria satisfied, all new tests passing.
+
+Changed files (implementer):
+- apps/api/src/pages/pages.controller.ts (added GET /pages listPublished endpoint)
+- apps/web/app/pages/pages-client.ts (added listPublishedPages() public client function)
+- apps/web/app/pages/page.tsx (new public /pages index route rendering published pages as links)
+
+Changed files (tester):
+- apps/api/src/pages/pages.service.test.ts (added 4 operator-pinned findPublished tests)
+- apps/web/app/pages/pages.spec.ts (added 18 source-contract tests for index endpoint and route)
+
+Acceptance criteria validated:
+1. List endpoint returns only published pages via shared predicate — drafts never appear (PASS)
+2. Payload contains only index fields (slug, title, updatedAt — no body) (PASS)
+3. /pages renders published list; bare /pages navigation resolves; empty state renders cleanly (PASS)
+4. Ordering deterministic (title ascending) (PASS)
+5. Swagger documents new endpoint (PASS)
+
+Documentation to update:
+- docs/features/pages.md (or the canonical pages feature doc) — add the new public GET /pages endpoint contract:
+  - Endpoint: GET /pages
+  - Auth: none (public/guest)
+  - Response: { pages: PageSummary[] } where PageSummary = { slug, title, updatedAt }
+  - Ordering: title ascending
+  - Swagger: documented via @ApiOperation and @ApiOkResponse
+- docs/features/pages.md — add the web /pages route:
+  - Route: /pages
+  - Renders: list of published pages as links to /pages/<slug>
+  - Empty state: "No pages have been published yet."
+  - Client function: listPublishedPages() in apps/web/app/pages/pages-client.ts
+- If a web-facing API reference or routing table exists, add the /pages route entry.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-6
+
+Startup behavior:
+- If context is clear, begin documentation updates immediately in the same run.
+- Consult docs/README.md routing table to find the canonical pages feature doc before editing.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
