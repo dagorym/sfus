@@ -1,0 +1,61 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Add public GET /pages list endpoint returning only published pages with index fields (slug, title, updatedAt), plus web /pages index route rendering the list as links to /pages/<slug> with empty state.
+
+Modified files:
+- apps/api/src/pages/pages.controller.ts
+- apps/web/app/pages/pages-client.ts
+- apps/web/app/pages/page.tsx
+
+Acceptance criteria to validate (from Planner):
+1. List endpoint returns only published pages via shared predicate — drafts never appear (provable by executed, operator-pinned tests).
+2. Payload contains only index-needs fields (slug, title, updatedAt — no body or revision data).
+3. /pages renders published list; bare /pages navigation now resolves; empty state renders cleanly.
+4. Ordering is deterministic (title ascending).
+5. Swagger documents new endpoint.
+
+Test file locations:
+- apps/web/app/pages/pages.spec.ts — existing 67-test web source-contract suite (add new tests here for the index route)
+- apps/api/src/pages/pages.service.test.ts — existing 48-test API service unit suite
+- apps/api/src/pages/pages.controller.ts — controller source to audit for Swagger decorators
+
+New tester tests to add (source-contract pattern matching pages.spec.ts):
+- pages-client.ts exports listPublishedPages() without credentials:include (AC1 published-only public read)
+- pages-client.ts listPublishedPages() uses apiBase/pages (correct endpoint)
+- apps/web/app/pages/page.tsx exists and imports listPublishedPages (AC3)
+- apps/web/app/pages/page.tsx renders Link elements to /pages/<slug> (AC3)
+- apps/web/app/pages/page.tsx has empty state rendering (AC3)
+- pages.controller.ts has @Get() (no param) decorator with listPublished method (AC4)
+- pages.controller.ts GET /pages response uses slug, title, updatedAt fields only — no body field (AC2)
+- pages.controller.ts has @ApiOperation and @ApiOkResponse on listPublished (AC5 Swagger)
+- PagesService.findPublished() uses status='published' and order title ASC (AC1, AC4)
+
+Implementation context for testing:
+1. GET /pages is handled by PagesController.listPublished(), which calls PagesService.findPublished(). The service method already existed with where:{status:'published'} and order:{title:'ASC'}.
+2. Response shape is { pages: PageSummary[] } where PageSummary = { slug, title, updatedAt }. No id, body, status, revisions, or other fields.
+3. listPublishedPages() in pages-client.ts has no credentials option — it is a public fetch.
+4. apps/web/app/pages/page.tsx is a new 'use client' component; it uses listPublishedPages(), renders loading/error/empty states, and a ul of Link elements pointing to /pages/${encodeURIComponent(page.slug)}.
+5. No changes were made to pages.service.ts.
+
+Suggested validation commands:
+- pnpm --filter @sfus/api lint
+- pnpm --filter @sfus/api typecheck
+- pnpm --filter @sfus/api test
+- pnpm --filter @sfus/web lint
+- pnpm --filter @sfus/web typecheck
+- pnpm --filter @sfus/web test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
