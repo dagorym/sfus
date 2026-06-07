@@ -64,24 +64,44 @@ describe("validateMarkdownBody", () => {
   });
 
   describe("unsafe content — event handler attributes", () => {
-    it("rejects onclick= attribute", () => {
+    // AC: event-handler-attribute payload class rejected — anchored to HTML tag context.
+    // Reject class: on<word>= inside an HTML tag (e.g. <tag onclick=...>).
+    // Accept class: bare on<word>= prose outside any tag context (no false positive).
+
+    it("rejects onclick= attribute inside an HTML anchor tag", () => {
       const result = validateMarkdownBody('<a href="#" onclick="steal()">click</a>');
       expect(result.safe).toBe(false);
     });
 
-    it("rejects onerror= attribute", () => {
+    it("rejects onerror= attribute inside an HTML img tag", () => {
       const result = validateMarkdownBody('<img src="x" onerror="alert(1)">');
       expect(result.safe).toBe(false);
     });
 
-    it("rejects onload= attribute", () => {
+    it("rejects onload= attribute inside an HTML body tag", () => {
       const result = validateMarkdownBody("<body onload=evil()>");
       expect(result.safe).toBe(false);
     });
 
-    it("rejects generic on-prefixed handler", () => {
-      const result = validateMarkdownBody("onmouseover= something");
+    it("rejects onmouseover= attribute inside an HTML span tag", () => {
+      // Paired reject: same handler word that the old unanchored test covered, but
+      // now tested in correct HTML tag context where it is genuinely dangerous.
+      const result = validateMarkdownBody("<span onmouseover=steal()>hover me</span>");
       expect(result.safe).toBe(false);
+    });
+
+    it("allows bare on-prefixed prose outside any HTML tag context (no false positive)", () => {
+      // Paired accept: plain prose containing on<word>= must not be rejected.
+      // The old 'rejects generic on-prefixed handler' test incorrectly expected
+      // this to fail. The anchored pattern /<[^>]*\bon\w+\s*=/i correctly ignores it.
+      const result = validateMarkdownBody("onmouseover= something");
+      expect(result.safe).toBe(true);
+    });
+
+    it("allows prose containing onclick in a technical explanation", () => {
+      // AC: legitimate-prose example passes sanitization.
+      const result = validateMarkdownBody("The onclick = handler pattern fires on user click.");
+      expect(result.safe).toBe(true);
     });
   });
 
@@ -118,19 +138,50 @@ describe("validateMarkdownBody", () => {
   });
 
   describe("unsafe content — dangerous URI schemes", () => {
-    it("rejects javascript: URI in a link", () => {
+    it("rejects javascript: URI in a Markdown link", () => {
       const result = validateMarkdownBody("[bad](javascript:alert(1))");
       expect(result.safe).toBe(false);
     });
 
-    it("rejects vbscript: URI", () => {
+    it("rejects vbscript: URI in a Markdown link", () => {
       const result = validateMarkdownBody("[bad](vbscript:evil())");
       expect(result.safe).toBe(false);
     });
 
-    it("rejects data: URI", () => {
+    // AC: data:-URI payload class rejected — anchored to URL positions.
+    // Reject class: data: in Markdown image/link destination or href/src attribute.
+    // Accept class: prose containing "data:" outside any URL position (no false positive).
+
+    it("rejects data: URI in a Markdown image destination", () => {
       const result = validateMarkdownBody("![img](data:image/svg+xml;base64,PHN2...)");
       expect(result.safe).toBe(false);
+    });
+
+    it("rejects data: URI in a Markdown link destination", () => {
+      const result = validateMarkdownBody("[click](data:text/html,<script>alert(1)</script>)");
+      expect(result.safe).toBe(false);
+    });
+
+    it("rejects data: URI in an HTML href attribute", () => {
+      // AC: <a href="data:..."> remains rejected.
+      const result = validateMarkdownBody('<a href="data:text/html,<h1>pwned</h1>">click</a>');
+      expect(result.safe).toBe(false);
+    });
+
+    it("rejects data: URI in an HTML src attribute", () => {
+      const result = validateMarkdownBody('<img src="data:image/png;base64,abc123">');
+      expect(result.safe).toBe(false);
+    });
+
+    it("allows prose containing 'data:' outside a URL position (no false positive)", () => {
+      // AC: legitimate-prose example passes sanitization.
+      const result = validateMarkdownBody("Training data: source A provided the baseline.");
+      expect(result.safe).toBe(true);
+    });
+
+    it("allows prose containing 'data:' mid-sentence without URL context", () => {
+      const result = validateMarkdownBody("The data: source was verified by the team.");
+      expect(result.safe).toBe(true);
     });
   });
 });
