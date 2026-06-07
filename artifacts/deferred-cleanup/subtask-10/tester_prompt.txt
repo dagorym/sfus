@@ -1,0 +1,42 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Repair stale CI/CD contract-test assertion: update the apps/api/.env.example DB_HOST assertion to match the documented hybrid-dev default (127.0.0.1), and fix the missing MEDIA_STORAGE_PATH env var in the API runtime process check so the full suite passes.
+
+Modified files:
+- cicd/tests/run-validations.sh
+
+Acceptance criteria to validate (from Planner):
+- bash cicd/tests/run-validations.sh passes on the subtask branch
+- The env-example assertion matches the canonical contract in docs/operations/launch.md (DB_HOST=127.0.0.1)
+- A compose-level DB_HOST=mysql override assertion exists at the verified real location (line 320 in cicd/tests/run-validations.sh already pinned this)
+
+Create test files in:
+- cicd/tests/run-validations.sh is both the product and the test — tester executes bash cicd/tests/run-validations.sh directly
+- cicd/tests/README.md should be reviewed for coverage description alignment
+
+Implementation context for testing:
+- apps/api/.env.example line 44 has DB_HOST=127.0.0.1 (hybrid-dev default; comment on lines 40-43 documents why)
+- cicd/docker/compose.dev.yml line 27 overrides DB_HOST: mysql for containers — assertion at line 320 already existed and correctly pins this
+- cicd/docker/compose.prod.yml has no DB_HOST override — prod uses host-managed external MySQL
+- MEDIA_STORAGE_PATH=/tmp/uploads added to API runtime process check (was missing, causing container startup failure)
+
+Suggested test command(s):
+- bash cicd/tests/run-validations.sh
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-10
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

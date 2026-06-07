@@ -1,0 +1,31 @@
+{
+  "status": "success",
+  "task_id": "deferred-cleanup/subtask-10",
+  "task_summary": "Repair stale CI/CD contract-test assertion: update the apps/api/.env.example DB_HOST assertion to match the documented hybrid-dev default (127.0.0.1), and fix the missing MEDIA_STORAGE_PATH env var in the API runtime process check so the full suite passes.",
+  "branch_name": "cleanup-subtask-10-implementer-20260607",
+  "code_commit_hash": "08ef7a3",
+  "changed_files": ["cicd/tests/run-validations.sh"],
+  "validation_commands": [
+    "bash cicd/tests/run-validations.sh",
+    "npx --yes pnpm@10.0.0 lint",
+    "npx --yes pnpm@10.0.0 typecheck",
+    "npx --yes pnpm@10.0.0 test"
+  ],
+  "validation_outcome": "All validations pass. bash cicd/tests/run-validations.sh passes in full. pnpm lint, typecheck, and test all pass.",
+  "acceptance_criteria": [
+    "bash cicd/tests/run-validations.sh passes on the subtask branch",
+    "The env-example assertion matches the canonical contract in docs/operations/launch.md (DB_HOST=127.0.0.1)",
+    "A compose-level DB_HOST=mysql override assertion exists at the verified real location (line 320 in cicd/tests/run-validations.sh already pinned this)"
+  ],
+  "test_location_guidance": [
+    "cicd/tests/run-validations.sh is both the product and the test — tester executes bash cicd/tests/run-validations.sh directly",
+    "cicd/tests/README.md should be reviewed for coverage description alignment"
+  ],
+  "implementation_context": [
+    "apps/api/.env.example line 44 has DB_HOST=127.0.0.1 (hybrid-dev default; comment on lines 40-43 documents why)",
+    "cicd/docker/compose.dev.yml line 27 overrides DB_HOST: mysql for containers — assertion at line 320 already existed and correctly pins this",
+    "cicd/docker/compose.prod.yml has no DB_HOST override — prod uses host-managed external MySQL",
+    "MEDIA_STORAGE_PATH=/tmp/uploads added to API runtime process check (was missing, causing container startup failure)"
+  ],
+  "expected_validation_failures": []
+}
