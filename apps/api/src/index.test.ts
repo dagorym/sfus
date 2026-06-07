@@ -6,6 +6,7 @@ const state = vi.hoisted(() => {
   };
   const mockApp = {
     setGlobalPrefix: vi.fn(),
+    use: vi.fn(),
     useGlobalFilters: vi.fn(),
     listen: vi.fn().mockResolvedValue(undefined),
     get: vi.fn(),
@@ -137,6 +138,7 @@ describe("apiBootstrap", () => {
   beforeEach(() => {
     state.environment.swaggerEnabled = true;
     state.mockApp.setGlobalPrefix.mockClear();
+    state.mockApp.use.mockClear();
     state.mockApp.useGlobalFilters.mockClear();
     state.mockApp.listen.mockClear();
     state.mockApp.get.mockClear();
