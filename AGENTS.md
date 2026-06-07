@@ -86,13 +86,20 @@ Skill names are paths under `.myteam/`, resolved by `myteam get skill <name>`:
 
 ## Where everything lives
 
-The canonical home for each kind of information. Read these as needed; when work changes
-any of them, update the doc (this is typically the documenter role's job).
+**`docs/README.md` is the documentation routing table.** It maps every doc to its scope and
+the code paths it covers. Before working on any part of the system, consult the routing
+table and read only the docs matching your task — do not read the whole documentation tree.
+When work changes documented behavior, update the owning doc (typically the documenter
+role's job) per the "Writing documentation" rules in the routing table.
+
+Quick orientation (the routing table is authoritative):
 
 - **Operative policy / workflow / roles** → `.myteam/` (load via `myteam get role` / `myteam get skill`).
-- **Architecture, workspace layout, shared toolchain, commands, the `/api` contract, identity/auth/authorization foundation, env contracts** → `docs/README.md`.
-- **Website/container startup, required local env files, runtime URLs, migrations, and all test/validation commands (including running a single test)** → `docs/website-launch-guide.md`.
-- **CI/CD contract and validation entrypoints** → `cicd/docs/cicd.md` and `cicd/docs/local-pipeline.md` (the real behavior lives in `cicd/config/*.yml` and `cicd/scripts/*.sh`; GitHub workflows are thin shims).
+- **Per-subsystem contracts** (auth, authorization, media, blog, pages, navigation, web shell) → `docs/features/`.
+- **Cross-cutting engineering contracts** (workspace/commands, API conventions, all test/validation commands) → `docs/development/`.
+- **Running and deploying** (env contracts, local launch, production runbook) → `docs/operations/`.
+- **Admin/member how-tos** → `docs/guides/content-management.md`.
+- **CI/CD contract and validation entrypoints** → `cicd/docs/cicd.md` (the real behavior lives in `cicd/config/*.yml` and `cicd/scripts/*.sh`; GitHub workflows are thin shims).
 - **Locked architecture/deployment decisions** → `docs/architecture/`.
 - **Deferred work register** → `docs/deferred-tasks.md`. Planners read it during planning and append postponed scope; per policy it is edited **only** during a planning cycle, not during a coordinator-led development cycle.
 

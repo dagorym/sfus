@@ -10,7 +10,7 @@
  * OPT-IN GATE
  * -----------
  * Set SFUS_DB_INTEGRATION=1 (and DB_HOST / DB_PORT / DB_NAME / DB_USER /
- * DB_PASSWORD per docs/website-launch-guide.md) before running.
+ * DB_PASSWORD per docs/development/testing.md) before running.
  *
  * Without the flag the entire suite skips cleanly — no database is required
  * and the default workspace `test` command is unaffected.

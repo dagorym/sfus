@@ -17,7 +17,7 @@ Reading and following `AGENTS.md` is a hard precondition, not a suggestion. If
 you cannot read it or run the required `myteam` commands, STOP and tell the user.
 
 No project facts (commands, architecture, runtime, auth, env contracts) are kept
-in this file. `AGENTS.md` indexes where each of those lives (`.myteam/`,
-`docs/README.md`, `docs/website-launch-guide.md`, `cicd/docs/`), and carries the
+in this file. `AGENTS.md` indexes where each of those lives (`.myteam/`, the
+`docs/README.md` routing table, `cicd/docs/`), and carries the
 Copilot-specific notes (e.g. Playwright MCP usage for cloud-agent browser tasks).
 To change guidance, edit the canonical doc — never re-inline facts here.

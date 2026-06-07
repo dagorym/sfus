@@ -30,7 +30,7 @@ repository:
 - If you cannot read `AGENTS.md` or cannot run the required `myteam` commands,
   **STOP IMMEDIATELY and tell the user.** Do not proceed with guesses.
 - Do not restate project facts in this file. `AGENTS.md` indexes where each lives
-  (`.myteam/`, `docs/README.md`, `docs/website-launch-guide.md`, `cicd/docs/`);
+  (`.myteam/`, the `docs/README.md` routing table, `cicd/docs/`);
   edit the canonical doc — never re-inline facts here.
 
 Do not duplicate `AGENTS.md`'s contents here — read it directly, every session.

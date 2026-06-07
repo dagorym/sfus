@@ -1,0 +1,117 @@
+# Authentication & Identity
+
+Identity, registration, email verification, sessions, MFA, external providers (Google/GitHub),
+onboarding, and the profile/settings account surface.
+
+**Code:** `apps/api/src/auth/`, `apps/api/src/users/`, `apps/web/app/login/`,
+`apps/web/app/register/`, `apps/web/app/onboarding/`, `apps/web/app/profile/`,
+`apps/web/app/settings/`, `apps/web/app/auth-client.ts`
+**Related:** [authorization](authorization.md) for roles/grants · [web-shell](web-shell.md) for
+protected-route behavior · [launch](../operations/launch.md) for the `AUTH_*` env contract
+
+## Identity model
+
+`UserEntity` (`users` table): `id` (UUID), `username` (unique, varchar 32), `email` (unique,
+varchar 320), `displayName` (nullable, varchar 80), `globalRole` (`user` | `moderator` | `admin`,
+default `user`), `status` (`active` | `onboarding_required`), `emailVerifiedAt` (nullable).
+
+- `user.onboardingRequired` in API payloads is derived: `status === "onboarding_required"`.
+- Username rule: `^[A-Za-z0-9_.-]{3,32}$`. Password rule: minimum 12 characters.
+- Email is normalized (trim + lowercase) and must match a basic `local@domain.tld` shape.
+
+## API routes
+
+All routes below sit under the global `/api` prefix.
+
+| Method | Path | Auth | Returns / notes |
+|---|---|---|---|
+| POST | `/api/auth/register` | — | `201` `{ user, emailVerification: { required, expiresAt, token? } }`; `409` duplicate email/username; `400` invalid input. `token` is included only when `NODE_ENV !== "production"` (dev/test convenience). |
+| POST | `/api/auth/verify-email` | — | `{ user, verified: true }`; `400` invalid/expired/already-consumed token |
+| POST | `/api/auth/login` | — | `{ user, session }` + session cookie, **or** `{ mfa: { required, challengeToken, expiresAt, nextPath } }` when a verified TOTP secret exists; `401` bad credentials; `403` email not verified |
+| POST | `/api/auth/mfa/challenge` | challenge token in body | `{ user, session, redirectPath }` + session cookie; `401` invalid/expired/replayed challenge or bad code. Body: `challengeToken` + `totpCode` or `recoveryCode`. |
+| POST | `/api/auth/mfa/enroll` | session | `{ secret, otpauthUrl, issuer }`; `400` MFA already enabled |
+| POST | `/api/auth/mfa/enroll/verify` | session | `{ enabled: true, recoveryCodes }` — recovery codes are returned only here and on regenerate; `400` enrollment not started; `401` invalid code |
+| POST | `/api/auth/mfa/recovery/regenerate` | session + MFA proof | `{ regenerated: true, recoveryCodes }` — replaces the previous set |
+| POST | `/api/auth/mfa/disable` | session + MFA proof | `{ disabled: true }` — deletes TOTP secrets and recovery codes |
+| POST | `/api/auth/logout` | session | `{ success: true }`; idempotent; revokes the session and clears the cookie |
+| GET | `/api/auth/session` | session | `{ user, session }`; `401` when missing/expired. `user` includes `onboardingRequired`. |
+| GET | `/api/auth/profile` | session | `{ username, email, displayName }`; supports `?userId=<targetId>` (see cross-account access) |
+| PATCH | `/api/auth/profile` | session | accepts `displayName` only (max 80 chars); returns the profile payload |
+| GET | `/api/auth/settings` | session | `{ username, email, emailVerified, mfaEnabled }`; supports `?userId=<targetId>` |
+| PATCH | `/api/auth/settings` | session | accepts `username` only (uniqueness enforced); returns the settings payload |
+| GET | `/api/auth/external/:provider/start` | — | `302` to the provider consent URL; `?next=<path>` preserved through state; `400` unsupported provider |
+| GET | `/api/auth/external/:provider/callback` | — | `302` to `/app`, `/onboarding/username`, or the MFA challenge route; `400` invalid/expired state; `502` provider exchange failure |
+| POST | `/api/auth/onboarding/username` | session | `{ user, session }`; `400` invalid/duplicate username; `401` no session or onboarding not required |
+
+MFA proof = `totpCode` **or** `recoveryCode` in the request body; at least one required.
+
+## Sessions
+
+- Cookie: `sfus_session` — always `HttpOnly`, `SameSite=Lax`, path `/`; `Secure` when
+  `NODE_ENV === "production"`. Cookie expiry mirrors the session's `expiresAt`.
+- Token: 32 random bytes (base64url) in the cookie; the database stores only
+  `SHA-256(token + ":" + AUTH_SESSION_TOKEN_PEPPER)`.
+- Lifetime: absolute TTL (`AUTH_SESSION_TTL_MINUTES`) is fixed at issuance and is **not**
+  extended by activity. Session resolution updates `lastSeenAt`, which anchors the idle
+  timeout (`AUTH_SESSION_IDLE_TIMEOUT_MINUTES`, must be ≤ the TTL).
+- Revocation: explicit logout, absolute expiry, or idle expiry — checked on every resolution;
+  expired sessions are revoked and return `401`.
+
+## Passwords and email verification
+
+- Password hash: Argon2id over `password + AUTH_PASSWORD_PEPPER`.
+- Local login is blocked (`403`) until a verification token has been consumed.
+- Verification tokens: 32 random bytes, persisted as a peppered SHA-256 hash, expire after
+  `AUTH_EMAIL_VERIFICATION_TTL_MINUTES`, and are single-use (`consumedAt` set on first success).
+- In non-production environments the raw token is returned from `/api/auth/register` so the
+  flow can be exercised without a mail provider; production stores only the hash.
+
+## MFA (TOTP + recovery codes)
+
+- TOTP: SHA-1, 6 digits, 30-second period, ±1 step window; codes are 6–8 digits after
+  whitespace stripping; a given code is accepted once per window (replay-guarded).
+- The TOTP secret is stored AES-256-GCM encrypted; the key is derived as
+  `SHA-256(AUTH_SESSION_TOKEN_PEPPER + ":" + AUTH_PASSWORD_PEPPER)`.
+- Recovery codes: count/length from `AUTH_RECOVERY_CODE_COUNT` / `AUTH_RECOVERY_CODE_LENGTH`,
+  generated from a lookalike-free alphabet (no `I O 0 1`), displayed in 4-char dash groups,
+  stored as peppered hashes, single-use.
+- Login (password or external) returns an MFA challenge whenever a *verified* TOTP secret
+  exists. Challenge tokens are HMAC-SHA256-signed (session-token pepper), single-use
+  (in-memory replay guard), and expire after `AUTH_EXTERNAL_STATE_TTL_MINUTES` (reused — there
+  is no separate MFA-challenge TTL).
+
+## External providers
+
+- Providers are registered behind an adapter registry (`external-auth-provider.registry.ts`);
+  currently `google` and `github`. Adding a provider means adding an adapter + registry entry
+  plus its `AUTH_<PROVIDER>_*` env vars.
+- OAuth `state` is a signed payload (HMAC-SHA256, session-token pepper) carrying the provider,
+  normalized `next` path, and a nonce; it expires after `AUTH_EXTERNAL_STATE_TTL_MINUTES`, is
+  bound to the request via the `sfus_external_auth_state` cookie, and is single-use (in-memory
+  replay guard — restart clears the guard until tokens expire).
+- Account linking is deterministic, in order:
+  1. existing `(provider, subject)` identity → that user;
+  2. provider-verified email matching an existing user (normalized) → link to that user;
+  3. otherwise create a new user with username `pending_<16 hex>`, status
+     `onboarding_required`, and — when the provider email is unverified — a synthetic
+     `<provider>_<subject>@users.noreply.sfus.local` email.
+- First-time external users stay `onboarding_required` until
+  `POST /api/auth/onboarding/username` succeeds; the web shell gates all authenticated routes
+  on this flag (see [web-shell](web-shell.md)).
+
+## Cross-account profile/settings access
+
+`GET|PATCH /api/auth/profile` and `GET|PATCH /api/auth/settings` accept `?userId=<targetId>`
+and evaluate the shared authorization contract against an `account` resource
+(`ownerUserId = target`, `visibility = "private"`): the owner always passes; otherwise a
+global role or an explicit ACL grant must allow the `read`/`write` action. `403` when denied.
+See [authorization](authorization.md).
+
+## Security invariants
+
+- Two peppers, two jobs: `AUTH_PASSWORD_PEPPER` is used only for password hashing;
+  `AUTH_SESSION_TOKEN_PEPPER` hashes/signs everything else (session tokens, verification
+  tokens, recovery codes, state and challenge signatures, TOTP key derivation).
+- No bearer tokens: all authenticated API access rides the `sfus_session` cookie.
+- Raw secrets (session tokens, verification tokens, recovery codes) are never persisted —
+  only peppered hashes.

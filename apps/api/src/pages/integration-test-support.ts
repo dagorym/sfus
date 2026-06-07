@@ -43,7 +43,7 @@ export interface IntegrationDbOptions {
 /**
  * Read DB connection options from the documented env contract.
  *
- * Defaults for local host-run hybrid dev match docs/website-launch-guide.md:
+ * Defaults for local host-run hybrid dev match docs/operations/launch.md:
  *   DB_HOST=127.0.0.1, DB_PORT=3306, DB_NAME=sfus
  *
  * NOTE: DB_USER and DB_PASSWORD have no safe fallback value and MUST be

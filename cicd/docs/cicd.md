@@ -1,84 +1,12 @@
-# CI/CD Developer Workflows
+# CI/CD Contract
 
-## Local pipeline quickstart on this computer
+The validation runner, shared scripts, config contracts, and the GitHub workflow shims. For
+*using* these to run or test the system, see `docs/development/testing.md`; for launch and
+deployment runbooks, see `docs/operations/`.
 
-Start in the repository root:
+## Shared runners
 
-```bash
-cd /home/tstephen/repos/sfus
-```
-
-Prepare env files first:
-
-```bash
-cp .env.example .env
-cp apps/web/.env.example apps/web/.env
-cp apps/api/.env.example apps/api/.env
-```
-
-Install workspace dependencies before invoking the shared validation runner:
-
-```bash
-corepack enable
-pnpm install --frozen-lockfile
-```
-
-Recommended local pass order:
-
-```bash
-bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml
-bash cicd/scripts/smoke-validate.sh
-```
-
-`run-validations.sh` now covers repo linting, typechecking, the baseline frontend/API Vitest suites, the full-stack smoke flow, and the Bash-based CI/CD contract checks. `smoke-validate.sh` remains available when you only want the build/startup/migration/homepage/API-health runtime pass.
-
-For hybrid/full-stack and production topology details, including deploy and rollback operations, see `cicd/docs/local-pipeline.md`.
-
-## Runtime contract artifacts in this repo
-
-- Root env example: `.env.example` (platform/deployment ownership)
-- Web env example: `apps/web/.env.example` (web ownership)
-- API env example: `apps/api/.env.example` (api ownership)
-- Web Docker build: `apps/web/Dockerfile` (multi-stage)
-- API Docker build: `apps/api/Dockerfile` (multi-stage)
-- Local Compose (hybrid/full validation): `cicd/docker/compose.dev.yml`
-- Production Compose (single-file topology): `cicd/docker/compose.prod.yml`
-
-The example env files are safe templates. Production secrets, reverse-proxy env values, and the external production MySQL connection stay host-managed outside the repository checkout.
-
-## Service naming contract
-
-Use service names consistently:
-
-- `web`
-- `api`
-- `mysql` (where applicable locally)
-
-## Local runtime expectations
-
-`cicd/docker/compose.dev.yml` supports both Milestone 1 local modes:
-
-- default hybrid mode: Compose-managed `mysql` with host-run `web` and `api`
-- full-stack validation mode: `web`, `api`, and `mysql` together under the `fullstack` profile
-
-In hybrid mode, the frontend still targets `/api`, and local rewrites forward traffic to the host-run API at `localhost:3001`. In full-stack validation, the web container uses the internal `api` service URL and the API container uses the internal `mysql` hostname.
-
-## Production Compose expectations
-
-`cicd/docker/compose.prod.yml` is the single source for Milestone 1 production container topology.
-
-- long-lived services: `web`, `api`
-- no host port bindings
-- reverse-proxy metadata present for proxy integration
-- explicit one-off migration service: `migrate`
-
-Run production migrations as a separate one-off step before rollout instead of relying on app startup side effects. The `migrate` service is intentionally independent (no `depends_on` on long-lived app services) so it can be executed before bringing up `web` and `api`.
-
-The API image boots a NestJS service that exposes `/api/health/live`, `/api/health/ready`, and `/api/docs` (Swagger remains production-gated by `API_SWAGGER_ENABLED`). `/api/health/live` is a process-only liveness probe. `/api/health/ready` validates the external MySQL connection and the reviewed migration baseline before reporting ready.
-
-## Existing shared runners
-
-Run these commands from repository root:
+Run from the repository root:
 
 ```bash
 bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml
@@ -87,46 +15,50 @@ bash cicd/scripts/build-images.sh cicd/config/image-matrix.yml build
 bash cicd/scripts/run-containers.sh start
 ```
 
-- `run-validations.sh` executes validation entries from `cicd/config/validation-config.yml`, including workspace lint/typecheck/test coverage and the smoke validation entrypoint.
-- `smoke-validate.sh` builds the workspaces, brings up the full local stack, runs the explicit migration command, and checks homepage plus API health reachability.
-- `build-images.sh ... build` builds image entries from `cicd/config/image-matrix.yml`.
-- `run-containers.sh start` uses `cicd/docker/compose.dev.yml` by default.
+- `run-validations.sh` executes every entry in `cicd/config/validation-config.yml`
+  sequentially (workspace lint/typecheck/test, the smoke flow, repo-structure contract
+  checks, and the `SFUS_DB_INTEGRATION`-gated DB integration entry). It warns on missing
+  commands by default, emits `::warning::` workflow commands only when `GITHUB_ACTIONS` is
+  set, and exits non-zero on any failure.
+- `smoke-validate.sh` builds the apps, starts the full local stack, runs the explicit
+  migration command, and verifies the homepage plus API liveness/readiness. It stages
+  per-run env copies and a templated Compose file under the worktree-local runtime area
+  (`git rev-parse --git-path smoke-validate`) and reserves unique high host ports, so
+  parallel runs never mutate the shared `.env` files or collide on ports.
+- `build-images.sh` reads `cicd/config/image-matrix.yml`. `build` (alias `validation`)
+  builds configured images; an empty `images: []` matrix warns and succeeds; `publish` and
+  `deploy` are reserved, gated, warning-only no-op stages.
+- `run-containers.sh` drives `cicd/docker/compose.dev.yml` (default action `start`; also
+  `run`, `stop|down`, `status|ps`, `logs`).
 
-## Database integration tests
+## Config contracts
 
-The `pages-service-integration` entry in `cicd/config/validation-config.yml` runs
-`PagesService.create` against the real MySQL schema so the `fk_page_revisions_page_id`
-foreign key is enforced by the database engine rather than mocked out.
+- `cicd/config/validation-config.yml` — the single source of validation entries; commands
+  are Linux-only `command` fields invoked via `npx --yes pnpm@10.0.0 ...` or `bash ...`.
+- `cicd/config/image-matrix.yml` — image build targets; currently `images: []` with
+  `publish_enabled: false` / `deploy_enabled: false` and a documented (not enabled) future
+  Docker Hub publish contract.
 
-**Opt-in flag** — the spec skips cleanly when `SFUS_DB_INTEGRATION` is unset, so the
-default `npx --yes pnpm@10.0.0 test` and `run-validations.sh` passes require no database.
+## Runtime contract artifacts
 
-**When it runs** — explicitly on developer machines with the dev MySQL stack up and
-migrations applied, or in any CI environment that provides a live MySQL instance.
+- env examples: `.env.example` (platform), `apps/web/.env.example` (web),
+  `apps/api/.env.example` (api) — canonical variable tables in `docs/operations/launch.md`
+- Docker builds: `apps/web/Dockerfile`, `apps/api/Dockerfile` (multi-stage)
+- local Compose (hybrid + `fullstack` profile): `cicd/docker/compose.dev.yml`
+- production Compose (single-file topology, `migration` profile): `cicd/docker/compose.prod.yml`
+- service naming contract: `web`, `api`, `mysql` (local only)
 
-**Local copy-pasteable command**:
+## GitHub workflow shims
 
-```bash
-# Start dev MySQL if not already running:
-bash cicd/scripts/run-containers.sh start
+Workflows stay thin and delegate to the scripts above:
 
-# Apply migrations (requires the API dist build or the fullstack Compose path):
-docker compose --env-file .env -f cicd/docker/compose.dev.yml --profile fullstack run --rm api node dist/index.js migration:run
+- `.github/workflows/ci.yml` — `push`/`pull_request` on `main` + `workflow_dispatch`;
+  installs the workspace and runs
+  `bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml`.
+- `.github/workflows/cd.yml` — `workflow_dispatch` only; always runs the image build step,
+  with `publish`/`deploy` jobs gated behind explicit boolean inputs (no-ops while the image
+  matrix keeps them disabled). It documents the future Docker Hub namespace/secret inputs
+  without enabling login or push.
 
-# Run the integration spec:
-SFUS_DB_INTEGRATION=1 \
-DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=sfus \
-DB_USER=sfus DB_PASSWORD=changeme-app \
-npx --yes pnpm@10.0.0 --filter @sfus/api run test:integration
-```
-
-Alternatively, include `SFUS_DB_INTEGRATION=1` and the `DB_*` variables when invoking
-the shared validation runner to activate the `pages-service-integration` entry alongside
-the other validations:
-
-```bash
-SFUS_DB_INTEGRATION=1 \
-DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=sfus \
-DB_USER=sfus DB_PASSWORD=changeme-app \
-bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml
-```
+`cicd/tests/` holds the Bash contract tests that pin all of the above behavior — run
+`bash cicd/tests/run-validations.sh`; coverage details in `cicd/tests/README.md`.
