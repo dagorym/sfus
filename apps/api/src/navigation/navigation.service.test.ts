@@ -117,6 +117,78 @@ describe("NavigationService.create", () => {
     await expect(service.create({ label: "Link", url: "  " })).rejects.toThrow(BadRequestException);
   });
 
+  // ---------------------------------------------------------------------------
+  // Hardened internal URL validation (deferred-cleanup subtask-7)
+  // ---------------------------------------------------------------------------
+
+  it("accepts '/about' as a valid internal URL on create", async () => {
+    // AC: '/about' must be accepted as a valid internal URL.
+    const saved = {
+      id: "item-1",
+      label: "About",
+      url: "/about",
+      linkType: "internal",
+      visibility: "public",
+      sortOrder: 0,
+      isActive: true,
+      parentId: null,
+      children: [],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as unknown as NavigationItemEntity;
+    const service = makeNavigationService({
+      create: vi.fn().mockReturnValue(saved),
+      save: vi.fn().mockResolvedValue(saved)
+    });
+    await expect(service.create({ label: "About", url: "/about" })).resolves.toBeDefined();
+  });
+
+  it("rejects a protocol-relative URL '//' as an internal item on create", async () => {
+    // AC: '//' starts with '/' but then starts with '//' — must be rejected.
+    const service = makeNavigationService();
+    await expect(service.create({ label: "Bad", url: "//" })).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a protocol-relative URL '//evil.com' as an internal item on create", async () => {
+    // AC: '//evil.com' is a protocol-relative URL — rejected as internal item.
+    const service = makeNavigationService();
+    await expect(service.create({ label: "Bad", url: "//evil.com" })).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a relative URL 'about' (no leading slash) as an internal item on create", async () => {
+    // AC: 'about' does not start with '/' — rejected as internal item.
+    const service = makeNavigationService();
+    await expect(service.create({ label: "About", url: "about" })).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects 'http://example.com' as an internal item on create", async () => {
+    // AC: 'http://example.com' does not start with '/' — rejected as internal item.
+    const service = makeNavigationService();
+    await expect(service.create({ label: "External", url: "http://example.com" })).rejects.toThrow(BadRequestException);
+  });
+
+  it("accepts 'http://example.com' as an external item on create (external validation unchanged)", async () => {
+    // AC: External item validation is unchanged — 'http://example.com' passes as external.
+    const saved = {
+      id: "item-ext",
+      label: "External",
+      url: "http://example.com",
+      linkType: "external",
+      visibility: "public",
+      sortOrder: 0,
+      isActive: true,
+      parentId: null,
+      children: [],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as unknown as NavigationItemEntity;
+    const service = makeNavigationService({
+      create: vi.fn().mockReturnValue(saved),
+      save: vi.fn().mockResolvedValue(saved)
+    });
+    await expect(service.create({ label: "External", url: "http://example.com", linkType: "external" })).resolves.toBeDefined();
+  });
+
   it("throws BadRequestException for label exceeding 128 characters", async () => {
     // AC1: Input validation — label length.
     const service = makeNavigationService();
@@ -255,6 +327,74 @@ describe("NavigationService.update — ordering and visibility (AC1)", () => {
       findOne: vi.fn().mockResolvedValue(null)
     });
     await expect(service.update("nonexistent", { isActive: false })).rejects.toThrow(NotFoundException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Hardened internal URL validation on update (deferred-cleanup subtask-7)
+// ---------------------------------------------------------------------------
+
+describe("NavigationService.update — hardened internal URL validation (subtask-7)", () => {
+  const baseItem = {
+    id: "item-1",
+    parentId: null,
+    label: "Nav Link",
+    url: "/path",
+    linkType: "internal" as const,
+    visibility: "public",
+    sortOrder: 0,
+    isActive: true,
+    children: [],
+    createdAt: new Date(),
+    updatedAt: new Date()
+  } as unknown as NavigationItemEntity;
+
+  it("accepts '/about' as an updated internal URL", async () => {
+    // AC: '/about' is valid as an internal URL on update.
+    const updated = { ...baseItem, url: "/about" };
+    const service = makeNavigationService({
+      findOne: vi.fn().mockResolvedValue({ ...baseItem }),
+      save: vi.fn().mockResolvedValue(updated)
+    });
+    const result = await service.update("item-1", { url: "/about" });
+    expect(result.url).toBe("/about");
+  });
+
+  it("rejects '//' as an internal URL on update", async () => {
+    // AC: '//' is rejected on update when linkType remains internal.
+    const service = makeNavigationService({
+      findOne: vi.fn().mockResolvedValue({ ...baseItem })
+    });
+    await expect(service.update("item-1", { url: "//" })).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects '//evil.com' as an internal URL on update", async () => {
+    // AC: '//evil.com' is rejected on update for an internal item.
+    const service = makeNavigationService({
+      findOne: vi.fn().mockResolvedValue({ ...baseItem })
+    });
+    await expect(service.update("item-1", { url: "//evil.com" })).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects 'about' (no leading slash) as an internal URL on update", async () => {
+    // AC: 'about' lacks a leading '/' — rejected on update for an internal item.
+    const service = makeNavigationService({
+      findOne: vi.fn().mockResolvedValue({ ...baseItem })
+    });
+    await expect(service.update("item-1", { url: "about" })).rejects.toThrow(BadRequestException);
+  });
+
+  it("accepts 'http://example.com' when simultaneously switching to linkType=external on update", async () => {
+    // AC: Simultaneous linkType+url changes use the incoming linkType — 'http://example.com'
+    // is valid when linkType is updated to 'external' in the same call.
+    const updated = { ...baseItem, url: "http://example.com", linkType: "external" as const };
+    const service = makeNavigationService({
+      findOne: vi.fn().mockResolvedValue({ ...baseItem }),
+      save: vi.fn().mockResolvedValue(updated)
+    });
+    const result = await service.update("item-1", { url: "http://example.com", linkType: "external" });
+    expect(result.url).toBe("http://example.com");
+    expect(result.linkType).toBe("external");
   });
 });
 
@@ -632,9 +772,11 @@ describe("NavigationService.findForAuthenticatedUser — non-admin publication f
     const callArg = blogFindOne.mock.calls[0][0] as { where?: { status?: string; slug?: string; publishedAt?: unknown } };
     expect(callArg?.where?.status).toBe("published");
     expect(callArg?.where?.slug).toBe("some-post");
-    // publishedAt must be a LessThanOrEqual constraint object (not null/undefined)
-    expect(callArg?.where?.publishedAt).toBeDefined();
-    expect(typeof callArg?.where?.publishedAt).toBe("object");
+    // publishedAt must be a TypeORM LessThanOrEqual FindOperator, not just a Date or plain object.
+    // Key-presence or typeof alone would not distinguish LessThanOrEqual from a plain equality filter.
+    const publishedAtOperator = callArg?.where?.publishedAt as { type?: string };
+    expect(publishedAtOperator).toHaveProperty("type");
+    expect(publishedAtOperator.type).toBe("lessThanOrEqual");
   });
 
   it("omits a non-admin top-level item whose linked standalone page is unpublished", async () => {
@@ -828,5 +970,51 @@ describe("NavigationService.findForAuthenticatedUser — non-admin publication f
     );
     const result = await service.findForAuthenticatedUser("user");
     expect(result).toHaveLength(0);
+  });
+
+  it("moderator role is treated as non-admin and receives publication filtering (subtask-7)", async () => {
+    // AC (tester subtask-7): moderator is below admin — publication filtering must apply,
+    // and admin-visibility items must be excluded, matching the 'user' role behavior.
+    const adminItem = makePublicItem({ id: "admin-item", url: "/admin", visibility: "admin", label: "Admin" });
+    const draftBlogItem = makePublicItem({ id: "draft-item", url: "/blog/draft-post", visibility: "public" });
+    const blogFindOne = vi.fn().mockResolvedValue(null); // draft — no published post
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([adminItem, draftBlogItem]) },
+      { findOne: blogFindOne }
+    );
+    const result = await service.findForAuthenticatedUser("moderator");
+    // Admin-visibility item must be excluded for moderator
+    expect(result.map((i) => i.id)).not.toContain("admin-item");
+    // Draft-target item must be excluded by publication filtering for moderator
+    expect(result.map((i) => i.id)).not.toContain("draft-item");
+  });
+
+  it("all children filtered out by publication state but parent is still visible (edge case, subtask-7)", async () => {
+    // Edge case: when all of a top-level item's children are filtered out by publication
+    // filtering, the parent itself must still appear if its own target is publicly visible.
+    const draftChild = makePublicItem({
+      id: "child-draft",
+      parentId: "parent",
+      url: "/blog/draft-child",
+      isActive: true,
+      visibility: "public"
+    });
+    const parent = makePublicItem({
+      id: "parent",
+      url: "/app",  // reserved slug — parent passes publication filter without mock
+      visibility: "public",
+      children: [draftChild]
+    });
+    const blogFindOne = vi.fn().mockResolvedValue(null); // child's blog post is draft
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([parent]) },
+      { findOne: blogFindOne }
+    );
+    const result = await service.findForAuthenticatedUser("user");
+    // Parent must still appear even though all children were filtered
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("parent");
+    // Children array must be empty after filtering
+    expect(result[0].children).toHaveLength(0);
   });
 });
