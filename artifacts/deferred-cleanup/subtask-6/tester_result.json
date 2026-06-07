@@ -1,0 +1,44 @@
+{
+  "status": "pass",
+  "code_commit_hash": "8ddab0c",
+  "implementer_code_commit_hash": "41afc74",
+  "artifact_file_paths": [
+    "artifacts/deferred-cleanup/subtask-6/tester_report.md",
+    "artifacts/deferred-cleanup/subtask-6/tester_result.json",
+    "artifacts/deferred-cleanup/subtask-6/documenter_prompt.txt"
+  ],
+  "changed_files": [
+    "apps/api/src/pages/pages.service.test.ts",
+    "apps/web/app/pages/pages.spec.ts"
+  ],
+  "acceptance_criteria": {
+    "AC1_published_only": "pass",
+    "AC2_index_fields_only": "pass",
+    "AC3_web_route_renders": "pass",
+    "AC4_title_asc_ordering": "pass",
+    "AC5_swagger_documented": "pass"
+  },
+  "test_counts": {
+    "api_tests_before": 353,
+    "api_tests_after": 357,
+    "api_new_tests": 4,
+    "web_tests_before": 264,
+    "web_tests_after": 282,
+    "web_new_tests": 18,
+    "api_preexisting_failures": 4,
+    "web_failures": 0
+  },
+  "validation_commands": [
+    "pnpm --filter @sfus/api lint",
+    "pnpm --filter @sfus/api typecheck",
+    "pnpm --filter @sfus/api test",
+    "pnpm --filter @sfus/web lint",
+    "pnpm --filter @sfus/web typecheck",
+    "pnpm --filter @sfus/web test"
+  ],
+  "validation_outcome": "all pass — 357 API tests pass (4 pre-existing unrelated failures: helmet/TOCTOU MySQL), 282 web tests pass (0 failures), lint and typecheck clean on both apps",
+  "preexisting_failures": [
+    "apiBootstrap x3 — Cannot find package 'helmet' in test environment (unrelated to subtask-6)",
+    "BlogService.create slug TOCTOU hardening (MySQL ER_DUP_ENTRY) — unrelated to subtask-6"
+  ]
+}
