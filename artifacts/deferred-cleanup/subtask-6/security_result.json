@@ -1,0 +1,33 @@
+{
+  "status": "complete",
+  "task_id": "deferred-cleanup/subtask-6",
+  "branch": "cleanup-subtask-6-security-20260607",
+  "base_branch": "cleanup",
+  "verdict": "PASS",
+  "blocking_count": 0,
+  "conditional_count": 0,
+  "observation_count": 1,
+  "review_scope": "Public GET /pages endpoint and /pages web route: published-only enforcement, payload minimization, access control, web route credential handling, reserved-slug parity, URL encoding, and empty/error state safety",
+  "trigger_reason": "New unauthenticated read endpoint added to a module that also contains admin write surfaces",
+  "plan_reference": "plans/deferred-cleanup-plan.md — subtask-6: Public /pages index (API list endpoint + web route)",
+  "acceptance_criteria": [
+    { "id": 1, "description": "List endpoint returns only published pages via shared predicate — drafts never appear", "result": "PASS" },
+    { "id": 2, "description": "Payload contains only index fields (slug, title, updatedAt — no body)", "result": "PASS" },
+    { "id": 3, "description": "/pages renders published list; bare /pages navigation resolves; empty state renders cleanly", "result": "PASS" },
+    { "id": 4, "description": "Ordering deterministic (title ascending)", "result": "PASS" },
+    { "id": 5, "description": "Swagger documents new endpoint", "result": "PASS" }
+  ],
+  "findings": [
+    {
+      "severity": "OBSERVATION",
+      "file": "apps/api/src/pages/pages.controller.ts",
+      "summary": "GET /pages/:slug (PageDetail) includes createdByUserId. This is a UUID, not a username or email, and matches the blog module pattern. Low risk. Future stricter minimization is possible but out of scope for this subtask."
+    }
+  ],
+  "test_sufficiency": "Sufficient — operator-pinned query tests verify status predicate and title-ASC ordering; negative tests verify draft exclusion; source-contract tests cover credentials absence, admin-endpoint absence, URL encoding, and error-state content. One minor gap (no HTTP-layer integration test for draft hiding) does not constitute a blocking finding.",
+  "documentation_accuracy": "Accurate — pages.md documents GET /pages as public with PageSummary shape, status lifecycle, and reserved-slug enforcement; web-shell.md lists /pages in the route map.",
+  "artifact_files": [
+    "artifacts/deferred-cleanup/subtask-6/security_report.md",
+    "artifacts/deferred-cleanup/subtask-6/security_result.json"
+  ]
+}
