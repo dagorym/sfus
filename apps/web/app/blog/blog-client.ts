@@ -213,16 +213,19 @@ export async function adminDeletePost(id: string): Promise<void> {
 // Comment types
 // ---------------------------------------------------------------------------
 
+/**
+ * Public comment shape returned by listComments and createComment.
+ * Does not include moderation-internal fields (authorUserId,
+ * moderatedByUserId, moderatedAt) — those are stripped server-side
+ * before the response leaves the API.
+ */
 export interface BlogCommentDetail {
   id: string;
   postId: string;
   parentId: string | null;
-  authorUserId: string;
   body: string;
   status: string;
   mediaReferenceId: string | null;
-  moderatedByUserId: string | null;
-  moderatedAt: string | null;
   createdAt: string;
   updatedAt: string;
   /** Visible replies — populated only on top-level comments from the public list route. */

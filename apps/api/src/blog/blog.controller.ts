@@ -239,9 +239,9 @@ export class BlogController {
 
   @Get(":postId/comments")
   @ApiOperation({ summary: "List visible comments for a published post (public)." })
-  @ApiOkResponse({ description: "Visible comments returned." })
+  @ApiOkResponse({ description: "Visible comments returned. Response omits moderation-internal fields (authorUserId, moderatedByUserId, moderatedAt)." })
   @ApiNotFoundResponse({ description: "Post not found or not published." })
-  async listComments(@Param("postId") postId: string): Promise<{ comments: BlogCommentDetail[]; commentsLocked: boolean }> {
+  async listComments(@Param("postId") postId: string): Promise<{ comments: PublicBlogCommentDetail[]; commentsLocked: boolean }> {
     // Verify the post exists and is publicly visible (status=published AND publishedAt<=now)
     // before exposing any comments. The UUID fallback uses findPublishedById so that
     // future-scheduled posts addressed by id are treated identically to those addressed
@@ -254,7 +254,7 @@ export class BlogController {
     const allVisible = await this.blogService.findVisibleComments(post.id);
     // Only surface top-level comments in the list; replies are nested inside.
     const topLevel = allVisible.filter((c) => c.parentId === null);
-    return { comments: topLevel.map(toCommentDetailWithReplies), commentsLocked: post.commentsLocked ?? false };
+    return { comments: topLevel.map(toPublicCommentDetailWithReplies), commentsLocked: post.commentsLocked ?? false };
   }
 
   // ---------------------------------------------------------------------------
@@ -266,19 +266,19 @@ export class BlogController {
   @ApiOperation({ summary: "Create a comment on a published post (authenticated member)." })
   @ApiUnauthorizedResponse({ description: "No active session." })
   @ApiForbiddenResponse({ description: "Comments are locked on this post." })
-  @ApiBadRequestResponse({ description: "Invalid or unsafe comment body." })
+  @ApiBadRequestResponse({ description: "Invalid or unsafe comment body, or invalid parentId/imageId reference." })
   @ApiNotFoundResponse({ description: "Post not found or not published." })
   async createComment(
     @Req() request: Request,
     @Param("postId") postId: string,
     @Body() body: unknown
-  ): Promise<{ comment: BlogCommentDetail }> {
+  ): Promise<{ comment: PublicBlogCommentDetail }> {
     const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
     // Resolve the post id from either slug or id path param.
     const resolvedPostId = await this.resolvePostId(postId);
     const input = parseCreateCommentInput(body);
     const comment = await this.blogService.createComment(resolvedPostId, session.user.id, input);
-    return { comment: toCommentDetail(comment) };
+    return { comment: toPublicCommentDetail(comment) };
   }
 
   // ---------------------------------------------------------------------------
@@ -287,6 +287,7 @@ export class BlogController {
 
   @Get("moderation/comments/:postId")
   @ApiOperation({ summary: "List all comments for a post regardless of status (moderator/admin)." })
+  @ApiOkResponse({ description: "All comments returned. Full payload includes authorUserId, moderatedByUserId, moderatedAt for moderation workflows." })
   @ApiUnauthorizedResponse({ description: "No active session." })
   @ApiForbiddenResponse({ description: "Moderator or admin role required." })
   @ApiNotFoundResponse({ description: "Post not found." })
@@ -306,6 +307,7 @@ export class BlogController {
 
   @Patch("moderation/comments/:commentId/status")
   @ApiOperation({ summary: "Update comment status (hide, remove, or restore) (moderator/admin)." })
+  @ApiOkResponse({ description: "Updated comment returned. Full payload includes authorUserId, moderatedByUserId, moderatedAt for moderation workflows." })
   @ApiUnauthorizedResponse({ description: "No active session." })
   @ApiForbiddenResponse({ description: "Moderator or admin role required." })
   @ApiNotFoundResponse({ description: "Comment not found." })
@@ -491,24 +493,58 @@ function parsePublishAtInput(body: unknown): Date {
 // Comment response shape helpers
 // ---------------------------------------------------------------------------
 
-interface BlogCommentDetail {
+/**
+ * Public-facing comment payload — omits moderation-internal fields
+ * (authorUserId, moderatedByUserId, moderatedAt) to minimize information
+ * exposure on guest-accessible endpoints (listComments, createComment).
+ */
+interface PublicBlogCommentDetail {
   id: string;
   postId: string;
   parentId: string | null;
-  authorUserId: string;
   body: string;
   status: string;
   mediaReferenceId: string | null;
-  moderatedByUserId: string | null;
-  moderatedAt: string | null;
   createdAt: string;
   updatedAt: string;
   /** Visible replies — only present on top-level comments returned by the public list route. */
+  replies?: PublicBlogCommentDetail[];
+}
+
+/**
+ * Full comment payload used by admin/moderation endpoints — includes
+ * authorUserId, moderatedByUserId, and moderatedAt for moderation workflows.
+ */
+interface BlogCommentDetail extends PublicBlogCommentDetail {
+  authorUserId: string;
+  moderatedByUserId: string | null;
+  moderatedAt: string | null;
   replies?: BlogCommentDetail[];
 }
 
+/**
+ * Serializes a comment for PUBLIC endpoints (listComments, createComment).
+ * Does NOT include authorUserId, moderatedByUserId, or moderatedAt.
+ */
+function toPublicCommentDetail(comment: BlogCommentEntity): PublicBlogCommentDetail {
+  return {
+    id: comment.id,
+    postId: comment.postId,
+    parentId: comment.parentId,
+    body: comment.body,
+    status: comment.status,
+    mediaReferenceId: comment.mediaReferenceId,
+    createdAt: comment.createdAt.toISOString(),
+    updatedAt: comment.updatedAt.toISOString()
+  };
+}
+
+/**
+ * Serializes a comment for ADMIN/MODERATION endpoints. Includes
+ * authorUserId, moderatedByUserId, and moderatedAt.
+ */
 function toCommentDetail(comment: BlogCommentEntity): BlogCommentDetail {
-  const detail: BlogCommentDetail = {
+  return {
     id: comment.id,
     postId: comment.postId,
     parentId: comment.parentId,
@@ -521,19 +557,19 @@ function toCommentDetail(comment: BlogCommentEntity): BlogCommentDetail {
     createdAt: comment.createdAt.toISOString(),
     updatedAt: comment.updatedAt.toISOString()
   };
-  return detail;
 }
 
 /**
- * Converts a top-level comment (with loaded replies relation) to a detail
- * object that includes only visible replies for the public listing endpoint.
+ * Converts a top-level comment (with loaded replies relation) to a PUBLIC
+ * detail object that includes only visible replies for the public listing
+ * endpoint. Does NOT include authorUserId, moderatedByUserId, or moderatedAt.
  */
-function toCommentDetailWithReplies(comment: BlogCommentEntity): BlogCommentDetail {
-  const detail = toCommentDetail(comment);
+function toPublicCommentDetailWithReplies(comment: BlogCommentEntity): PublicBlogCommentDetail {
+  const detail = toPublicCommentDetail(comment);
   if (comment.replies) {
     detail.replies = comment.replies
       .filter((r) => r.status === "visible")
-      .map((r) => toCommentDetail(r));
+      .map((r) => toPublicCommentDetail(r));
   }
   return detail;
 }
