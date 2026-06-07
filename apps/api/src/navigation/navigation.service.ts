@@ -106,6 +106,12 @@ export class NavigationService {
    * Children are filtered to only include active items with non-admin visibility.
    * Requires the caller's globalRole to distinguish admin vs. non-admin users.
    *
+   * Non-admin callers receive the same linked-target publication filtering as
+   * the public endpoint: any top-level item or child whose internal link targets
+   * an unpublished standalone page or blog post is omitted. Admin callers receive
+   * all items without linked-target filtering, preserving their staging and
+   * nav-management view.
+   *
    * Safe for authenticated users (requires a valid session at the controller level).
    */
   async findForAuthenticatedUser(actorGlobalRole: string): Promise<NavigationItemEntity[]> {
@@ -126,6 +132,13 @@ export class NavigationService {
         if (!isAdmin && child.visibility === "admin") return false;
         return true;
       });
+      // Non-admin callers: apply the same linked-target publication filtering
+      // as the public endpoint so unpublished-target items are not disclosed
+      // to self-registered users via metadata (slug/label existence).
+      if (!isAdmin) {
+        item.children = await this.filterByLinkedTargetVisibility(item.children);
+        if (!(await this.isLinkedTargetPubliclyVisible(item))) continue;
+      }
       filtered.push(item);
     }
     return filtered;
