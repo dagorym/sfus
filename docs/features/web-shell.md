@@ -30,6 +30,7 @@ error surface (`error.tsx`) are part of the shell.
 | `/onboarding/username` | session | first-login username completion; already-onboarded users are sent to `/app` |
 | `/app`, `/profile`, `/settings` | session | authenticated shell, profile (displayName), settings (username, emailVerified, mfaEnabled) |
 | `/blog`, `/blog/:slug` | public | see [blog](blog.md) |
+| `/pages` | public | published pages index; see [pages](pages.md) |
 | `/pages/:slug`, `/:slug` | public | see [pages](pages.md) |
 | `/admin/blog[...]`, `/admin/pages[...]`, `/admin/navigation` | admin | client-gated admin management; the API role checks are the enforcement boundary |
 | `/health/live`, `/health/ready` | public | static JSON `{ status: "ok", service: "web", check: "live" \| "ready" }` — **no dependency checks**; web readiness says nothing about API/DB health |

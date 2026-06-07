@@ -18,6 +18,7 @@ All under `/api/pages`. Admin routes require the `sfus_session` cookie + `admin`
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
+| GET | `/api/pages` | — | `{ pages: PageSummary[] }`; published pages only, ordered by title ascending. Swagger: `@ApiOperation` + `@ApiOkResponse` on `PagesController.listPublished`. |
 | GET | `/api/pages/:slug` | — | `{ page: PageDetail }`; `404` unless `status = "published"` (the only public-visibility condition — `publishedAt` is informational) |
 | GET | `/api/pages/admin/pages` | admin | all pages, all statuses |
 | GET | `/api/pages/admin/pages/:id` | admin | by UUID; `404` unknown |
@@ -63,6 +64,7 @@ The public route filters on `status = "published"` only.
 
 ## Response shapes
 
+- `PageSummary`: `slug, title, updatedAt`. Returned by the public list endpoint only; body and revision data are intentionally omitted.
 - `PageDetail`: `id, title, slug, body, status, publishedAt, currentRevisionId,
   createdByUserId, createdAt, updatedAt, summary, featuredMediaId`.
 - `RevisionDetail`: `id, pageId, authorUserId, editorUserId, title, body, summary,
@@ -70,6 +72,10 @@ The public route filters on `status = "published"` only.
 
 ## Web surfaces
 
+- `/pages` — public index (`apps/web/app/pages/page.tsx`). Lists all published pages as links
+  to `/pages/<slug>`, ordered by title ascending. Shows a loading state while fetching, an
+  error state on failure, and "No pages have been published yet." when the list is empty.
+  Calls `listPublishedPages()` (no credentials).
 - `/:slug` — top-level catch-all (`apps/web/app/[slug]/page.tsx`). Evaluated after all static
   segments, so it never shadows real routes. Reserved slugs → not-found without an API call.
   Renders title, optional featured image (`GET /api/media/:featuredMediaId`), and body via
@@ -82,8 +88,8 @@ The public route filters on `status = "published"` only.
   Revision History panel with inline Preview and Restore; the change-note field clears after
   each save.
 
-`pages-client.ts` is the typed client: `getPublishedPage` (no credentials) plus
-`adminListAllPages`, `adminGetPage`, `adminCreatePage`, `adminUpdatePage`, `adminPublishPage`,
-`adminUnpublishPage`, `adminListRevisions`, `adminRestoreRevision` (all
+`pages-client.ts` is the typed client: `listPublishedPages` and `getPublishedPage` (no
+credentials) plus `adminListAllPages`, `adminGetPage`, `adminCreatePage`, `adminUpdatePage`,
+`adminPublishPage`, `adminUnpublishPage`, `adminListRevisions`, `adminRestoreRevision` (all
 `credentials: "include"`). Error extraction follows the shared envelope order (see
 [api-conventions](../development/api-conventions.md)).

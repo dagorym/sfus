@@ -1,0 +1,31 @@
+{
+  "status": "complete",
+  "task_id": "deferred-cleanup/subtask-6",
+  "branch": "cleanup-subtask-6-verifier-20260607",
+  "base_branch": "cleanup",
+  "verdict": "PASS",
+  "blocking_count": 0,
+  "warning_count": 0,
+  "note_count": 1,
+  "acceptance_criteria": [
+    { "id": 1, "description": "List endpoint returns only published pages via shared predicate — drafts never appear", "result": "PASS" },
+    { "id": 2, "description": "Payload contains only index fields (slug, title, updatedAt — no body)", "result": "PASS" },
+    { "id": 3, "description": "/pages renders published list; bare /pages navigation resolves; empty state renders cleanly", "result": "PASS" },
+    { "id": 4, "description": "Ordering deterministic (title ascending)", "result": "PASS" },
+    { "id": 5, "description": "Swagger documents new endpoint", "result": "PASS" }
+  ],
+  "test_sufficiency": "Sufficient — all 5 ACs covered by operator-pinned predicate/ordering tests and source-contract tests; no gaps identified.",
+  "documentation_accuracy": "Accurate — pages.md and web-shell.md changes match implementation; navigation.md requires no update.",
+  "findings": [
+    {
+      "severity": "NOTE",
+      "file": "apps/web/app/pages/page.tsx",
+      "line": 1,
+      "summary": "Client component pattern chosen; consistent with project convention (blog index uses same pattern)."
+    }
+  ],
+  "artifact_files": [
+    "artifacts/deferred-cleanup/subtask-6/verifier_report.md",
+    "artifacts/deferred-cleanup/subtask-6/verifier_result.json"
+  ]
+}
