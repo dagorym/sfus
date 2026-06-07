@@ -2,6 +2,7 @@ import "reflect-metadata";
 
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import helmet from "helmet";
 
 import { AppModule } from "./app.module";
 import { JsonExceptionFilter } from "./common/filters/json-exception.filter";
@@ -42,6 +43,35 @@ export const apiBootstrap = async (): Promise<void> => {
      * remote address, which is correct for direct connections.
      */
     app.getHttpAdapter().getInstance().set("trust proxy", 1);
+
+    /**
+     * Baseline security headers via helmet (JSON-API defaults).
+     *
+     * HSTS is explicitly disabled at app level: Strict-Transport-Security is
+     * handled by the reverse proxy (nginx) per the locked deployment decision
+     * (docs/architecture/milestone-1-foundation-decisions.md).
+     *
+     * contentSecurityPolicy is disabled: the API serves only JSON; browser
+     * CSP is irrelevant and the default helmet CSP would interfere with
+     * Swagger UI rendering when swaggerEnabled=true.
+     *
+     * Swagger UI exception: Swagger UI is conditionally mounted at /api/docs.
+     * helmet's default CSP blocks Swagger UI inline styles and scripts.
+     * Rather than adding Swagger-specific CSP allowances to every response,
+     * CSP is omitted entirely from the API (JSON endpoints have no need for
+     * browser CSP enforcement). The web-layer CSP (next.config.mjs) covers
+     * browser-facing surfaces; API CSP would only matter for direct browser
+     * navigation to Swagger, which is a dev-only tool.
+     */
+    app.use(
+      helmet({
+        // HSTS: disabled — handled by reverse proxy per locked deployment decision.
+        strictTransportSecurity: false,
+        // CSP: disabled — API is JSON-only; Swagger UI requires CSP exceptions
+        // that would be misleading on JSON endpoints.
+        contentSecurityPolicy: false
+      })
+    );
 
     app.setGlobalPrefix("api");
     app.useGlobalFilters(new JsonExceptionFilter(applicationLogger));

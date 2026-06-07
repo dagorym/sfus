@@ -1,0 +1,72 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Validate the baseline security headers and CSP implementation for deferred-cleanup subtask-2.
+- Web: every route must respond with Content-Security-Policy (enforced), X-Content-Type-Options, Referrer-Policy, X-Frame-Options, and Permissions-Policy; no Strict-Transport-Security.
+- API: every route must respond with helmet baseline headers (X-Content-Type-Options, Referrer-Policy, X-Frame-Options, etc.) but no HSTS and no CSP.
+
+Modified files:
+- apps/web/next.config.mjs
+- apps/api/src/index.ts
+- apps/api/src/index.test.ts
+- apps/api/package.json
+- pnpm-lock.yaml
+
+Acceptance criteria to validate (from Planner):
+1. Every web route responds with full baseline headers; CSP is enforced (Content-Security-Policy, not Report-Only).
+2. Every API route responds with helmet baseline minus HSTS.
+3. Core flows (landing, login, register, blog, admin, upload) work with zero CSP violations in both hybrid-dev and full-stack; smoke validation passes.
+4. Each CSP allowance beyond 'self' carries in-code justification comment.
+5. No Strict-Transport-Security header emitted by either app.
+
+Test file location:
+- apps/web/next.config.spec.ts (pre-existing web config tests; tester should add header assertions here or in a new describe block)
+- apps/api/src/index.test.ts (pre-existing bootstrap tests; tester should add helmet assertion here)
+
+Implementation context for testing:
+
+Web (next.config.mjs):
+- `headers()` export applies `securityHeaders` array to `source: "/(.*)"` (all routes).
+- `buildCsp()` produces the CSP string; it is NODE_ENV-aware: in development it adds `http://localhost:3001` to `connect-src`.
+- CSP directives: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' [+ localhost:3001 in dev]; font-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`
+- Additional headers: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()`
+- No `Strict-Transport-Security` key is present anywhere in `securityHeaders`.
+- The existing `next.config.spec.ts` tests (`rewrites`) still pass; the tester should add tests asserting the `headers()` return value includes the expected header keys and values.
+
+API (apps/api/src/index.ts):
+- `helmet({ strictTransportSecurity: false, contentSecurityPolicy: false })` is applied via `app.use()` in `apiBootstrap()`, immediately after the trust-proxy setting.
+- The mock in `index.test.ts` now has `use: vi.fn()` and it is cleared in `beforeEach`. The tester should add a test asserting `state.mockApp.use` was called during `apiBootstrap`.
+- No HSTS header will be emitted. The tester should verify helmet is called and that `strictTransportSecurity: false` is passed.
+
+Swagger UI exception:
+- Swagger UI is conditionally mounted at `/api/docs` when `environment.swaggerEnabled = true`.
+- Helmet's `contentSecurityPolicy` is disabled (not just for Swagger routes) because the API is JSON-only and Swagger is a dev tool. The in-code comment documents this decision.
+- No CSP exception record is needed for Swagger; the tester should confirm the in-code comment is present and accurate.
+
+In-code CSP justification comments (AC 4):
+- `script-src 'unsafe-inline'`: Next.js 15 hydration comment in `buildCsp()` JSDoc
+- `style-src 'unsafe-inline'`: covered by same JSDoc block
+- `img-src data:`: markdown-renderer.tsx data: URI comment in JSDoc
+- `connect-src localhost:3001 (dev)`: hybrid-dev XHR comment in JSDoc
+The tester should verify these justification comments exist in `next.config.mjs`.
+
+Suggested test commands:
+- npx --yes pnpm@10.0.0 --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --filter @sfus/web test
+- npx --yes pnpm@10.0.0 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/api lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api build
+
+Existing validations expected to fail only because approved behavior changed:
+- `@sfus/web` lint: PRE-EXISTING failure (eslint-config-next missing in worktree node_modules) — not a regression from this subtask
+- `@sfus/web` typecheck: PRE-EXISTING failure (react/next types missing in worktree node_modules) — not a regression from this subtask
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-2
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Do not stop after activation, directory discovery, or framework discovery when testing can proceed.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
