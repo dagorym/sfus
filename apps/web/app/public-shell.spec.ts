@@ -131,9 +131,10 @@ describe("public web shell source contracts", () => {
   });
 
   it("includes registration flow source contracts", async () => {
-    const [registerSource, loginClientSource] = await Promise.all([
+    const [registerSource, loginClientSource, authClientSource] = await Promise.all([
       readWebFile("app/register/page.tsx"),
-      readWebFile("app/login/login-client.tsx")
+      readWebFile("app/login/login-client.tsx"),
+      readWebFile("app/auth-client.ts")
     ]);
     const registerFormIndex = registerSource.indexOf('<form className={styles.form} onSubmit={handleSubmit}>');
     const providerActionsIndex = registerSource.indexOf("<div className={styles.actions}>");
@@ -152,11 +153,16 @@ describe("public web shell source contracts", () => {
     expect(registerFormIndex).toBeGreaterThan(-1);
     expect(providerActionsIndex).toBeLessThan(registerFormIndex);
     expect(providerLinkTemplateIndex).toBeLessThan(registerFormIndex);
-    expect(registerSource).toContain("statusCode === 409");
-    expect(registerSource).toContain("statusCode === 400");
-    expect(registerSource).toContain("statusCode >= 500");
-    expect(registerSource).toContain("The service is temporarily unavailable. Please try again in a moment.");
-    expect(registerSource).toContain(
+    // Error-mapping logic and string constants have been extracted to auth-client.ts;
+    // register/page.tsx imports the helpers rather than re-defining them inline.
+    expect(registerSource).toContain("describeRegistrationError");
+    expect(registerSource).toContain("toApiRequestError");
+    expect(registerSource).toContain('from "../auth-client"');
+    expect(authClientSource).toContain("statusCode === 409");
+    expect(authClientSource).toContain("statusCode === 400");
+    expect(authClientSource).toContain("statusCode === null || statusCode >= 500");
+    expect(authClientSource).toContain("The service is temporarily unavailable. Please try again in a moment.");
+    expect(authClientSource).toContain(
       "An account with this email or username already exists. Try signing in instead."
     );
     expect(registerSource).toContain(
@@ -166,10 +172,13 @@ describe("public web shell source contracts", () => {
     expect(loginClientSource).toContain("Returning Users");
     expect(loginClientSource).toContain("New here? Start at Register for");
     expect(loginClientSource).toContain("New here? Create an account");
-    // NOTE 2 login-client source contracts: status-code branching and error messages
-    expect(loginClientSource).toContain("response.status >= 500");
-    expect(loginClientSource).toContain("The service is temporarily unavailable. Please try again in a moment.");
-    expect(loginClientSource).toContain("Sign-in failed. Verify your credentials and try again.");
+    // login-client now delegates status-code branching and error messages to auth-client helpers.
+    expect(loginClientSource).toContain("describeLoginError");
+    expect(loginClientSource).toContain("serviceUnavailableMessage");
+    expect(loginClientSource).toContain('from "../auth-client"');
+    expect(authClientSource).toContain("status >= 500");
+    expect(authClientSource).toContain("The service is temporarily unavailable. Please try again in a moment.");
+    expect(authClientSource).toContain("Sign-in failed. Verify your credentials and try again.");
     expect(registerSource).toContain('router.replace("/app")');
   });
 });

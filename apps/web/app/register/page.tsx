@@ -4,72 +4,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
+import {
+  describeRegistrationError,
+  toApiRequestError
+} from "../auth-client";
 import styles from "../auth-shell.module.css";
-
-type ApiErrorPayload = {
-  error?: {
-    message?: string;
-    statusCode?: number;
-  };
-};
-
-type ApiRequestError = Error & {
-  statusCode: number | null;
-};
-
-const serviceUnavailableMessage =
-  "The service is temporarily unavailable. Please try again in a moment.";
-
-const duplicateAccountErrorMessage =
-  "An account with this email or username already exists. Try signing in instead.";
-
-const invalidRegistrationErrorMessage =
-  "Registration input is invalid. Review the username and password requirements and try again.";
 
 const providerOptions = [
   { key: "google", label: "Create account with Google" },
   { key: "github", label: "Create account with GitHub" }
 ];
-
-const toApiRequestError = async (
-  response: Response,
-  fallbackMessage: string
-): Promise<ApiRequestError> => {
-  const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null;
-  const responseMessage =
-    typeof payload?.error?.message === "string" && payload.error.message.trim()
-      ? payload.error.message
-      : fallbackMessage;
-  const requestError = new Error(responseMessage) as ApiRequestError;
-  requestError.statusCode =
-    typeof payload?.error?.statusCode === "number" ? payload.error.statusCode : response.status;
-  return requestError;
-};
-
-const describeRegistrationError = (error: unknown): string => {
-  const message = error instanceof Error ? error.message : "";
-  const statusCode =
-    typeof error === "object" &&
-    error !== null &&
-    "statusCode" in error &&
-    typeof (error as { statusCode?: unknown }).statusCode === "number"
-      ? (error as { statusCode: number }).statusCode
-      : null;
-
-  if (statusCode === 409 || /already exists|already in use/i.test(message)) {
-    return duplicateAccountErrorMessage;
-  }
-  if (statusCode === 400) {
-    return message || invalidRegistrationErrorMessage;
-  }
-  if (statusCode === null || statusCode >= 500) {
-    return serviceUnavailableMessage;
-  }
-  if (message) {
-    return message;
-  }
-  return "Registration failed.";
-};
 
 export default function RegisterPage() {
   const router = useRouter();

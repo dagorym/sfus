@@ -1,3 +1,76 @@
+// ---------------------------------------------------------------------------
+// Auth error-mapping helpers — exported for runtime testability
+// ---------------------------------------------------------------------------
+
+export type ApiErrorPayload = {
+  error?: {
+    message?: string;
+    statusCode?: number;
+  };
+};
+
+export type ApiRequestError = Error & {
+  statusCode: number | null;
+};
+
+export const serviceUnavailableMessage =
+  "The service is temporarily unavailable. Please try again in a moment.";
+
+export const toApiRequestError = async (
+  response: Response,
+  fallbackMessage: string
+): Promise<ApiRequestError> => {
+  const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null;
+  const responseMessage =
+    typeof payload?.error?.message === "string" && payload.error.message.trim()
+      ? payload.error.message
+      : fallbackMessage;
+  const requestError = new Error(responseMessage) as ApiRequestError;
+  requestError.statusCode =
+    typeof payload?.error?.statusCode === "number" ? payload.error.statusCode : response.status;
+  return requestError;
+};
+
+export const duplicateAccountErrorMessage =
+  "An account with this email or username already exists. Try signing in instead.";
+
+export const invalidRegistrationErrorMessage =
+  "Registration input is invalid. Review the username and password requirements and try again.";
+
+export const describeRegistrationError = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : "";
+  const statusCode =
+    typeof error === "object" &&
+    error !== null &&
+    "statusCode" in error &&
+    typeof (error as { statusCode?: unknown }).statusCode === "number"
+      ? (error as { statusCode: number }).statusCode
+      : null;
+
+  if (statusCode === 409 || /already exists|already in use/i.test(message)) {
+    return duplicateAccountErrorMessage;
+  }
+  if (statusCode === 400) {
+    return message || invalidRegistrationErrorMessage;
+  }
+  if (statusCode === null || statusCode >= 500) {
+    return serviceUnavailableMessage;
+  }
+  if (message) {
+    return message;
+  }
+  return "Registration failed.";
+};
+
+export const describeLoginError = (status: number): string => {
+  if (status >= 500) {
+    return serviceUnavailableMessage;
+  }
+  return "Sign-in failed. Verify your credentials and try again.";
+};
+
+// ---------------------------------------------------------------------------
+
 export interface SessionUser {
   id: string;
   username: string;

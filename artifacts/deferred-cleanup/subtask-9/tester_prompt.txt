@@ -1,0 +1,1084 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+Behavior-preserving restructure of web auth error-mapping helpers (deferred-cleanup subtask-9). toApiRequestError, describeRegistrationError, and login-side equivalents (describeLoginError, serviceUnavailableMessage) have been exported from apps/web/app/auth-client.ts. The tester must write EXECUTED runtime tests — not source-text greps — that import these helpers directly and drive them through mocked responses or error inputs to verify the four required branches.
+
+Modified files:
+- apps/web/app/auth-client.ts
+- apps/web/app/register/page.tsx
+- apps/web/app/login/login-client.tsx
+
+Acceptance criteria to validate (from Planner):
+- Helpers are exported and importable by specs; pages consume the exported versions.
+- Rendered error messages and UI states are unchanged.
+- Nothing blocks a spec from driving mocked 400/409/5xx/network-failure (null statusCode) responses through the exported helpers.
+
+Create test files in:
+- apps/web/app/public-shell.spec.ts (existing, tester-owned) and/or a new colocated spec apps/web/app/auth-error-helpers.spec.ts (tester-owned, new).
+
+Required test coverage (EXECUTED runtime tests only — source-text grepping is not a substitute):
+1. 400 validation mapping: describeRegistrationError returns the message from the error (or invalidRegistrationErrorMessage fallback) when statusCode is 400.
+2. 409 duplicate-email messaging: describeRegistrationError returns duplicateAccountErrorMessage when statusCode is 409.
+3. 5xx masking: describeRegistrationError returns serviceUnavailableMessage when statusCode >= 500; describeLoginError returns serviceUnavailableMessage when status >= 500.
+4. statusCode === null network-failure branch: describeRegistrationError returns serviceUnavailableMessage when statusCode is null.
+
+Implementation context for testing:
+- All helpers and constants are now exported from apps/web/app/auth-client.ts:
+  - toApiRequestError(response, fallbackMessage): async, parses JSON error payload, assigns statusCode from payload or response.status
+  - describeRegistrationError(error): pure sync, reads .statusCode from error object, dispatches on 409/400/null-or->=500
+  - describeLoginError(status): pure sync, returns serviceUnavailableMessage if status >= 500, else credential failure message
+  - serviceUnavailableMessage, duplicateAccountErrorMessage, invalidRegistrationErrorMessage: exported string constants
+- register/page.tsx imports describeRegistrationError and toApiRequestError from ../auth-client; no local re-definitions remain.
+- login/login-client.tsx imports describeLoginError and serviceUnavailableMessage from ../auth-client; no local string literals remain.
+
+Suggested test commands:
+- npx --yes pnpm@10.0.0 test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions.
+- Do not stop after activation, directory discovery, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-9
+
+Do not report success unless all required artifacts exist and all changes are committed.
+- a
+- p
+- p
+- s
+- /
+- w
+- e
+- b
+- /
+- a
+- p
+- p
+- /
+- p
+- u
+- b
+- l
+- i
+- c
+- -
+- s
+- h
+- e
+- l
+- l
+- .
+- s
+- p
+- e
+- c
+- .
+- t
+- s
+-  
+- (
+- e
+- x
+- i
+- s
+- t
+- i
+- n
+- g
+- ,
+-  
+- t
+- e
+- s
+- t
+- e
+- r
+- -
+- o
+- w
+- n
+- e
+- d
+- )
+-  
+- a
+- n
+- d
+- /
+- o
+- r
+-  
+- a
+-  
+- n
+- e
+- w
+-  
+- c
+- o
+- l
+- o
+- c
+- a
+- t
+- e
+- d
+-  
+- s
+- p
+- e
+- c
+-  
+- s
+- u
+- c
+- h
+-  
+- a
+- s
+-  
+- a
+- p
+- p
+- s
+- /
+- w
+- e
+- b
+- /
+- a
+- p
+- p
+- /
+- a
+- u
+- t
+- h
+- -
+- e
+- r
+- r
+- o
+- r
+- -
+- h
+- e
+- l
+- p
+- e
+- r
+- s
+- .
+- s
+- p
+- e
+- c
+- .
+- t
+- s
+- .
+-  
+- T
+- e
+- s
+- t
+- e
+- r
+-  
+- m
+- u
+- s
+- t
+-  
+- w
+- r
+- i
+- t
+- e
+-  
+- E
+- X
+- E
+- C
+- U
+- T
+- E
+- D
+-  
+- r
+- u
+- n
+- t
+- i
+- m
+- e
+-  
+- t
+- e
+- s
+- t
+- s
+-  
+- (
+- n
+- o
+- t
+-  
+- s
+- o
+- u
+- r
+- c
+- e
+- -
+- t
+- e
+- x
+- t
+-  
+- g
+- r
+- e
+- p
+- s
+- )
+-  
+- c
+- o
+- v
+- e
+- r
+- i
+- n
+- g
+- :
+-  
+- 4
+- 0
+- 0
+-  
+- v
+- a
+- l
+- i
+- d
+- a
+- t
+- i
+- o
+- n
+-  
+- m
+- a
+- p
+- p
+- i
+- n
+- g
+- ,
+-  
+- 4
+- 0
+- 9
+-  
+- d
+- u
+- p
+- l
+- i
+- c
+- a
+- t
+- e
+- -
+- e
+- m
+- a
+- i
+- l
+-  
+- m
+- e
+- s
+- s
+- a
+- g
+- i
+- n
+- g
+- ,
+-  
+- 5
+- x
+- x
+-  
+- m
+- a
+- s
+- k
+- i
+- n
+- g
+- ,
+-  
+- a
+- n
+- d
+-  
+- t
+- h
+- e
+-  
+- s
+- t
+- a
+- t
+- u
+- s
+- C
+- o
+- d
+- e
+-  
+- =
+- =
+- =
+-  
+- n
+- u
+- l
+- l
+-  
+- n
+- e
+- t
+- w
+- o
+- r
+- k
+- -
+- f
+- a
+- i
+- l
+- u
+- r
+- e
+-  
+- b
+- r
+- a
+- n
+- c
+- h
+-  
+- (
+- a
+- l
+- l
+-  
+- v
+- i
+- a
+-  
+- m
+- o
+- c
+- k
+- e
+- d
+-  
+- r
+- e
+- s
+- p
+- o
+- n
+- s
+- e
+- /
+- e
+- r
+- r
+- o
+- r
+-  
+- i
+- n
+- p
+- u
+- t
+- s
+-  
+- t
+- o
+-  
+- t
+- h
+- e
+-  
+- e
+- x
+- p
+- o
+- r
+- t
+- e
+- d
+-  
+- h
+- e
+- l
+- p
+- e
+- r
+- s
+- )
+- .
+
+Implementation context for testing:
+- t
+- o
+- A
+- p
+- i
+- R
+- e
+- q
+- u
+- e
+- s
+- t
+- E
+- r
+- r
+- o
+- r
+- ,
+-  
+- d
+- e
+- s
+- c
+- r
+- i
+- b
+- e
+- R
+- e
+- g
+- i
+- s
+- t
+- r
+- a
+- t
+- i
+- o
+- n
+- E
+- r
+- r
+- o
+- r
+- ,
+-  
+- a
+- n
+- d
+-  
+- t
+- h
+- e
+- i
+- r
+-  
+- c
+- o
+- m
+- p
+- a
+- n
+- i
+- o
+- n
+-  
+- c
+- o
+- n
+- s
+- t
+- a
+- n
+- t
+- s
+-  
+- (
+- d
+- u
+- p
+- l
+- i
+- c
+- a
+- t
+- e
+- A
+- c
+- c
+- o
+- u
+- n
+- t
+- E
+- r
+- r
+- o
+- r
+- M
+- e
+- s
+- s
+- a
+- g
+- e
+- ,
+-  
+- i
+- n
+- v
+- a
+- l
+- i
+- d
+- R
+- e
+- g
+- i
+- s
+- t
+- r
+- a
+- t
+- i
+- o
+- n
+- E
+- r
+- r
+- o
+- r
+- M
+- e
+- s
+- s
+- a
+- g
+- e
+- ,
+-  
+- s
+- e
+- r
+- v
+- i
+- c
+- e
+- U
+- n
+- a
+- v
+- a
+- i
+- l
+- a
+- b
+- l
+- e
+- M
+- e
+- s
+- s
+- a
+- g
+- e
+- )
+-  
+- m
+- o
+- v
+- e
+- d
+-  
+- f
+- r
+- o
+- m
+-  
+- m
+- o
+- d
+- u
+- l
+- e
+- -
+- p
+- r
+- i
+- v
+- a
+- t
+- e
+-  
+- f
+- u
+- n
+- c
+- t
+- i
+- o
+- n
+- s
+-  
+- i
+- n
+-  
+- r
+- e
+- g
+- i
+- s
+- t
+- e
+- r
+- /
+- p
+- a
+- g
+- e
+- .
+- t
+- s
+- x
+-  
+- i
+- n
+- t
+- o
+-  
+- e
+- x
+- p
+- o
+- r
+- t
+- e
+- d
+-  
+- s
+- y
+- m
+- b
+- o
+- l
+- s
+-  
+- i
+- n
+-  
+- a
+- u
+- t
+- h
+- -
+- c
+- l
+- i
+- e
+- n
+- t
+- .
+- t
+- s
+- .
+-  
+- d
+- e
+- s
+- c
+- r
+- i
+- b
+- e
+- L
+- o
+- g
+- i
+- n
+- E
+- r
+- r
+- o
+- r
+-  
+- a
+- n
+- d
+-  
+- s
+- e
+- r
+- v
+- i
+- c
+- e
+- U
+- n
+- a
+- v
+- a
+- i
+- l
+- a
+- b
+- l
+- e
+- M
+- e
+- s
+- s
+- a
+- g
+- e
+-  
+- a
+- d
+- d
+- e
+- d
+-  
+- a
+- s
+-  
+- n
+- e
+- w
+-  
+- e
+- x
+- p
+- o
+- r
+- t
+- s
+-  
+- c
+- o
+- v
+- e
+- r
+- i
+- n
+- g
+-  
+- t
+- h
+- e
+-  
+- l
+- o
+- g
+- i
+- n
+-  
+- p
+- a
+- t
+- h
+-  
+- i
+- n
+- l
+- i
+- n
+- e
+-  
+- l
+- o
+- g
+- i
+- c
+- .
+-  
+- B
+- o
+- t
+- h
+-  
+- p
+- a
+- g
+- e
+- s
+-  
+- n
+- o
+- w
+-  
+- i
+- m
+- p
+- o
+- r
+- t
+-  
+- f
+- r
+- o
+- m
+-  
+- a
+- u
+- t
+- h
+- -
+- c
+- l
+- i
+- e
+- n
+- t
+- .
+- t
+- s
+- .
+-  
+- N
+- o
+-  
+- r
+- e
+- n
+- d
+- e
+- r
+- e
+- d
+-  
+- m
+- e
+- s
+- s
+- a
+- g
+- e
+- s
+-  
+- c
+- h
+- a
+- n
+- g
+- e
+- d
+- .
+-  
+- D
+- e
+- s
+- i
+- g
+- n
+-  
+- d
+- e
+- c
+- i
+- s
+- i
+- o
+- n
+- :
+-  
+- e
+- x
+- t
+- e
+- n
+- d
+- e
+- d
+-  
+- a
+- u
+- t
+- h
+- -
+- c
+- l
+- i
+- e
+- n
+- t
+- .
+- t
+- s
+-  
+- (
+- v
+- s
+- .
+-  
+- a
+-  
+- n
+- e
+- w
+-  
+- m
+- o
+- d
+- u
+- l
+- e
+- )
+-  
+- b
+- e
+- c
+- a
+- u
+- s
+- e
+-  
+- i
+- t
+-  
+- a
+- l
+- r
+- e
+- a
+- d
+- y
+-  
+- h
+- o
+- l
+- d
+- s
+-  
+- a
+- l
+- l
+-  
+- s
+- h
+- a
+- r
+- e
+- d
+-  
+- a
+- u
+- t
+- h
+-  
+- u
+- t
+- i
+- l
+- i
+- t
+- i
+- e
+- s
+-  
+- a
+- n
+- d
+-  
+- t
+- h
+- e
+-  
+- c
+- o
+- d
+- e
+- b
+- a
+- s
+- e
+-  
+- p
+- a
+- t
+- t
+- e
+- r
+- n
+-  
+- i
+- s
+-  
+- a
+-  
+- s
+- i
+- n
+- g
+- l
+- e
+-  
+- f
+- e
+- a
+- t
+- u
+- r
+- e
+- -
+- l
+- e
+- v
+- e
+- l
+-  
+- c
+- l
+- i
+- e
+- n
+- t
+-  
+- m
+- o
+- d
+- u
+- l
+- e
+- .
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-9
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

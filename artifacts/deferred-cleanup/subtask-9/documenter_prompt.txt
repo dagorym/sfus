@@ -1,0 +1,69 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Behavior-preserving restructure of web auth error-mapping helpers (deferred-cleanup subtask-9).
+  `toApiRequestError`, `describeRegistrationError`, `describeLoginError`, and related string
+  constants (`serviceUnavailableMessage`, `duplicateAccountErrorMessage`,
+  `invalidRegistrationErrorMessage`) were extracted from inline definitions in
+  `register/page.tsx` and `login/login-client.tsx` and are now exported from
+  `apps/web/app/auth-client.ts`. The pages import these helpers instead of re-defining
+  them locally. No behavior changed.
+- Tester added 13 executed runtime tests in `auth-error-helpers.spec.ts` covering the four
+  required branches and updated `public-shell.spec.ts` to reflect the new import contract.
+  All 258 web tests pass.
+
+Acceptance criteria validated:
+- Helpers are exported and importable by specs; pages consume the exported versions.
+- Rendered error messages and UI states are unchanged.
+- Nothing blocks a spec from driving mocked 400/409/5xx/network-failure (null statusCode) responses through the exported helpers.
+- 400 validation mapping: describeRegistrationError returns the message from the error when statusCode is 400.
+- 409 duplicate-email messaging: describeRegistrationError returns duplicateAccountErrorMessage when statusCode is 409.
+- 5xx masking: describeRegistrationError returns serviceUnavailableMessage when statusCode >= 500; describeLoginError returns serviceUnavailableMessage when status >= 500.
+- statusCode === null network-failure branch: describeRegistrationError returns serviceUnavailableMessage when statusCode is null.
+
+Implementation branch or worktree context:
+- Implementer branch: cleanup-subtask-9-implementer-20260607 (commit e8c8d33)
+- Tester branch: cleanup-subtask-9-tester-20260607 (commit 96e737e)
+- Base comparison: main (or the cleanup plan base branch)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/auth-client.ts (new exports: toApiRequestError, describeRegistrationError, describeLoginError, serviceUnavailableMessage, duplicateAccountErrorMessage, invalidRegistrationErrorMessage, ApiErrorPayload, ApiRequestError)
+- apps/web/app/register/page.tsx (now imports describeRegistrationError and toApiRequestError from auth-client instead of defining them locally)
+- apps/web/app/login/login-client.tsx (now imports describeLoginError and serviceUnavailableMessage from auth-client instead of defining them locally)
+- apps/web/app/auth-error-helpers.spec.ts (new test file, tester-authored)
+- apps/web/app/public-shell.spec.ts (updated source-contract test to reflect import contract)
+
+Test commit:
+- 96e737e
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir apps/web test
+
+Final test outcomes:
+- 258 tests passed, 0 failed across all web test files.
+- New auth-error-helpers.spec.ts: 13 tests covering all 4 required acceptance criteria branches.
+- Updated public-shell.spec.ts: 6 tests all passing; source-text contract updated to verify import contract rather than inline logic strings now in auth-client.ts.
+
+Documentation context:
+- Likely docs affected: docs/features/auth.md — the auth-client module now exports additional
+  public symbols; if that doc describes the auth-client module surface, it should be updated
+  to reflect the new exports.
+- No behavior change to document. This is a pure code organization improvement; the exported
+  functions behave identically to the former inline functions.
+- If the docs reference auth error handling patterns or describe where helpers live, update
+  them to point to auth-client.ts as the single source.
+
+Plan and diff context:
+- Plan: plans/deferred-cleanup-plan.md (subtask-9 section)
+- Comparison base: main branch or the cleanup coordination branch
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-9
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
