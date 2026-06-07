@@ -1,0 +1,57 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Repair stale CI/CD contract-test assertions: update the apps/api/.env.example DB_HOST assertion to match the documented hybrid-dev default (127.0.0.1), and fix the missing MEDIA_STORAGE_PATH env var in the API runtime process check so the full suite passes.
+- Separately, the Tester discovered and fixed a stale constructor call in the pages integration test (apps/api/src/pages/pages.service.integration.test.ts) where PagesService was called with 3 args after a 4th constructor parameter (mediaRepository) was added in commit 0773e3c. This fix was committed by the Tester.
+
+Acceptance criteria validated:
+- bash cicd/tests/run-validations.sh passes on the subtask branch — PASS
+- The env-example assertion matches the canonical contract in docs/operations/launch.md (DB_HOST=127.0.0.1) — PASS
+- A compose-level DB_HOST=mysql override assertion exists at line 320 in cicd/tests/run-validations.sh — PASS
+
+Implementation branch or worktree context:
+- Tester branch: cleanup-subtask-10-tester-20260607
+- Implementer branch merged into: cleanup (via cleanup-subtask-10-implementer-20260607)
+- Compare against: cleanup branch (base)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- cicd/tests/run-validations.sh — DB_HOST assertion updated to 127.0.0.1; MEDIA_STORAGE_PATH=/tmp/uploads added to API runtime container check
+- apps/api/src/pages/pages.service.integration.test.ts — stale constructor call updated to pass mediaRepo as 3rd argument (Tester fix)
+- apps/api/.env.example — already has DB_HOST=127.0.0.1 with explanatory comment on lines 40-43 (this was the source of truth the assertion was corrected to match)
+- cicd/docker/compose.dev.yml — already has DB_HOST: mysql compose-level override at the line that assertion at line 320 pins
+
+Test commit:
+- 8d935ca (test(pages): fix integration test constructor call after mediaRepository was added)
+
+Commands executed:
+- bash /home/tstephen/repos/sfus/cleanup-subtask-10-tester-20260607/cicd/tests/run-validations.sh — PASS
+- npx --yes pnpm@10.0.0 --prefix /home/tstephen/repos/sfus lint — PASS
+- npx --yes pnpm@10.0.0 --prefix /home/tstephen/repos/sfus test — PASS (353 API + 264 web, 2 DB integration skipped)
+
+Final test outcomes:
+- All acceptance criteria pass.
+- The Docker API build now succeeds (was blocked by TS2554 in the integration test before the Tester fix).
+- run-validations.sh exits 0 with all CI/CD contract checks, Docker builds, and runtime container checks passing.
+- 353 API unit tests pass, 264 web tests pass, 2 DB integration tests skip cleanly (opt-in flag not set).
+
+Documentation context:
+- Check cicd/docs/cicd.md to see if the env-example DB_HOST change or the MEDIA_STORAGE_PATH addition needs a mention in the CI/CD contract documentation.
+- Check docs/operations/launch.md — this is the canonical source for the hybrid-dev default (DB_HOST=127.0.0.1) which the assertion was corrected to match. Verify consistency is reflected there.
+- Check docs/development/testing.md — the integration test changes may require an update to the testing documentation if it references the PagesService constructor or the integration test setup.
+- The env var MEDIA_STORAGE_PATH is documented in apps/api/.env.example (lines 29-37); confirm the operations doc reflects its requirement at runtime.
+
+Plan and diff context:
+- Plan: deferred-cleanup plan (see plans/ directory or artifacts/deferred-cleanup/ for plan context)
+- Comparison base: cleanup branch (this is the subtask branch off cleanup)
+- If plan path cannot be found, infer from the artifacts/deferred-cleanup/ directory structure and git log on the cleanup branch.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-10
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
