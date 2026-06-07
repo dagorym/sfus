@@ -113,6 +113,27 @@ Use a host-managed env file path for production operations rather than creating 
 - `bash cicd/scripts/run-containers.sh start`
 - `bash cicd/tests/run-validations.sh`
 
+## Database integration spec
+
+`cicd/config/validation-config.yml` includes a `pages-service-integration` entry that
+runs `PagesService.create` against the real MySQL schema with foreign-key constraints
+enforced. The spec is gated on `SFUS_DB_INTEGRATION=1` and skips cleanly without it, so
+normal workspace test runs and the smoke path require no database.
+
+To activate the entry locally, set `SFUS_DB_INTEGRATION=1` and the `DB_*` env vars
+(see `docs/website-launch-guide.md` for the documented defaults) before invoking
+`run-validations.sh` or the API `test:integration` script directly:
+
+```bash
+SFUS_DB_INTEGRATION=1 \
+DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=sfus \
+DB_USER=sfus DB_PASSWORD=changeme-app \
+npx --yes pnpm@10.0.0 --filter @sfus/api run test:integration
+```
+
+The dev MySQL service must be up and migrations must be applied before running the
+integration spec. See `cicd/docs/cicd.md` for the full local command sequence.
+
 `bash cicd/scripts/smoke-validate.sh` now stages its own per-run Compose env copies and validation-specific Compose file under the Git worktree-local runtime area returned by `git rev-parse --git-path smoke-validate`, then removes them on exit. That keeps repeated and parallel smoke runs from mutating the shared `.env`, `apps/web/.env`, or `apps/api/.env` paths in the worktree.
 
 ## Production deployment runbook

@@ -24,3 +24,12 @@ validations:
   - id: local-parity-contract
     description: Verify the shared CI/CD runner scripts and contract tests remain present.
     command: "test -f cicd/scripts/run-validations.sh && test -x cicd/scripts/smoke-validate.sh && test -f cicd/tests/run-validations.sh && test -f cicd/tests/build-images.sh && test -f cicd/tests/run-containers.sh"
+  - id: pages-service-integration
+    description: >-
+      Run PagesService.create integration spec against the real MySQL schema
+      (fk_page_revisions_page_id enforced). Requires the dev MySQL stack to be
+      running with migrations applied (bash cicd/scripts/run-containers.sh start
+      then the explicit migration step). Set SFUS_DB_INTEGRATION=1 and DB_*
+      env vars before invoking. The spec skips cleanly when SFUS_DB_INTEGRATION
+      is unset, so this entry is safe to include in the default validation run.
+    command: "npx --yes pnpm@10.0.0 --filter @sfus/api run test:integration"

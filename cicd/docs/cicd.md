@@ -91,3 +91,42 @@ bash cicd/scripts/run-containers.sh start
 - `smoke-validate.sh` builds the workspaces, brings up the full local stack, runs the explicit migration command, and checks homepage plus API health reachability.
 - `build-images.sh ... build` builds image entries from `cicd/config/image-matrix.yml`.
 - `run-containers.sh start` uses `cicd/docker/compose.dev.yml` by default.
+
+## Database integration tests
+
+The `pages-service-integration` entry in `cicd/config/validation-config.yml` runs
+`PagesService.create` against the real MySQL schema so the `fk_page_revisions_page_id`
+foreign key is enforced by the database engine rather than mocked out.
+
+**Opt-in flag** — the spec skips cleanly when `SFUS_DB_INTEGRATION` is unset, so the
+default `npx --yes pnpm@10.0.0 test` and `run-validations.sh` passes require no database.
+
+**When it runs** — explicitly on developer machines with the dev MySQL stack up and
+migrations applied, or in any CI environment that provides a live MySQL instance.
+
+**Local copy-pasteable command**:
+
+```bash
+# Start dev MySQL if not already running:
+bash cicd/scripts/run-containers.sh start
+
+# Apply migrations (requires the API dist build or the fullstack Compose path):
+docker compose --env-file .env -f cicd/docker/compose.dev.yml --profile fullstack run --rm api node dist/index.js migration:run
+
+# Run the integration spec:
+SFUS_DB_INTEGRATION=1 \
+DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=sfus \
+DB_USER=sfus DB_PASSWORD=changeme-app \
+npx --yes pnpm@10.0.0 --filter @sfus/api run test:integration
+```
+
+Alternatively, include `SFUS_DB_INTEGRATION=1` and the `DB_*` variables when invoking
+the shared validation runner to activate the `pages-service-integration` entry alongside
+the other validations:
+
+```bash
+SFUS_DB_INTEGRATION=1 \
+DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=sfus \
+DB_USER=sfus DB_PASSWORD=changeme-app \
+bash cicd/scripts/run-validations.sh cicd/config/validation-config.yml
+```
