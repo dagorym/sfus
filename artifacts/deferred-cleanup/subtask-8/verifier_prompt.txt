@@ -1,0 +1,63 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Anchored /on\w+\s*=/ to HTML tag context and /data\s*:/ to URL positions in markdown-sanitizer.ts. Moved memoryStorage destructuring below imports in media.controller.ts. Updated JSDoc and DANGEROUS_HTML_PATTERNS docs with anchoring policy and six rejection classes. Tester rewrote markdown-sanitizer.test.ts event-handler and data: URI suites as paired accept/reject-class coverage.
+
+Acceptance criteria to verify:
+- Named legitimate-prose examples (onmouseover= prose, onclick= prose, training data: prose) pass sanitization.
+- Event-handler-attribute and data:-URL payload classes remain rejected in all six documented rejection classes.
+- Per-pattern review of all DANGEROUS_HTML_PATTERNS reported: all patterns tag-anchored or have acceptable false-positive tolerance.
+- memoryStorage sits below the imports with no functional change (11 existing controller tests pass).
+- JSDoc and DANGEROUS_HTML_PATTERNS contract comments updated with anchoring policy and rejection class enumeration.
+- docs/features/media.md updated to describe the six rejection classes, anchoring policy, and acceptable prose examples.
+
+Implementation branch or worktree context:
+- Implementer branch: cleanup-subtask-8-implementer-20260607 (commit bf699d3)
+- Tester branch: cleanup-subtask-8-tester-20260607 (test commit c5dd6d5)
+- Base branch: cleanup
+- Documenter branch: cleanup-subtask-8-documenter-20260607 (doc commit acc7388)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/media/markdown-sanitizer.ts (implementer — pattern anchoring, JSDoc, rejection class docs)
+- apps/api/src/media/media.controller.ts (implementer — memoryStorage move below imports)
+- apps/api/src/media/markdown-sanitizer.test.ts (tester — rewritten event-handler and data: URI suites)
+- docs/features/media.md (documenter — six rejection classes, anchoring policy, prose-acceptance notes)
+
+Commands executed:
+- git -C <worktree> log --oneline -5
+- git show bf699d3 --stat
+- git show c5dd6d5 --stat
+- python .myteam/documenter/commit-flow/validate_documenter_state.py --repo-root <worktree> --phase docs
+- git -C <worktree> add docs/features/media.md
+- git -C <worktree> commit -F /tmp/new_doc_commit_msg.txt
+
+Final test outcomes:
+- 304 tests pass, 0 fail, 2 skipped (integration tests requiring live DB).
+- Lint: PASS. Typecheck: PASS. Build: PASS.
+- All five acceptance criteria satisfied.
+
+Plan or evaluation context guidance:
+- Plan path: plans/deferred-cleanup-plan.md, subtask 8
+- Comparison base: cleanup branch
+- Security stage must review the ENTIRE apps/api/src/media/ subsystem — not just this diff.
+- This discharges the retroactive media review deferred from the ms3-completion cycle per docs/deferred-tasks.md.
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table; per-subsystem contracts live in docs/features/.
+- docs/features/media.md is the canonical location for media sanitizer behavior documentation.
+- In-code JSDoc in markdown-sanitizer.ts is the source of truth for pattern anchoring policy.
+- Documenter modifies documentation-only; does not change executable behavior or test behavior.
+
+Updated documentation files:
+- docs/features/media.md
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-8
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
