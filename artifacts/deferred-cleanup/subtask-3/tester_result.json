@@ -1,0 +1,37 @@
+{
+  "status": "success",
+  "subtask": "deferred-cleanup/subtask-3",
+  "branch": "cleanup-subtask-3-tester-20260607",
+  "test_commit": "6701103",
+  "test_files_modified": [
+    "apps/api/src/blog/blog.service.test.ts",
+    "apps/api/src/blog/blog.controller.test.ts",
+    "apps/web/app/blog/blog.spec.ts"
+  ],
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 --dir <worktree> test",
+    "npx --yes pnpm@10.0.0 --dir <worktree> typecheck",
+    "npx --yes pnpm@10.0.0 --dir <worktree> lint",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api --dir <worktree> build"
+  ],
+  "pass_totals": {
+    "api_tests_passed": 325,
+    "api_tests_skipped": 2,
+    "web_tests_passed": 251
+  },
+  "acceptance_criteria": {
+    "AC1_public_payloads_omit_trimmed_fields": "PASS",
+    "AC2_admin_moderation_behavior_unchanged": "PASS",
+    "AC3_parentId_uniform_message": "PASS",
+    "AC3_imageId_uniform_message": "PASS",
+    "AC4_swagger_jsdoc_match_contract": "PASS",
+    "AC5_zero_web_references_to_trimmed_fields": "PASS"
+  },
+  "unmet_acceptance_criteria": [],
+  "implementation_defects": [],
+  "artifacts_written": [
+    "artifacts/deferred-cleanup/subtask-3/tester_report.md",
+    "artifacts/deferred-cleanup/subtask-3/tester_result.json",
+    "artifacts/deferred-cleanup/subtask-3/documenter_prompt.txt"
+  ]
+}

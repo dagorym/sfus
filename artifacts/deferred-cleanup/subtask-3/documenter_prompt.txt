@@ -1,0 +1,68 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- deferred-cleanup subtask-3: security data minimization + oracle removal on blog comment endpoints.
+- Public endpoints (listComments, createComment) now return PublicBlogCommentDetail, omitting authorUserId, moderatedByUserId, and moderatedAt. Admin/moderation endpoints (moderationListComments, moderateCommentStatus) still return full BlogCommentDetail including those three fields.
+- parentId validation: both "not found" and "belongs to different post" now return 400 with message "parentId is invalid." (uniform oracle).
+- imageId validation: both "does not exist" and "wrong resource type" now return 400 with message "imageId is invalid." (uniform oracle).
+- Web mirror type BlogCommentDetail in blog-client.ts updated to omit the trimmed fields; JSDoc documents the server-side stripping.
+- Swagger @ApiOkResponse descriptions updated on listComments and moderationListComments to reflect the data-minimization split.
+
+Acceptance criteria validated:
+- Public comment payloads (listComments, createComment) contain none of authorUserId, moderatedByUserId, moderatedAt.
+- Admin/moderation endpoints (moderationListComments, moderateCommentStatus) still return all three fields.
+- parentId rejections return a single uniform 400 message "parentId is invalid." regardless of whether the parent is nonexistent or foreign-post.
+- imageId rejections return a single uniform 400 message "imageId is invalid." regardless of whether the image is nonexistent or wrong-scope.
+- Swagger response models and JSDoc accurately describe the new contract on all affected handlers.
+- Zero web references to the trimmed fields in BlogCommentDetail type.
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/cleanup-subtask-3-tester-20260607
+- Branch: cleanup-subtask-3-tester-20260607
+- Comparison base: the cleanup branch (parent of this worktree branch)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/blog/blog.controller.ts (Implementer: PublicBlogCommentDetail/BlogCommentDetail interfaces, toPublicCommentDetail/toCommentDetail helpers, Swagger decorator updates)
+- apps/api/src/blog/blog.service.ts (Implementer: createComment parentId/imageId oracle normalization)
+- apps/web/app/blog/blog-client.ts (Implementer: BlogCommentDetail type updated, JSDoc added)
+- apps/api/src/blog/blog.service.test.ts (Tester: parentId and imageId oracle-parity tests added)
+- apps/api/src/blog/blog.controller.test.ts (Tester: data-minimization source-contract tests, serializer wiring tests, input parser rejection tests, admin handler auth wiring tests)
+- apps/web/app/blog/blog.spec.ts (Tester: BlogCommentDetail type trimmed-field absence tests, JSDoc test)
+
+Test commit:
+- 6701103
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir <worktree> test
+- npx --yes pnpm@10.0.0 --dir <worktree> typecheck
+- npx --yes pnpm@10.0.0 --dir <worktree> lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api --dir <worktree> build
+
+Final test outcomes:
+- API: 325 passed, 2 skipped (DB integration tests). Zero failures.
+- Web: 251 passed. Zero failures.
+- Lint: clean. Typecheck: clean. Build: clean.
+- All acceptance criteria verified by new and existing tests.
+- No implementation defects found.
+
+Documentation context:
+- docs/features/blog.md is the canonical feature documentation for blog. Review it for the public comment API contract, comment response shapes, and moderation endpoint descriptions. The trimmed fields and oracle normalization must be reflected there.
+- docs/development/api-conventions.md may need a note if the oracle-normalization pattern (uniform 400 for existence-vs-scope ambiguity) is a new cross-cutting pattern worth documenting.
+- blog-client.ts JSDoc comment on BlogCommentDetail confirms the server-side stripping; this should be cross-referenced in blog.md if that doc covers the web client types.
+- The Swagger @ApiOkResponse descriptions on listComments and moderationListComments now describe the data-minimization split; update any OpenAPI/Swagger coverage in docs if applicable.
+
+Plan and diff context:
+- Plan: plans/deferred-cleanup-plan.md (subtask-3 section covers this work).
+- Comparison base: the cleanup branch or the commit immediately preceding the implementer's work on cleanup-subtask-3-tester-20260607.
+- Infer exact plan section and doc ownership from the routing table in docs/README.md if needed.
+
+Startup behavior:
+- If this worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
