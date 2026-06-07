@@ -47,9 +47,19 @@ not re-authenticate readers.
 `apps/api/src/media/markdown-sanitizer.ts` — used by **all** content write paths (blog posts,
 comments, standalone pages):
 
-- `validateMarkdownBody(body): { safe: true } | { safe: false, reason }` — pattern-blocks
-  `<script>`, `<iframe>`, `<object>`, `<embed>`, `<form>`, `<input>`, `<button>`, inline event
-  handlers (`on*=`), and `javascript:` / `vbscript:` / `data:` URI schemes.
+- `validateMarkdownBody(body): { safe: true } | { safe: false, reason }` — rejects content
+  matching any of six classes:
+  1. **Script tags** — `<script>` / `</script>`.
+  2. **Event-handler attributes** — `on<word>=` inside an HTML tag context
+     (e.g. `<img onerror=…>`, `<a onclick=…>`). Bare prose such as
+     "the onclick = handler pattern" is **not** rejected.
+  3. **Dangerous embedding elements** — `<iframe>`, `<object>`, `<embed>`.
+  4. **Form interaction elements** — `<form>`, `<input>`, `<button>`.
+  5. **Dangerous URI schemes** — `javascript:`, `vbscript:` (any position).
+  6. **`data:` URIs in URL positions** — matched only when the `data:` token
+     appears in an `href`/`src` attribute value or a Markdown link/image
+     destination (`](data:`). Prose such as "training data: source A" is
+     **not** rejected.
 - `normalizeMarkdownBody(body): string` — normalizes line endings to LF and trims surrounding
   whitespace; no content changes, no validation.
 

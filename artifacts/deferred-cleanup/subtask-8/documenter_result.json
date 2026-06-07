@@ -1,0 +1,15 @@
+{
+  "artifact_file_paths": [
+    "artifacts/deferred-cleanup/subtask-8/documenter_report.md",
+    "artifacts/deferred-cleanup/subtask-8/documenter_result.json",
+    "artifacts/deferred-cleanup/subtask-8/verifier_prompt.txt"
+  ],
+  "branch_name": "cleanup-subtask-8-documenter-20260607",
+  "documentation_commit_hash": "acc7388",
+  "documentation_files_changed": [
+    "docs/features/media.md"
+  ],
+  "pass_label": null,
+  "status": "success",
+  "task_id": "deferred-cleanup/subtask-8"
+}
