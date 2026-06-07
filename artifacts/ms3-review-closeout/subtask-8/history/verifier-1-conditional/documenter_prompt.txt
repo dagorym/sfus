@@ -1,0 +1,62 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ms3-review-closeout subtask-8: closed the authenticated existence oracle on POST /api/blog/:postIdOrSlug/comments. Non-public posts (draft, unpublished, future-scheduled) are now indistinguishable from nonexistent ones on the comment-creation path. resolvePostId in blog.controller.ts uses findPublishedById instead of findById for the UUID fallback so a non-public post by UUID is treated identically to a nonexistent one at the controller layer. createComment in blog.service.ts non-public guard changed from ForbiddenException to NotFoundException (defense-in-depth). The commentsLocked ForbiddenException is intentionally preserved.
+
+Acceptance criteria validated:
+- POST /api/blog/:postIdOrSlug/comments returns indistinguishable 404 for nonexistent, draft, unpublished, and future-scheduled posts -- all produce identical NotFoundException with message 'Blog post not found.'
+- Comment creation on genuinely public posts is unchanged; a locked public post still returns 403 with message 'Comments are locked on this post.'
+- All other comment routes (list, moderation, lock/unlock) are behaviorally unchanged.
+- Security: no authenticated member can distinguish an existing non-public post from a nonexistent one via the comment-creation route (oracle-parity suite passes).
+- API builds, typechecks, and blog unit suite passes (83 tests).
+
+Implementation branch or worktree context:
+- Tester branch: ms3-claude-subtask-8-tester-20260606 (worktree: /home/tstephen/repos/worktrees/ms3-claude-subtask-8-tester-20260606)
+- Implementer branch: ms3-claude-subtask-8-implementer-20260606
+- Base for diff: ms3-claude (main development branch for this milestone)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/blog/blog.controller.ts (Implementer: resolvePostId now uses findPublishedById for UUID fallback, ~line 354)
+- apps/api/src/blog/blog.service.ts (Implementer: createComment non-public guard changed to NotFoundException, ~line 382)
+- apps/api/src/blog/blog.service.test.ts (Tester: 3 assertions updated, predicate assertions tightened, oracle-parity suite added, locked-post regression added)
+- apps/api/src/blog/blog.controller.test.ts (Tester: new file pinning resolvePostId fallback wiring)
+
+Test commit:
+- 4bc93eb
+
+Commands executed:
+- pnpm install --frozen-lockfile (worktree context)
+- pnpm --filter @sfus/api exec vitest run src/blog/ (worktree context) -- 83 tests pass
+- pnpm --filter @sfus/api run build (worktree context) -- exits 0
+- pnpm typecheck (worktree context) -- exits 0
+- pnpm lint (worktree context) -- 1 pre-existing navigation.controller.test.ts error (unrelated)
+
+Final test outcomes:
+- 83 blog tests pass (79 service + 4 controller); 0 failures introduced by this subtask.
+- Oracle-parity suite confirms all 4 non-public post variants (nonexistent/draft/unpublished/future-scheduled) throw NotFoundException with identical message.
+- commentsLocked ForbiddenException regression passes -- guard is preserved for locked public posts.
+- resolvePostId controller wiring pinned: slug branch resolves without UUID fallback; UUID fallback called when slug misses; both branches apply published-only predicate.
+- LessThanOrEqual predicate assertions tightened for findPublishedBySlug and findPublishedById.
+
+Documentation context:
+- The API behavior change is security-motivated: POST /api/blog/:postIdOrSlug/comments now returns 404 (not 403) for draft/unpublished/future-scheduled posts to close an authenticated existence oracle.
+- The only remaining ForbiddenException on the comment-creation path is the commentsLocked guard (locked public posts return 403).
+- resolvePostId now applies the published-only visibility predicate on both slug and UUID branches (blog.controller.ts ~line 354).
+- createComment defense-in-depth: NotFoundException for non-public guard (blog.service.ts ~line 382).
+- Check docs/README.md for any API contract documentation that may need updating.
+- Check docs/deferred-tasks.md for any deferred items that are now closed by this fix.
+
+Plan and diff context:
+- Plan: plans/ms3-review-closeout-plan.md, subtask-8
+- Base branch for diff: ms3-claude (or compare implementer branch ms3-claude-subtask-8-implementer-20260606 against ms3-claude)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-8
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

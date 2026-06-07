@@ -1,0 +1,26 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms3-review-closeout/subtask-8/verifier_report.md",
+    "artifacts/ms3-review-closeout/subtask-8/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms3-claude-subtask-8-verifier-20260606",
+  "documentation_accuracy_summary": [
+    "ACCURATE for docs/README.md. Three stale 403 references updated: (1) line 199 -- future-scheduled post comment response now correctly states 404 with existence-oracle disclosure note; (2) line 253 -- POST /api/blog/:postId/comments response code table correctly shows 404 for non-public/nonexistent and 403 only for commentsLocked=true on a public post; (3) line 269 -- Comment Authorization Model paragraph correctly describes 404 for draft/unpublished/future-scheduled, 403 for commentsLocked on public post.",
+    "INACCURATE for Swagger/OpenAPI: blog.controller.ts line 268 @ApiForbiddenResponse still says 'Post is not published.' This is the stale decorator noted in the WARNING finding. The auto-generated OpenAPI spec will incorrectly describe a 403 for non-public posts.",
+    "Overall: the narrative documentation is accurate; the in-code Swagger annotation requires a follow-up fix."
+  ],
+  "note_finding_count": 2,
+  "pass_label": "CONDITIONAL PASS",
+  "status": "complete",
+  "task_id": "ms3-review-closeout-subtask-8",
+  "test_sufficiency_summary": [
+    "SUFFICIENT with one notable gap. The 79 service tests (+7 new: 5 oracle-parity + 2 commentsLocked regression) and 4 controller wiring tests together cover all four acceptance criteria: (1) NotFoundException parity for nonexistent/draft/unpublished/future-scheduled posts; (2) public post comment creation unchanged; (3) locked public post ForbiddenException preserved with correct message; (4) resolvePostId published-only predicate on both slug and UUID fallback branches.",
+    "The LessThanOrEqual operator type assertions (.type === 'lessThanOrEqual') are correctly tightened from key-presence-only assertions in both findPublishedBySlug and findPublishedById tests.",
+    "The oracle-parity 'all four cases' test verifies identical NotFoundException class and message across all non-public variants, satisfying the security acceptance criterion.",
+    "Gap: the controller tests simulate resolvePostId logic manually (private method constraint) rather than calling the actual controller method. The diff verification compensates for this.",
+    "Gap: no test exercises the TOCTOU scenario (post transitions between resolvePostId and createComment). The defense-in-depth NotFoundException handles it correctly; the gap is acceptable given deferred-scope classification."
+  ],
+  "verdict": "CONDITIONAL PASS",
+  "warning_finding_count": 2
+}

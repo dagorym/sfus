@@ -1,0 +1,28 @@
+{
+  "status": "success",
+  "task_id": "ms3-review-closeout-subtask-8",
+  "branch_name": "ms3-claude-subtask-8-tester-20260606",
+  "test_commit_hash": "4bc93eb",
+  "test_files_changed": [
+    "apps/api/src/blog/blog.service.test.ts",
+    "apps/api/src/blog/blog.controller.test.ts"
+  ],
+  "commands_run": [
+    "pnpm install --frozen-lockfile (worktree context)",
+    "pnpm --filter @sfus/api exec vitest run src/blog/ (worktree context)",
+    "pnpm --filter @sfus/api run build (worktree context)",
+    "pnpm typecheck (worktree context)",
+    "pnpm lint (worktree context -- 1 pre-existing navigation.controller.test.ts failure, unrelated)"
+  ],
+  "pass_fail_totals": {
+    "passed": 83,
+    "failed": 0,
+    "note": "79 blog service tests + 4 blog controller tests = 83 blog tests pass; 6 pre-existing failures in navigation.controller.test.ts (ENOENT path duplication, unrelated to this subtask)"
+  },
+  "unmet_acceptance_criteria": [],
+  "artifact_file_paths": [
+    "artifacts/ms3-review-closeout/subtask-8/tester_report.md",
+    "artifacts/ms3-review-closeout/subtask-8/tester_result.json",
+    "artifacts/ms3-review-closeout/subtask-8/documenter_prompt.txt"
+  ]
+}

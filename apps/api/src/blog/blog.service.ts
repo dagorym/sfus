@@ -380,7 +380,10 @@ export class BlogService {
     }
     const now = new Date();
     if (post.status !== "published" || !post.publishedAt || post.publishedAt > now) {
-      throw new ForbiddenException("Comments can only be added to published posts.");
+      // Defense-in-depth: mirror the nonexistent-post response so that a
+      // non-public post reached via a known UUID is indistinguishable from a
+      // post that does not exist (milestone visibility invariant).
+      throw new NotFoundException("Blog post not found.");
     }
 
     // Enforce thread-lock: reject new comments when the post has commentsLocked.

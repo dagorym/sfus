@@ -1,0 +1,54 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+Close the authenticated existence oracle on POST /api/blog/:postIdOrSlug/comments. Non-public posts (draft, unpublished, future-scheduled) must be indistinguishable from nonexistent ones on the comment-creation path. Two changes: (1) resolvePostId in blog.controller.ts uses findPublishedById instead of findById for the UUID fallback so a non-public post by UUID is treated identically to a nonexistent one at the controller layer; (2) createComment in blog.service.ts non-public guard changed from ForbiddenException to NotFoundException (defense-in-depth). The commentsLocked ForbiddenException is intentionally preserved.
+
+Modified files:
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.service.ts
+
+Acceptance criteria to validate (from Planner):
+- POST /api/blog/:postIdOrSlug/comments returns an indistinguishable 404 (same status and envelope message) for nonexistent, draft, unpublished, and future-scheduled posts, whether addressed by slug or UUID.
+- Comment creation on genuinely public posts is unchanged; a locked public post still returns the existing 403 lock message.
+- All other comment routes (list, moderation, lock/unlock) are behaviorally unchanged.
+- Security: no authenticated member can distinguish an existing non-public post from a nonexistent one via the comment-creation route.
+- The API builds, lints, typechecks, and its unit suite passes.
+
+Test file location:
+- Tester-owned tests live under apps/api/src/blog/blog.service.test.ts (and any new blog.controller.test.ts the Tester creates). The Tester must also add oracle-parity and regression tests per the Tester guidance in the task prompt.
+
+Implementation context for testing:
+- resolvePostId (blog.controller.ts ~line 352): both the slug-lookup branch (findPublishedBySlug) and the UUID-fallback branch (now findPublishedById, was findById) apply the same published-only visibility predicate. A non-public post addressed by UUID now silently falls through to the NotFoundException at the controller layer — the service's createComment is never called for that case.
+- createComment (blog.service.ts ~line 382): the non-public guard (status !== 'published' || !publishedAt || publishedAt > now) now throws NotFoundException('Blog post not found.') instead of ForbiddenException('Comments can only be added to published posts.'). The commentsLocked guard at line ~388 retains ForbiddenException('Comments are locked on this post.') because a locked PUBLIC post is legitimately visible and its 403 is not an oracle.
+
+Tester tasks (per task prompt):
+- Update 3 ForbiddenException assertions in createComment tests to NotFoundException (blog.service.test.ts ~lines 661, 764, 873).
+- Add oracle-parity tests: nonexistent vs draft vs future-scheduled UUID all produce identical 404 responses on POST /api/blog/:postIdOrSlug/comments.
+- Add a locked-public-post 403 regression test to confirm commentsLocked ForbiddenException is unchanged.
+- Add controller-level test pinning resolvePostId slug-then-id fallback wiring (both published-only, per security review informational notes).
+- Tighten findPublishedById/findPublishedBySlug predicate assertions to verify the LessThanOrEqual operator rather than just key presence.
+
+Existing validations expected to fail only because approved behavior changed:
+- blog.service.test.ts: 'throws ForbiddenException when post is published but publishedAt is in the future' (~line 661) — expected; Tester must change assertion to NotFoundException.
+- blog.service.test.ts: 'throws ForbiddenException when post is not published (draft)' (~line 764) — expected; Tester must change assertion to NotFoundException.
+- blog.service.test.ts: 'throws ForbiddenException when post is unpublished' (~line 873) — expected; Tester must change assertion to NotFoundException.
+
+Pre-existing unrelated failure:
+- Lint: apps/api/src/navigation/navigation.controller.test.ts line 4 'UnauthorizedException' is defined but never used — not introduced by this subtask, pre-existing before this change.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/api run build
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/blog/
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-8
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

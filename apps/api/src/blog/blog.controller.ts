@@ -265,9 +265,9 @@ export class BlogController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a comment on a published post (authenticated member)." })
   @ApiUnauthorizedResponse({ description: "No active session." })
-  @ApiForbiddenResponse({ description: "Post is not published." })
+  @ApiForbiddenResponse({ description: "Comments are locked on this post." })
   @ApiBadRequestResponse({ description: "Invalid or unsafe comment body." })
-  @ApiNotFoundResponse({ description: "Post not found." })
+  @ApiNotFoundResponse({ description: "Post not found or not published." })
   async createComment(
     @Req() request: Request,
     @Param("postId") postId: string,
@@ -344,17 +344,20 @@ export class BlogController {
   /**
    * Resolves a path segment that may be a post slug or post id into a stable
    * post id string. Tries slug lookup first (published-only); falls back to
-   * id lookup. Throws NotFoundException when neither resolves to a valid post.
+   * published-only id lookup. Throws NotFoundException when neither resolves
+   * to a publicly visible post.
    *
-   * This resolution is only used for the member comment creation path; the
-   * published-post guard is enforced inside BlogService.createComment.
+   * Both branches use the published-only visibility predicate so that a
+   * non-public post addressed by UUID is indistinguishable from a nonexistent
+   * one on the comment-creation path (milestone visibility invariant).
    */
   private async resolvePostId(slugOrId: string): Promise<string> {
     // Try slug first (only matches published posts).
     const bySlug = await this.blogService.findPublishedBySlug(slugOrId);
     if (bySlug) return bySlug.id;
-    // Try id (any status; createComment will enforce the published guard).
-    const byId = await this.blogService.findById(slugOrId);
+    // Try id with the same published-only predicate so draft/scheduled posts
+    // are invisible here, matching the nonexistent-post 404 response.
+    const byId = await this.blogService.findPublishedById(slugOrId);
     if (byId) return byId.id;
     throw new NotFoundException("Blog post not found.");
   }

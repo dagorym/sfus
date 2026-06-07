@@ -1,0 +1,49 @@
+{
+  "status": "success",
+  "task_id": "subtask-8",
+  "plan": "ms3-review-closeout",
+  "branch_name": "ms3-claude-subtask-8-verifier-20260606",
+  "review_mode": "in-cycle specialist stage",
+  "merge_base": "141eea3",
+  "outcome": "PASS",
+  "blocking_finding_count": 0,
+  "warning_finding_count": 0,
+  "note_finding_count": 5,
+  "artifact_file_paths": [
+    "artifacts/ms3-review-closeout/subtask-8/security_report.md",
+    "artifacts/ms3-review-closeout/subtask-8/security_result.json"
+  ],
+  "plan_path": "plans/ms3-review-closeout-plan.md",
+  "review_scope": [
+    "apps/api/src/blog/blog.controller.ts",
+    "apps/api/src/blog/blog.service.ts",
+    "apps/api/src/blog/blog.service.test.ts",
+    "apps/api/src/blog/blog.controller.test.ts",
+    "apps/api/src/common/filters/json-exception.filter.ts",
+    "apps/web/app/blog/blog-client.ts",
+    "docs/README.md",
+    "docs/deferred-tasks.md",
+    "artifacts/ms3-review-closeout/subtask-8/verifier_report.md",
+    "artifacts/ms3-review-closeout/subtask-8/history/verifier-1-conditional/verifier_report.md",
+    "artifacts/ms3-landing-refresh-and-review-followups/subtask-4/security_report.md"
+  ],
+  "security_acceptance_criteria": [
+    "MET: non-public posts indistinguishable from nonexistent on POST comment creation (status, message, envelope identical; no practical timing channel)",
+    "MET: public-post comment creation unchanged; locked-public-post 403 preserved with correct guard ordering",
+    "MET: all other comment routes (list, moderation, lock/unlock) byte-identical to merge-base"
+  ],
+  "note_findings": [
+    "Verifier pass-2 cites a docs/deferred-tasks.md entry for the resolvePostId->createComment TOCTOU that does not exist; security impact nil because the defense-in-depth write-time check is authoritative — planner should add the entry or record that no deferral is needed at the next planning cycle.",
+    "resolvePostId controller wiring is pinned only by simulated tests (private method not invoked); acceptable because the tested service-layer defense-in-depth guard independently preserves the invariant against a controller-layer revert.",
+    "Cosmetic 404-message variance between GET listComments and POST createComment routes; constant within each route, no oracle.",
+    "Pre-existing authenticated parentId/imageId distinguisher messages (400-level) on public posts allow second-order existence confirmation of comment/media UUIDs; out of scope, not worsened, candidate for a future data-minimization pass.",
+    "Known unchanged items not re-reported: slug/UUID namespace shadowing (fail-closed), public comment payload data-minimization (register line 17), 600-char source-contract window headroom."
+  ],
+  "test_sufficiency_summary": [
+    "SUFFICIENT. 86/86 tests independently re-executed in this worktree (79 service + 7 controller).",
+    "Oracle-parity suite covers nonexistent/draft/unpublished/future-scheduled plus a message-identity test asserting all four produce the exact same NotFoundException class+message; locked-public-post regression pins ForbiddenException class and message; LessThanOrEqual FindOperator type now asserted (closes WA1 NOTE 1); fallback-wiring tests close WA1 NOTE 2 in simulated form."
+  ],
+  "documentation_sufficiency_summary": [
+    "SUFFICIENT. docs/README.md corrected in all three locations with explicit existence-oracle-prevention language; createComment Swagger decorators now match implemented behavior and are guarded by three source-contract regression tests."
+  ]
+}
