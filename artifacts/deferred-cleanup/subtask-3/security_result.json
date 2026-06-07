@@ -1,0 +1,46 @@
+{
+  "status": "conditional_pass",
+  "subtask": "deferred-cleanup/subtask-3",
+  "outcome": "CONDITIONAL PASS",
+  "acceptance_criteria": {
+    "AC1_public_payloads_omit_trimmed_fields": "PASS",
+    "AC2_admin_moderation_behavior_unchanged": "PASS",
+    "AC3_parentId_uniform_message": "PASS",
+    "AC3_imageId_uniform_message": "PASS",
+    "AC4_swagger_jsdoc_match_contract": "PARTIAL — controller Swagger updated; docs/features/blog.md stale (L1, L2)",
+    "AC5_zero_web_references_to_trimmed_fields": "PASS"
+  },
+  "blocking_findings": [],
+  "moderate_findings": [],
+  "low_findings": [
+    {
+      "id": "L1",
+      "file": "docs/features/blog.md",
+      "line": 38,
+      "description": "Member comment creation table row still lists distinguishable parentId/imageId failure reasons rather than the uniform normalized messages. Contradicts the oracle normalization applied in blog.service.ts.",
+      "action": "Documenter: update line 38 to describe uniform parentId/imageId failure messages."
+    },
+    {
+      "id": "L2",
+      "file": "docs/features/blog.md",
+      "lines": "94-97",
+      "description": "Response shapes section still lists authorUserId, moderatedByUserId, moderatedAt in BlogCommentDetail and notes trimming as a deferred task. Both are now stale.",
+      "action": "Documenter: update response shapes section to split public vs. admin/moderation payload descriptions."
+    }
+  ],
+  "observations": [
+    {
+      "id": "O1",
+      "file": "apps/web/app/blog/blog-client.ts",
+      "lines": "307, 320",
+      "description": "moderationListComments and moderateCommentStatus use public BlogCommentDetail type, under-declaring the API moderation response. No security impact in current codebase (no admin UI consumes these). Prospective risk if a moderation UI is built without introducing a richer AdminBlogCommentDetail type.",
+      "action": "Deferred — document when scoping moderation UI work."
+    }
+  ],
+  "test_sufficiency": "Adequate for security properties under review. Oracle-parity and data-minimization tests are well-targeted. Coverage gap: no HTTP-level integration test confirms moderation endpoint responses include the three retained fields in the JSON body.",
+  "documentation_sufficiency": "Inline JSDoc and controller Swagger are accurate. docs/features/blog.md has two stale sections (L1, L2). No operational guidance gaps that affect safe deployment.",
+  "artifacts_written": [
+    "artifacts/deferred-cleanup/subtask-3/security_report.md",
+    "artifacts/deferred-cleanup/subtask-3/security_result.json"
+  ]
+}
