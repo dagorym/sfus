@@ -1,0 +1,51 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ms3-review-closeout subtask-5 pass-2: Added 'pages' to the web-side RESERVED_SLUGS set in apps/web/app/[slug]/page.tsx to restore mirror parity with the API-side RESERVED_PAGE_SLUGS list (eleven entries). This one-line change remediates the specialist security review WARNING about web/API mirror divergence identified in the pass-1 security review. A source-contract test was also added pinning all eleven entries in RESERVED_SLUGS.
+
+Acceptance criteria validated:
+- RESERVED_SLUGS in apps/web/app/[slug]/page.tsx includes 'pages', mirroring the API-side list (eleven entries). VERIFIED.
+- A bare /pages request is short-circuited by the web catch-all guard without querying the API. VERIFIED.
+- API and web apps build, lint, typecheck, and their unit suites pass. VERIFIED: web 244/244, api 278/278, lint clean, typecheck clean.
+- Change is strictly fail-closed: no unpublished standalone page becomes publicly visible. VERIFIED.
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms3-claude-subtask-5-tester-20260606
+- Branch: ms3-claude-subtask-5-tester-20260606 (branched from ms3-claude)
+- Comparison base: ms3-claude branch
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/[slug]/page.tsx (Implementer: added 'pages' to RESERVED_SLUGS set, eleven entries now)
+- apps/web/app/pages/pages.spec.ts (Tester: added source-contract test pinning all eleven RESERVED_SLUGS entries)
+
+Test commit:
+- 27195574373110c1c319f17b1f631b9f95e25698
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run (244/244 passed)
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run (278/278 passed)
+- npx --yes pnpm@10.0.0 lint (clean)
+- npx --yes pnpm@10.0.0 typecheck (clean)
+
+Final test outcomes:
+- All 522 tests pass (244 web + 278 API). Lint and typecheck clean. New test pins the eleven-entry RESERVED_SLUGS parity contract. No regressions.
+
+Documentation context:
+- docs/README.md likely contains a mirror-parity sentence describing RESERVED_PAGE_SLUGS / RESERVED_SLUGS. This sentence should now accurately describe eleven entries on both sides (admin, api, app, blog, login, pages, register, onboarding, profile, settings, health). The documenter should verify this sentence is accurate and update it if needed.
+- The RESERVED_SLUGS JSDoc comment in apps/web/app/[slug]/page.tsx already says "This mirrors the server-side RESERVED_PAGE_SLUGS in pages.service.ts" — no update needed there.
+- The task context is a pass-2 remediation for a specialist security review WARNING (web/API mirror divergence). No new user-facing features; documentation scope is limited to confirming the mirror-parity description in docs/README.md.
+
+Plan and diff context:
+- Plan path: plans/ms3-review-closeout-plan.md (subtask-5)
+- Comparison base: ms3-claude branch (the long-running MS3 development branch)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
