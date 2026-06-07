@@ -91,8 +91,11 @@ the last good application revision (or the forward-fixed replacement).
 ## Operational notes
 
 - Session cookies become `Secure` automatically in production (`NODE_ENV=production`); the
-  reverse proxy must terminate TLS and forward proto headers per the locked trusted-proxy
-  decision.
+  reverse proxy must terminate TLS and forward `X-Forwarded-Proto` / `X-Forwarded-For`
+  headers. The API bootstrap configures Express `trust proxy = 1` for the single shared
+  `nginx-proxy` hop so `request.ip` and `X-Forwarded-Proto` resolve correctly (locked
+  decision: `docs/architecture/milestone-1-foundation-decisions.md` §Security And Proxy
+  Behavior).
 - Swagger is disabled by default in production; enable explicitly with
   `API_SWAGGER_ENABLED=true` only when needed.
 - In production no Next.js `/api` rewrite exists unless `WEB_API_INTERNAL_URL` is set — the
