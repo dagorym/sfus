@@ -1,0 +1,44 @@
+{
+  "status": "success",
+  "task_id": "deferred-cleanup/subtask-5",
+  "branch_name": "cleanup-subtask-5-implementer-20260607",
+  "code_commit_hash": "0773e3ca8b655a18928fac5e00846107c6197fcf",
+  "changed_files": [
+    "apps/api/src/pages/pages.service.ts",
+    "apps/api/src/pages/pages.controller.ts",
+    "apps/api/src/pages/entities/standalone-page.entity.ts",
+    "apps/api/src/pages/pages.module.ts"
+  ],
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/api typecheck",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api lint",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api test",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api build"
+  ],
+  "validation_outcome": "all pass — typecheck clean, lint clean (0 warnings), 297 tests pass (2 skipped = DB integration gated), API build clean",
+  "task_summary": "Pages module robustness fixes: (1) validate featuredMediaId existence at all 3 write sites in pages.service.ts, mirroring blog's assertFeaturedImageExists; (2) add ManyToOne relation decorator for currentRevisionId on StandalonePageEntity without schema change; (3) delete dead resolveCurrentBody from pages.controller.ts; (4) update Swagger/JSDoc.",
+  "acceptance_criteria": [
+    "create/update/restore each reject a nonexistent featuredMediaId with BadRequestException — all 3 sites implemented",
+    "currentRevision ManyToOne relation added with createForeignKeyConstraints: false; FK fk_standalone_pages_current_revision_id already exists in migration; API build confirms no migration diff",
+    "resolveCurrentBody deleted with zero remaining references (grep confirmed)",
+    "Swagger @ApiBadRequestResponse updated on adminCreate, adminUpdate, adminRestoreRevision; JSDoc updated on create/update/restoreRevision in service"
+  ],
+  "test_location_guidance": [
+    "Primary test file: apps/api/src/pages/pages.service.test.ts",
+    "Add featuredMediaId rejection tests for create() (site 1), update() (site 2), and restoreRevision() (site 3) — each should verify BadRequestException is thrown when mediaRepository.findOne returns null",
+    "Strengthen existing reserved-slug test from containment check to set-equality/cardinality pinning (verify exact set members and count of RESERVED_PAGE_SLUGS)",
+    "Run with: npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/pages/pages.service.test.ts"
+  ],
+  "implementation_context": [
+    "assertFeaturedMediaExists mirrors blog's assertFeaturedImageExists exactly: existence-only check (findOne by id), BadRequestException on failure, no ownerUserId scope check (blog has none).",
+    "create() validation runs BEFORE the transaction so a bad featuredMediaId aborts without creating orphaned DB rows.",
+    "update() validation runs at the top after slug/title checks, before the revision is created.",
+    "restoreRevision() validates source.featuredMediaId before any new revision is written.",
+    "pages.module.ts was not in the original allowed file list but required MediaReferenceEntity in TypeOrmModule.forFeature for repository injection — same pattern as blog.module.ts. Change is minimal (1 import + 1 array entry).",
+    "currentRevision relation uses createForeignKeyConstraints: false. The FK fk_standalone_pages_current_revision_id is at lines 133-134 of migration 1748736000000-milestone-three-content-foundation.ts. Existing queries keep working; scalar currentRevisionId column unchanged.",
+    "resolveCurrentBody removed — it had signature (_pageId: string, currentRevisionId: string | null) with _pageId unused, and 0 callers in the file.",
+    "PagesService now receives a 4th constructor argument: @InjectRepository(MediaReferenceEntity) private readonly mediaRepository. Unit tests must provide a mock for this repository."
+  ],
+  "expected_validation_failures": [],
+  "security_notes": "featuredMediaId now validated before write at all 3 sites — consistent with blog. No scope weakening."
+}
