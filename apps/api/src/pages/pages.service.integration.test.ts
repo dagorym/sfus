@@ -42,6 +42,7 @@ import {
   cleanupThrowawayRows
 } from "./integration-test-support";
 import { AuthorizationService } from "../authorization/authorization.service";
+import { MediaReferenceEntity } from "../media/entities/media-reference.entity";
 import { PagesService } from "./pages.service";
 import { StandalonePageEntity } from "./entities/standalone-page.entity";
 import { PageRevisionEntity } from "./entities/page-revision.entity";
@@ -67,6 +68,7 @@ describe.skipIf(!DB_INTEGRATION_ENABLED)(
     let ds: DataSource;
     let pageRepo: Repository<StandalonePageEntity>;
     let revisionRepo: Repository<PageRevisionEntity>;
+    let mediaRepo: Repository<MediaReferenceEntity>;
     let service: PagesService;
 
     // Throwaway row ids accumulated per-test so afterEach can clean up.
@@ -81,10 +83,11 @@ describe.skipIf(!DB_INTEGRATION_ENABLED)(
       ds = await createIntegrationDataSource(opts);
       pageRepo = ds.getRepository(StandalonePageEntity);
       revisionRepo = ds.getRepository(PageRevisionEntity);
+      mediaRepo = ds.getRepository(MediaReferenceEntity);
 
       // PagesService needs TypeORM repositories; wire them from the real DS.
       const authorizationService = new AuthorizationService();
-      service = new PagesService(pageRepo, revisionRepo, authorizationService);
+      service = new PagesService(pageRepo, revisionRepo, mediaRepo, authorizationService);
 
       // Insert one throwaway user for the suite.
       authorUserId = await insertThrowawayUser(ds);
