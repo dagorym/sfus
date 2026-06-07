@@ -31,6 +31,16 @@ export class StandalonePageEntity {
   @Column("char", { name: "current_revision_id", length: 36, nullable: true })
   currentRevisionId!: string | null;
 
+  /**
+   * Relation for the current revision. The FK constraint already exists in the
+   * milestone-three content migration; `createForeignKeyConstraints: false`
+   * prevents TypeORM from generating a duplicate constraint or migration diff.
+   * Use `relations: ["currentRevision"]` to eager-load via the ORM.
+   */
+  @ManyToOne(() => PageRevisionEntity, { nullable: true, onDelete: "SET NULL", createForeignKeyConstraints: false })
+  @JoinColumn({ name: "current_revision_id" })
+  currentRevision!: PageRevisionEntity | null;
+
   @Column("datetime", { name: "created_at", precision: 3, default: () => "CURRENT_TIMESTAMP(3)" })
   createdAt!: Date;
 

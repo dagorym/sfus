@@ -6,6 +6,7 @@ import { Repository } from "typeorm";
 
 import { AuthorizationService } from "../authorization/authorization.service";
 import { validateMarkdownBody, normalizeMarkdownBody } from "../media/markdown-sanitizer";
+import { MediaReferenceEntity } from "../media/entities/media-reference.entity";
 import { PageRevisionEntity } from "./entities/page-revision.entity";
 import { StandalonePageEntity } from "./entities/standalone-page.entity";
 
@@ -61,6 +62,8 @@ export class PagesService {
     private readonly pageRepository: Repository<StandalonePageEntity>,
     @InjectRepository(PageRevisionEntity)
     private readonly revisionRepository: Repository<PageRevisionEntity>,
+    @InjectRepository(MediaReferenceEntity)
+    private readonly mediaRepository: Repository<MediaReferenceEntity>,
     private readonly authorizationService: AuthorizationService
   ) {}
 
@@ -117,6 +120,9 @@ export class PagesService {
    * Creates a new standalone page in draft status and records revision 1.
    * Caller must have verified admin access before calling this.
    *
+   * Throws BadRequestException when featuredMediaId is provided but does not
+   * reference an existing media record.
+   *
    * The entire three-step write sequence runs inside a single database
    * transaction. A failure at any step rolls back the page insert, the
    * revision insert, and the currentRevisionId pointer update together, so no
@@ -133,6 +139,10 @@ export class PagesService {
   async create(authorUserId: string, input: CreatePageInput): Promise<StandalonePageEntity> {
     this.assertSlugValid(input.slug);
     this.assertTitleValid(input.title);
+
+    if (input.featuredMediaId) {
+      await this.assertFeaturedMediaExists(input.featuredMediaId);
+    }
 
     const sanitationResult = validateMarkdownBody(input.body);
     if (!sanitationResult.safe) {
@@ -185,6 +195,9 @@ export class PagesService {
   /**
    * Updates an existing standalone page and creates a new revision.
    * Caller must have verified admin access before calling this.
+   *
+   * Throws BadRequestException when featuredMediaId is provided but does not
+   * reference an existing media record.
    */
   async update(id: string, authorUserId: string, input: UpdatePageInput): Promise<StandalonePageEntity> {
     const page = await this.pageRepository.findOne({ where: { id } });
@@ -199,6 +212,9 @@ export class PagesService {
     if (input.title !== undefined) {
       this.assertTitleValid(input.title);
       page.title = input.title;
+    }
+    if (input.featuredMediaId) {
+      await this.assertFeaturedMediaExists(input.featuredMediaId);
     }
 
     // Sanitize and normalize body when provided.
@@ -278,6 +294,10 @@ export class PagesService {
    * Restores a page to the content of a specific prior revision. Creates a new
    * revision capturing the restored content so the audit trail is complete.
    * Caller must have verified admin access before calling this.
+   *
+   * Throws BadRequestException when the source revision's featuredMediaId does
+   * not reference an existing media record (e.g. the media was deleted since
+   * the revision was created).
    */
   async restoreRevision(pageId: string, revisionId: string, authorUserId: string): Promise<StandalonePageEntity> {
     const page = await this.pageRepository.findOne({ where: { id: pageId } });
@@ -294,6 +314,10 @@ export class PagesService {
       order: { revisionNumber: "DESC" }
     });
     const nextRevisionNumber = latestRevision ? latestRevision.revisionNumber + 1 : 1;
+
+    if (source.featuredMediaId) {
+      await this.assertFeaturedMediaExists(source.featuredMediaId);
+    }
 
     // Normalize body from source revision (sanitization already passed when it was first stored).
     const normalizedBody = normalizeMarkdownBody(source.body);
@@ -343,6 +367,18 @@ export class PagesService {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * Asserts that a featuredMediaId references an existing media record.
+   * Throws BadRequestException when the id does not resolve, mirroring the
+   * semantics of blog's assertFeaturedImageExists.
+   */
+  private async assertFeaturedMediaExists(featuredMediaId: string): Promise<void> {
+    const media = await this.mediaRepository.findOne({ where: { id: featuredMediaId } });
+    if (!media) {
+      throw new BadRequestException("featuredMediaId references a media record that does not exist.");
+    }
+  }
 
   private assertSlugValid(slug: string): void {
     if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {

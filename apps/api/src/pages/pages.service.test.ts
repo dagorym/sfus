@@ -2,9 +2,10 @@ import { BadRequestException, ForbiddenException, NotFoundException } from "@nes
 import { describe, expect, it, vi } from "vitest";
 
 import { AuthorizationService } from "../authorization/authorization.service";
-import { PagesService } from "./pages.service";
+import { PagesService, RESERVED_PAGE_SLUGS } from "./pages.service";
 import type { PageRevisionEntity } from "./entities/page-revision.entity";
 import type { StandalonePageEntity } from "./entities/standalone-page.entity";
+import type { MediaReferenceEntity } from "../media/entities/media-reference.entity";
 
 // Minimal Repository stub — only the methods called by PagesService are needed.
 type MinimalRepository<T> = {
@@ -69,16 +70,21 @@ const createMinimalRepository = <T>(
 //                               create() tests that reach the transaction will
 //                               fail with "Cannot read properties of undefined
 //                               (reading 'transaction')" as expected.
+// mediaRepo — stub for the MediaReferenceEntity repository used by
+//             assertFeaturedMediaExists. Defaults to findOne returning null
+//             (media not found) when not supplied.
 const makePagesService = (
   pageRepo?: Partial<MinimalRepository<StandalonePageEntity>>,
   revisionRepo?: Partial<MinimalRepository<PageRevisionEntity>>,
   txPageRepo?: MinimalRepository<StandalonePageEntity>,
-  txRevisionRepo?: MinimalRepository<PageRevisionEntity>
+  txRevisionRepo?: MinimalRepository<PageRevisionEntity>,
+  mediaRepo?: Partial<MinimalRepository<MediaReferenceEntity>>
 ): PagesService => {
   const authorizationService = new AuthorizationService();
   return new PagesService(
     createMinimalRepository<StandalonePageEntity>(pageRepo, txPageRepo, txRevisionRepo) as never,
     createMinimalRepository<PageRevisionEntity>(revisionRepo) as never,
+    createMinimalRepository<MediaReferenceEntity>(mediaRepo) as never,
     authorizationService
   );
 };
@@ -521,6 +527,224 @@ describe("PagesService.update", () => {
     } as StandalonePageEntity;
     const service = makePagesService({ findOne: async () => page });
     await expect(service.update("page-1", "user-1", { title: "   " })).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RESERVED_PAGE_SLUGS set membership — cardinality and exact members
+// ---------------------------------------------------------------------------
+
+describe("RESERVED_PAGE_SLUGS set membership", () => {
+  // AC: RESERVED_PAGE_SLUGS must contain exactly the documented reserved slugs;
+  // any addition or removal should cause this test to fail and prompt a review.
+
+  it("contains exactly the expected reserved slugs (set-equality pin)", () => {
+    const expected = new Set([
+      "admin",
+      "api",
+      "app",
+      "blog",
+      "login",
+      "pages",
+      "register",
+      "onboarding",
+      "profile",
+      "settings",
+      "health"
+    ]);
+
+    // Cardinality must match before checking membership.
+    expect(RESERVED_PAGE_SLUGS.size).toBe(expected.size);
+
+    // Every expected slug must be present.
+    for (const slug of expected) {
+      expect(RESERVED_PAGE_SLUGS.has(slug), `Expected "${slug}" to be in RESERVED_PAGE_SLUGS`).toBe(true);
+    }
+
+    // No extra slugs should be present.
+    for (const slug of RESERVED_PAGE_SLUGS) {
+      expect(expected.has(slug), `Unexpected slug "${slug}" found in RESERVED_PAGE_SLUGS`).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// featuredMediaId validation (AC: reject nonexistent media at all 3 write sites)
+// ---------------------------------------------------------------------------
+
+describe("PagesService.create — featuredMediaId validation", () => {
+  // AC: create() rejects a nonexistent featuredMediaId with BadRequestException
+  // BEFORE entering the transaction so no orphaned DB rows are created.
+
+  it("throws BadRequestException when featuredMediaId references a nonexistent media record (site 1)", async () => {
+    // mediaRepository.findOne returns null → media not found
+    const service = makePagesService(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { findOne: async () => null }
+    );
+    await expect(
+      service.create("user-1", { title: "T", slug: "about", body: "Safe body", featuredMediaId: "nonexistent-media-id" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("does not throw when featuredMediaId is null (no media check needed)", async () => {
+    const savedRevision = { id: "rev-1", pageId: "p-1", revisionNumber: 1, title: "T", body: "Safe body", authorUserId: "u", createdAt: new Date() } as PageRevisionEntity;
+    const savedPage = { id: "p-1", title: "T", slug: "about", status: "draft", currentRevisionId: "rev-1", createdByUserId: "u", publishedAt: null, createdAt: new Date(), updatedAt: new Date() } as StandalonePageEntity;
+    const pageSaveFn = vi.fn().mockResolvedValue(savedPage);
+    const pageOneFn = vi.fn().mockResolvedValue(savedPage);
+    const revSaveFn = vi.fn().mockResolvedValue(savedRevision);
+    const txPageRepo: MinimalRepository<StandalonePageEntity> = {
+      find: async () => [], findOne: pageOneFn, create: (d) => d as StandalonePageEntity, save: pageSaveFn
+    };
+    const txRevisionRepo: MinimalRepository<PageRevisionEntity> = {
+      find: async () => [], findOne: async () => null, create: (d) => d as PageRevisionEntity, save: revSaveFn
+    };
+    const service = makePagesService(
+      { save: pageSaveFn, findOne: pageOneFn, create: (d) => d as StandalonePageEntity },
+      { save: revSaveFn, create: (d) => d as PageRevisionEntity, findOne: async () => null },
+      txPageRepo,
+      txRevisionRepo,
+      // mediaRepo not called when featuredMediaId is null
+      { findOne: async () => null }
+    );
+    await expect(
+      service.create("u", { title: "T", slug: "about", body: "Safe body", featuredMediaId: null })
+    ).resolves.toBeTruthy();
+  });
+});
+
+describe("PagesService.update — featuredMediaId validation", () => {
+  // AC: update() rejects a nonexistent featuredMediaId with BadRequestException
+  // at the top of the method after slug/title checks, before creating a revision.
+
+  it("throws BadRequestException when featuredMediaId references a nonexistent media record (site 2)", async () => {
+    const page = {
+      id: "page-1",
+      title: "About",
+      slug: "about",
+      status: "draft",
+      currentRevisionId: "rev-1",
+      createdByUserId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as StandalonePageEntity;
+    const service = makePagesService(
+      { findOne: async () => page },
+      undefined,
+      undefined,
+      undefined,
+      { findOne: async () => null } // media not found
+    );
+    await expect(
+      service.update("page-1", "user-1", { featuredMediaId: "nonexistent-media-id" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("does not throw when featuredMediaId is null on update (no media check needed)", async () => {
+    const page = {
+      id: "page-1",
+      title: "About",
+      slug: "about",
+      status: "draft",
+      currentRevisionId: "rev-1",
+      createdByUserId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as StandalonePageEntity;
+    const latestRevision = { id: "rev-1", pageId: "page-1", revisionNumber: 1, title: "About", body: "Body", authorUserId: "user-1", createdAt: new Date() } as PageRevisionEntity;
+    const newRevision = { ...latestRevision, id: "rev-2", revisionNumber: 2 };
+    const updatedPage = { ...page, currentRevisionId: "rev-2" } as StandalonePageEntity;
+    const revSave = vi.fn().mockResolvedValue(newRevision);
+    const service = makePagesService(
+      { findOne: vi.fn().mockResolvedValueOnce(page).mockResolvedValueOnce(updatedPage), save: vi.fn().mockResolvedValue(updatedPage), create: (d) => d as StandalonePageEntity },
+      { findOne: vi.fn().mockResolvedValue(latestRevision), save: revSave, create: (d) => d as PageRevisionEntity },
+      undefined,
+      undefined,
+      { findOne: async () => null } // won't be called since featuredMediaId is null
+    );
+    await expect(
+      service.update("page-1", "user-1", { featuredMediaId: null })
+    ).resolves.toBeTruthy();
+  });
+});
+
+describe("PagesService.restoreRevision — featuredMediaId validation", () => {
+  // AC: restoreRevision() validates source.featuredMediaId before writing a new
+  // revision. Throws BadRequestException when the referenced media no longer exists.
+
+  it("throws BadRequestException when source revision featuredMediaId references a nonexistent media record (site 3)", async () => {
+    const page = { id: "page-1", status: "draft", title: "About", currentRevisionId: "rev-2" } as StandalonePageEntity;
+    const sourceRevision = {
+      id: "rev-1",
+      pageId: "page-1",
+      title: "Old Title",
+      body: "Old body",
+      revisionNumber: 1,
+      authorUserId: "u",
+      featuredMediaId: "deleted-media-id", // media was deleted
+      createdAt: new Date()
+    } as PageRevisionEntity;
+    const latestRevision = {
+      id: "rev-2",
+      pageId: "page-1",
+      revisionNumber: 2,
+      title: "Current",
+      body: "Current body",
+      authorUserId: "u",
+      createdAt: new Date()
+    } as PageRevisionEntity;
+
+    const service = makePagesService(
+      { findOne: async () => page },
+      { findOne: vi.fn().mockResolvedValueOnce(sourceRevision).mockResolvedValueOnce(latestRevision) },
+      undefined,
+      undefined,
+      { findOne: async () => null } // media not found
+    );
+
+    await expect(
+      service.restoreRevision("page-1", "rev-1", "user-1")
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("succeeds when source revision has no featuredMediaId (no media check needed)", async () => {
+    const page = { id: "page-1", status: "draft", title: "About", currentRevisionId: "rev-2" } as StandalonePageEntity;
+    const sourceRevision = {
+      id: "rev-1",
+      pageId: "page-1",
+      title: "Old Title",
+      body: "Old body",
+      revisionNumber: 1,
+      authorUserId: "u",
+      featuredMediaId: null, // no media id
+      createdAt: new Date()
+    } as PageRevisionEntity;
+    const latestRevision = {
+      id: "rev-2",
+      pageId: "page-1",
+      revisionNumber: 2,
+      title: "Current",
+      body: "Current body",
+      authorUserId: "u",
+      createdAt: new Date()
+    } as PageRevisionEntity;
+    const newRevision = { ...sourceRevision, id: "rev-3", revisionNumber: 3 };
+    const updatedPage = { ...page, currentRevisionId: "rev-3", title: "Old Title" } as StandalonePageEntity;
+
+    const service = makePagesService(
+      { findOne: vi.fn().mockResolvedValue(updatedPage), save: vi.fn().mockResolvedValue(updatedPage), create: (d) => d as StandalonePageEntity },
+      { findOne: vi.fn().mockResolvedValueOnce(sourceRevision).mockResolvedValueOnce(latestRevision), save: vi.fn().mockResolvedValue(newRevision), create: (d) => d as PageRevisionEntity },
+      undefined,
+      undefined,
+      { findOne: async () => null } // won't be called since featuredMediaId is null
+    );
+
+    await expect(
+      service.restoreRevision("page-1", "rev-1", "user-1")
+    ).resolves.toBeTruthy();
   });
 });
 
