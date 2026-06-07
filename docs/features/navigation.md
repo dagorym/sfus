@@ -22,9 +22,12 @@ role (`401`/`403`) via `NavigationService.assertAdminManagementAccess()`.
 | PATCH | `/api/navigation/admin/:id` | admin | partial update (incl. `isActive`); `404` unknown |
 | DELETE | `/api/navigation/admin/:id` | admin | `{ deleted: true }`; children removed via DB `ON DELETE CASCADE` |
 
-Field rules: `label` ≤ 128 chars; `url` non-empty string ≤ 512 chars (no leading-`/`
-requirement today — hardening note in `docs/deferred-tasks.md`); `linkType`
-`internal | external`; `visibility` `public | authenticated | admin`.
+Field rules: `label` ≤ 128 chars; `url` non-empty string ≤ 512 chars; for
+`internal` items (the default) the URL must start with a single `/` — protocol-relative
+`//` prefixes are rejected with `400`; external items are validated only for presence and
+length; `linkType` `internal | external`; `visibility` `public | authenticated | admin`.
+This URL constraint is enforced prospectively on create and update; existing rows are
+unaffected (same posture as reserved-slug enforcement).
 
 ## Publication-leak filtering
 
