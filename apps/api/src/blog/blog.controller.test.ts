@@ -12,6 +12,13 @@
  * Pass-2 addition: source-contract assertions pinning the corrected Swagger
  * decorator descriptions on the createComment handler so that a stale-decorator
  * regression cannot ship silently (OpenAPI accuracy requirement).
+ *
+ * Subtask-3 addition:
+ *   - Source-contract tests verifying that the BlogController source file:
+ *     (a) exports toPublicCommentDetail omitting authorUserId, moderatedByUserId, moderatedAt
+ *     (b) uses toCommentDetail (with those fields) only in moderation endpoints
+ *     (c) parseCreateInput, parseUpdateInput, parsePublishAtInput rejection paths
+ *     (d) resolveSession + assertAdminManagementAccess wiring on admin handlers
  */
 
 import { readFile } from "node:fs/promises";
@@ -271,4 +278,249 @@ describe("blog.controller.ts — createComment Swagger decorator contract (pass-
     expect(decoratorWindow).toContain("Comments are locked on this post.");
     expect(decoratorWindow).toContain("Post not found or not published.");
   });
+});
+
+// ---------------------------------------------------------------------------
+// Subtask-3: Data-minimization contracts — source-level assertions
+//
+// Public endpoints (listComments, createComment) must use toPublicCommentDetail
+// which omits authorUserId, moderatedByUserId, moderatedAt.
+// Admin/moderation endpoints (moderationListComments, moderateCommentStatus)
+// must use toCommentDetail which includes those fields.
+// ---------------------------------------------------------------------------
+
+describe("blog.controller.ts — PublicBlogCommentDetail omits sensitive fields (subtask-3 AC1)", () => {
+  /**
+   * Extract only the field declarations inside an interface body (between the first `{`
+   * and its matching `}`), excluding JSDoc comments above the interface that may
+   * describe the omitted fields. This prevents JSDoc prose (e.g. "Does NOT include
+   * authorUserId") from falsely triggering a contains() assertion.
+   */
+  function extractInterfaceBody(source: string, marker: string): string {
+    const start = source.indexOf(marker);
+    if (start === -1) return "";
+    const bodyStart = source.indexOf("{", start);
+    const bodyEnd = source.indexOf("}", bodyStart);
+    return source.slice(bodyStart, bodyEnd + 1);
+  }
+
+  /**
+   * Extract only the return statement body of a function (between `return {` and `};`),
+   * excluding the JSDoc above it that may mention the omitted fields.
+   */
+  function extractReturnBody(source: string, fnMarker: string): string {
+    const fnStart = source.indexOf(fnMarker);
+    if (fnStart === -1) return "";
+    const returnStart = source.indexOf("return {", fnStart);
+    if (returnStart === -1) return "";
+    const returnEnd = source.indexOf("};", returnStart);
+    return source.slice(returnStart, returnEnd + 2);
+  }
+
+  it("PublicBlogCommentDetail interface body does NOT declare authorUserId field", async () => {
+    const source = await readBlogController();
+    const interfaceBody = extractInterfaceBody(source, "interface PublicBlogCommentDetail");
+    expect(interfaceBody.length).toBeGreaterThan(0);
+    // The field declarations inside the interface body must not declare these fields
+    expect(interfaceBody).not.toMatch(/^\s+authorUserId:/m);
+    expect(interfaceBody).not.toMatch(/^\s+moderatedByUserId:/m);
+    expect(interfaceBody).not.toMatch(/^\s+moderatedAt:/m);
+  });
+
+  it("BlogCommentDetail interface body DOES declare authorUserId, moderatedByUserId, moderatedAt (admin payload)", async () => {
+    const source = await readBlogController();
+    const interfaceBody = extractInterfaceBody(source, "interface BlogCommentDetail extends");
+    expect(interfaceBody.length).toBeGreaterThan(0);
+    expect(interfaceBody).toContain("authorUserId");
+    expect(interfaceBody).toContain("moderatedByUserId");
+    expect(interfaceBody).toContain("moderatedAt");
+  });
+
+  it("toPublicCommentDetail return body does NOT include authorUserId, moderatedByUserId, or moderatedAt keys", async () => {
+    const source = await readBlogController();
+    // Extract only the return object literal — the JSDoc above it may mention field names
+    const returnBody = extractReturnBody(source, "function toPublicCommentDetail(");
+    expect(returnBody.length).toBeGreaterThan(0);
+    // The returned object must not serialize these keys
+    expect(returnBody).not.toMatch(/authorUserId:/);
+    expect(returnBody).not.toMatch(/moderatedByUserId:/);
+    expect(returnBody).not.toMatch(/moderatedAt:/);
+  });
+
+  it("toCommentDetail return body serializes authorUserId, moderatedByUserId, and moderatedAt (admin full payload)", async () => {
+    const source = await readBlogController();
+    const returnBody = extractReturnBody(source, "function toCommentDetail(");
+    expect(returnBody.length).toBeGreaterThan(0);
+    expect(returnBody).toContain("authorUserId:");
+    expect(returnBody).toContain("moderatedByUserId:");
+    expect(returnBody).toContain("moderatedAt:");
+  });
+});
+
+describe("blog.controller.ts — listComments and createComment use public serializer (subtask-3 AC1)", () => {
+  it("listComments handler returns PublicBlogCommentDetail[] and calls toPublicCommentDetailWithReplies", async () => {
+    const source = await readBlogController();
+    const handlerStart = source.indexOf("async listComments(");
+    expect(handlerStart).toBeGreaterThan(-1);
+    const handlerEnd = source.indexOf("\n  @", handlerStart);
+    const handlerText = source.slice(handlerStart, handlerEnd);
+    // Must return the public type
+    expect(handlerText).toContain("PublicBlogCommentDetail");
+    // Must NOT call toCommentDetail (the admin serializer)
+    expect(handlerText).not.toContain("toCommentDetail(");
+    // Must call the public serializer
+    expect(handlerText).toContain("toPublicCommentDetailWithReplies");
+  });
+
+  it("createComment handler returns PublicBlogCommentDetail and calls toPublicCommentDetail", async () => {
+    const source = await readBlogController();
+    const handlerStart = source.indexOf("async createComment(");
+    expect(handlerStart).toBeGreaterThan(-1);
+    // Find end by next handler or helper method
+    const handlerEnd = source.indexOf("\n  @", handlerStart);
+    const handlerText = source.slice(handlerStart, handlerEnd);
+    // Must return the public type
+    expect(handlerText).toContain("PublicBlogCommentDetail");
+    // Must NOT call toCommentDetail (the admin serializer)
+    expect(handlerText).not.toContain("toCommentDetail(");
+    // Must call the public serializer
+    expect(handlerText).toContain("toPublicCommentDetail(");
+  });
+});
+
+describe("blog.controller.ts — moderationListComments and moderateCommentStatus use full serializer (subtask-3 AC2)", () => {
+  it("moderationListComments handler returns BlogCommentDetail[] and calls toCommentDetail", async () => {
+    const source = await readBlogController();
+    const handlerStart = source.indexOf("async moderationListComments(");
+    expect(handlerStart).toBeGreaterThan(-1);
+    const handlerEnd = source.indexOf("\n  @", handlerStart);
+    const handlerText = source.slice(handlerStart, handlerEnd);
+    // Must return full type (not public)
+    expect(handlerText).toContain("BlogCommentDetail");
+    // Must call the admin serializer
+    expect(handlerText).toContain("toCommentDetail");
+  });
+
+  it("moderateCommentStatus handler returns BlogCommentDetail and calls toCommentDetail", async () => {
+    const source = await readBlogController();
+    const handlerStart = source.indexOf("async moderateCommentStatus(");
+    expect(handlerStart).toBeGreaterThan(-1);
+    const handlerEnd = source.indexOf("\n  @", handlerStart);
+    const handlerText = source.slice(handlerStart, handlerEnd);
+    // Must return full type (not public)
+    expect(handlerText).toContain("BlogCommentDetail");
+    // Must call the admin serializer
+    expect(handlerText).toContain("toCommentDetail");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Subtask-3: Swagger decorator contracts on moderation endpoints
+// listComments @ApiOkResponse and moderationListComments @ApiOkResponse
+// must accurately describe the data-minimization split.
+// ---------------------------------------------------------------------------
+
+describe("blog.controller.ts — Swagger ApiOkResponse descriptions reflect data minimization (subtask-3 AC4)", () => {
+  it("listComments @ApiOkResponse mentions that moderation fields are omitted", async () => {
+    const source = await readBlogController();
+    const listCommentsHandlerStart = source.indexOf("async listComments(");
+    expect(listCommentsHandlerStart).toBeGreaterThan(-1);
+    // The decorator block is above the method
+    const decoratorWindow = source.slice(
+      Math.max(0, listCommentsHandlerStart - 400),
+      listCommentsHandlerStart
+    );
+    // Must mention that internal fields are omitted in the public response
+    expect(decoratorWindow).toMatch(/omits|moderation.internal|authorUserId|moderatedByUserId|moderatedAt/i);
+  });
+
+  it("moderationListComments @ApiOkResponse mentions that full payload is returned", async () => {
+    const source = await readBlogController();
+    const moderationHandlerStart = source.indexOf("async moderationListComments(");
+    expect(moderationHandlerStart).toBeGreaterThan(-1);
+    const decoratorWindow = source.slice(
+      Math.max(0, moderationHandlerStart - 400),
+      moderationHandlerStart
+    );
+    // Must indicate that full payload includes the three fields
+    expect(decoratorWindow).toMatch(/Full payload|authorUserId|moderatedByUserId|moderatedAt/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Subtask-3: parseCreateInput / parseUpdateInput / parsePublishAtInput
+// rejection-path coverage (AC: controller input parsers throw 400 on bad input)
+// ---------------------------------------------------------------------------
+
+describe("blog.controller.ts — parseCreateInput, parseUpdateInput, parsePublishAtInput rejection paths (subtask-3 AC3)", () => {
+  it("parseCreateInput source rejects non-object body", async () => {
+    const source = await readBlogController();
+    const fnStart = source.indexOf("function parseCreateInput(");
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnEnd = source.indexOf("\nfunction ", fnStart + 1);
+    const fnText = source.slice(fnStart, fnEnd);
+    // Must check for non-object body
+    expect(fnText).toContain("typeof body !== \"object\"");
+    expect(fnText).toContain("BadRequestException");
+    expect(fnText).toContain("title is required");
+    expect(fnText).toContain("body is required");
+  });
+
+  it("parseUpdateInput source validates field types when present", async () => {
+    const source = await readBlogController();
+    const fnStart = source.indexOf("function parseUpdateInput(");
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnEnd = source.indexOf("\nfunction ", fnStart + 1);
+    const fnText = source.slice(fnStart, fnEnd);
+    // Must validate string types for title, slug, body
+    expect(fnText).toContain("title must be a string");
+    expect(fnText).toContain("slug must be a string");
+    expect(fnText).toContain("body must be a string");
+    expect(fnText).toContain("tags must be an array");
+  });
+
+  it("parsePublishAtInput source validates publishedAt is present and parses to valid date", async () => {
+    const source = await readBlogController();
+    const fnStart = source.indexOf("function parsePublishAtInput(");
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnEnd = source.indexOf("\nfunction ", fnStart + 1);
+    const fnText = source.slice(fnStart, fnEnd);
+    // Must reject missing/non-string publishedAt
+    expect(fnText).toContain("publishedAt must be an ISO 8601");
+    // Must validate the date parses successfully
+    expect(fnText).toContain("isNaN");
+    expect(fnText).toContain("BadRequestException");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Subtask-3: resolveSession + assertAdminManagementAccess wiring on admin handlers
+// (AC: controller must not bypass auth on any admin route)
+// ---------------------------------------------------------------------------
+
+describe("blog.controller.ts — resolveSession + assertAdminManagementAccess wiring on admin handlers (subtask-3 AC3)", () => {
+  const adminHandlers = [
+    "async adminListAll(",
+    "async adminGetById(",
+    "async adminCreate(",
+    "async adminUpdate(",
+    "async adminPublish(",
+    "async adminUnpublish(",
+    "async adminPublishAt(",
+    "async adminToggleFeatured(",
+    "async adminDelete("
+  ];
+
+  for (const handlerSignature of adminHandlers) {
+    it(`${handlerSignature.replace("async ", "").replace("(", "")} calls resolveSession and assertAdminManagementAccess`, async () => {
+      const source = await readBlogController();
+      const handlerStart = source.indexOf(handlerSignature);
+      expect(handlerStart).toBeGreaterThan(-1);
+      // Find the closing brace of the handler
+      const handlerEnd = source.indexOf("\n  }", handlerStart);
+      const handlerText = source.slice(handlerStart, handlerEnd);
+      expect(handlerText).toContain("resolveSession");
+      expect(handlerText).toContain("assertAdminManagementAccess");
+    });
+  }
 });

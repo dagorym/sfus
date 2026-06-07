@@ -1286,6 +1286,254 @@ describe("BlogService.createComment imageId scope validation (AC2)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Oracle-parity: parentId rejection messages are uniform across both failure cases
+// Both "not found" and "belongs to different post" must yield the same 400 message
+// so callers cannot distinguish a nonexistent parent from a valid-but-foreign one.
+// ---------------------------------------------------------------------------
+
+describe("BlogService.createComment parentId oracle-parity: uniform 400 message (subtask-3)", () => {
+  const EXPECTED_MESSAGE = "parentId is invalid.";
+  const publishedPost = {
+    id: "post-published",
+    status: "published",
+    publishedAt: new Date(Date.now() - 1000),
+    commentsLocked: false,
+    title: "Test Post",
+    slug: "test-post",
+    body: "body",
+    postTags: []
+  };
+
+  it("nonexistent parentId yields 'parentId is invalid.' (same message as foreign-post case)", async () => {
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(publishedPost)
+    };
+    const commentRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(null) // parent comment not found
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      commentRepo as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    let caughtMessage = "";
+    try {
+      await service.createComment(publishedPost.id, "user-1", { body: "Reply", parentId: "nonexistent-parent-id" });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      caughtMessage = e.message ?? "";
+    }
+    expect(caughtMessage).toBe(EXPECTED_MESSAGE);
+  });
+
+  it("parentId belonging to a different post yields 'parentId is invalid.' (same message as nonexistent case)", async () => {
+    const authorizationService = new AuthorizationService();
+    const foreignParent = {
+      id: "comment-from-other-post",
+      postId: "other-post-id", // different from publishedPost.id
+      parentId: null,
+      body: "Foreign comment",
+      status: "visible"
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(publishedPost)
+    };
+    const commentRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(foreignParent)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      commentRepo as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    let caughtMessage = "";
+    try {
+      await service.createComment(publishedPost.id, "user-1", { body: "Reply", parentId: foreignParent.id });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      caughtMessage = e.message ?? "";
+    }
+    expect(caughtMessage).toBe(EXPECTED_MESSAGE);
+  });
+
+  it("both parentId failure cases produce identical messages (oracle-parity assertion)", async () => {
+    const authorizationService = new AuthorizationService();
+    const foreignParent = {
+      id: "foreign-comment",
+      postId: "other-post-id",
+      parentId: null,
+      body: "Foreign",
+      status: "visible"
+    };
+
+    const makeService = (commentRepoFindOneResult: unknown) => {
+      const postRepo = {
+        ...createMinimalRepository(),
+        findOne: vi.fn().mockResolvedValue(publishedPost)
+      };
+      const commentRepo = {
+        ...createMinimalRepository(),
+        findOne: vi.fn().mockResolvedValue(commentRepoFindOneResult)
+      };
+      return new BlogService(
+        postRepo as never,
+        createMinimalRepository() as never,
+        commentRepo as never,
+        createMinimalRepository() as never,
+        authorizationService
+      );
+    };
+
+    const messages: string[] = [];
+    for (const findOneResult of [null, foreignParent]) {
+      const service = makeService(findOneResult);
+      try {
+        await service.createComment(publishedPost.id, "user-1", { body: "Reply", parentId: "some-parent-id" });
+        messages.push("NO_THROW");
+      } catch (err: unknown) {
+        const e = err as { message?: string; name?: string };
+        messages.push(`${e.name ?? "Unknown"}:${e.message ?? ""}`);
+      }
+    }
+    // Both cases must produce identical exception class and message.
+    const unique = new Set(messages);
+    expect(unique.size).toBe(1);
+    expect(messages[0]).toBe(`BadRequestException:${EXPECTED_MESSAGE}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Oracle-parity: imageId rejection messages are uniform across both failure cases
+// Both "does not exist" and "wrong resourceType" must yield the same 400 message
+// so callers cannot distinguish a nonexistent image from a valid-but-wrong-scope one.
+// ---------------------------------------------------------------------------
+
+describe("BlogService.createComment imageId oracle-parity: uniform 400 message (subtask-3)", () => {
+  const EXPECTED_MESSAGE = "imageId is invalid.";
+  const publishedPost = {
+    id: "post-pub",
+    status: "published",
+    publishedAt: new Date(Date.now() - 1000),
+    commentsLocked: false,
+    title: "Post",
+    slug: "post",
+    body: "body",
+    postTags: []
+  };
+
+  it("nonexistent imageId yields 'imageId is invalid.' (same message as wrong-scope case)", async () => {
+    const authorizationService = new AuthorizationService();
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(publishedPost)
+    };
+    const mediaRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(null) // media record not found
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      mediaRepo as never,
+      authorizationService
+    );
+    let caughtMessage = "";
+    try {
+      await service.createComment(publishedPost.id, "user-1", { body: "Comment", imageId: "nonexistent-media-id" });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      caughtMessage = e.message ?? "";
+    }
+    expect(caughtMessage).toBe(EXPECTED_MESSAGE);
+  });
+
+  it("imageId with wrong resourceType yields 'imageId is invalid.' (same message as nonexistent case)", async () => {
+    const authorizationService = new AuthorizationService();
+    const wrongScopeMedia = {
+      id: "media-wrong-scope",
+      resourceType: "blog-post", // Not "blog-comment"
+      filename: "photo.jpg"
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(publishedPost)
+    };
+    const mediaRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(wrongScopeMedia)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      mediaRepo as never,
+      authorizationService
+    );
+    let caughtMessage = "";
+    try {
+      await service.createComment(publishedPost.id, "user-1", { body: "Comment", imageId: wrongScopeMedia.id });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      caughtMessage = e.message ?? "";
+    }
+    expect(caughtMessage).toBe(EXPECTED_MESSAGE);
+  });
+
+  it("both imageId failure cases produce identical messages (oracle-parity assertion)", async () => {
+    const authorizationService = new AuthorizationService();
+    const wrongScopeMedia = {
+      id: "media-wrong",
+      resourceType: "standalone-page",
+      filename: "img.jpg"
+    };
+
+    const makeService = (mediaFindOneResult: unknown) => {
+      const postRepo = {
+        ...createMinimalRepository(),
+        findOne: vi.fn().mockResolvedValue(publishedPost)
+      };
+      const mediaRepo = {
+        ...createMinimalRepository(),
+        findOne: vi.fn().mockResolvedValue(mediaFindOneResult)
+      };
+      return new BlogService(
+        postRepo as never,
+        createMinimalRepository() as never,
+        createMinimalRepository() as never,
+        mediaRepo as never,
+        authorizationService
+      );
+    };
+
+    const messages: string[] = [];
+    for (const findOneResult of [null, wrongScopeMedia]) {
+      const service = makeService(findOneResult);
+      try {
+        await service.createComment(publishedPost.id, "user-1", { body: "Comment", imageId: "some-image-id" });
+        messages.push("NO_THROW");
+      } catch (err: unknown) {
+        const e = err as { message?: string; name?: string };
+        messages.push(`${e.name ?? "Unknown"}:${e.message ?? ""}`);
+      }
+    }
+    // Both cases must produce identical exception class and message.
+    const unique = new Set(messages);
+    expect(unique.size).toBe(1);
+    expect(messages[0]).toBe(`BadRequestException:${EXPECTED_MESSAGE}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC3: lockComments / unlockComments
 // ---------------------------------------------------------------------------
 
