@@ -538,9 +538,12 @@ describe("NavigationService.findForAuthenticatedUser — admin visibility exclus
 
   it("excludes admin-visibility children for non-admin users", async () => {
     // AC3: Children visibility-filtered for non-admin users.
+    // URLs use reserved slugs (multi-segment or RESERVED_PAGE_SLUGS) so they pass
+    // the publication filter without requiring page/blog mocks (behavior under test
+    // is the visibility filter, not the publication filter).
     const adminChild = makePublicItem({ id: "child-admin", parentId: "parent", label: "Manage", url: "/admin/manage", visibility: "admin" });
-    const publicChild = makePublicItem({ id: "child-pub", parentId: "parent", label: "View", url: "/view", visibility: "public" });
-    const parent = makePublicItem({ id: "parent", url: "/section", visibility: "public", children: [adminChild, publicChild] });
+    const publicChild = makePublicItem({ id: "child-pub", parentId: "parent", label: "View", url: "/app", visibility: "public" });
+    const parent = makePublicItem({ id: "parent", url: "/app", visibility: "public", children: [adminChild, publicChild] });
     const service = makeNavigationService({
       find: vi.fn().mockResolvedValue([parent])
     });
@@ -566,14 +569,264 @@ describe("NavigationService.findForAuthenticatedUser — admin visibility exclus
 
   it("excludes inactive children for all users", async () => {
     // AC3: Inactive children are always excluded.
-    const inactiveChild = makePublicItem({ id: "child-inactive", parentId: "parent", label: "Gone", url: "/gone", isActive: false });
-    const activeChild = makePublicItem({ id: "child-active", parentId: "parent", label: "Active", url: "/active", isActive: true });
-    const parent = makePublicItem({ id: "parent", url: "/section", visibility: "public", children: [inactiveChild, activeChild] });
+    // URLs use reserved slugs so they pass the publication filter without additional mocks
+    // (behavior under test is isActive filtering, not publication filtering).
+    const inactiveChild = makePublicItem({ id: "child-inactive", parentId: "parent", label: "Gone", url: "/blog", isActive: false });
+    const activeChild = makePublicItem({ id: "child-active", parentId: "parent", label: "Active", url: "/app", isActive: true });
+    const parent = makePublicItem({ id: "parent", url: "/app", visibility: "public", children: [inactiveChild, activeChild] });
     const service = makeNavigationService({
       find: vi.fn().mockResolvedValue([parent])
     });
     const result = await service.findForAuthenticatedUser("user");
+    expect(result).toHaveLength(1);
     expect(result[0].children.map((c) => c.id)).not.toContain("child-inactive");
     expect(result[0].children.map((c) => c.id)).toContain("child-active");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC1 (ms3-review-closeout subtask-7): findForAuthenticatedUser — non-admin
+//   publication filtering mirrors findPublic
+// ---------------------------------------------------------------------------
+
+describe("NavigationService.findForAuthenticatedUser — non-admin publication filtering", () => {
+  it("omits a non-admin top-level item whose linked blog post is unpublished", async () => {
+    // AC1: Non-admin users must not see nav items linking to unpublished blog posts —
+    // identical publication guard to the public endpoint.
+    const item = makePublicItem({ id: "blog-item", url: "/blog/draft-post", visibility: "public" });
+    const blogFindOne = vi.fn().mockResolvedValue(null); // no published post found
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      { findOne: blogFindOne }
+    );
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result).toHaveLength(0);
+  });
+
+  it("includes a non-admin top-level item whose linked blog post is published and publishedAt<=now", async () => {
+    // AC1: Published blog post target must be visible to non-admin authenticated users.
+    const item = makePublicItem({ id: "blog-item", url: "/blog/published-post", visibility: "public" });
+    const mockPost = { slug: "published-post", status: "published", publishedAt: new Date(Date.now() - 1000) };
+    const blogFindOne = vi.fn().mockResolvedValue(mockPost);
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      { findOne: blogFindOne }
+    );
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe("/blog/published-post");
+  });
+
+  it("pins blog publication predicate: blogPost findOne must be called with status='published'", async () => {
+    // Security pin: a regression dropping the status condition on the blog query must not
+    // silently pass — we assert the findOne call included the status='published' predicate.
+    const item = makePublicItem({ id: "blog-item", url: "/blog/some-post", visibility: "public" });
+    const mockPost = { slug: "some-post", status: "published", publishedAt: new Date(Date.now() - 1000) };
+    const blogFindOne = vi.fn().mockResolvedValue(mockPost);
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      { findOne: blogFindOne }
+    );
+    await service.findForAuthenticatedUser("user");
+    expect(blogFindOne).toHaveBeenCalled();
+    const callArg = blogFindOne.mock.calls[0][0] as { where?: { status?: string; slug?: string; publishedAt?: unknown } };
+    expect(callArg?.where?.status).toBe("published");
+    expect(callArg?.where?.slug).toBe("some-post");
+    // publishedAt must be a LessThanOrEqual constraint object (not null/undefined)
+    expect(callArg?.where?.publishedAt).toBeDefined();
+    expect(typeof callArg?.where?.publishedAt).toBe("object");
+  });
+
+  it("omits a non-admin top-level item whose linked standalone page is unpublished", async () => {
+    // AC1: Non-admin users must not see nav items linking to unpublished standalone pages.
+    const item = makePublicItem({ id: "page-item", url: "/pages/draft-page", visibility: "public" });
+    const pageFindOne = vi.fn().mockResolvedValue(null); // no published page found
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      undefined,
+      { findOne: pageFindOne }
+    );
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result).toHaveLength(0);
+  });
+
+  it("includes a non-admin top-level item whose linked standalone page is published", async () => {
+    // AC1: Published standalone page target must be visible to non-admin authenticated users.
+    const item = makePublicItem({ id: "page-item", url: "/pages/about", visibility: "public" });
+    const mockPage = { slug: "about", status: "published" };
+    const pageFindOne = vi.fn().mockResolvedValue(mockPage);
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      undefined,
+      { findOne: pageFindOne }
+    );
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe("/pages/about");
+  });
+
+  it("pins standalone page publication predicate: pageFindOne must be called with status='published'", async () => {
+    // Security pin: a regression dropping the status condition on the page query must not
+    // silently pass — we assert the findOne call included the status='published' predicate.
+    const item = makePublicItem({ id: "page-item", url: "/pages/some-page", visibility: "public" });
+    const mockPage = { slug: "some-page", status: "published" };
+    const pageFindOne = vi.fn().mockResolvedValue(mockPage);
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      undefined,
+      { findOne: pageFindOne }
+    );
+    await service.findForAuthenticatedUser("user");
+    expect(pageFindOne).toHaveBeenCalled();
+    const callArg = pageFindOne.mock.calls[0][0] as { where?: { status?: string; slug?: string } };
+    expect(callArg?.where?.status).toBe("published");
+    expect(callArg?.where?.slug).toBe("some-page");
+  });
+
+  it("omits a non-admin top-level item linking to an unpublished page via canonical top-level route (/<slug>)", async () => {
+    // AC1: /<slug> canonical route to an unpublished standalone page must be omitted
+    // for non-admin authenticated users, matching the public endpoint behavior.
+    const item = makePublicItem({ id: "canonical-item", url: "/about", visibility: "public" });
+    const pageFindOne = vi.fn().mockResolvedValue(null); // no published page found for slug "about"
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      undefined,
+      { findOne: pageFindOne }
+    );
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result).toHaveLength(0);
+  });
+
+  it("includes a non-admin top-level item linking to a published page via canonical top-level route (/<slug>)", async () => {
+    // AC1: /<slug> canonical route must appear for non-admin authenticated users when the
+    // standalone page is published.
+    const item = makePublicItem({ id: "canonical-item", url: "/about", visibility: "public" });
+    const mockPage = { slug: "about", status: "published" };
+    const pageFindOne = vi.fn().mockResolvedValue(mockPage);
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      undefined,
+      { findOne: pageFindOne }
+    );
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe("/about");
+  });
+
+  it("keeps external-link items regardless of publication status for non-admin users", async () => {
+    // AC1: External links always pass the filter for non-admin authenticated users.
+    const item = makePublicItem({ id: "ext-item", url: "https://example.com", linkType: "external", visibility: "public" });
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) }
+    );
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe("https://example.com");
+  });
+
+  it("keeps reserved single-segment slugs always visible for non-admin users", async () => {
+    // AC1: Reserved top-level slugs (RESERVED_PAGE_SLUGS) are treated as static
+    // routes and always pass the visibility filter for non-admin authenticated users.
+    const item = makePublicItem({ id: "reserved-item", url: "/profile", linkType: "internal", visibility: "public" });
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) }
+    );
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe("/profile");
+  });
+
+  it("admin users see all items regardless of publication state (no publication filtering for admin)", async () => {
+    // AC2: Admin callers bypass publication filtering — unpublished-target items remain visible.
+    const item = makePublicItem({ id: "blog-item", url: "/blog/draft-post", visibility: "public" });
+    const blogFindOne = vi.fn().mockResolvedValue(null); // would be filtered for non-admin
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      { findOne: blogFindOne }
+    );
+    const result = await service.findForAuthenticatedUser("admin");
+    // Admin bypasses publication filtering — item must appear
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe("/blog/draft-post");
+    // Confirm the blog repo was NOT consulted for admin (publication filter skipped)
+    expect(blogFindOne).not.toHaveBeenCalled();
+  });
+
+  it("admin users see all items even when standalone page target is unpublished", async () => {
+    // AC2: Admin bypass applies to standalone page targets too.
+    const item = makePublicItem({ id: "page-item", url: "/pages/draft-page", visibility: "public" });
+    const pageFindOne = vi.fn().mockResolvedValue(null); // would be filtered for non-admin
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      undefined,
+      { findOne: pageFindOne }
+    );
+    const result = await service.findForAuthenticatedUser("admin");
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe("/pages/draft-page");
+    expect(pageFindOne).not.toHaveBeenCalled();
+  });
+
+  it("filters children publication state for non-admin users (child blog link to unpublished post omitted)", async () => {
+    // AC1: Child items with unpublished blog post links must be omitted for non-admin users.
+    const draftChild = makePublicItem({ id: "child-draft", parentId: "parent", url: "/blog/draft-post", isActive: true, visibility: "public" });
+    const publishedChild = makePublicItem({ id: "child-pub", parentId: "parent", url: "/blog/published-post", isActive: true, visibility: "public" });
+    const parent = makePublicItem({ id: "parent", url: "/app", visibility: "public", children: [draftChild, publishedChild] });
+    const publishedPost = { slug: "published-post", status: "published", publishedAt: new Date(Date.now() - 1000) };
+    const blogFindOne = vi.fn().mockImplementation((opts: { where?: { slug?: string } }) => {
+      if (opts?.where?.slug === "published-post") return Promise.resolve(publishedPost);
+      return Promise.resolve(null); // draft-post returns null
+    });
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([parent]) },
+      { findOne: blogFindOne }
+    );
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result).toHaveLength(1);
+    expect(result[0].children.map((c) => c.id)).not.toContain("child-draft");
+    expect(result[0].children.map((c) => c.id)).toContain("child-pub");
+  });
+
+  it("admin children publication filtering skipped — admin sees children regardless of publication state", async () => {
+    // AC2: Admin bypass applies to children as well — unpublished-target children remain visible.
+    const draftChild = makePublicItem({ id: "child-draft", parentId: "parent", url: "/blog/draft-post", isActive: true, visibility: "public" });
+    const parent = makePublicItem({ id: "parent", url: "/app", visibility: "public", children: [draftChild] });
+    const blogFindOne = vi.fn().mockResolvedValue(null); // would filter draft for non-admin
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([parent]) },
+      { findOne: blogFindOne }
+    );
+    const result = await service.findForAuthenticatedUser("admin");
+    expect(result).toHaveLength(1);
+    expect(result[0].children.map((c) => c.id)).toContain("child-draft");
+    expect(blogFindOne).not.toHaveBeenCalled();
+  });
+
+  it("authenticated-only items (visibility=authenticated) are included for non-admin users with published targets", async () => {
+    // AC1: Items with visibility=authenticated that point to published targets must appear
+    // for non-admin authenticated users (visibility-only filter is not the same as publication filter).
+    const item = makePublicItem({ id: "auth-item", url: "/pages/member-page", visibility: "authenticated" });
+    const mockPage = { slug: "member-page", status: "published" };
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      undefined,
+      { findOne: vi.fn().mockResolvedValue(mockPage) }
+    );
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("auth-item");
+  });
+
+  it("authenticated-only items (visibility=authenticated) are omitted when target is unpublished for non-admin users", async () => {
+    // Security: non-admin callers must not learn existence of unpublished content even
+    // through authenticated-visibility nav items — publication filtering applies regardless of visibility.
+    const item = makePublicItem({ id: "auth-item", url: "/pages/member-draft", visibility: "authenticated" });
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      undefined,
+      { findOne: vi.fn().mockResolvedValue(null) } // no published page
+    );
+    const result = await service.findForAuthenticatedUser("user");
+    expect(result).toHaveLength(0);
   });
 });
