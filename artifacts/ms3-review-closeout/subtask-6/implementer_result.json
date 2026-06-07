@@ -1,0 +1,23 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms3-review-closeout/subtask-6/implementer_report.md",
+    "artifacts/ms3-review-closeout/subtask-6/tester_prompt.txt",
+    "artifacts/ms3-review-closeout/subtask-6/implementer_result.json"
+  ],
+  "branch_name": "ms3-claude-subtask-6-implementer-20260606",
+  "changed_files": [
+    "apps/api/src/navigation/navigation.controller.test.ts"
+  ],
+  "code_commit_hash": "af9a548",
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ms3-review-closeout/subtask-6 (pass-2 remediation)",
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/api run build",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api run test",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run (from apps/api cwd)",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api run lint",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api run typecheck"
+  ],
+  "validation_outcome": "PASS: API build exits 0 (no tsc TS1470 error), 264/264 tests pass from repo root, 264/264 tests pass from apps/api (cwd-independent), lint clean, typecheck clean."
+}
