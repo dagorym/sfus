@@ -1,0 +1,52 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- REMEDIATION PASS 2: Fix stale Swagger decorator on POST /api/blog/:postIdOrSlug/comments createComment handler. The @ApiForbiddenResponse description 'Post is not published.' was stale — non-public posts now return 404 (indistinguishable from nonexistent) via the resolvePostId+createComment defense-in-depth fix from prior pass. Updated @ApiForbiddenResponse to describe the commentsLocked guard ('Comments are locked on this post.') and updated @ApiNotFoundResponse to 'Post not found or not published.' so the OpenAPI spec accurately reflects the implemented behavior.
+
+Modified files:
+- apps/api/src/blog/blog.controller.ts
+
+Acceptance criteria to validate (from Planner):
+- POST /api/blog/:postIdOrSlug/comments returns an indistinguishable 404 (same status and envelope message) for nonexistent, draft, unpublished, and future-scheduled posts, whether addressed by slug or UUID.
+- Comment creation on genuinely public posts is unchanged; a locked public post still returns the existing 403 lock message.
+- All other comment routes (list, moderation, lock/unlock) are behaviorally unchanged.
+- Security: no authenticated member can distinguish an existing non-public post from a nonexistent one via the comment-creation route.
+- The API builds, lints, typechecks, and its unit suite passes.
+- OpenAPI decorators on createComment accurately reflect: 404 for nonexistent/non-public posts, 403 for locked public post only.
+
+Create test files in:
+- Tester-owned tests live under apps/api/src/blog/blog.service.test.ts and apps/api/src/blog/blog.controller.ts (no controller test file exists yet — tester should create if needed).
+- Primary test file: apps/api/src/blog/blog.service.test.ts
+- Add oracle-parity tests: nonexistent vs draft vs future-scheduled UUID produce identical 404 responses on createComment.
+- Add locked-public-post 403 regression case.
+- Tighten findPublished* predicate assertions to verify LessThanOrEqual operator rather than key presence.
+- Add a controller-level test pinning resolvePostId's slug-then-id fallback wiring (per security review informational notes).
+
+Implementation context for testing:
+- Pass 1 (merged): resolvePostId in blog.controller.ts already uses findPublishedById for UUID fallback so non-public posts resolve to 404.
+- Pass 1 (merged): createComment in blog.service.ts already throws NotFoundException('Blog post not found.') for non-public posts as defense-in-depth.
+- Pass 2 (this pass): Only change is to Swagger decorators on the createComment handler at blog.controller.ts ~line 268.
+- Before: @ApiForbiddenResponse({ description: 'Post is not published.' }) — stale.
+- After: @ApiForbiddenResponse({ description: 'Comments are locked on this post.' }) and @ApiNotFoundResponse({ description: 'Post not found or not published.' }).
+- Pre-existing build/lint failures in navigation.controller.test.ts are unrelated to this change and should not be treated as regressions.
+- commentsLocked ForbiddenException is unchanged — a locked PUBLIC post legitimately shows 403.
+
+Suggested test command(s):
+- pnpm --filter api run test
+- pnpm --filter api run lint
+- pnpm --filter api run build
+
+Existing validations expected to fail only because approved behavior changed:
+- pnpm --filter api run build — fails due to TS1470 in navigation.controller.test.ts (import.meta in CJS output), pre-existing, unrelated to this task.
+- pnpm --filter api run lint — fails due to unused variable in navigation.controller.test.ts, pre-existing, unrelated to this task.
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-8
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
