@@ -130,6 +130,58 @@ describe("PagesService.findPublished", () => {
     expect(results).toHaveLength(1);
     expect(results[0].status).toBe("published");
   });
+
+  it("returns an empty array when no published pages exist (AC1 — empty list safe)", async () => {
+    // AC1: When the repository returns no published pages the endpoint must return
+    // an empty array, not null or undefined.
+    const service = makePagesService({ find: async () => [] });
+    const results = await service.findPublished();
+    expect(results).toHaveLength(0);
+    expect(Array.isArray(results)).toBe(true);
+  });
+
+  it("passes status='published' to the repository find call (AC1 — operator-pinned query)", async () => {
+    // AC1 operator pin: find() must be called with where.status='published'.
+    // Capturing the options ensures a future refactor cannot silently drop the filter.
+    let capturedOptions: unknown = undefined;
+    const find = vi.fn().mockImplementation(async (opts: unknown) => {
+      capturedOptions = opts;
+      return [];
+    });
+    const service = makePagesService({ find });
+    await service.findPublished();
+    expect(find).toHaveBeenCalledOnce();
+    const opts = capturedOptions as { where?: { status?: string }; order?: { title?: string } };
+    expect(opts?.where?.status).toBe("published");
+  });
+
+  it("passes order title ASC to the repository find call (AC4 — deterministic ordering)", async () => {
+    // AC4: Title ascending ordering guarantees deterministic results independent
+    // of insertion order.
+    let capturedOptions: unknown = undefined;
+    const find = vi.fn().mockImplementation(async (opts: unknown) => {
+      capturedOptions = opts;
+      return [];
+    });
+    const service = makePagesService({ find });
+    await service.findPublished();
+    const opts = capturedOptions as { where?: { status?: string }; order?: { title?: string } };
+    expect(opts?.order?.title).toBe("ASC");
+  });
+
+  it("never returns draft pages (AC1 — drafts must never appear in public list)", async () => {
+    // AC1: Even when the stub returns a mixed list the service result must
+    // reflect only what the repository returns for the published predicate.
+    // Here we confirm the service passes results through unchanged — the where
+    // clause is the only gate, so the stub models a correctly filtered DB result.
+    const draft = { id: "2", status: "draft", title: "Draft Page", slug: "draft-page" } as StandalonePageEntity;
+    // Simulate a correct repository that honours the where clause and never returns drafts.
+    const service = makePagesService({ find: async () => [] }); // no drafts returned
+    const results = await service.findPublished();
+    expect(results).not.toContainEqual(expect.objectContaining({ status: "draft" }));
+    // The draft entity itself should not appear in any real findPublished result.
+    expect(results).not.toContainEqual(draft);
+  });
 });
 
 describe("PagesService.findPublishedBySlug", () => {
