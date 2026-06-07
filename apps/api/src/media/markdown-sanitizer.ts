@@ -12,13 +12,33 @@
  *   - Rendering HTML from Markdown happens in the web layer with its own sanitization;
  *     this layer protects the storage contract and rejects obviously unsafe payloads
  *     before they reach the database.
+ *
+ * Pattern anchoring policy:
+ *   - Event-handler attributes (`on\w+=`) are matched only when they appear inside an
+ *     HTML tag context (i.e., following `<` with optional tag content), preventing
+ *     false positives on prose such as "the onclick = handler pattern".
+ *   - `data:` URIs are matched only when they appear in URL positions: HTML attribute
+ *     values for href/src or Markdown link/image destinations (`](data:`), preventing
+ *     false positives on prose such as "training data: source A".
  */
 
-/** Dangerous HTML patterns that are rejected from Markdown body submissions. */
+/**
+ * Dangerous HTML patterns that are rejected from Markdown body submissions.
+ *
+ * Rejection classes:
+ *   1. Script tags: `<script...>` and `</script>`.
+ *   2. Event-handler attributes: `on<word>=` inside HTML tag context
+ *      (e.g. `<img onerror=...>`, `<a onclick=...>`).
+ *   3. Dangerous embedding elements: `<iframe>`, `<object>`, `<embed>`.
+ *   4. Form interaction elements: `<form>`, `<input>`, `<button>`.
+ *   5. Dangerous URI schemes in URL positions: `javascript:`, `vbscript:`.
+ *   6. `data:` URIs in URL positions: href/src attribute values and Markdown
+ *      link/image destinations (e.g. `<a href="data:...">`, `[x](data:...)`).
+ */
 const DANGEROUS_HTML_PATTERNS: RegExp[] = [
   /<script[\s\S]*?>/i,
   /<\/script>/i,
-  /on\w+\s*=/i, // inline event handlers (onclick=, onerror=, etc.)
+  /<[^>]*\bon\w+\s*=/i, // inline event handlers inside HTML tags (onclick=, onerror=, etc.)
   /<iframe[\s\S]*?>/i,
   /<\/iframe>/i,
   /<object[\s\S]*?>/i,
@@ -30,7 +50,7 @@ const DANGEROUS_HTML_PATTERNS: RegExp[] = [
   /<button[\s\S]*?>/i,
   /javascript\s*:/i,
   /vbscript\s*:/i,
-  /data\s*:/i
+  /(?:(?:href|src)\s*=\s*['"]?|]\()data\s*:/i // data: URIs in href/src attributes or Markdown link/image destinations
 ];
 
 export interface SanitizationResult {
@@ -42,6 +62,11 @@ export interface SanitizationResult {
 /**
  * Validates that the Markdown body does not contain raw unsafe HTML or script
  * injection patterns. Returns a safe/unsafe decision without mutating the input.
+ *
+ * Patterns are anchored to HTML tag and URL contexts where possible so that
+ * legitimate prose (e.g. "training data: source A", "the onclick = handler
+ * pattern") is not incorrectly rejected. See DANGEROUS_HTML_PATTERNS for the
+ * full set of rejection classes.
  *
  * Callers that store body content MUST call this before persisting any
  * user-supplied Markdown and reject the request when safe === false.

@@ -15,8 +15,6 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import multer from "multer";
-
-const { memoryStorage } = multer;
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -34,6 +32,8 @@ import type { Request, Response } from "express";
 import { AuthService } from "../auth/auth.service";
 import type { AllowedResourceType } from "./media.service";
 import { ALLOWED_RESOURCE_TYPES, MediaService } from "./media.service";
+
+const { memoryStorage } = multer;
 
 /** Resource types that require an admin-level global role to upload. */
 const ADMIN_ONLY_RESOURCE_TYPES: AllowedResourceType[] = ["blog-post", "standalone-page"];
