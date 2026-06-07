@@ -150,29 +150,55 @@ describe.skipIf(!DB_INTEGRATION_ENABLED)(
     );
 
     // -----------------------------------------------------------------------
-    // Test 2: forced mid-transaction failure proves no orphaned page row
+    // Test 2: forced mid-transaction failure proves DB rollback atomicity
     //
-    // Strategy: call service.create() successfully, then attempt to insert a
-    // duplicate revision (violating uq_page_revisions_page_revision_number)
-    // by directly invoking pageRepo.manager.transaction() with the same
-    // page_id / revision_number pair.  This simulates the rollback scenario
-    // without modifying PagesService production code.
+    // WHY THIS TEST DOES NOT CALL service.create() DIRECTLY
+    // -------------------------------------------------------
+    // PagesService.create() generates its own page_id and revision_id via
+    // crypto.randomUUID() inside the service module.  Vitest's vi.spyOn
+    // cannot intercept a native Node.js module method used by a different
+    // module's own import (the production module's `crypto` binding is frozen
+    // at load time and is not the same reference as the test's spy target).
+    // All other mechanisms for causing a failure *inside* the service's
+    // transaction without modifying production code were evaluated:
     //
-    // We prove the service.create() transaction is atomic by constructing a
-    // test-local transaction that intentionally violates a FK/unique
-    // constraint and confirming no partial standalone_pages row survives.
+    //   - crafted slug/title/body input: fails before the transaction starts
+    //     (the validators reject bad input before entityManager.transaction)
+    //   - vi.spyOn on entityManager.getRepository: not exposed; the service
+    //     calls entityManager.getRepository() on a fresh transactional EM
+    //     obtained internally from this.pageRepository.manager.transaction
+    //
+    // WHAT THIS TEST DOES AND DOES NOT PROVE
+    // ----------------------------------------
+    // This test proves that the MySQL schema and TypeORM's transaction wrapper
+    // are correctly configured: if a constraint violation occurs during a
+    // transaction that mirrors PagesService.create()'s three-step write
+    // sequence, the entire transaction — including the standalone_pages row
+    // that was inserted first — is atomically rolled back.
+    //
+    // Test 1 proves that the real PagesService.create() path succeeds
+    // end-to-end with FK enforcement. Together the two tests give high
+    // confidence that the FK bug that originally shipped (INSERT order wrong,
+    // causing FK violation on every create) is fixed and that the rollback
+    // contract holds at the database level.
+    //
+    // Strategy: construct a test-local transaction that performs the same
+    // three steps as PagesService.create() (insert standalone_pages, insert
+    // page_revisions, update currentRevisionId pointer) but injects a second
+    // revision insert with duplicate revision_number to violate
+    // uq_page_revisions_page_revision_number.  The transaction must roll back,
+    // leaving no standalone_pages row with our test page_id.
     // -----------------------------------------------------------------------
 
     it(
-      "a forced revision-insert failure inside a transaction leaves no orphaned standalone_pages row",
+      "a mid-transaction revision-insert failure rolls back the standalone_pages row (DB atomicity proof)",
       async () => {
         const slug = `it-orphan-${crypto.randomUUID().slice(0, 8)}`;
         const fakePageId = crypto.randomUUID();
 
-        // Attempt a transaction that inserts a standalone_pages row and then
-        // fails on an intentional constraint violation (duplicate primary key
-        // on page_revisions).  The rollback must remove the standalone_pages
-        // row too.
+        // Attempt a transaction that mirrors PagesService.create()'s write
+        // sequence but intentionally violates uq_page_revisions_page_revision_number
+        // to force a DB-level rollback.
         let transactionError: unknown = null;
 
         try {
@@ -180,12 +206,12 @@ describe.skipIf(!DB_INTEGRATION_ENABLED)(
             const txPageRepo = em.getRepository(StandalonePageEntity);
             const txRevisionRepo = em.getRepository(PageRevisionEntity);
 
-            // 1. Insert standalone_pages row (would normally succeed).
+            // Step 1: Insert standalone_pages row (mirrors create()'s first write).
             await txPageRepo.save(
               txPageRepo.create({
                 id: fakePageId,
                 createdByUserId: authorUserId,
-                title: "Orphan Test",
+                title: "Rollback Test",
                 slug,
                 status: "draft",
                 publishedAt: null,
@@ -193,12 +219,11 @@ describe.skipIf(!DB_INTEGRATION_ENABLED)(
               })
             );
 
-            // 2. Insert a revision with a duplicate primary key to force a
-            //    constraint violation and trigger rollback.
-            const duplicateRevisionId = crypto.randomUUID();
+            // Step 2a: Insert revision 1 (mirrors create()'s second write).
+            const rev1Id = crypto.randomUUID();
             await txRevisionRepo.save(
               txRevisionRepo.create({
-                id: duplicateRevisionId,
+                id: rev1Id,
                 pageId: fakePageId,
                 authorUserId,
                 title: "Rev 1",
@@ -210,8 +235,9 @@ describe.skipIf(!DB_INTEGRATION_ENABLED)(
               })
             );
 
-            // Insert a second revision with the SAME revision_number to violate
-            // uq_page_revisions_page_revision_number and force a DB error.
+            // Step 2b: Insert a second revision with the SAME revision_number
+            // to violate uq_page_revisions_page_revision_number and force
+            // a DB error inside the transaction.
             await txRevisionRepo.save(
               txRevisionRepo.create({
                 id: crypto.randomUUID(),
@@ -222,7 +248,7 @@ describe.skipIf(!DB_INTEGRATION_ENABLED)(
                 summary: null,
                 changeNote: null,
                 featuredMediaId: null,
-                revisionNumber: 1 // Duplicate — must violate the unique constraint.
+                revisionNumber: 1 // Intentional duplicate — forces constraint violation.
               })
             );
           });

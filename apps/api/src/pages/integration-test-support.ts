@@ -45,6 +45,12 @@ export interface IntegrationDbOptions {
  *
  * Defaults for local host-run hybrid dev match docs/website-launch-guide.md:
  *   DB_HOST=127.0.0.1, DB_PORT=3306, DB_NAME=sfus
+ *
+ * NOTE: DB_USER and DB_PASSWORD have no safe fallback value and MUST be
+ * provided explicitly.  If either is missing the DataSource will fail to
+ * connect with a generic authentication error from the MySQL driver.  Set
+ * both variables before running the integration suite:
+ *   DB_USER=sfus DB_PASSWORD=changeme-app
  */
 export function readDbOptionsFromEnv(): IntegrationDbOptions {
   return {
