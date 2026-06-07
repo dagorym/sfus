@@ -1,0 +1,25 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms3-review-closeout/subtask-8/verifier_report.md",
+    "artifacts/ms3-review-closeout/subtask-8/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms3-claude-subtask-8-verifier-20260606",
+  "documentation_accuracy_summary": [
+    "ACCURATE. docs/README.md lines 199, 253, and 269 (pass-1 documenter commit 3ba4cd6) correctly state 404 for non-public posts and 403 only for commentsLocked=true on a public post, with explicit existence-oracle-prevention language. No changes needed in pass-2.",
+    "Swagger/OpenAPI in-code documentation now accurate: @ApiForbiddenResponse({ description: 'Comments are locked on this post.' }) and @ApiNotFoundResponse({ description: 'Post not found or not published.' }) on createComment at lines 268 and 270 respectively. This was the exact inaccuracy raised in verifier-1 WARNING \u2014 confirmed resolved.",
+    "No new documentation gaps introduced by pass-2 changes (decorator-only edit; no behavioral change to document)."
+  ],
+  "note_finding_count": 3,
+  "pass_label": "verifier-2",
+  "status": "pass",
+  "task_id": "ms3-review-closeout/subtask-8",
+  "test_sufficiency_summary": [
+    "SUFFICIENT. 7/7 blog.controller.test.ts tests pass: 4 pass-1 oracle-parity/predicate tests + 3 new pass-2 source-contract assertions. Python simulation confirms all source-contract window assertions hold against the current controller source.",
+    "The 3 new source-contract tests are the effective regression guard for the verifier-1 WARNING: any re-introduction of the stale 'Post is not published.' @ApiForbiddenResponse text or 'Post not found.' @ApiNotFoundResponse text will immediately fail tests 1 and 2; test 3 verifies both corrected descriptions appear in the same decorator block.",
+    "79/79 blog.service.test.ts pass unchanged from pass-1 (service-level oracle-parity suite, commentsLocked regression, predicate operator assertions).",
+    "Pre-existing 6 navigation.controller.test.ts failures are unrelated (cwd path-construction bug owned by a separate subtask)."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
