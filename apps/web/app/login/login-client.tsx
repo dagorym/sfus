@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 
+import { describeLoginError, serviceUnavailableMessage } from "../auth-client";
 import styles from "../auth-shell.module.css";
 
 const providers = [
@@ -46,7 +47,7 @@ export function LoginClient() {
           })
         });
       } catch {
-        setError("The service is temporarily unavailable. Please try again in a moment.");
+        setError(serviceUnavailableMessage);
         return;
       }
       const payload = (await response.json().catch(() => null)) as
@@ -56,11 +57,7 @@ export function LoginClient() {
           }
         | null;
       if (!response.ok || !payload) {
-        if (response.status >= 500) {
-          setError("The service is temporarily unavailable. Please try again in a moment.");
-        } else {
-          setError("Sign-in failed. Verify your credentials and try again.");
-        }
+        setError(describeLoginError(response.status));
         return;
       }
       if (payload.mfa?.challengeToken) {
