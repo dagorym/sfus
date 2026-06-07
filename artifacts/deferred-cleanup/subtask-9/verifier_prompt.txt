@@ -1,0 +1,60 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Behavior-preserving restructure of web auth error-mapping helpers (deferred-cleanup subtask-9). toApiRequestError, describeRegistrationError, describeLoginError, and related string constants (serviceUnavailableMessage, duplicateAccountErrorMessage, invalidRegistrationErrorMessage) were extracted from inline definitions in register/page.tsx and login/login-client.tsx and are now exported from apps/web/app/auth-client.ts. The pages import these helpers instead of re-defining them locally. No behavior changed. Tester added 13 executed runtime tests in auth-error-helpers.spec.ts covering the four required branches and updated public-shell.spec.ts to reflect the new import contract. All 258 web tests pass.
+
+Acceptance criteria to verify:
+- Helpers are exported and importable by specs; pages consume the exported versions.
+- Rendered error messages and UI states are unchanged.
+- Nothing blocks a spec from driving mocked 400/409/5xx/network-failure (null statusCode) responses through the exported helpers.
+
+Implementation branch or worktree context:
+- Implementer branch: cleanup-subtask-9-implementer-20260607 (commit e8c8d33)
+- Tester branch: cleanup-subtask-9-tester-20260607 (commit 96e737e)
+- Documenter branch: cleanup-subtask-9-documenter-20260607 (HEAD 428ad7f — tester artifacts commit, no doc changes required)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/auth-client.ts — new exports: ApiErrorPayload, ApiRequestError, serviceUnavailableMessage, toApiRequestError, duplicateAccountErrorMessage, invalidRegistrationErrorMessage, describeRegistrationError, describeLoginError
+- apps/web/app/register/page.tsx — now imports describeRegistrationError, toApiRequestError from auth-client.ts instead of defining them inline
+- apps/web/app/login/login-client.tsx — now imports describeLoginError, serviceUnavailableMessage from auth-client.ts instead of defining them inline
+- apps/web/app/auth-error-helpers.spec.ts — new test file: 13 runtime tests for the four exported helper branches
+- apps/web/app/public-shell.spec.ts — updated import-contract assertions to verify canonical logic lives in auth-client.ts
+- artifacts/deferred-cleanup/subtask-9/implementer_prompt.txt
+- artifacts/deferred-cleanup/subtask-9/implementer_report.md
+- artifacts/deferred-cleanup/subtask-9/implementer_result.json
+- artifacts/deferred-cleanup/subtask-9/tester_prompt.txt
+- artifacts/deferred-cleanup/subtask-9/tester_report.md
+- artifacts/deferred-cleanup/subtask-9/tester_result.json
+- artifacts/deferred-cleanup/subtask-9/documenter_prompt.txt
+
+Commands executed:
+- None
+
+Final test outcomes:
+- 258 web tests pass (0 failed) — npx --yes pnpm@10.0.0 --dir apps/web test
+- All 4 acceptance criteria have executed runtime coverage in auth-error-helpers.spec.ts
+
+Plan or evaluation context guidance:
+- Plan: plans/deferred-cleanup-plan.md, subtask-9 — Web auth error-mapping testability
+- Documentation Impact per plan: none expected (internal restructure; docs/features/auth.md only if its file map names the moved helpers — it does not name the individual helpers, only the file).
+- Comparison base: origin/main
+- Acceptance criteria are fully met per tester_result.json
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table; docs/features/auth.md covers apps/web/app/auth-client.ts
+- No in-code documentation (JSDoc) convention exists for auth-client.ts — the existing module exports have no JSDoc and the repository guidance does not mandate it for this file
+- One fact, one home: no duplication introduced across docs
+
+Updated documentation files:
+- None
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-9
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
