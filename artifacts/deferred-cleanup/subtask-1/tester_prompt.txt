@@ -1,0 +1,44 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Validate the trusted-proxy configuration for the API (deferred-cleanup subtask-1): Express trust proxy = 1 has been set on the NestJS HTTP adapter so request.ip and X-Forwarded-Proto resolve from X-Forwarded-For headers behind exactly one nginx proxy hop.
+
+Modified files:
+- apps/api/src/index.ts
+- apps/api/src/index.test.ts
+
+Acceptance criteria to validate (from Planner):
+- trust proxy is set for exactly one hop per the documented contract.
+- Behind one simulated proxy hop, request.ip resolves the original client IP (the tester must prove this with an executed test).
+- All 9 request.ip audit call sites in auth.controller.ts receive the forwarded client IP with zero call-site changes.
+- Direct (un-proxied) local dev behavior is unchanged.
+- No stale "not configured" claims remain in code comments.
+
+Test file location:
+- apps/api/src/index.test.ts (tester-owned)
+
+Implementation context for testing:
+- `app.getHttpAdapter().getInstance().set('trust proxy', 1)` is called in `apiBootstrap` in `apps/api/src/index.ts` before `app.setGlobalPrefix`.
+- The mock infrastructure is already in `index.test.ts`: `state.mockExpressApp` is an object with a `set` spy; `state.mockApp.getHttpAdapter` is a mock returning `{ getInstance: () => state.mockExpressApp }`. Both `mockExpressApp` and `mockApp.getHttpAdapter` are cleared in the existing `beforeEach`.
+- The tester must add a test case in the `apiBootstrap` describe block asserting `state.mockExpressApp.set` was called with `('trust proxy', 1)` during `apiBootstrap`.
+- 9 request.ip call sites exist in `apps/api/src/auth/auth.controller.ts` (lines 74, 103, 124, 138, 152, 163, 191, 279, 312); none were modified.
+- No env-driven toggle was added; trust proxy is always set to 1.
+- Full JSDoc in index.ts cites `docs/architecture/milestone-1-foundation-decisions.md:117` and `docs/operations/deployment.md:94`.
+
+Suggested test commands:
+- npx --yes pnpm@10.0.0 --filter @sfus/api test
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 lint
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-1
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Do not stop after activation, directory discovery, or framework discovery when testing can proceed.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
