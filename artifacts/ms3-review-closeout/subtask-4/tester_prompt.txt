@@ -1,0 +1,46 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Remediation pass 2: address verifier-1-warning findings for the real-FK integration spec -- fix Test 2 comment accuracy (WARNING: test-local transaction not calling service.create directly), fix Strategy comment mismatch (NOTE), and add JSDoc debuggability note for DB_USER/DB_PASSWORD (NOTE).
+
+Modified files:
+- apps/api/src/pages/pages.service.integration.test.ts
+- apps/api/src/pages/integration-test-support.ts
+
+Acceptance criteria to validate (from Planner):
+- With dev MySQL up and SFUS_DB_INTEGRATION=1, integration spec passes (FK create round-trip + rollback proof)
+- Without flag, suite skips cleanly with explicit skip message
+- No production code changes; API builds, lints, typechecks clean
+- Test 2 comment accurately describes what the test does and does not prove (verifier WARNING addressed)
+- Strategy comment matches test body (verifier NOTE addressed)
+- DB_USER/DB_PASSWORD missing-credentials failure is debuggable (verifier NOTE addressed)
+
+Create test files in:
+- apps/api/src/pages/pages.service.integration.test.ts -- the integration spec (owned by this subtask, not the Tester)
+- apps/api/src/pages/integration-test-support.ts -- bootstrap helper (owned by this subtask)
+
+Implementation context for testing:
+- WARNING addressed: Test 2 now contains a prominent 'WHY THIS TEST DOES NOT CALL service.create() DIRECTLY' block documenting structural infeasibility: vi.spyOn cannot intercept the frozen crypto.randomUUID binding in the production module, crafted inputs fail before the transaction starts (validators run pre-tx), and the transactional EntityManager is not exposed for spying. The block also describes what the test-local transaction does and does not prove and how Test 1 + Test 2 complement each other.
+- NOTE (Strategy comment) addressed: the old 'Strategy: call service.create() successfully' text was replaced with an accurate description of the test-local transaction approach.
+- NOTE (DB credentials) addressed: readDbOptionsFromEnv() in integration-test-support.ts now has a JSDoc note explaining that DB_USER and DB_PASSWORD have no safe fallback and must be set explicitly, with the expected failure mode (generic MySQL driver auth error) when missing.
+- Both paths re-validated: skip path (264 unit tests pass, 2 integration tests skip with message) and gated path (2/2 integration tests pass against dev MySQL at port 43306, typecheck and lint clean).
+
+Suggested test command(s):
+- pnpm --filter @sfus/api run test (skip path -- no SFUS_DB_INTEGRATION set)
+- pnpm --filter @sfus/api run typecheck
+- pnpm --filter @sfus/api run lint
+- SFUS_DB_INTEGRATION=1 DB_HOST=127.0.0.1 DB_PORT=43306 DB_NAME=sfus DB_USER=sfus DB_PASSWORD=changeme-app pnpm --filter @sfus/api run test:integration
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-4
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
