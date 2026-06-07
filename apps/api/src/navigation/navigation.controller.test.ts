@@ -3,6 +3,8 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+// Use __dirname (CJS global) — import.meta.url is ESM-only and triggers TS1470
+// under the NodeNext/CommonJS tsc build even though Vitest (esbuild) masks it.
 const controllerPath = path.resolve(__dirname, "navigation.controller.ts");
 
 async function readController(): Promise<string> {
