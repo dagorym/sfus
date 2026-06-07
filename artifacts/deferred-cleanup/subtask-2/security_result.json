@@ -1,0 +1,33 @@
+{
+  "artifact_file_paths": [
+    "artifacts/deferred-cleanup/subtask-2/security_report.md",
+    "artifacts/deferred-cleanup/subtask-2/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "cleanup-subtask-2-security-20260607",
+  "csp_enforcement_mode": "enforced",
+  "hsts_absent_web": true,
+  "hsts_absent_api": true,
+  "note_finding_count": 4,
+  "status": "CONDITIONAL PASS",
+  "task_id": "deferred-cleanup/subtask-2",
+  "test_sufficiency_summary": "13 new tests provide adequate coverage of all acceptance criteria. AC1 (all five headers, CSP enforced not report-only, all-routes pattern), AC4 (per-allowance dev/prod variants), and AC5 (no HSTS on web) are directly asserted in next.config.spec.ts. AC2 (helmet registered before routing) is covered by invocation-order assertion in index.test.ts. AC5 for the API is verified indirectly via bootstrap-success and structural audit. No test directly asserts strictTransportSecurity:false option value (accepted mock-architecture limitation, N1). Test sufficiency is adequate.",
+  "documentation_sufficiency_summary": "docs/features/web-shell.md and docs/development/api-conventions.md are accurate and complete. docs/operations/deployment.md is missing the explicit HSTS enforcement-point statement required by the plan (W2). The omission creates a minor operational documentation gap but does not misrepresent any security property.",
+  "regression_assessment": "No new XSS, CSRF, or clickjacking vectors introduced. All unsafe-inline allowances are pre-existing Next.js 15 constraints. Dev-only connect-src is environment-gated. Helmet defaults add protection; only HSTS and CSP are disabled, both deliberate and documented.",
+  "verdict": "CONDITIONAL PASS",
+  "warning_finding_count": 2,
+  "warnings": [
+    {
+      "id": "W1",
+      "file": "apps/web/next.config.mjs",
+      "line": 54,
+      "summary": "style-src 'unsafe-inline' lacks an in-code justification comment (AC4 partial gap). No security regression; justification exists in implementer report and web-shell.md but not in the source file alongside the directive."
+    },
+    {
+      "id": "W2",
+      "file": "docs/operations/deployment.md",
+      "line": 93,
+      "summary": "Deployment runbook not updated with explicit HSTS enforcement-point statement per plan scope. HSTS rationale is captured in web-shell.md and api-conventions.md but not in the operational runbook."
+    }
+  ]
+}
