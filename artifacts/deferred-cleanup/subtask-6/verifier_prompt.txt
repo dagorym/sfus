@@ -1,0 +1,45 @@
+Your role is 'verifier'. Your task is as follows:
+
+Task summary:
+- Verify the implementation, tests, and documentation for the new public GET /pages list
+  endpoint and web /pages index route added in deferred-cleanup subtask-6.
+
+Tester result: PASS — all 5 acceptance criteria satisfied.
+Documenter result: PASS — documentation updated and committed (870524c).
+
+Acceptance criteria to verify:
+1. List endpoint returns only published pages via shared predicate — drafts never appear (PASS)
+2. Payload contains only index fields (slug, title, updatedAt — no body) (PASS)
+3. /pages renders published list; bare /pages navigation resolves; empty state renders cleanly (PASS)
+4. Ordering deterministic (title ascending) (PASS)
+5. Swagger documents new endpoint (PASS)
+
+Branch: cleanup-subtask-6-documenter-20260607
+Base branch: cleanup
+
+Files changed by the Implementer:
+- apps/api/src/pages/pages.controller.ts (GET /pages listPublished endpoint, PageSummary interface, toSummary helper)
+- apps/web/app/pages/pages-client.ts (listPublishedPages() public client function, PageSummary interface)
+- apps/web/app/pages/page.tsx (new /pages public index route)
+
+Files changed by the Tester:
+- apps/api/src/pages/pages.service.test.ts (4 operator-pinned findPublished tests)
+- apps/web/app/pages/pages.spec.ts (18 source-contract tests)
+
+Files changed by the Documenter:
+- docs/features/pages.md (GET /api/pages row, PageSummary shape, /pages web surface, listPublishedPages client function reference)
+- docs/features/web-shell.md (/pages route map entry)
+
+Shared artifact directory: artifacts/deferred-cleanup/subtask-6
+
+Test outcomes (from tester):
+- pnpm --filter @sfus/api test: 357 passed, 4 pre-existing failures (helmet/TOCTOU MySQL — not this subtask)
+- pnpm --filter @sfus/web test: 282 passed, 0 failures
+- lint and typecheck: clean for both api and web
+
+Startup behavior:
+- If required inputs are present, continue verification in the same run without stopping for confirmation.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Verify implementation, tests, and documentation together as the combined shipped state.
+
+Do not report success unless all required artifacts exist and all changes are committed.
