@@ -19,6 +19,7 @@ export const RESERVED_PAGE_SLUGS: ReadonlySet<string> = new Set([
   "app",
   "blog",
   "login",
+  "pages",
   "register",
   "onboarding",
   "profile",
