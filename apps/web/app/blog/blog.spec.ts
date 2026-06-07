@@ -668,3 +668,86 @@ describe("Blog post detail page commentsLocked and reply rendering (AC1, AC3)", 
     expect(source).toContain("result.commentsLocked");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Subtask-3: Data-minimization — web mirror type BlogCommentDetail must NOT
+// include authorUserId, moderatedByUserId, or moderatedAt.
+// These fields are stripped server-side before the public API response is sent;
+// if they appear in the client type, a type regression could allow callers to
+// accidentally read or render them if they ever leak from the API.
+// ---------------------------------------------------------------------------
+
+describe("blog-client.ts BlogCommentDetail type: trimmed fields absent (subtask-3 AC5)", () => {
+  it("BlogCommentDetail type does NOT include authorUserId", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    // Locate the BlogCommentDetail interface
+    const interfaceStart = source.indexOf("export interface BlogCommentDetail");
+    expect(interfaceStart).toBeGreaterThan(-1);
+    // Find the closing brace of the interface
+    const afterInterface = source.indexOf("}", interfaceStart);
+    const interfaceText = source.slice(interfaceStart, afterInterface + 1);
+    expect(interfaceText).not.toContain("authorUserId");
+  });
+
+  it("BlogCommentDetail type does NOT include moderatedByUserId", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    const interfaceStart = source.indexOf("export interface BlogCommentDetail");
+    expect(interfaceStart).toBeGreaterThan(-1);
+    const afterInterface = source.indexOf("}", interfaceStart);
+    const interfaceText = source.slice(interfaceStart, afterInterface + 1);
+    expect(interfaceText).not.toContain("moderatedByUserId");
+  });
+
+  it("BlogCommentDetail type does NOT include moderatedAt", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    const interfaceStart = source.indexOf("export interface BlogCommentDetail");
+    expect(interfaceStart).toBeGreaterThan(-1);
+    const afterInterface = source.indexOf("}", interfaceStart);
+    const interfaceText = source.slice(interfaceStart, afterInterface + 1);
+    expect(interfaceText).not.toContain("moderatedAt");
+  });
+
+  it("BlogCommentDetail type includes the expected public fields (positive baseline)", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    const interfaceStart = source.indexOf("export interface BlogCommentDetail");
+    expect(interfaceStart).toBeGreaterThan(-1);
+    const afterInterface = source.indexOf("}", interfaceStart);
+    const interfaceText = source.slice(interfaceStart, afterInterface + 1);
+    // Positive baseline: public fields must remain
+    expect(interfaceText).toContain("id:");
+    expect(interfaceText).toContain("postId:");
+    expect(interfaceText).toContain("parentId:");
+    expect(interfaceText).toContain("body:");
+    expect(interfaceText).toContain("status:");
+    expect(interfaceText).toContain("mediaReferenceId:");
+    expect(interfaceText).toContain("createdAt:");
+    expect(interfaceText).toContain("updatedAt:");
+  });
+
+  it("blog-client.ts as a whole has zero references to authorUserId in any comment context", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    // authorUserId must not appear anywhere after the BlogCommentDetail interface starts
+    // (the only valid use of authorUserId in blog-client.ts is on BlogPostDetail for the
+    // post author, which appears before BlogCommentDetail in the file).
+    const commentDetailStart = source.indexOf("export interface BlogCommentDetail");
+    // Verify it does NOT appear after the BlogCommentDetail interface starts
+    const afterCommentInterface = source.slice(commentDetailStart);
+    expect(afterCommentInterface).not.toContain("authorUserId");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Subtask-3: blog-client.ts JSDoc on BlogCommentDetail confirms field stripping
+// ---------------------------------------------------------------------------
+
+describe("blog-client.ts BlogCommentDetail JSDoc documents security trimming (subtask-3 AC5)", () => {
+  it("JSDoc above BlogCommentDetail mentions omission of moderation-internal fields", async () => {
+    const source = await readAppFile("app/blog/blog-client.ts");
+    const interfaceStart = source.indexOf("export interface BlogCommentDetail");
+    expect(interfaceStart).toBeGreaterThan(-1);
+    // The JSDoc comment is immediately before the interface
+    const jsdocWindow = source.slice(Math.max(0, interfaceStart - 400), interfaceStart);
+    // Must contain a JSDoc comment describing the omission
+    expect(jsdocWindow).toMatch(/omit|omits|stripped|strip|moderation.internal/i);
+  });
+});

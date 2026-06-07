@@ -392,14 +392,13 @@ export class BlogService {
     }
 
     // Enforce 1-level threading: validate parentId when supplied.
+    // Both "not found" and "wrong post" return the same 400 message to prevent
+    // callers from distinguishing a nonexistent parent from a valid-but-foreign one.
     let resolvedParentId: string | null = null;
     if (input.parentId) {
       const parentComment = await this.blogCommentRepository.findOne({ where: { id: input.parentId } });
-      if (!parentComment) {
-        throw new BadRequestException("Parent comment not found.");
-      }
-      if (parentComment.postId !== postId) {
-        throw new BadRequestException("Parent comment does not belong to this post.");
+      if (!parentComment || parentComment.postId !== postId) {
+        throw new BadRequestException("parentId is invalid.");
       }
       if (parentComment.parentId !== null) {
         throw new BadRequestException("Replies cannot be nested more than one level deep.");
@@ -408,14 +407,13 @@ export class BlogService {
     }
 
     // Validate imageId scope: must be blog-comment-scoped media.
+    // Both "not found" and "wrong resource type" return the same 400 message to prevent
+    // callers from distinguishing a nonexistent image from a valid-but-wrong-scope one.
     let resolvedMediaReferenceId: string | null = null;
     if (input.imageId) {
       const mediaRecord = await this.mediaRepository.findOne({ where: { id: input.imageId } });
-      if (!mediaRecord) {
-        throw new BadRequestException("imageId references a media record that does not exist.");
-      }
-      if (mediaRecord.resourceType !== "blog-comment") {
-        throw new BadRequestException("imageId must reference a blog-comment-scoped media record.");
+      if (!mediaRecord || mediaRecord.resourceType !== "blog-comment") {
+        throw new BadRequestException("imageId is invalid.");
       }
       resolvedMediaReferenceId = input.imageId;
     }
