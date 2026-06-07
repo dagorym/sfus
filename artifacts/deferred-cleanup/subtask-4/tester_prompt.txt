@@ -1,0 +1,85 @@
+Your role is 'tester'. Your task is as follows:
+
+## Subtask
+
+deferred-cleanup/subtask-4 — Blog slug TOCTOU hardening
+
+## Branch
+
+cleanup-subtask-4-implementer-20260607
+
+## Implementation Commit
+
+eb03724
+
+## Changed Files
+
+- `apps/api/src/blog/blog.service.ts`
+- `apps/api/src/blog/blog.service.test.ts`
+
+## What Was Implemented
+
+`BlogService.create()` now catches MySQL ER_DUP_ENTRY (errno 1062) and SQLite
+"UNIQUE constraint failed" errors on the blog post save when using auto-derived
+slugs, and retries `deriveUniqueSlug` + `save()` up to 3 times (SLUG_RETRY_LIMIT).
+On exhaustion a `ConflictException` (HTTP 409) is thrown. Non-duplicate-key errors
+propagate unchanged. The explicit-slug path in `create()` is not affected.
+
+New private helpers added:
+- `BlogService.isDuplicateKeyError(err)` — classifies dup-key errors
+- `BlogService.saveWithDerivedSlugRetry(...)` — retry loop
+
+deriveUniqueSlug call sites covered: 1 (create() only; update() never calls
+deriveUniqueSlug).
+
+## Acceptance Criteria
+
+1. Save rejected with duplicate-key error retries derivation and succeeds with
+   suffixed slug — driven by executed unit test mocking rejection-then-success.
+2. Retry attempts are bounded; exhaustion returns controlled error envelope (409),
+   never raw 500.
+3. Every deriveUniqueSlug-consuming write path is covered; count stated (1).
+4. JSDoc on affected methods reflects retry semantics.
+
+## Test File Location
+
+`apps/api/src/blog/blog.service.test.ts`
+
+The new tests are in the describe block:
+`BlogService.create slug TOCTOU hardening (subtask-4)`
+
+New test cases:
+1. "retries derivation and succeeds when first save throws a duplicate-key error (MySQL ER_DUP_ENTRY)"
+2. "retries derivation and succeeds when first save throws a SQLite UNIQUE constraint error"
+3. "throws ConflictException (409-class) after SLUG_RETRY_LIMIT duplicate-key failures (exhausted)"
+4. "propagates non-duplicate-key errors without retrying"
+
+## Validation Commands
+
+Run the blog service tests in isolation:
+```
+npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/blog/blog.service.test.ts
+```
+
+Full workspace validation:
+```
+npx --yes pnpm@10.0.0 lint
+npx --yes pnpm@10.0.0 typecheck
+npx --yes pnpm@10.0.0 test
+```
+
+Expected: all 85 blog.service.test.ts tests pass, full suite green (353 API + 264 web).
+
+## Shared Artifact Directory
+
+`artifacts/deferred-cleanup/subtask-4`
+
+## Important Edge Cases
+
+- The retry applies ONLY to auto-derive slug path, not explicit slug path.
+- SLUG_RETRY_LIMIT is exactly 3; the exhaustion test verifies save is called 3 times.
+- Both MySQL (ER_DUP_ENTRY, errno 1062) and SQLite (UNIQUE constraint failed message) are detected.
+- On exhaustion, ConflictException (not InternalServerErrorException) is thrown.
+- update() is NOT covered by retry — it never calls deriveUniqueSlug.
+
+Do not report success unless all required artifacts exist and all changes are committed.

@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { LessThanOrEqual, Repository } from "typeorm";
 
@@ -161,6 +161,14 @@ export class BlogService {
    * (appends `-2`, `-3`, … until no collision exists; falls back to a random
    * 8-character hex suffix if all numeric candidates are exhausted).
    *
+   * TOCTOU hardening: when auto-deriving the slug, if the database save is
+   * rejected with a duplicate-key error (ER_DUP_ENTRY / SQLITE_CONSTRAINT
+   * unique violation) a concurrent insert beat this request to the same slug.
+   * The service retries `deriveUniqueSlug` and the save up to
+   * `SLUG_RETRY_LIMIT` (3) times. If all retry attempts are exhausted a
+   * `ConflictException` (HTTP 409) is returned instead of allowing an
+   * unhandled 500.
+   *
    * Body is sanitized with the shared markdown sanitizer before persistence.
    * Caller must have verified admin access before calling this.
    */
@@ -168,12 +176,9 @@ export class BlogService {
     this.assertTitleValid(input.title);
 
     // Resolve slug: use provided slug (validated) or auto-derive from title.
-    let resolvedSlug: string;
-    if (input.slug && input.slug.trim()) {
-      this.assertSlugValid(input.slug.trim());
-      resolvedSlug = input.slug.trim();
-    } else {
-      resolvedSlug = await this.deriveUniqueSlug(input.title);
+    const useExplicitSlug = Boolean(input.slug && input.slug.trim());
+    if (useExplicitSlug) {
+      this.assertSlugValid(input.slug!.trim());
     }
 
     const normalizedBody = normalizeMarkdownBody(input.body ?? "");
@@ -187,19 +192,26 @@ export class BlogService {
     }
 
     const id = crypto.randomUUID();
-    const post = this.blogPostRepository.create({
-      id,
-      authorUserId,
-      title: input.title,
-      slug: resolvedSlug,
-      body: normalizedBody,
-      summary: input.summary ?? null,
-      status: "draft",
-      isFeatured: input.isFeatured ?? false,
-      featuredImageId: input.featuredImageId ?? null,
-      publishedAt: null
-    });
-    await this.blogPostRepository.save(post);
+
+    if (useExplicitSlug) {
+      // Explicit slug path — no TOCTOU retry needed (caller owns the slug value).
+      const post = this.blogPostRepository.create({
+        id,
+        authorUserId,
+        title: input.title,
+        slug: input.slug!.trim(),
+        body: normalizedBody,
+        summary: input.summary ?? null,
+        status: "draft",
+        isFeatured: input.isFeatured ?? false,
+        featuredImageId: input.featuredImageId ?? null,
+        publishedAt: null
+      });
+      await this.blogPostRepository.save(post);
+    } else {
+      // Auto-derive path — apply TOCTOU retry on duplicate-key save failures.
+      await this.saveWithDerivedSlugRetry(id, authorUserId, input, normalizedBody);
+    }
 
     if (input.tags && input.tags.length > 0) {
       await this.replaceTags(id, input.tags);
@@ -515,6 +527,83 @@ export class BlogService {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * Maximum number of times `saveWithDerivedSlugRetry` will re-derive the slug
+   * and retry the save when a duplicate-key error is detected.
+   */
+  private static readonly SLUG_RETRY_LIMIT = 3;
+
+  /**
+   * Returns true when `err` is a MySQL/MariaDB ER_DUP_ENTRY duplicate-key
+   * error or a SQLite UNIQUE constraint violation. Both indicate that a slug
+   * produced by `deriveUniqueSlug` was claimed by a concurrent insert between
+   * the uniqueness check and the save (TOCTOU window).
+   */
+  private static isDuplicateKeyError(err: unknown): boolean {
+    if (err !== null && typeof err === "object") {
+      const e = err as Record<string, unknown>;
+      // MySQL / MariaDB: code = "ER_DUP_ENTRY", errno = 1062
+      if (e["code"] === "ER_DUP_ENTRY" || e["errno"] === 1062) {
+        return true;
+      }
+      // SQLite (used in unit tests / dev): message contains "UNIQUE constraint failed"
+      if (typeof e["message"] === "string" && (e["message"] as string).includes("UNIQUE constraint failed")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Derives a unique slug from the title, creates the blog post entity, and
+   * persists it. On duplicate-key save failure (TOCTOU race on slug uniqueness)
+   * the derivation and save are retried up to `SLUG_RETRY_LIMIT` times.
+   *
+   * Throws `ConflictException` (HTTP 409) when all retry attempts are exhausted
+   * rather than allowing an unhandled database error to propagate as a 500.
+   *
+   * Called only from `create()` on the auto-derive slug path.
+   */
+  private async saveWithDerivedSlugRetry(
+    id: string,
+    authorUserId: string,
+    input: CreateBlogPostInput,
+    normalizedBody: string
+  ): Promise<void> {
+    for (let attempt = 1; attempt <= BlogService.SLUG_RETRY_LIMIT; attempt++) {
+      const slug = await this.deriveUniqueSlug(input.title);
+      const post = this.blogPostRepository.create({
+        id,
+        authorUserId,
+        title: input.title,
+        slug,
+        body: normalizedBody,
+        summary: input.summary ?? null,
+        status: "draft",
+        isFeatured: input.isFeatured ?? false,
+        featuredImageId: input.featuredImageId ?? null,
+        publishedAt: null
+      });
+      try {
+        await this.blogPostRepository.save(post);
+        return; // success
+      } catch (err: unknown) {
+        if (BlogService.isDuplicateKeyError(err) && attempt < BlogService.SLUG_RETRY_LIMIT) {
+          // Concurrent insert claimed the slug — retry with a fresh derivation.
+          continue;
+        }
+        if (BlogService.isDuplicateKeyError(err)) {
+          // All retry attempts exhausted — return a controlled 409.
+          throw new ConflictException(
+            "Could not generate a unique slug after several attempts due to concurrent requests. Please retry."
+          );
+        }
+        // Non-duplicate-key errors propagate unchanged.
+        throw err;
+      }
+    }
+  }
 
   private async assertFeaturedImageExists(featuredImageId: string): Promise<void> {
     const media = await this.mediaRepository.findOne({ where: { id: featuredImageId } });
