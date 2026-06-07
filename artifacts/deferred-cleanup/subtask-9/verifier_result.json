@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/deferred-cleanup/subtask-9/verifier_report.md",
+    "artifacts/deferred-cleanup/subtask-9/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "cleanup-subtask-9-verifier-20260607",
+  "documentation_accuracy_summary": [
+    "No documentation changes were made, as expected per the plan. The plan states no documentation impact for an internal restructure. docs/features/auth.md does not name individual helpers and did not need updating. Correct."
+  ],
+  "note_finding_count": 0,
+  "pass_label": null,
+  "status": "complete",
+  "task_id": "deferred-cleanup/subtask-9",
+  "test_sufficiency_summary": [
+    "13 new runtime tests in auth-error-helpers.spec.ts cover all 4 required acceptance-criteria branches (400 validation mapping, 409 duplicate-email, 5xx masking for both registration and login sides, null statusCode network failure). toApiRequestError is covered with 4 response-mock scenarios. public-shell.spec.ts import-contract assertions verify the file-level restructure. All 258 web tests pass."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
