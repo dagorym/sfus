@@ -1,0 +1,52 @@
+Your role is 'verifier'. Your task is as follows:
+
+Task summary:
+- Remediation pass 2 for ms3-review-closeout subtask-4: the Implementer added WHY and WHAT comment blocks to Test 2 in pages.service.integration.test.ts (addressing verifier-1 WARNING about the test not calling service.create() directly), updated the Test 2 strategy comment to describe the test-local transaction approach (verifier NOTE resolved), and added a JSDoc note to readDbOptionsFromEnv() in integration-test-support.ts documenting that DB_USER and DB_PASSWORD have no safe fallback (verifier NOTE resolved). The Tester verified all 6 ACs pass. The Documenter confirmed docs/website-launch-guide.md (prior doc commit 33aa635) remains accurate and complete — no new doc edits required for this comment/JSDoc-only pass.
+
+Acceptance criteria to verify:
+- AC1: With dev MySQL up and SFUS_DB_INTEGRATION=1, integration spec passes (FK create round-trip + rollback proof) — 2/2 tests pass
+- AC2: Without flag, suite skips cleanly with explicit skip message — 264 unit tests pass, 2 integration tests skip with expected message
+- AC3: No production code changes; API builds, lints, typechecks clean — only test files modified, typecheck and lint exit 0
+- AC4: Test 2 comment accurately describes what the test does and does not prove (verifier WARNING addressed) — WHY THIS TEST DOES NOT CALL service.create() DIRECTLY block and WHAT THIS TEST DOES AND DOES NOT PROVE block must be present and accurate in source
+- AC5: Strategy comment matches test body (verifier NOTE addressed) — strategy must describe test-local transaction with duplicate revision_number injection
+- AC6: DB_USER/DB_PASSWORD missing-credentials failure is debuggable (verifier NOTE addressed) — JSDoc in readDbOptionsFromEnv() must document no safe fallback and expected auth error
+
+Implementation branch or worktree context:
+- Documenter branch: ms3-claude-subtask-4-documenter-20260606
+- Implementation commit: 6c84f17 (test(pages): remediation pass 2 -- fix Test 2 comment and add DB_USER/DB_PASSWORD JSDoc note)
+- Tester made no additional changes (test commit: No Changes Made)
+- Documentation commit: 33aa635 (docs(website-launch-guide): add DB integration spec invocation to test-commands) — prior pass, verified still accurate
+
+Files modified by Implementer, Tester, and Documenter that may affect verification scope:
+- apps/api/src/pages/pages.service.integration.test.ts (Implementer: added WHY block, WHAT block, and updated strategy comment to Test 2)
+- apps/api/src/pages/integration-test-support.ts (Implementer: added DB_USER/DB_PASSWORD no-fallback JSDoc note to readDbOptionsFromEnv())
+- docs/website-launch-guide.md (Documenter prior pass, commit 33aa635: section 4 PagesService DB integration spec opt-in — verified accurate)
+
+Commands executed by Tester:
+- pnpm --filter @sfus/api run test (skip path — 264 pass, 2 skip with explicit SKIP message)
+- pnpm --filter @sfus/api run typecheck (exit 0, clean)
+- pnpm --filter @sfus/api run lint (exit 0, clean)
+- SFUS_DB_INTEGRATION=1 DB_HOST=127.0.0.1 DB_PORT=43306 DB_NAME=sfus DB_USER=sfus DB_PASSWORD=changeme-app pnpm --filter @sfus/api run test:integration (2/2 pass)
+
+Final test outcomes:
+- Skip path (no SFUS_DB_INTEGRATION): 264 unit tests pass across 15 files, 2 integration tests skip with explicit [pages.service.integration] SKIP message. Exit 0.
+- Gated path (SFUS_DB_INTEGRATION=1, dev MySQL port 43306): 2/2 integration tests pass.
+- Typecheck: clean. Lint: clean.
+- AC4 source-verified: WHY THIS TEST DOES NOT CALL service.create() DIRECTLY block present; WHAT THIS TEST DOES AND DOES NOT PROVE block present.
+- AC5 source-verified: strategy comment describes test-local transaction with duplicate revision_number injection.
+- AC6 source-verified: readDbOptionsFromEnv() JSDoc states no safe fallback and generic auth error from MySQL driver.
+
+Plan and evaluation context:
+- Plan: plans/ms3-review-closeout-plan.md, Subtask 4
+- Comparison base: git merge-base ms3-claude HEAD = 24c7abf6437ea4450fbe62e3b8d099d8ec90a622
+- Shared artifact directory: artifacts/ms3-review-closeout/subtask-4
+
+Convention and guidance files:
+- AGENTS.md and docs/README.md are the canonical repo references for architecture and documentation policy.
+- docs/website-launch-guide.md section 4 covers the integration test invocation and env prerequisites.
+- cicd/docs/cicd.md and cicd/docs/local-pipeline.md document the pages-service-integration validation entry.
+
+Startup behavior:
+- If the review scope, diff context, and artifact directory are clear from the context above and repository evidence, begin verification immediately in the same run. Do not stop after activation, scope establishment, convention discovery, or diff inspection when blocking inputs are present. Infer any missing plan-path, comparison-base, or artifact-path details from repository context and label as assumptions.
+
+Do not report success unless all required artifacts exist and all changes are committed.
