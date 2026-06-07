@@ -1,0 +1,23 @@
+{
+  "task": "ms3-review-closeout/subtask-7",
+  "role": "security",
+  "result": "PASS",
+  "blocking_findings": 0,
+  "warning_findings": 0,
+  "note_findings": 5,
+  "summary": "Specialist security review (plan decision D7) of the authenticated-navigation publication-leak fix. All three security acceptance criteria met: findForAuthenticatedUser now filters non-admin callers through the verbatim-reused filterByLinkedTargetVisibility/isLinkedTargetPubliclyVisible helpers (navigation.service.ts:135-141), so unpublished-target nav items are indistinguishable from nonexistent ones on every navigation endpoint for unauthenticated and non-admin authenticated callers; the admin bypass is provably behavior-preserving (repo-not-called test assertions); findPublic and the public endpoint have zero diff vs merge-base d4b3e8b. Fail direction is closed for unknown/null roles (rank lookup undefined -> non-admin -> filtered) and moderators are correctly below the admin rank line. Both WA1 WARNINGs from artifacts/ms3-landing-refresh-and-review-followups/subtask-3/security_report.md are confirmed CLOSED: (1) the authenticated-nav metadata leak via the code change plus 16 new tests including the visibility=authenticated x unpublished-target abuse case; (2) the unpinned published-only predicate via where-clause pins (status:'published' + slug for blog and pages, publishedAt presence for blog) that protect the shared helper used by both entry points. No injection (parameterized TypeORM where objects), no new DoS surface (bounded N+1 already registered in docs/deferred-tasks.md with authenticated-path scope per D9), no caching hazard. Verifier pass-1 notes assessed: neither the missing moderator-role test nor the empty-children edge test has blocking security significance (real AuthorizationService used in tests; both failure modes over-filter). Independent re-run in this worktree: 53/53 navigation service tests pass. Zero blocking, zero warnings, five informational notes.",
+  "wa1_warning_1_authenticated_nav_leak": "CLOSED",
+  "wa1_warning_2_unpinned_predicate": "CLOSED",
+  "warnings": [],
+  "notes": [
+    "publishedAt predicate pin is shape-only (defined object), not operator-pinned to LessThanOrEqual; an operator-swap regression would reopen only the narrow future-scheduled-post window. Recommend mirroring subtask-8's operator-level assertion style in a future test pass; no action required now.",
+    "Verifier note on missing explicit moderator-role test: assessed as coverage nicety only — real AuthorizationService in tests, moderator rank pinned below admin by an existing management-side test, unknown roles fail closed.",
+    "Verifier note on missing parent-visible-but-all-children-filtered edge test: assessed as no security significance — both plausible failure modes over-filter; correct by inspection.",
+    "Authenticated endpoint now returns role-dependent item sets by design; documented in docs/README.md:416. Any future role between moderator and admin defaults to filtered (safe) under the rank-based check.",
+    "Bounded per-item N+1 now also on the authenticated path — already tracked in docs/deferred-tasks.md line 18 with exactly that scope (D9); restated for completeness."
+  ],
+  "artifacts": [
+    "artifacts/ms3-review-closeout/subtask-7/security_report.md",
+    "artifacts/ms3-review-closeout/subtask-7/security_result.json"
+  ]
+}
