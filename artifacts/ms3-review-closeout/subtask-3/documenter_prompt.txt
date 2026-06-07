@@ -1,0 +1,59 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Make PagesService.create() atomic by wrapping the three-step write sequence in a TypeORM EntityManager transaction. Update JSDoc to document the transactional guarantee. Updated create() tests to use transaction-aware mocks (manager.transaction + entityManager.getRepository routing) and added one new rollback-on-failure test covering AC1.
+
+Acceptance criteria validated:
+- AC1 (rollback on failure): new test verifies create() rejects when revision save fails mid-transaction
+- AC2 (successful create): updated test verifies result.title, result.currentRevisionId set, revisionSave called once
+- AC3 (unchanged methods): update, publish, unpublish, restoreRevision, findRevisions all pass -- 0 regressions
+- AC4 (JSDoc): create() JSDoc documents transactional guarantee and FK-aware insert order
+- AC5 (build/lint/typecheck): typecheck clean; lint failure is pre-existing and unrelated
+
+Implementation branch or worktree context:
+- Branch: ms3-claude-subtask-3-implementer-20260606 (implementation commit 766a3d7)
+- Tester branch: ms3-claude-subtask-3-tester-20260606 (test commit d30ef8c)
+- Worktree: /home/tstephen/repos/worktrees/ms3-claude-subtask-3-tester-20260606
+- create() uses pageRepository.manager.transaction(async (entityManager) => { ... }) -- no new injection required
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/pages/pages.service.ts (implementer: transaction + JSDoc)
+- apps/api/src/pages/pages.service.test.ts (tester: transaction-aware mocks + rollback test)
+
+Test commit:
+- d30ef8c
+
+Commands executed:
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-3-tester-20260606 --filter @sfus/api exec vitest run src/pages/pages.service.test.ts
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-3-tester-20260606 --filter @sfus/api exec tsc --noEmit
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-3-tester-20260606 --filter @sfus/api run lint
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-3-tester-20260606 --filter @sfus/api run test
+
+Final test outcomes:
+- pages.service.test.ts: 39 passed (39) -- all create() success-path tests updated to use transaction-aware mocks; new rollback test passes
+- typecheck: clean, no errors
+- lint: 1 pre-existing error in navigation.controller.test.ts (UnauthorizedException unused import) -- unrelated to this change
+- full API suite: 257 passed, 6 pre-existing failures in navigation.controller.test.ts (ENOENT path bug, pre-existing)
+
+Documentation context:
+- PagesService.create() is now atomic -- correctness improvement, not a behavioral change for callers
+- JSDoc already updated by implementer to document transactional guarantee and FK-aware insert order
+- No new public API surface or configuration changes -- pages.module.ts unchanged
+- Documenter should check docs/README.md or docs/website-launch-guide.md for any mention of PagesService transaction semantics
+
+Plan and diff context:
+- Plan: plans/ms3-review-closeout-plan.md, subtask 3 -- atomic PagesService.create() transaction
+- Comparison base: ms3-claude branch (main coordination branch for this plan)
+- Implementer diff: apps/api/src/pages/pages.service.ts only
+- Tester diff: apps/api/src/pages/pages.service.test.ts only
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

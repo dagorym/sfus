@@ -1,0 +1,50 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Make PagesService.create() atomic by wrapping the three-step write sequence in a TypeORM EntityManager transaction. Update JSDoc to document the transactional guarantee.
+
+Modified files:
+- apps/api/src/pages/pages.service.ts
+
+Acceptance criteria to validate (from Planner):
+- A failure at any step of create() leaves no standalone_pages row and no page_revisions row from that call; the slug is immediately reusable.
+- A successful create persists the page and revision 1 and returns an entity with currentRevisionId set, exactly as before.
+- update, publish, unpublish, revision listing, and restore behavior are unchanged.
+- The create() JSDoc states the transactional guarantee alongside the FK-aware order.
+- The API builds, lints, and typechecks clean.
+
+Create test files in:
+- apps/api/src/pages/pages.service.test.ts (tester-owned; adapt create() mocks to transaction-aware mocks)
+- apps/api/src/pages/*.test.ts
+
+Implementation context for testing:
+- create() now calls pageRepository.manager.transaction(async (entityManager) => { ... }) using the repository's existing manager -- no new injection required.
+- Inside the transaction callback, pageRepo = entityManager.getRepository(StandalonePageEntity) and revisionRepo = entityManager.getRepository(PageRevisionEntity) are used in place of this.pageRepository and this.revisionRepository.
+- FK-aware insert order preserved: standalone_pages row first (currentRevisionId=null), then page_revisions row, then page pointer update.
+- The pattern mirrors auth.service.ts withPersistenceContext() which uses usersRepository.manager.transaction().
+- pages.module.ts was NOT changed -- DataSource injection is not needed since we use the repository's manager property directly.
+- Tests mocking pageRepository.save and revisionRepository.save directly will need to also mock pageRepository.manager.transaction and entityManager.getRepository to match the new internal structure.
+- The schema-enforced FK/rollback proof is subtask-4's deliverable, not this subtask's.
+- Pre-existing lint failure: navigation.controller.test.ts UnauthorizedException unused import -- unrelated to this change.
+- Pre-existing test failures: navigation.controller.test.ts 6 tests with ENOENT path bug -- unrelated to this change.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec tsc --noEmit
+- npx --yes pnpm@10.0.0 --filter @sfus/api run lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/pages/pages.service.test.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/api run test
+
+Existing validations expected to fail only because approved behavior changed:
+- lint: navigation.controller.test.ts UnauthorizedException unused import -- pre-existing, not caused by this change
+- test: navigation.controller.test.ts 6 tests fail with ENOENT path bug -- pre-existing, not caused by this change
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

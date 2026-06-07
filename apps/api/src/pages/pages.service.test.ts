@@ -13,23 +13,71 @@ type MinimalRepository<T> = {
   create: (data: unknown) => T;
   save: (entity: T) => Promise<T>;
   delete?: (opts?: unknown) => Promise<unknown>;
+  manager?: {
+    transaction: (cb: (em: unknown) => Promise<unknown>) => Promise<unknown>;
+  };
 };
 
-const createMinimalRepository = <T>(defaults?: Partial<MinimalRepository<T>>): MinimalRepository<T> => ({
-  find: async () => [],
-  findOne: async () => null,
-  create: (data: unknown) => data as T,
-  save: async (entity: T) => entity,
-  ...defaults
+// Build an EntityManager stub that routes getRepository() calls to the provided
+// per-entity mock repositories. Used for transaction-aware create() tests.
+const makeEntityManagerStub = (
+  pageRepo: MinimalRepository<StandalonePageEntity>,
+  revisionRepo: MinimalRepository<PageRevisionEntity>
+): unknown => ({
+  getRepository: (entity: unknown) => {
+    // Import cycles are avoided by comparing constructor names at runtime.
+    const name = (entity as { name?: string }).name;
+    if (name === "StandalonePageEntity") return pageRepo;
+    if (name === "PageRevisionEntity") return revisionRepo;
+    throw new Error(`Unexpected getRepository call for entity: ${String(name)}`);
+  }
 });
 
+const createMinimalRepository = <T>(
+  defaults?: Partial<MinimalRepository<T>>,
+  transactionPageRepo?: MinimalRepository<StandalonePageEntity>,
+  transactionRevisionRepo?: MinimalRepository<PageRevisionEntity>
+): MinimalRepository<T> => {
+  const base: MinimalRepository<T> = {
+    find: async () => [],
+    findOne: async () => null,
+    create: (data: unknown) => data as T,
+    save: async (entity: T) => entity,
+    ...defaults
+  };
+  // Attach a manager.transaction stub that delegates to the per-entity repo mocks.
+  // Falls back to a stub that executes the callback with an entity manager that
+  // routes to the same outer repo when inner repos are not explicitly supplied.
+  if (transactionPageRepo !== undefined && transactionRevisionRepo !== undefined) {
+    base.manager = {
+      transaction: async (cb) =>
+        cb(makeEntityManagerStub(transactionPageRepo, transactionRevisionRepo))
+    };
+  } else if (transactionPageRepo !== undefined || transactionRevisionRepo !== undefined) {
+    throw new Error("Both transactionPageRepo and transactionRevisionRepo must be supplied together");
+  }
+  return base;
+};
+
+// makePagesService builds a PagesService with stubbed repositories.
+//
+// pageRepo / revisionRepo   — stubs for the outer @InjectRepository-bound repos
+//                             used by update/publish/unpublish/restoreRevision/find*.
+// txPageRepo / txRevisionRepo — stubs for the repos obtained via
+//                               entityManager.getRepository() inside the
+//                               create() transaction callback.  When omitted,
+//                               create() tests that reach the transaction will
+//                               fail with "Cannot read properties of undefined
+//                               (reading 'transaction')" as expected.
 const makePagesService = (
   pageRepo?: Partial<MinimalRepository<StandalonePageEntity>>,
-  revisionRepo?: Partial<MinimalRepository<PageRevisionEntity>>
+  revisionRepo?: Partial<MinimalRepository<PageRevisionEntity>>,
+  txPageRepo?: MinimalRepository<StandalonePageEntity>,
+  txRevisionRepo?: MinimalRepository<PageRevisionEntity>
 ): PagesService => {
   const authorizationService = new AuthorizationService();
   return new PagesService(
-    createMinimalRepository<StandalonePageEntity>(pageRepo) as never,
+    createMinimalRepository<StandalonePageEntity>(pageRepo, txPageRepo, txRevisionRepo) as never,
     createMinimalRepository<PageRevisionEntity>(revisionRepo) as never,
     authorizationService
   );
@@ -95,6 +143,8 @@ describe("PagesService.findPublishedBySlug", () => {
 
 describe("PagesService.create", () => {
   it("creates a page with revision 1 and returns it", async () => {
+    // AC: A successful create persists the page and revision 1 and returns an
+    // entity with currentRevisionId set, exactly as before the transaction refactor.
     const savedRevision = {
       id: "rev-1",
       pageId: "page-1",
@@ -120,20 +170,39 @@ describe("PagesService.create", () => {
     const pageSave = vi.fn().mockResolvedValue(savedPage);
     const pageFind = vi.fn().mockResolvedValue(savedPage);
 
+    // Transaction-aware repos: txPageRepo and txRevisionRepo are used inside the
+    // manager.transaction callback via entityManager.getRepository().
+    const txPageRepo: MinimalRepository<StandalonePageEntity> = {
+      find: async () => [],
+      findOne: pageFind,
+      create: (d) => d as StandalonePageEntity,
+      save: pageSave
+    };
+    const txRevisionRepo: MinimalRepository<PageRevisionEntity> = {
+      find: async () => [],
+      findOne: async () => null,
+      create: (d) => d as PageRevisionEntity,
+      save: revisionSave
+    };
+
     const service = makePagesService(
       { save: pageSave, findOne: pageFind, create: (d) => d as StandalonePageEntity },
-      { save: revisionSave, create: (d) => d as PageRevisionEntity, findOne: async () => null }
+      { save: revisionSave, create: (d) => d as PageRevisionEntity, findOne: async () => null },
+      txPageRepo,
+      txRevisionRepo
     );
 
     const result = await service.create("user-1", { title: "About", slug: "about", body: "Content" });
     expect(result.title).toBe("About");
+    expect(result.currentRevisionId).toBe("rev-1");
     expect(revisionSave).toHaveBeenCalledOnce();
   });
 
   it("inserts standalone_pages row before page_revisions row (FK-correct order)", async () => {
     // AC: The standalone_pages parent row must be persisted before the child
     // page_revisions row so the FK page_revisions.page_id → standalone_pages.id
-    // is satisfied without a constraint violation.
+    // is satisfied without a constraint violation. The transaction wrapping does
+    // not change the required FK-aware insert order.
     const callOrder: string[] = [];
 
     const savedRevision = {
@@ -167,9 +236,24 @@ describe("PagesService.create", () => {
       return savedRevision;
     });
 
+    const txPageRepo: MinimalRepository<StandalonePageEntity> = {
+      find: async () => [],
+      findOne: vi.fn().mockResolvedValue(savedPage),
+      create: (d) => d as StandalonePageEntity,
+      save: pageSave
+    };
+    const txRevisionRepo: MinimalRepository<PageRevisionEntity> = {
+      find: async () => [],
+      findOne: async () => null,
+      create: (d) => d as PageRevisionEntity,
+      save: revisionSave
+    };
+
     const service = makePagesService(
       { save: pageSave, findOne: vi.fn().mockResolvedValue(savedPage), create: (d) => d as StandalonePageEntity },
-      { save: revisionSave, create: (d) => d as PageRevisionEntity, findOne: async () => null }
+      { save: revisionSave, create: (d) => d as PageRevisionEntity, findOne: async () => null },
+      txPageRepo,
+      txRevisionRepo
     );
 
     await service.create("user-1", { title: "FK Test", slug: "fk-test", body: "Body" });
@@ -180,6 +264,51 @@ describe("PagesService.create", () => {
     expect(firstPageSaveIdx).toBeGreaterThanOrEqual(0);
     expect(firstRevisionSaveIdx).toBeGreaterThanOrEqual(0);
     expect(firstPageSaveIdx).toBeLessThan(firstRevisionSaveIdx);
+  });
+
+  it("rolls back the entire create when the revision save fails mid-transaction", async () => {
+    // AC1: A failure at any step of create() leaves no standalone_pages row and
+    // no page_revisions row from that call; the slug is immediately reusable.
+    //
+    // This test verifies that when the revision insert (step 2) throws, the
+    // transaction callback propagates the error and no partial state is persisted.
+    // In production TypeORM will roll back the DB transaction automatically;
+    // here we verify the error propagates through the transaction wrapper so the
+    // caller receives a rejection rather than a silent partial write.
+    const pageSave = vi.fn().mockResolvedValue({
+      id: "pg-1",
+      slug: "atomic-test",
+      currentRevisionId: null
+    } as unknown as StandalonePageEntity);
+    const revisionSave = vi.fn().mockRejectedValue(new Error("DB constraint violation"));
+
+    const txPageRepo: MinimalRepository<StandalonePageEntity> = {
+      find: async () => [],
+      findOne: async () => null,
+      create: (d) => d as StandalonePageEntity,
+      save: pageSave
+    };
+    const txRevisionRepo: MinimalRepository<PageRevisionEntity> = {
+      find: async () => [],
+      findOne: async () => null,
+      create: (d) => d as PageRevisionEntity,
+      save: revisionSave
+    };
+
+    const service = makePagesService(
+      { create: (d) => d as StandalonePageEntity },
+      { create: (d) => d as PageRevisionEntity },
+      txPageRepo,
+      txRevisionRepo
+    );
+
+    // The create() call must reject when any step inside the transaction fails.
+    await expect(
+      service.create("user-1", { title: "Atomic Test", slug: "atomic-test", body: "Safe body" })
+    ).rejects.toThrow("DB constraint violation");
+
+    // The revision save was attempted — the error is from inside the transaction.
+    expect(revisionSave).toHaveBeenCalledOnce();
   });
 
   it("rejects invalid slugs", async () => {
@@ -454,9 +583,20 @@ describe("PagesService reserved slug enforcement", () => {
   it("accepts a non-reserved valid slug on create (positive baseline)", async () => {
     const savedRevision = { id: "rev-1", pageId: "page-1", revisionNumber: 1, title: "About", body: "Content", authorUserId: "u", createdAt: new Date() } as PageRevisionEntity;
     const savedPage = { id: "page-1", title: "About", slug: "about-us", status: "draft", currentRevisionId: "rev-1", createdByUserId: "u", publishedAt: null, createdAt: new Date(), updatedAt: new Date() } as StandalonePageEntity;
+    const pageSaveFn = vi.fn().mockResolvedValue(savedPage);
+    const pageOneFn = vi.fn().mockResolvedValue(savedPage);
+    const revSaveFn = vi.fn().mockResolvedValue(savedRevision);
+    const txPageRepo: MinimalRepository<StandalonePageEntity> = {
+      find: async () => [], findOne: pageOneFn, create: (d) => d as StandalonePageEntity, save: pageSaveFn
+    };
+    const txRevisionRepo: MinimalRepository<PageRevisionEntity> = {
+      find: async () => [], findOne: async () => null, create: (d) => d as PageRevisionEntity, save: revSaveFn
+    };
     const service = makePagesService(
-      { save: vi.fn().mockResolvedValue(savedPage), findOne: vi.fn().mockResolvedValue(savedPage), create: (d) => d as StandalonePageEntity },
-      { save: vi.fn().mockResolvedValue(savedRevision), create: (d) => d as PageRevisionEntity, findOne: async () => null }
+      { save: pageSaveFn, findOne: pageOneFn, create: (d) => d as StandalonePageEntity },
+      { save: revSaveFn, create: (d) => d as PageRevisionEntity, findOne: async () => null },
+      txPageRepo,
+      txRevisionRepo
     );
     await expect(service.create("u", { title: "About", slug: "about-us", body: "Content" })).resolves.toBeTruthy();
   });
@@ -518,9 +658,20 @@ describe("PagesService body sanitization", () => {
   it("accepts safe Markdown body on create (positive baseline)", async () => {
     const savedRevision = { id: "rev-1", pageId: "p-1", revisionNumber: 1, title: "T", body: "# Hello\nSafe content.", authorUserId: "u", createdAt: new Date() } as PageRevisionEntity;
     const savedPage = { id: "p-1", title: "T", slug: "safe-page", status: "draft", currentRevisionId: "rev-1", createdByUserId: "u", publishedAt: null, createdAt: new Date(), updatedAt: new Date() } as StandalonePageEntity;
+    const pageSaveFn = vi.fn().mockResolvedValue(savedPage);
+    const pageOneFn = vi.fn().mockResolvedValue(savedPage);
+    const revSaveFn = vi.fn().mockResolvedValue(savedRevision);
+    const txPageRepo: MinimalRepository<StandalonePageEntity> = {
+      find: async () => [], findOne: pageOneFn, create: (d) => d as StandalonePageEntity, save: pageSaveFn
+    };
+    const txRevisionRepo: MinimalRepository<PageRevisionEntity> = {
+      find: async () => [], findOne: async () => null, create: (d) => d as PageRevisionEntity, save: revSaveFn
+    };
     const service = makePagesService(
-      { save: vi.fn().mockResolvedValue(savedPage), findOne: vi.fn().mockResolvedValue(savedPage), create: (d) => d as StandalonePageEntity },
-      { save: vi.fn().mockResolvedValue(savedRevision), create: (d) => d as PageRevisionEntity, findOne: async () => null }
+      { save: pageSaveFn, findOne: pageOneFn, create: (d) => d as StandalonePageEntity },
+      { save: revSaveFn, create: (d) => d as PageRevisionEntity, findOne: async () => null },
+      txPageRepo,
+      txRevisionRepo
     );
     await expect(service.create("u", { title: "T", slug: "safe-page", body: "# Hello\nSafe content." })).resolves.toBeTruthy();
   });

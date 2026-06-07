@@ -116,6 +116,13 @@ export class PagesService {
    * Creates a new standalone page in draft status and records revision 1.
    * Caller must have verified admin access before calling this.
    *
+   * The entire three-step write sequence runs inside a single database
+   * transaction. A failure at any step rolls back the page insert, the
+   * revision insert, and the currentRevisionId pointer update together, so no
+   * orphaned standalone_pages row (occupied slug) or orphaned page_revisions
+   * row can remain after a mid-create error. The slug is immediately reusable
+   * after any failure.
+   *
    * Insert order is FK-aware: the standalone_pages row is persisted first
    * (currentRevisionId = null) to satisfy fk_page_revisions_page_id, then
    * the page_revisions row is inserted, then the page is updated to point at
@@ -135,38 +142,43 @@ export class PagesService {
     const pageId = crypto.randomUUID();
     const revisionId = crypto.randomUUID();
 
-    // Insert the parent standalone_pages row first so the FK on
-    // page_revisions.page_id → standalone_pages.id is satisfied.
-    // currentRevisionId is nullable and will be set after the revision is saved.
-    const page = this.pageRepository.create({
-      id: pageId,
-      createdByUserId: authorUserId,
-      title: input.title,
-      slug: input.slug,
-      status: "draft",
-      publishedAt: null,
-      currentRevisionId: null
+    return this.pageRepository.manager.transaction(async (entityManager) => {
+      const pageRepo = entityManager.getRepository(StandalonePageEntity);
+      const revisionRepo = entityManager.getRepository(PageRevisionEntity);
+
+      // Insert the parent standalone_pages row first so the FK on
+      // page_revisions.page_id → standalone_pages.id is satisfied.
+      // currentRevisionId is nullable and will be set after the revision is saved.
+      const page = pageRepo.create({
+        id: pageId,
+        createdByUserId: authorUserId,
+        title: input.title,
+        slug: input.slug,
+        status: "draft",
+        publishedAt: null,
+        currentRevisionId: null
+      });
+      await pageRepo.save(page);
+
+      const revision = revisionRepo.create({
+        id: revisionId,
+        pageId,
+        authorUserId,
+        title: input.title,
+        body: normalizedBody,
+        summary: input.summary ?? null,
+        changeNote: input.changeNote ?? null,
+        featuredMediaId: input.featuredMediaId ?? null,
+        revisionNumber: 1
+      });
+      const savedRevision = await revisionRepo.save(revision);
+
+      // Update the page to point at its initial revision.
+      page.currentRevisionId = savedRevision.id;
+      await pageRepo.save(page);
+
+      return pageRepo.findOne({ where: { id: pageId } }) as Promise<StandalonePageEntity>;
     });
-    await this.pageRepository.save(page);
-
-    const revision = this.revisionRepository.create({
-      id: revisionId,
-      pageId,
-      authorUserId,
-      title: input.title,
-      body: normalizedBody,
-      summary: input.summary ?? null,
-      changeNote: input.changeNote ?? null,
-      featuredMediaId: input.featuredMediaId ?? null,
-      revisionNumber: 1
-    });
-    const savedRevision = await this.revisionRepository.save(revision);
-
-    // Update the page to point at its initial revision.
-    page.currentRevisionId = savedRevision.id;
-    await this.pageRepository.save(page);
-
-    return this.pageRepository.findOne({ where: { id: pageId } }) as Promise<StandalonePageEntity>;
   }
 
   /**
