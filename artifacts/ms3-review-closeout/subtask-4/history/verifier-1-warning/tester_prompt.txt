@@ -1,0 +1,75 @@
+Your role is 'tester'. Your task is as follows:
+
+Verify the PagesService.create real-FK integration test harness added in ms3-review-closeout subtask-4. The implementer has added a gated integration spec and bootstrap helper. Your job is to confirm both the gated-run path (with real DB) and the skip path (without flag) behave exactly as specified.
+
+## Branch
+
+ms3-claude-subtask-4-implementer-20260606
+
+## Shared Artifact Directory
+
+artifacts/ms3-review-closeout/subtask-4
+
+## Changed Files
+
+- `apps/api/src/pages/pages.service.integration.test.ts` (new)
+- `apps/api/src/pages/integration-test-support.ts` (new)
+- `apps/api/package.json` (added test:integration script)
+- `cicd/config/validation-config.yml` (added pages-service-integration entry)
+- `cicd/docs/cicd.md` (documented integration entry)
+- `cicd/docs/local-pipeline.md` (documented when entry runs)
+
+## Acceptance Criteria to Verify
+
+1. **Skip path (no DB required)**: Running the workspace test command without SFUS_DB_INTEGRATION=1 must show the integration file as skipped with an explicit skip message in stdout. All other tests must pass unchanged.
+
+2. **Gated-run path (DB required)**: With the dev MySQL stack up and migrations applied, running with SFUS_DB_INTEGRATION=1 plus DB_* vars set must result in:
+   - Test 1 (successful round-trip): standalone_pages row persisted, page_revisions row persisted with revisionNumber=1, current_revision_id set correctly.
+   - Test 2 (forced failure): After a unique-constraint violation inside a transaction, no orphaned standalone_pages row remains.
+
+3. **No regressions**: Lint, typecheck, and all existing unit tests must continue to pass.
+
+4. **cicd entry present**: `cicd/config/validation-config.yml` must contain a `pages-service-integration` entry. Both `cicd/docs/cicd.md` and `cicd/docs/local-pipeline.md` must document the entry and the local command.
+
+5. **No production code changes**: Only the allowed files listed above may be changed.
+
+## Test File Location
+
+- Integration spec: `apps/api/src/pages/pages.service.integration.test.ts`
+- Bootstrap helper: `apps/api/src/pages/integration-test-support.ts`
+
+## Validation Commands
+
+### Skip path (no DB):
+```bash
+npx --yes pnpm@10.0.0 --filter @sfus/api run test
+```
+Expected: 1 file skipped (integration test), all other files pass, stdout shows SKIP message.
+
+### Gated-run path (dev MySQL on port 43306 based on local env):
+```bash
+SFUS_DB_INTEGRATION=1 \
+DB_HOST=127.0.0.1 DB_PORT=43306 DB_NAME=sfus \
+DB_USER=sfus DB_PASSWORD=changeme-app \
+npx --yes pnpm@10.0.0 --filter @sfus/api run test:integration
+```
+Expected: 1 test file passed, 2 tests passed.
+
+### Lint and typecheck:
+```bash
+npx --yes pnpm@10.0.0 --filter @sfus/api run lint
+npx --yes pnpm@10.0.0 --filter @sfus/api run typecheck
+```
+
+## Implementation Context
+
+- The integration test bootstraps a real TypeORM DataSource from DB_* env vars.
+- Test cleanup uses DELETE on standalone_pages (cascade removes page_revisions) and DELETE on the throwaway user.
+- The forced-failure test uses a duplicate revision_number (1) to violate uq_page_revisions_page_revision_number, which triggers rollback; the test then asserts no orphaned standalone_pages row exists.
+- The SFUS_DB_INTEGRATION gate uses `describe.skipIf(!DB_INTEGRATION_ENABLED)` which causes vitest to report the suite as skipped with 0 failures.
+
+## Implementation Commit
+
+bae0763
+
+Do not report success unless all required artifacts exist and all changes are committed.

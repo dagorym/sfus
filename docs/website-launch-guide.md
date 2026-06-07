@@ -381,6 +381,34 @@ These tests cover the Bash-based CI/CD helpers under `cicd/`:
 bash cicd/tests/run-validations.sh
 ```
 
+### 4. PagesService DB integration spec (opt-in)
+
+The `pages-service-integration` entry in `cicd/config/validation-config.yml` runs
+`PagesService.create` against a real MySQL schema with foreign-key constraints enforced.
+It is gated on `SFUS_DB_INTEGRATION=1` and **skips cleanly when the flag is unset**, so
+the default `npx --yes pnpm@10.0.0 test` pass and `run-validations.sh` require no database.
+
+To run it locally, start the dev MySQL service, apply migrations, then invoke the
+`test:integration` script in `apps/api` with the DB env vars:
+
+```bash
+# Start dev MySQL (if not already running):
+bash cicd/scripts/run-containers.sh start
+
+# Apply migrations via the fullstack Compose path:
+docker compose --env-file .env -f cicd/docker/compose.dev.yml --profile fullstack run --rm api node dist/index.js migration:run
+
+# Run the integration spec:
+SFUS_DB_INTEGRATION=1 \
+DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=sfus \
+DB_USER=sfus DB_PASSWORD=changeme-app \
+npx --yes pnpm@10.0.0 --filter @sfus/api run test:integration
+```
+
+The default `DB_*` values above match the host-run hybrid dev defaults documented in the
+"Required Local Configuration" section. See `cicd/docs/cicd.md` for the full local
+command sequence and for how to activate the entry via `run-validations.sh`.
+
 ## Recommended Local Verification Order
 
 If you want to confirm both the website container and the repo validation surfaces:

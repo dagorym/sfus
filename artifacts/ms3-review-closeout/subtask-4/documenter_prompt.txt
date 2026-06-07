@@ -1,0 +1,60 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Remediation pass 2 for ms3-review-closeout subtask-4: verified that verifier-1-warning findings are addressed in the real-FK integration spec. Test 2 comment updated with WHY THIS TEST DOES NOT CALL service.create() DIRECTLY and WHAT THIS TEST DOES AND DOES NOT PROVE blocks (WARNING resolved). Strategy comment updated to describe test-local transaction approach (NOTE resolved). readDbOptionsFromEnv() JSDoc note added for DB_USER/DB_PASSWORD (NOTE resolved). All acceptance criteria independently validated.
+
+Acceptance criteria validated:
+- AC1 PASS: With dev MySQL up and SFUS_DB_INTEGRATION=1, integration spec passes (FK create round-trip + rollback proof) — 2/2 tests pass
+- AC2 PASS: Without flag, suite skips cleanly with explicit skip message — 264 unit tests pass, 2 integration tests skip with expected message
+- AC3 PASS: No production code changes; API builds, lints, typechecks clean — only test files modified, typecheck and lint exit 0
+- AC4 PASS: Test 2 comment accurately describes what the test does and does not prove (verifier WARNING addressed) — WHY and WHAT blocks verified in source
+- AC5 PASS: Strategy comment matches test body (verifier NOTE addressed) — strategy describes test-local transaction with duplicate revision_number injection
+- AC6 PASS: DB_USER/DB_PASSWORD missing-credentials failure is debuggable (verifier NOTE addressed) — JSDoc in readDbOptionsFromEnv() documents no safe fallback and expected auth error
+
+Implementation branch or worktree context:
+- Tester worktree: /home/tstephen/repos/worktrees/ms3-claude-subtask-4-tester-20260606 (branch: ms3-claude-subtask-4-tester-20260606, tip: 347cee1)
+- Implementation commit: 6c84f17 (test(pages): remediation pass 2 -- fix Test 2 comment and add DB_USER/DB_PASSWORD JSDoc note)
+- Tests run from implementer worktree (ms3-claude-subtask-4-implementer-20260606) at same tip commit 347cee1 (node_modules present there)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/pages/pages.service.integration.test.ts (comment/JSDoc changes — Test 2 accuracy blocks added)
+- apps/api/src/pages/integration-test-support.ts (JSDoc note added to readDbOptionsFromEnv)
+
+Test commit:
+- No Changes Made
+
+Commands executed:
+- pnpm --filter @sfus/api run test (skip path, from implementer worktree at same commit 347cee1)
+- pnpm --filter @sfus/api run typecheck
+- pnpm --filter @sfus/api run lint
+- SFUS_DB_INTEGRATION=1 DB_HOST=127.0.0.1 DB_PORT=43306 DB_NAME=sfus DB_USER=sfus DB_PASSWORD=changeme-app pnpm --filter @sfus/api run test:integration
+
+Final test outcomes:
+- Skip path (no SFUS_DB_INTEGRATION): 264 unit tests pass across 15 files, 2 integration tests skip with explicit [pages.service.integration] SKIP: SFUS_DB_INTEGRATION=1 is not set... message. Exit 0.
+- Gated path (SFUS_DB_INTEGRATION=1, dev MySQL port 43306): 2/2 integration tests pass. Test 1 (FK round-trip): standalone_pages and page_revisions persisted with revisionNumber=1 and current_revision_id set. Test 2 (DB atomicity): forced unique-constraint violation triggers rollback, no orphaned standalone_pages row found.
+- Typecheck: clean (exit 0, zero errors).
+- Lint: clean (exit 0, zero warnings).
+- AC4 (Test 2 comment accuracy): WHY THIS TEST DOES NOT CALL service.create() DIRECTLY block present; WHAT THIS TEST DOES AND DOES NOT PROVE block present. Comment accurately describes structural infeasibility and scope limits.
+- AC5 (Strategy comment): comment accurately describes test-local transaction approach with duplicate revision_number injection.
+- AC6 (DB credentials JSDoc): readDbOptionsFromEnv() JSDoc states DB_USER/DB_PASSWORD have no safe fallback and that missing values cause generic MySQL driver authentication error.
+
+Documentation context:
+- docs/website-launch-guide.md was already updated in a prior documenter pass (commit 33aa635) covering the test:integration command and env-var prerequisites.
+- This remediation pass is comment/JSDoc-only changes to test files — no new documentation sections expected.
+- Documenter should verify prior website-launch-guide.md update remains accurate and complete for subtask closeout.
+
+Plan and diff context:
+- Plan: plans/ms3-review-closeout-plan.md. Subtask 4. Remediation pass 2 addressing verifier-1-warning findings.
+- Comparison base: ms3-claude branch. Diff scope: worktree tip 347cee1 vs ms3-claude tip.
+- Artifact directory: artifacts/ms3-review-closeout/subtask-4
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-4
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
