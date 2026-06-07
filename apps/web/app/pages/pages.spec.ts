@@ -292,6 +292,27 @@ describe("Top-level catch-all page route source contracts (AC1)", () => {
     expect(source).toContain('"login"');
   });
 
+  it("includes 'pages' in RESERVED_SLUGS to mirror the API-side eleven-entry list (pass-2 parity fix)", async () => {
+    const source = await readAppFile("app/[slug]/page.tsx");
+    // AC: 'pages' must appear in RESERVED_SLUGS so a bare /pages request is
+    // short-circuited by the web catch-all guard without querying the API.
+    // This entry was added in ms3-review-closeout pass-2 to close the web/API
+    // mirror divergence identified by the specialist security review.
+    // The full eleven-entry set expected on both sides:
+    // admin, api, app, blog, login, pages, register, onboarding, profile, settings, health
+    expect(source).toContain('"pages"');
+    // Confirm the RESERVED_SLUGS declaration containing 'pages' is present
+    const reservedStart = source.indexOf("RESERVED_SLUGS");
+    expect(reservedStart).toBeGreaterThan(-1);
+    const reservedBlock = source.slice(reservedStart, source.indexOf(");", reservedStart) + 2);
+    expect(reservedBlock).toContain('"pages"');
+    // Verify all eleven entries are present in the set declaration
+    const elevenEntries = ["admin", "api", "app", "blog", "login", "pages", "register", "onboarding", "profile", "settings", "health"];
+    for (const entry of elevenEntries) {
+      expect(reservedBlock, `RESERVED_SLUGS must contain "${entry}"`).toContain(`"${entry}"`);
+    }
+  });
+
   it("returns a not-found state for reserved slugs without querying the API (AC1)", async () => {
     const source = await readAppFile("app/[slug]/page.tsx");
     // AC1: reserved slug interception must happen before any API call
