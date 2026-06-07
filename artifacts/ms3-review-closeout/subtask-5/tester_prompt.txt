@@ -1,0 +1,47 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- ms3-review-closeout subtask-5 pass-2: Add 'pages' to the web-side RESERVED_SLUGS list in apps/web/app/[slug]/page.tsx to restore mirror parity with the API-side RESERVED_PAGE_SLUGS list (eleven entries). Remediates the one WARNING from the specialist security review of pass-1.
+
+Modified files:
+- apps/web/app/[slug]/page.tsx
+
+Acceptance criteria to validate (from Planner):
+- RESERVED_SLUGS in apps/web/app/[slug]/page.tsx includes 'pages', mirroring the API-side list (eleven entries).
+- A bare /pages request is short-circuited by the web catch-all guard without querying the API.
+- API and web apps build, lint, typecheck, and their unit suites pass.
+- Change is strictly fail-closed: no unpublished standalone page becomes publicly visible.
+
+Create test files in:
+- Web specs: apps/web/app/**/*.spec.ts and components/**/*.spec.ts
+- Tester may optionally add a source-contract assertion pinning 'pages' in RESERVED_SLUGS in apps/web/app/[slug]/page.tsx
+- Pass-1 API tests already merged and green: apps/api/src/pages/pages.service.test.ts and apps/api/src/navigation/navigation.service.test.ts
+
+Implementation context for testing:
+- This is a pass-2 remediation for the specialist security review WARNING about web/API mirror divergence.
+- Pass-1 added 'pages' to RESERVED_PAGE_SLUGS in apps/api/src/pages/pages.service.ts (already committed).
+- The web catch-all at apps/web/app/[slug]/page.tsx maintained a parallel RESERVED_SLUGS set with ten entries missing 'pages'.
+- Without 'pages' in the web set, a bare /pages request fell through to the catch-all which queried GET /api/pages/pages instead of short-circuiting.
+- The one-line addition inserts 'pages' after 'login' maintaining alphabetical order, bringing the web guard to eleven entries.
+- No logic change — only the Set literal is modified. The isReserved check and all rendering paths are unchanged.
+- docs/README.md's mirror-parity sentence now accurately describes the state after this fix; the documenter should verify it reflects eleven entries on both sides.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

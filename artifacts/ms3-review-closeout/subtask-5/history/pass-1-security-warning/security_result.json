@@ -1,0 +1,22 @@
+{
+  "task": "ms3-review-closeout/subtask-5",
+  "role": "security",
+  "result": "CONDITIONAL PASS",
+  "blocking_findings": 0,
+  "warning_findings": 1,
+  "note_findings": 4,
+  "summary": "Reserving the 'pages' slug (RESERVED_PAGE_SLUGS addition) is strictly fail-closed for content: only the visibility of the bare-/pages static nav link changes, no unpublished standalone page becomes visible or resolvable, previously reserved slugs and published/unpublished /<slug> filtering are unchanged, and /blog/<slug>, /pages/<slug>, and safe-[] fallback behavior is preserved (navigation.service.ts unchanged vs merge-base; denylist single-sourced via import). New nav test pins the no-DB-query short-circuit via spy. One WARNING: web-side RESERVED_SLUGS in apps/web/app/[slug]/page.tsx lacks 'pages' while docs/README.md claims the lists are mirrors -- and the pass-1 verifier's zero-impact rationale is based on an incorrect premise (apps/web/app/pages/ has no page.tsx, so bare /pages is actually served by the [slug] catch-all, which queries the API instead of short-circuiting; legacy published 'pages' rows would shadow the route). No content leak in any branch. Notes: prospective-only enforcement with no legacy-data sweep (publish/update-in-place never re-validate an unchanged slug); bare /pages renders a not-found catch-all page web-side (UX, not leakage); server-side lockstep structurally sound; carried-forward items (authenticated-nav gap -> subtask-7, unpinned published-only predicate) unaffected. Independent API test run: 267/267 pass. Resolves the pass-1 verifier's missing-security-stage WARNING.",
+  "warnings": [
+    "apps/web/app/[slug]/page.tsx:34-45 RESERVED_SLUGS missing 'pages' + docs/README.md mirror-parity claim now inaccurate; verifier NOTE's zero-impact premise incorrect (no page.tsx at apps/web/app/pages/, so /pages hits the [slug] catch-all). Trivial follow-up: add 'pages' to the web list and/or correct the docs sentence. Fail-closed for content regardless."
+  ],
+  "notes": [
+    "Prospective-only enforcement: no migration/startup check for legacy standalone_pages rows with slug 'pages'; publish() and update-without-slug-change never re-validate.",
+    "Bare /pages 'static route' has no web page (no apps/web/app/pages/page.tsx); always-rendered nav item is a dead link to a not-found state -- availability/UX only.",
+    "Server-side denylist is single-sourced (navigation imports RESERVED_PAGE_SLUGS from pages.service); exhaustive 11-slug test pins against drift.",
+    "Carried-forward, not worsened: authenticated-nav publication-filter gap (subtask-7) and unpinned status='published' query predicate in mock-based nav tests."
+  ],
+  "artifacts": [
+    "artifacts/ms3-review-closeout/subtask-5/security_report.md",
+    "artifacts/ms3-review-closeout/subtask-5/security_result.json"
+  ]
+}

@@ -37,6 +37,7 @@ const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   "app",
   "blog",
   "login",
+  "pages",
   "register",
   "onboarding",
   "profile",

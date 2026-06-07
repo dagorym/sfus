@@ -554,8 +554,8 @@ describe("PagesService reserved slug enforcement", () => {
   });
 
   it("rejects all documented reserved slugs on create", async () => {
-    // AC1: full reserved list must all be rejected
-    const reserved = ["admin", "api", "app", "blog", "login", "register", "onboarding", "profile", "settings", "health"];
+    // AC1: full reserved list must all be rejected; 'pages' added in ms3-review-closeout NOTE 3
+    const reserved = ["admin", "api", "app", "blog", "login", "pages", "register", "onboarding", "profile", "settings", "health"];
     const service = makePagesService();
     for (const slug of reserved) {
       await expect(
@@ -563,6 +563,30 @@ describe("PagesService reserved slug enforcement", () => {
         `Expected reserved slug "${slug}" to be rejected`
       ).rejects.toThrow(BadRequestException);
     }
+  });
+
+  it("rejects the 'pages' reserved slug on create", async () => {
+    // AC: 'pages' is reserved to prevent a standalone page from shadowing the /pages Next.js route.
+    const service = makePagesService();
+    await expect(
+      service.create("user-1", { title: "Pages", slug: "pages", body: "Body" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects the 'pages' reserved slug on update", async () => {
+    // AC: renaming a standalone page to slug 'pages' must also be rejected.
+    const page = {
+      id: "page-1",
+      title: "About",
+      slug: "about",
+      status: "draft",
+      currentRevisionId: "rev-1",
+      createdByUserId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as StandalonePageEntity;
+    const service = makePagesService({ findOne: async () => page });
+    await expect(service.update("page-1", "user-1", { slug: "pages" })).rejects.toThrow(BadRequestException);
   });
 
   it("rejects a reserved slug on update", async () => {

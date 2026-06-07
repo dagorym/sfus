@@ -431,6 +431,24 @@ describe("NavigationService.findPublic — publication-aware filtering (AC2 subt
     expect(result).toHaveLength(1);
   });
 
+  it("renders a bare /pages nav item as a static route regardless of standalone-page publication state", async () => {
+    // AC: 'pages' is now in RESERVED_PAGE_SLUGS so a nav item with url='/pages' must always
+    // be included in the public response without consulting the standalone_pages table.
+    // This pins the always-rendered static-route behavior for the bare /pages path.
+    const item = makePublicItem({ url: "/pages", linkType: "internal" });
+    const pageRepoFindOne = vi.fn(); // must NOT be called for reserved slugs
+    const service = makeNavigationService(
+      { find: vi.fn().mockResolvedValue([item]) },
+      undefined,
+      { findOne: pageRepoFindOne }
+    );
+    const result = await service.findPublic();
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe("/pages");
+    // The standalone_pages table must not be consulted for a reserved slug.
+    expect(pageRepoFindOne).not.toHaveBeenCalled();
+  });
+
   it("omits a top-level item linking to an unpublished top-level page (/<slug> canonical route)", async () => {
     // New AC (subtask-3): /<slug> canonical route to an unpublished standalone page must be
     // omitted from public navigation — prevents draft-page leakage via top-level slug.

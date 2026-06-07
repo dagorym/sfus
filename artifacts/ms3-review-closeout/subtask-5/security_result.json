@@ -1,0 +1,21 @@
+{
+  "task": "ms3-review-closeout/subtask-5",
+  "role": "security",
+  "pass": 2,
+  "result": "PASS",
+  "blocking_findings": 0,
+  "warning_findings": 0,
+  "note_findings": 3,
+  "summary": "Pass-2 review confirms the pass-1 WARNING (web-side RESERVED_SLUGS missing 'pages'; inaccurate docs mirror-parity claim; bare /pages served by the [slug] catch-all querying GET /api/pages/pages) is fully resolved: 'pages' added at apps/web/app/[slug]/page.tsx:40, the isReserved short-circuit runs before the fetch effect so bare /pages now yields a local not-found with zero API traffic, the legacy published-'pages'-row route-shadowing path is closed, the eleven-entry source-contract test (apps/web/app/pages/pages.spec.ts:295-314) pins the mirror, and docs/README.md's parity sentence is now accurate. All security acceptance criteria met: strictly fail-closed for content; previously reserved slugs and published/unpublished /<slug> filtering unchanged (navigation.service.ts and /pages/[slug] route have no diff vs merge-base 24c7abf); /blog/<slug>, /pages/<slug>, and safe-[] fallback preserved. No new trust boundary, input path, or DoS surface; the pass-2 change strictly reduces data flow. Independent test runs in this worktree all green: web 245/245 (pages.spec.ts 67/67), API 267/267 (pages+navigation 78/78).",
+  "warnings": [],
+  "notes": [
+    "Carried forward, unchanged owner/severity: prospective-only enforcement with no legacy-data sweep (mitigated -- legacy published 'pages' row can no longer render at /pages web-side; ops one-off data check still a recorded follow-up); bare /pages nav item renders web-side not-found (UX/availability only; no hardcoded bare /pages links exist in apps/web); authenticated-nav filter gap owned by subtask-7 and unpinned published-only predicate in mock-based nav tests.",
+    "Parity tests are containment-style on both sides, not set-equality: a one-sided twelfth entry would not fail either contract; drift in that direction over-reserves (fails closed), so robustness nicety only.",
+    "Test-count provenance: verifier/tester reported 244 web / 278 API; this chain branch independently yields 245 web / 267 API, all green -- consistent with the verifier counting against a tree containing other merged closeout subtasks; informational only."
+  ],
+  "pass_1_warning_resolution": "RESOLVED",
+  "artifacts": [
+    "artifacts/ms3-review-closeout/subtask-5/security_report.md",
+    "artifacts/ms3-review-closeout/subtask-5/security_result.json"
+  ]
+}
