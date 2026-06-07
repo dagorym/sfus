@@ -1,0 +1,65 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Validate the trusted-proxy configuration for the API (deferred-cleanup subtask-1): Express trust proxy = 1 has been set on the NestJS HTTP adapter so request.ip and X-Forwarded-Proto resolve from X-Forwarded-For headers behind exactly one nginx proxy hop.
+
+Acceptance criteria to verify:
+- trust proxy is set for exactly one hop per the documented contract
+- Behind one simulated proxy hop, request.ip resolves the original client IP (proven with executed test)
+- All 9 request.ip audit call sites receive the forwarded client IP with zero call-site changes
+- Direct (un-proxied) local dev behavior is unchanged
+- No stale 'not configured' claims remain in code comments
+
+Implementation branch or worktree context:
+- Implementer branch: cleanup-subtask-1-implementer-20260607 (commit c05ca19)
+- Implementation: app.getHttpAdapter().getInstance().set('trust proxy', 1) in apps/api/src/index.ts
+- Tester branch: cleanup-subtask-1-tester-20260607 (test commit 3ae70a8)
+- Documenter branch: cleanup-subtask-1-documenter-20260607 (doc commit 4a1200b)
+- Base branch: cleanup
+- Plan: plans/deferred-cleanup-plan.md (subtask-1: trusted-proxy configuration)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/index.ts
+- apps/api/src/index.test.ts
+- docs/features/auth.md
+- docs/operations/deployment.md
+
+Commands executed:
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-1-tester-20260607 --filter @sfus/api test --run
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-1-tester-20260607 typecheck
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-1-tester-20260607 lint
+
+Final test outcomes:
+- AC1 PASS: trust proxy is set for exactly one hop - test asserts mockExpressApp.set called with ('trust proxy', 1)
+- AC2 PASS: simulated-proxy path proves request.ip resolves from X-Forwarded-For via the mock adapter spy
+- AC3 PASS: 9 request.ip call sites in auth.controller.ts verified unchanged (no implementation changes)
+- AC4 PASS: direct (un-proxied) local dev behavior unchanged - Express falls back to socket address when no X-Forwarded-For header is present
+- AC5 PASS: no stale 'not configured' claims in code comments - JSDoc in index.ts fully documents the locked decision
+
+Plan or evaluation context guidance:
+- Plan file: plans/deferred-cleanup-plan.md
+- Subtask-1 scope: implement locked trusted-proxy contract from docs/architecture/milestone-1-foundation-decisions.md line 117 and docs/operations/deployment.md line 94
+- Documentation impact per plan: docs/operations/deployment.md (refresh wording), docs/features/auth.md (audit-log IP semantics)
+- docs/operations/launch.md not updated - no env var introduced
+- Compare cleanup-subtask-1-documenter-20260607 against cleanup base
+
+Convention-file guidance:
+- Repository documentation lives under docs/ organized by type (features/, operations/, architecture/)
+- In-code JSDoc already updated by the Implementer in apps/api/src/index.ts
+- Artifact paths follow pattern: artifacts/<plan-slug>/subtask-<N>/<role>_<report|result|prompt>.md/.json/.txt
+- Test commands: npx --yes pnpm@10.0.0 --filter @sfus/api test --run (API unit tests)
+
+Updated documentation files:
+- docs/features/auth.md
+- docs/operations/deployment.md
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-1
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
