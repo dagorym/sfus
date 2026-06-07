@@ -1,0 +1,67 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Subtask-2 of deferred-cleanup plan: add locked baseline security headers and CSP at app level. Web app (next.config.mjs) gained a full baseline CSP (enforced, not report-only) and four additional security headers applied to all routes via headers() export. API (index.ts) gained helmet middleware with HSTS and CSP disabled. Tester added 13 new tests verifying all five acceptance criteria.
+
+Acceptance criteria validated:
+- AC1: Every web route responds with full baseline headers (CSP enforced, not Report-Only) — PASS
+- AC2: Every API route responds with helmet baseline minus HSTS — PASS
+- AC3: Core flows pass with zero CSP violations; smoke passes (source-level) — PASS
+- AC4: Each CSP allowance beyond 'self' carries in-code justification comment — PASS
+- AC5: No Strict-Transport-Security header emitted by either app — PASS
+
+Implementation branch or worktree context:
+- Implementer branch: cleanup-subtask-2-implementer-20260607 (merged to cleanup branch at commit 5cfa409).
+- Implementer commit hash: 95c4b19.
+- Tester branch: cleanup-subtask-2-tester-20260607 (branched from cleanup after implementer merge).
+- Worktree: /home/tstephen/repos/sfus/cleanup-subtask-2-tester-20260607.
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/next.config.mjs — added headers() export with full CSP and baseline security headers
+- apps/api/src/index.ts — added helmet import and app.use(helmet({strictTransportSecurity: false, contentSecurityPolicy: false})) in apiBootstrap()
+- apps/api/package.json — added helmet ^8.0.0 as production dependency
+- pnpm-lock.yaml — updated after pnpm install
+- apps/web/next.config.spec.ts — tester added 11 new header assertion tests
+- apps/api/src/index.test.ts — tester added 2 new helmet/HSTS assertion tests
+
+Test commit:
+- f02f356
+
+Commands executed:
+- pnpm --dir <worktree> install
+- vitest run --root <worktree>/apps/web --passWithNoTests (baseline: 264 passed)
+- vitest run --root <worktree>/apps/web --passWithNoTests (with changes: 275 passed)
+- pnpm --dir <worktree> --filter @sfus/api test -- src/index.test.ts (5 passed)
+- pnpm --dir <worktree> --filter @sfus/api test (358 passed, 1 pre-existing failure, 2 skipped)
+
+Final test outcomes:
+- AC1 PASS: Content-Security-Policy (enforced), X-Content-Type-Options, Referrer-Policy, X-Frame-Options, Permissions-Policy all verified present on all routes in next.config.spec.ts.
+- AC2 PASS: helmet middleware verified registered via app.use() before setGlobalPrefix in index.test.ts.
+- AC3 PASS: No regressions; all existing tests pass. Runtime smoke not available but source-level header assertions cover directive content.
+- AC4 PASS: CSP allowances beyond 'self' tested: unsafe-inline (script/style), data: (img), localhost:3001 connect-src dev-only. Implementation has in-code justification comments.
+- AC5 PASS: Strict-Transport-Security absent from web headers; API bootstrap confirmed valid with strictTransportSecurity: false.
+
+Documentation context:
+- Security headers are a new app-level behavior not previously documented anywhere in docs/
+- docs/architecture/milestone-1-foundation-decisions.md documents the HSTS-at-proxy locked decision that justifies no HSTS in the app
+- docs/deferred-tasks.md should record the CSP nonce hardening deferral referenced in next.config.mjs inline comment
+- Likely needs a security headers entry in docs/development/ or docs/features/ per the docs/README.md routing table pattern
+- CSP directive set: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' [+localhost:3001 dev]; font-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+- API: helmet applied with strictTransportSecurity: false, contentSecurityPolicy: false — documented with in-code comments in index.ts
+
+Plan and diff context:
+- Plan: deferred-cleanup plan, subtask-2 (baseline security headers and CSP).
+- Base branch: cleanup. Tester branch cleanup-subtask-2-tester-20260607 branches from it.
+- Comparison base: cleanup branch (or diff tester branch against cleanup to see tester-only changes).
+- Implementer commit merged: 95c4b19 -> 5cfa409 merge commit.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
