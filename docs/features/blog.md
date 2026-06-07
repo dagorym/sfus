@@ -29,13 +29,13 @@ moderation routes require `moderator` or `admin` via `assertModerationAccess()`.
 |---|---|---|
 | GET | `/api/blog` | `{ posts: BlogPostSummary[] }`, ordered `isFeatured DESC, publishedAt DESC` |
 | GET | `/api/blog/:slug` | `{ post: BlogPostDetail }`; `404` per the visibility invariant |
-| GET | `/api/blog/:postId/comments` | `{ comments: BlogCommentDetail[], commentsLocked }` — top-level `visible` comments (oldest first), each with a `replies` array of its visible replies. `:postId` resolves as slug first, then UUID; both paths enforce the visibility invariant. |
+| GET | `/api/blog/:postId/comments` | `{ comments: PublicBlogCommentDetail[], commentsLocked }` — top-level `visible` comments (oldest first), each with a `replies` array of its visible replies. Response omits `authorUserId`, `moderatedByUserId`, and `moderatedAt`. `:postId` resolves as slug first, then UUID; both paths enforce the visibility invariant. |
 
 **Member (any active session):**
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/api/blog/:postId/comments` | Body `{ body, imageId?, parentId? }` → `{ comment }`. `401` no session; `403` thread locked; `404` post not publicly visible; `400` empty/unsafe body, unknown `imageId`, `imageId` not `blog-comment`-scoped, unknown parent, parent from another post, or reply-to-a-reply (max 1 level). |
+| POST | `/api/blog/:postId/comments` | Body `{ body, imageId?, parentId? }` → `{ comment: PublicBlogCommentDetail }`. `401` no session; `403` thread locked; `404` post not publicly visible; `400` empty/unsafe body, `parentId is invalid.` (uniform — covers both nonexistent parent and parent belonging to a different post), `imageId is invalid.` (uniform — covers both nonexistent image and wrong `resourceType`), or reply-to-a-reply (max 1 level). Response omits `authorUserId`, `moderatedByUserId`, and `moderatedAt`. |
 
 **Admin post management:**
 
@@ -55,8 +55,8 @@ moderation routes require `moderator` or `admin` via `assertModerationAccess()`.
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/blog/moderation/comments/:postId` | all comments, all statuses |
-| PATCH | `/api/blog/moderation/comments/:commentId/status` | Body `{ status: "visible" \| "hidden" \| "removed" }` (`400` otherwise); records `moderatedByUserId` + `moderatedAt` on every change |
+| GET | `/api/blog/moderation/comments/:postId` | all comments, all statuses; full `BlogCommentDetail` payload including `authorUserId`, `moderatedByUserId`, and `moderatedAt` for moderation workflows |
+| PATCH | `/api/blog/moderation/comments/:commentId/status` | Body `{ status: "visible" \| "hidden" \| "removed" }` (`400` otherwise); records `moderatedByUserId` + `moderatedAt` on every change; full `BlogCommentDetail` payload |
 | DELETE | `/api/blog/moderation/comments/:commentId` | permanent; `{ deleted: true }` |
 | POST | `/api/blog/admin/posts/:id/lock-comments` | sets `commentsLocked = true` (blocks all new comments, moderators included) |
 | POST | `/api/blog/admin/posts/:id/unlock-comments` | re-enables comments |
@@ -82,7 +82,8 @@ The admin UI labels future-dated published posts as scheduled with their go-live
   Applies to posts (create + update) and comments. See [media](media.md).
 - **featuredImageId:** must reference an existing `media_references` row (`400` otherwise);
   no resourceType scope check for post featured images.
-- **Comment `imageId`:** must exist **and** have `resourceType = "blog-comment"` (`400`).
+- **Comment `imageId`:** must exist **and** have `resourceType = "blog-comment"`. Both a nonexistent record and a wrong-scope record return `400 imageId is invalid.` (uniform — prevents existence oracle).
+- **Comment `parentId`:** when supplied, the referenced comment must exist and belong to the same post. Both a nonexistent parent and a parent belonging to a different post return `400 parentId is invalid.` (uniform — prevents existence oracle).
 - **Tags:** lowercased + trimmed; an update replaces the full tag set.
 - **Threading:** one level only — a reply's parent must be a top-level comment on the same post.
 
@@ -91,10 +92,17 @@ The admin UI labels future-dated published posts as scheduled with their go-live
 - `BlogPostSummary`: `id, title, slug, summary, status, isFeatured, publishedAt,
   featuredImageId, tags, createdAt`.
 - `BlogPostDetail`: summary fields + `body, authorUserId, commentsLocked, updatedAt`.
-- `BlogCommentDetail`: `id, postId, parentId, authorUserId, body, status, mediaReferenceId,
-  moderatedByUserId, moderatedAt, createdAt, updatedAt` (+ `replies` on top-level entries from
-  the public list route). Note: the public payload currently includes the moderation metadata
-  fields — trimming them is a deferred task.
+- `PublicBlogCommentDetail` (public endpoints — `listComments`, `createComment`):
+  `id, postId, parentId, body, status, mediaReferenceId, createdAt, updatedAt`
+  (+ `replies` on top-level entries from the public list route).
+  `authorUserId`, `moderatedByUserId`, and `moderatedAt` are stripped server-side before the
+  response leaves the API.
+- `BlogCommentDetail` (moderation endpoints — `moderationListComments`, `moderateCommentStatus`):
+  all `PublicBlogCommentDetail` fields plus `authorUserId, moderatedByUserId, moderatedAt`.
+  Full payload is required for moderation workflows.
+
+The web client `BlogCommentDetail` type in `blog-client.ts` mirrors `PublicBlogCommentDetail`
+(public shape only — the three stripped fields are absent from the type).
 
 ## Web surfaces
 
