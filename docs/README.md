@@ -23,6 +23,7 @@ and skip the rest.
 | [development/workspace.md](development/workspace.md) | monorepo layout, shared toolchain, root/app commands | onboarding, adding workspaces/scripts/config |
 | [development/api-conventions.md](development/api-conventions.md) | `/api` prefix, error envelope, logging/correlation, health contract, env validation pattern, DB/migration conventions | adding/changing any API module, migration, or env variable |
 | [development/testing.md](development/testing.md) | every test/validation command, incl. single-test runs and the opt-in DB integration spec | writing or running tests |
+| [development/agent-retrospective-patterns.md](development/agent-retrospective-patterns.md) | recurring failure patterns from past review cycles, with per-role prevention checklists | planning a feature, writing implementer prompts, or starting any agent role's subtask work |
 
 ## Operations docs — running and deploying
 
