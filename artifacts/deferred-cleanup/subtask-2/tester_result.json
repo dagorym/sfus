@@ -1,0 +1,32 @@
+{
+  "artifact_file_paths": [
+    "artifacts/deferred-cleanup/subtask-2/tester_report.md",
+    "artifacts/deferred-cleanup/subtask-2/tester_result.json",
+    "artifacts/deferred-cleanup/subtask-2/documenter_prompt.txt"
+  ],
+  "branch_name": "cleanup-subtask-2-tester-20260607",
+  "commands_run": [
+    "pnpm --dir <worktree> install",
+    "vitest run --root <worktree>/apps/web --passWithNoTests (baseline: 264 passed)",
+    "vitest run --root <worktree>/apps/web --passWithNoTests (with changes: 275 passed)",
+    "pnpm --dir <worktree> --filter @sfus/api test -- src/index.test.ts (5 passed)",
+    "pnpm --dir <worktree> --filter @sfus/api test (358 passed, 1 pre-existing failure, 2 skipped)"
+  ],
+  "pass_fail_totals": {
+    "api_tests_failed_preexisting": 1,
+    "api_tests_passed": 358,
+    "api_tests_skipped": 2,
+    "pre_existing_failures": "blog.service.test.ts TOCTOU MySQL ER_DUP_ENTRY \u2014 confirmed present before any subtask-2 changes",
+    "web_tests_failed": 0,
+    "web_tests_passed": 275
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": null,
+  "test_commit_hash": "f02f356",
+  "test_files_changed": [
+    "apps/web/next.config.spec.ts (11 new tests added)",
+    "apps/api/src/index.test.ts (2 new tests added)"
+  ],
+  "unmet_acceptance_criteria": []
+}
