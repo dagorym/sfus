@@ -265,9 +265,9 @@ export class BlogController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a comment on a published post (authenticated member)." })
   @ApiUnauthorizedResponse({ description: "No active session." })
-  @ApiForbiddenResponse({ description: "Post is not published." })
+  @ApiForbiddenResponse({ description: "Comments are locked on this post." })
   @ApiBadRequestResponse({ description: "Invalid or unsafe comment body." })
-  @ApiNotFoundResponse({ description: "Post not found." })
+  @ApiNotFoundResponse({ description: "Post not found or not published." })
   async createComment(
     @Req() request: Request,
     @Param("postId") postId: string,
