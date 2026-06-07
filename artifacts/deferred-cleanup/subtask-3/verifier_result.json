@@ -1,0 +1,26 @@
+{
+  "artifact_file_paths": [
+    "artifacts/deferred-cleanup/subtask-3/verifier_report.md",
+    "artifacts/deferred-cleanup/subtask-3/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "cleanup-subtask-3-documenter-20260607",
+  "documentation_accuracy_summary": [
+    "docs/features/blog.md accurately documents PublicBlogCommentDetail (public endpoints) vs BlogCommentDetail (admin/moderation endpoints) with field-level detail for both.",
+    "Endpoint table correctly updated with explicit field-omission notes on public endpoints and full-payload notes on admin endpoints.",
+    "Uniform error messages documented with oracle-prevention rationale for both parentId and imageId.",
+    "Old deferred-task note removed. Web client type note added. No inaccurate or contradictory statements found."
+  ],
+  "note_finding_count": 0,
+  "pass_label": "PASS",
+  "status": "complete",
+  "task_id": "deferred-cleanup/subtask-3",
+  "test_sufficiency_summary": [
+    "Oracle-parity: 6 service-layer tests cover all four rejection paths individually plus cross-case identity assertions verifying exception class and message are identical across both failure variants.",
+    "Data-minimization: Controller source-contract tests inspect the interface body and return body at source level, ensuring the serializer split cannot regress silently.",
+    "Web type: Absence tests verify each trimmed field is absent from BlogCommentDetail interface, with positive-baseline confirming non-trimmed fields remain. JSDoc test included.",
+    "All 353 API and 264 web tests pass on the cleanup branch. No failures."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
