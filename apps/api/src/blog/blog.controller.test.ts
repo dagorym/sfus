@@ -8,7 +8,14 @@
  *
  * These tests exercise BlogService.findPublishedBySlug and BlogService.findPublishedById
  * via direct unit stubs — they do not spin up the full NestJS application.
+ *
+ * Pass-2 addition: source-contract assertions pinning the corrected Swagger
+ * decorator descriptions on the createComment handler so that a stale-decorator
+ * regression cannot ship silently (OpenAPI accuracy requirement).
  */
+
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 
 import { NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
@@ -189,5 +196,79 @@ describe("BlogService resolvePostId wiring (security regression: published-only 
     // Verify the publishedAt constraint uses LessThanOrEqual, not plain equality.
     const publishedAtOperator = repoCall.where["publishedAt"] as { type?: string };
     expect(publishedAtOperator.type).toBe("lessThanOrEqual");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pass-2: Source-contract assertions for corrected Swagger decorators on
+// the createComment handler (OpenAPI accuracy — stale-decorator regression guard).
+//
+// Before pass-2: @ApiForbiddenResponse described 'Post is not published.' (stale).
+// After pass-2:
+//   @ApiForbiddenResponse({ description: 'Comments are locked on this post.' })
+//   @ApiNotFoundResponse({ description: 'Post not found or not published.' })
+// ---------------------------------------------------------------------------
+
+const controllerPath = path.resolve(__dirname, "blog.controller.ts");
+
+async function readBlogController(): Promise<string> {
+  return readFile(controllerPath, "utf8");
+}
+
+describe("blog.controller.ts — createComment Swagger decorator contract (pass-2 regression guard)", () => {
+  /**
+   * AC6 / OpenAPI accuracy: @ApiForbiddenResponse on createComment must describe
+   * the commentsLocked guard, not the stale 'Post is not published.' message.
+   */
+  it("@ApiForbiddenResponse describes 'Comments are locked on this post.' (not the stale post-unpublished message)", async () => {
+    const source = await readBlogController();
+    // Locate the createComment handler in the source.
+    const createCommentStart = source.indexOf("async createComment(");
+    expect(createCommentStart).toBeGreaterThan(-1);
+    // The decorator block is immediately above the method signature.
+    // We extract a window of text that includes the decorators preceding it.
+    const decoratorWindow = source.slice(
+      Math.max(0, createCommentStart - 600),
+      createCommentStart
+    );
+    // Must contain the corrected forbidden description.
+    expect(decoratorWindow).toContain("Comments are locked on this post.");
+    // Must NOT contain the stale description that was removed.
+    expect(decoratorWindow).not.toContain("Post is not published.");
+  });
+
+  /**
+   * AC6 / OpenAPI accuracy: @ApiNotFoundResponse on createComment must describe
+   * both the nonexistent and non-public cases so callers know 404 covers both.
+   */
+  it("@ApiNotFoundResponse describes 'Post not found or not published.' on createComment", async () => {
+    const source = await readBlogController();
+    const createCommentStart = source.indexOf("async createComment(");
+    expect(createCommentStart).toBeGreaterThan(-1);
+    const decoratorWindow = source.slice(
+      Math.max(0, createCommentStart - 600),
+      createCommentStart
+    );
+    // Must contain the updated not-found description covering non-public posts.
+    expect(decoratorWindow).toContain("Post not found or not published.");
+  });
+
+  /**
+   * AC6 / OpenAPI accuracy: the corrected @ApiForbiddenResponse and
+   * @ApiNotFoundResponse decorators must both appear in the same decorator
+   * block on the createComment handler (coherence check).
+   */
+  it("createComment handler has both corrected @ApiForbiddenResponse and @ApiNotFoundResponse decorators", async () => {
+    const source = await readBlogController();
+    const createCommentStart = source.indexOf("async createComment(");
+    expect(createCommentStart).toBeGreaterThan(-1);
+    const decoratorWindow = source.slice(
+      Math.max(0, createCommentStart - 600),
+      createCommentStart
+    );
+    expect(decoratorWindow).toContain("ApiForbiddenResponse");
+    expect(decoratorWindow).toContain("ApiNotFoundResponse");
+    expect(decoratorWindow).toContain("Comments are locked on this post.");
+    expect(decoratorWindow).toContain("Post not found or not published.");
   });
 });
