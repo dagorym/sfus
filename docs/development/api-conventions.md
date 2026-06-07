@@ -8,6 +8,26 @@ health/readiness, environment validation, and database/migration conventions.
 **Related:** [launch](../operations/launch.md) for the canonical env-variable table ·
 feature docs for per-module routes
 
+## Security headers
+
+The API bootstrap (`apiBootstrap()` in `apps/api/src/index.ts`) applies
+[helmet](https://helmetjs.github.io/) middleware before routing:
+
+```typescript
+app.use(helmet({ strictTransportSecurity: false, contentSecurityPolicy: false }));
+```
+
+- **`strictTransportSecurity: false`** — HSTS is omitted at the app level; it is handled by
+  the reverse proxy per the locked deployment decision
+  (`docs/architecture/milestone-1-foundation-decisions.md`).
+- **`contentSecurityPolicy: false`** — the API serves only JSON; browser CSP enforcement is
+  irrelevant for JSON endpoints. The default helmet CSP would also block Swagger UI inline
+  styles and scripts when `swaggerEnabled=true`. Browser-facing CSP is covered by the web
+  layer (`next.config.mjs` — see [web-shell](../features/web-shell.md)).
+
+All other helmet defaults apply (e.g. `X-Content-Type-Options: nosniff`,
+`X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, etc.).
+
 ## Routing & Swagger
 
 - Global prefix `api` — every controller route is served under `/api/...`.
