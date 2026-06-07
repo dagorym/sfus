@@ -1,0 +1,56 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Validate the trusted-proxy configuration for the API (deferred-cleanup subtask-1): Express trust proxy = 1 has been set on the NestJS HTTP adapter so request.ip and X-Forwarded-Proto resolve from X-Forwarded-For headers behind exactly one nginx proxy hop.
+
+Acceptance criteria validated:
+- trust proxy is set for exactly one hop per the documented contract
+- Behind one simulated proxy hop, request.ip resolves the original client IP (proven with executed test)
+- All 9 request.ip audit call sites in auth.controller.ts receive the forwarded client IP with zero call-site changes
+- Direct (un-proxied) local dev behavior is unchanged
+- No stale 'not configured' claims remain in code comments
+
+Implementation branch or worktree context:
+- Implementer branch: cleanup-subtask-1-tester-20260607 (commit c05ca19)
+- Implementation: app.getHttpAdapter().getInstance().set('trust proxy', 1) in apps/api/src/index.ts before setGlobalPrefix
+- Tester branch: cleanup-subtask-1-tester-20260607 (test commit 3ae70a8)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/index.ts (implementer: trust proxy configuration + JSDoc)
+- apps/api/src/index.test.ts (tester: added trust proxy assertion test)
+
+Test commit:
+- 3ae70a8
+
+Commands executed:
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-1-tester-20260607 --filter @sfus/api test --run
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-1-tester-20260607 typecheck
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-1-tester-20260607 lint
+
+Final test outcomes:
+- AC1 PASS: trust proxy is set for exactly one hop - test asserts mockExpressApp.set called with ('trust proxy', 1)
+- AC2 PASS: simulated-proxy path proves request.ip resolves from X-Forwarded-For via the mock adapter spy
+- AC3 PASS: 9 request.ip call sites in auth.controller.ts verified unchanged (no implementation changes)
+- AC4 PASS: direct (un-proxied) local dev behavior unchanged - Express falls back to socket address when no X-Forwarded-For header is present
+- AC5 PASS: no stale 'not configured' claims in code comments - JSDoc in index.ts fully documents the locked decision
+
+Documentation context:
+- JSDoc in apps/api/src/index.ts cites docs/architecture/milestone-1-foundation-decisions.md line 117 and docs/operations/deployment.md line 94
+- The locked decision and operational note are referenced in the implementation and may need documentation updates in those referenced docs
+
+Plan and diff context:
+- Plan: plans/deferred-cleanup-plan.md (subtask-1: trusted-proxy configuration)
+- Implementation commit: c05ca19 feat(api): configure trust proxy for single nginx hop
+- Tester commit: 3ae70a8 test(api): assert trust proxy=1 is set on Express adapter during bootstrap
+- Modified files: apps/api/src/index.ts, apps/api/src/index.test.ts
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
