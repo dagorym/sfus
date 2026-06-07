@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => {
+  const mockExpressApp = {
+    set: vi.fn()
+  };
   const mockApp = {
     setGlobalPrefix: vi.fn(),
     useGlobalFilters: vi.fn(),
     listen: vi.fn().mockResolvedValue(undefined),
-    get: vi.fn()
+    get: vi.fn(),
+    getHttpAdapter: vi.fn().mockReturnValue({
+      getInstance: vi.fn().mockReturnValue(mockExpressApp)
+    })
   };
   const applicationLogger = {
     info: vi.fn(),
@@ -63,6 +69,7 @@ const state = vi.hoisted(() => {
     createMigrationDataSource: vi.fn(),
     environment,
     mockApp,
+    mockExpressApp,
     nestCreate: vi.fn().mockResolvedValue(mockApp),
     setupSwagger: vi.fn()
   };
@@ -134,6 +141,8 @@ describe("apiBootstrap", () => {
     state.mockApp.listen.mockClear();
     state.mockApp.get.mockClear();
     state.mockApp.get.mockReturnValue(state.applicationLogger);
+    state.mockApp.getHttpAdapter.mockClear();
+    state.mockExpressApp.set.mockClear();
     state.nestCreate.mockClear();
     state.createDocument.mockClear();
     state.setupSwagger.mockClear();
