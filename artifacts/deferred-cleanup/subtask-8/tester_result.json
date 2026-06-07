@@ -1,0 +1,26 @@
+{
+  "status": "success",
+  "subtask": "deferred-cleanup/subtask-8",
+  "branch": "cleanup-subtask-8-tester-20260607",
+  "test_commit_hash": "c5dd6d53667f5a35c0540f23233eb35f23c04515",
+  "test_files_modified": [
+    "apps/api/src/media/markdown-sanitizer.test.ts"
+  ],
+  "test_files_added": [],
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 --dir <worktree> install",
+    "npx --yes pnpm@10.0.0 --dir <worktree> --filter @sfus/api test",
+    "npx --yes pnpm@10.0.0 --dir <worktree> lint",
+    "npx --yes pnpm@10.0.0 --dir <worktree> typecheck",
+    "npx --yes pnpm@10.0.0 --dir <worktree> --filter @sfus/api build"
+  ],
+  "pass_total": 304,
+  "fail_total": 0,
+  "skip_total": 2,
+  "unmet_acceptance_criteria": [],
+  "artifacts_written": [
+    "artifacts/deferred-cleanup/subtask-8/tester_report.md",
+    "artifacts/deferred-cleanup/subtask-8/tester_result.json",
+    "artifacts/deferred-cleanup/subtask-8/documenter_prompt.txt"
+  ]
+}
