@@ -1,0 +1,68 @@
+{
+  "status": "complete",
+  "subtask": "deferred-cleanup/subtask-8",
+  "branch": "cleanup-subtask-8-documenter-20260607",
+  "verdict": "FAIL",
+  "blocking_findings": 1,
+  "warning_findings": 2,
+  "note_findings": 3,
+  "blocking_summary": "Missing specialist security stage artifacts (security_report.md + security_result.json) required by plan. No explicit waiver recorded. Per plans/deferred-cleanup-plan.md, the Coordinator must not record this subtask complete without them.",
+  "test_sufficiency_summary": "Sufficient for stated acceptance criteria. Paired accept/reject-class tests for event-handler and data: URI suites correctly demonstrate both blocking and acceptance behavior. 14 controller tests pass with no regression. One gap: HTML comment bypass (W1) not documented by test.",
+  "documentation_accuracy_summary": "docs/features/media.md accurately reflects the implemented six rejection classes, anchoring policy, and prose-acceptance examples. No contradiction with in-code JSDoc.",
+  "findings": [
+    {
+      "severity": "BLOCKING",
+      "id": "B1",
+      "location": "artifacts/deferred-cleanup/subtask-8/ (missing files)",
+      "summary": "Specialist security stage artifacts absent; no explicit waiver recorded",
+      "detail": "plans/deferred-cleanup-plan.md subtask-8 requires security_report.md + security_result.json covering the entire apps/api/src/media/ subsystem. Neither file exists in the artifact directory and no explicit waiver has been recorded."
+    },
+    {
+      "severity": "WARNING",
+      "id": "W1",
+      "location": "apps/api/src/media/markdown-sanitizer.ts:41",
+      "summary": "HTML comment bypass in event-handler pattern — low real-world risk",
+      "detail": "Input '<img <!-- comment --> onload=x>' bypasses /<[^>]*\\bon\\w+\\s*=/i because [^>]* stops at '>' in '-->'. No major browser executes event handlers on such malformed tags. Client-side MarkdownRenderer strips all raw HTML as defense-in-depth."
+    },
+    {
+      "severity": "WARNING",
+      "id": "W2",
+      "location": "artifacts/deferred-cleanup/subtask-8/tester_report.md:77",
+      "summary": "Controller test count discrepancy in acceptance criteria statement",
+      "detail": "Acceptance criteria states '11 existing controller tests pass' but the file contains 14 it() cases, all passing. Count discrepancy is in task description only; actual coverage is broader."
+    },
+    {
+      "severity": "NOTE",
+      "id": "N1",
+      "location": "apps/api/src/media/markdown-sanitizer.ts:51",
+      "summary": "Tab/newline mid-word in 'javascript:' not caught — acceptable tolerance",
+      "detail": "'javas\\tcript:' bypasses /javascript\\s*:/i. Not a real browser bypass vector."
+    },
+    {
+      "severity": "NOTE",
+      "id": "N2",
+      "location": "apps/api/src/media/markdown-sanitizer.ts:51-52",
+      "summary": "javascript: and vbscript: patterns are context-free — intentional, documented",
+      "detail": "Implementer reviewed and accepted these as context-free; false-positive risk is negligible. Decision documented in implementer report."
+    },
+    {
+      "severity": "NOTE",
+      "id": "N3",
+      "location": "apps/api/src/media/markdown-sanitizer.ts",
+      "summary": "URL-encoded scheme variants (e.g. %6Aavascript:) not caught",
+      "detail": "Known limitation of regex-based sanitization. Mitigated by client-side MarkdownRenderer URI scheme re-validation."
+    }
+  ],
+  "acceptance_criteria_results": {
+    "AC1_prose_acceptance": "PASS",
+    "AC2_rejection_classes": "PASS",
+    "AC3_per_pattern_review": "PASS",
+    "AC4_memorystorage_placement": "PASS",
+    "AC5_jsdoc_updated": "PASS",
+    "AC6_docs_updated": "PASS"
+  },
+  "artifact_files_written": [
+    "artifacts/deferred-cleanup/subtask-8/verifier_report.md",
+    "artifacts/deferred-cleanup/subtask-8/verifier_result.json"
+  ]
+}
