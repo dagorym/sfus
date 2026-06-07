@@ -76,8 +76,13 @@ The admin UI labels future-dated published posts as scheduled with their go-live
 
 - **Slug:** optional on create. When supplied it must match `^[a-z0-9]+(?:-[a-z0-9]+)*$`
   (`400` otherwise). When omitted/blank the server slugifies the title and appends `-2`,
-  `-3`, … on collision. Unique at the DB level (`uq_blog_posts_slug`); a concurrent-create
-  TOCTOU on derived slugs is an accepted characteristic (see `docs/deferred-tasks.md`).
+  `-3`, … on collision. Unique at the DB level (`uq_blog_posts_slug`). When the slug is
+  auto-derived (no explicit slug supplied), a duplicate-key error on save (MySQL
+  `ER_DUP_ENTRY` or SQLite `UNIQUE constraint failed`) signals a concurrent insert that
+  claimed the same slug; `BlogService` retries `deriveUniqueSlug` and the save up to 3
+  times. If all attempts are exhausted a `409 Conflict` is returned instead of propagating
+  an unhandled database error. Explicit slugs supplied by the caller are saved once with no
+  retry (the caller owns uniqueness for that path).
 - **Body:** `normalizeMarkdownBody` → `validateMarkdownBody` before persistence; unsafe → `400`.
   Applies to posts (create + update) and comments. See [media](media.md).
 - **featuredImageId:** must reference an existing `media_references` row (`400` otherwise);
