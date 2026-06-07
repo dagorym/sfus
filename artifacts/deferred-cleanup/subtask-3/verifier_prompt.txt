@@ -1,0 +1,65 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Security data minimization + oracle removal on blog comment endpoints. Public endpoints (listComments, createComment) now return PublicBlogCommentDetail, omitting authorUserId, moderatedByUserId, and moderatedAt. Admin/moderation endpoints (moderationListComments, moderateCommentStatus) still return full BlogCommentDetail including those three fields. parentId and imageId validation rejections each return a uniform 400 message regardless of whether the referenced record is nonexistent or wrong-scope.
+
+Acceptance criteria to verify:
+- Public comment payloads (listComments, createComment) contain none of authorUserId, moderatedByUserId, moderatedAt.
+- Admin/moderation endpoints (moderationListComments, moderateCommentStatus) still return all three fields.
+- parentId rejections return a single uniform 400 message 'parentId is invalid.' regardless of whether the parent is nonexistent or foreign-post.
+- imageId rejections return a single uniform 400 message 'imageId is invalid.' regardless of whether the image is nonexistent or wrong-scope.
+- Swagger response models and JSDoc accurately describe the new contract on all affected handlers.
+- Zero web references to the trimmed fields in BlogCommentDetail type.
+
+Implementation branch or worktree context:
+- Branch: cleanup-subtask-3-documenter-20260607
+- Worktree: /home/tstephen/repos/sfus/cleanup-subtask-3-documenter-20260607
+- Comparison base: cleanup branch (parent of this worktree branch)
+- Implementer commit merged at: 1f679ae (Merge branch 'cleanup-subtask-3-implementer-20260607' into cleanup)
+- Tester test commit: 6701103
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/blog/blog.controller.ts (Implementer: PublicBlogCommentDetail/BlogCommentDetail interfaces, toPublicCommentDetail/toCommentDetail helpers, Swagger decorator updates)
+- apps/api/src/blog/blog.service.ts (Implementer: createComment parentId/imageId oracle normalization)
+- apps/web/app/blog/blog-client.ts (Implementer: BlogCommentDetail type updated, JSDoc added)
+- apps/api/src/blog/blog.service.test.ts (Tester: parentId and imageId oracle-parity tests added)
+- apps/api/src/blog/blog.controller.test.ts (Tester: data-minimization source-contract tests, serializer wiring tests, input parser rejection tests, admin handler auth wiring tests)
+- apps/web/app/blog/blog.spec.ts (Tester: BlogCommentDetail type trimmed-field absence tests, JSDoc test)
+- docs/features/blog.md (Documenter: updated response shapes, oracle error messages, data-minimization contract, removed obsolete deferred-task note)
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir <worktree> test
+- npx --yes pnpm@10.0.0 --dir <worktree> typecheck
+- npx --yes pnpm@10.0.0 --dir <worktree> lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api --dir <worktree> build
+
+Final test outcomes:
+- API: 325 passed, 2 skipped (DB integration tests). Zero failures.
+- Web: 251 passed. Zero failures.
+- Lint: clean. Typecheck: clean. Build: clean.
+- All acceptance criteria verified by new and existing tests.
+
+Plan or evaluation context guidance:
+- Plan: plans/deferred-cleanup-plan.md (subtask-3 section covers this work).
+- Evaluate verifier scope against the implemented diff between cleanup-subtask-3-documenter-20260607 and its base (cleanup branch).
+- Verify implementation, tests, and updated documentation together.
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table; blog feature docs live in docs/features/blog.md.
+- api-conventions.md covers cross-cutting contracts; oracle-normalization is blog-specific and belongs in blog.md only.
+- docs/deferred-tasks.md is edited only during a planning cycle — not updated here per AGENTS.md policy.
+- Documenter role: modify documentation files and documentation-only comment blocks only; do not change executable logic.
+
+Updated documentation files:
+- docs/features/blog.md
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-3
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
