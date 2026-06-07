@@ -1975,6 +1975,134 @@ describe("BlogService.createComment commentsLocked ForbiddenException regression
 });
 
 // ---------------------------------------------------------------------------
+// Subtask-4: Slug TOCTOU hardening — duplicate-key retry and exhaustion
+// ---------------------------------------------------------------------------
+
+describe("BlogService.create slug TOCTOU hardening (subtask-4)", () => {
+  // AC1: save rejected with duplicate-key error retries derivation and succeeds
+  it("retries derivation and succeeds when first save throws a duplicate-key error (MySQL ER_DUP_ENTRY)", async () => {
+    const authorizationService = new AuthorizationService();
+    const savedPost = {
+      id: "post-toctou",
+      title: "Concurrent Post",
+      slug: "concurrent-post-2",
+      body: "body",
+      status: "draft",
+      postTags: []
+    };
+    const dupError = Object.assign(new Error("Duplicate entry"), { code: "ER_DUP_ENTRY", errno: 1062 });
+    const postRepo = {
+      ...createMinimalRepository(),
+      // findOne: first call = base slug taken, second call = "-2" not taken, third call = reload
+      findOne: vi.fn()
+        .mockResolvedValueOnce({ id: "existing", slug: "concurrent-post" }) // base slug taken
+        .mockResolvedValueOnce(null)         // "-2" not taken
+        .mockResolvedValueOnce(savedPost),   // reload after successful save
+      create: vi.fn().mockReturnValue(savedPost),
+      // save: first call rejects with duplicate-key (TOCTOU race), second call succeeds
+      save: vi.fn()
+        .mockRejectedValueOnce(dupError)
+        .mockResolvedValueOnce(savedPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const result = await service.create("user-1", { title: "Concurrent Post", body: "body" });
+    expect(result).toBeDefined();
+    // save must have been called twice: once rejected, once succeeded
+    expect(postRepo.save).toHaveBeenCalledTimes(2);
+  });
+
+  // AC1: SQLite UNIQUE constraint failure (used in test environments) is also retried
+  it("retries derivation and succeeds when first save throws a SQLite UNIQUE constraint error", async () => {
+    const authorizationService = new AuthorizationService();
+    const savedPost = {
+      id: "post-sqlite",
+      title: "SQLite Post",
+      slug: "sqlite-post",
+      body: "body",
+      status: "draft",
+      postTags: []
+    };
+    const sqliteError = new Error("UNIQUE constraint failed: blog_post.slug");
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn()
+        .mockResolvedValueOnce(null)       // first derivation: base not taken
+        .mockResolvedValueOnce(null)       // second derivation: base not taken again
+        .mockResolvedValueOnce(savedPost), // reload after successful save
+      create: vi.fn().mockReturnValue(savedPost),
+      save: vi.fn()
+        .mockRejectedValueOnce(sqliteError)
+        .mockResolvedValueOnce(savedPost)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const result = await service.create("user-1", { title: "SQLite Post", body: "body" });
+    expect(result).toBeDefined();
+    expect(postRepo.save).toHaveBeenCalledTimes(2);
+  });
+
+  // AC2: retry attempts are bounded; exhaustion returns ConflictException (409-class), never raw 500
+  it("throws ConflictException (409-class) after SLUG_RETRY_LIMIT duplicate-key failures (exhausted)", async () => {
+    const authorizationService = new AuthorizationService();
+    const dupError = Object.assign(new Error("Duplicate entry"), { code: "ER_DUP_ENTRY", errno: 1062 });
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(null), // always returns null — derivation always produces base slug
+      create: vi.fn().mockReturnValue({ id: "post-x", slug: "always-conflicts" }),
+      save: vi.fn().mockRejectedValue(dupError) // every save fails with duplicate-key
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const { ConflictException: NestConflict } = await import("@nestjs/common");
+    await expect(
+      service.create("user-1", { title: "Always Conflicts", body: "body" })
+    ).rejects.toThrow(NestConflict);
+    // save must have been called exactly SLUG_RETRY_LIMIT (3) times
+    expect(postRepo.save).toHaveBeenCalledTimes(3);
+  });
+
+  // AC2: non-duplicate-key errors propagate unchanged (no retry swallowing)
+  it("propagates non-duplicate-key errors without retrying", async () => {
+    const authorizationService = new AuthorizationService();
+    const networkError = new Error("Connection timeout");
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockReturnValue({ id: "post-net", slug: "network-post" }),
+      save: vi.fn().mockRejectedValue(networkError)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.create("user-1", { title: "Network Post", body: "body" })
+    ).rejects.toThrow("Connection timeout");
+    // save must have been called exactly once — no retry on non-duplicate-key errors
+    expect(postRepo.save).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC2 / AC7: BlogPostStatus type normalization — no scheduled value
 // ---------------------------------------------------------------------------
 
