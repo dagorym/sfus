@@ -1,0 +1,56 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Anchored /on\w+\s*=/ to HTML tag context and /data\s*:/ to URL positions in markdown-sanitizer.ts. Moved memoryStorage destructuring below imports in media.controller.ts. Updated JSDoc and DANGEROUS_HTML_PATTERNS docs with anchoring policy and six rejection classes. Tester rewrote markdown-sanitizer.test.ts event-handler and data: URI suites as paired accept/reject-class coverage. Security stage must review the ENTIRE apps/api/src/media/ subsystem (upload handling, content-type validation, serve path, sanitizer) -- not just this diff.
+
+Acceptance criteria validated:
+- Named legitimate-prose examples (onmouseover= prose, onclick= prose, training data: prose) pass sanitization.
+- Event-handler-attribute and data:-URL payload classes remain rejected in all six documented rejection classes.
+- Per-pattern review of all DANGEROUS_HTML_PATTERNS reported: all patterns tag-anchored or have acceptable false-positive tolerance.
+- memoryStorage sits below the imports with no functional change (11 existing controller tests pass).
+- JSDoc and DANGEROUS_HTML_PATTERNS contract comments updated with anchoring policy and rejection class enumeration.
+
+Implementation branch or worktree context:
+- Implementer branch: cleanup-subtask-8-implementer-20260607 (commit bf699d3)
+- Tester branch: cleanup-subtask-8-tester-20260607 (test commit c5dd6d5)
+- Base branch: cleanup
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/media/markdown-sanitizer.ts (implementer — pattern anchoring, JSDoc, rejection class docs)
+- apps/api/src/media/media.controller.ts (implementer — memoryStorage move below imports)
+- apps/api/src/media/markdown-sanitizer.test.ts (tester — rewritten event-handler and data: URI suites)
+
+Test commit:
+- c5dd6d53667f5a35c0540f23233eb35f23c04515
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir <worktree> install
+- npx --yes pnpm@10.0.0 --dir <worktree> --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --dir <worktree> lint
+- npx --yes pnpm@10.0.0 --dir <worktree> typecheck
+- npx --yes pnpm@10.0.0 --dir <worktree> --filter @sfus/api build
+
+Final test outcomes:
+- 304 tests pass, 0 fail, 2 skipped (integration tests requiring live DB). Lint: PASS. Typecheck: PASS. Build: PASS.
+- All five acceptance criteria satisfied.
+- Key behavior change: prose containing on<word>= or data: outside URL/tag context is now correctly accepted; HTML-tag-context event handlers and URL-position data: URIs remain rejected.
+
+Documentation context:
+- docs/features/media.md is the primary documentation target. It should reflect: (1) the updated sanitizer pattern anchoring policy (event handlers only rejected in HTML tag context; data: URIs only rejected in URL positions), (2) the six enumerated rejection classes, (3) that legitimate prose like "training data: source A" or "onclick = handler" now passes. The JSDoc in markdown-sanitizer.ts is the implementation source of truth.
+- Security stage note still in effect: the security stage must review the ENTIRE apps/api/src/media/ subsystem -- this discharges the retroactive media review deferred from the ms3-completion cycle per docs/deferred-tasks.md.
+
+Plan and diff context:
+- Plan path: plans/deferred-cleanup-plan.md, subtask 8
+- Comparison base: cleanup branch vs cleanup-subtask-8-tester-20260607 (tester branch)
+- Implementer commit bf699d3 contains the implementation diff; tester commit c5dd6d5 contains the test changes.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-8
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

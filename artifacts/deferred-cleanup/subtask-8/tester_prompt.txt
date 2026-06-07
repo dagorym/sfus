@@ -1,0 +1,57 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Anchored /on\w+\s*=/ to HTML tag context and /data\s*:/ to URL positions in markdown-sanitizer.ts. Moved memoryStorage destructuring below imports in media.controller.ts. Updated JSDoc and DANGEROUS_HTML_PATTERNS docs with anchoring policy and six rejection classes. Security stage must review ENTIRE apps/api/src/media/ subsystem (upload handling, content-type validation, serve path, sanitizer) -- not just this diff.
+
+Modified files:
+- apps/api/src/media/markdown-sanitizer.ts
+- apps/api/src/media/media.controller.ts
+
+Acceptance criteria to validate (from Planner):
+- The named legitimate-prose examples pass sanitization.
+- Event-handler-attribute and data:-URL payload classes remain rejected; rejection classes enumerated in the report.
+- Per-pattern review of the rest of the table reported.
+- memoryStorage sits below the imports with no functional change.
+- JSDoc/contract comments updated.
+
+Create test files in:
+- apps/api/src/media/markdown-sanitizer.test.ts (tester-owned; rewrite as paired accept/reject-class suites)
+- apps/api/src/media/media.controller.test.ts (tester-owned; verify memoryStorage move causes no regression)
+
+Implementation context for testing:
+- DANGEROUS_HTML_PATTERNS changes in markdown-sanitizer.ts:
+- /on\w+\s*=/i replaced with /<[^>]*\bon\w+\s*=/i: event handler only matched inside HTML tag context. Prose 'onclick = something' now passes. <img onerror=...> still rejected.
+- /data\s*:/i replaced with /(?:(?:href|src)\s*=\s*['"]?|]\()data\s*:/i: data: URI only matched in href/src attribute values or Markdown link/image destinations. Prose 'training data: source A' now passes. [x](data:text/html...) and <a href="data:..."> remain rejected.
+- Per-pattern review of all remaining DANGEROUS_HTML_PATTERNS:
+- /<script[\s\S]*?>/i: tag-anchored, safe. No false-positive risk.
+- /<\/script>/i: tag-anchored, safe.
+- /<iframe[\s\S]*?>/i, /<\/iframe>/i: tag-anchored, safe.
+- /<object[\s\S]*?>/i, /<\/object>/i: tag-anchored, safe.
+- /<embed[\s\S]*?>/i: tag-anchored, safe.
+- /<form[\s\S]*?>/i, /<\/form>/i: tag-anchored, safe.
+- /<input[\s\S]*?>/i: tag-anchored, safe.
+- /<button[\s\S]*?>/i: tag-anchored, safe.
+- /javascript\s*:/i: marginal context-free risk ('javascript: the language') but 'javascript:' is rare in legitimate prose and always a security concern. Not changed; acceptable false-positive tolerance.
+- /vbscript\s*:/i: 'vbscript:' essentially never appears in legitimate prose. No change needed.
+- media.controller.ts: const { memoryStorage } = multer moved from line 19 (inside import block) to line 36 (after all imports). No functional change.
+- SECURITY STAGE NOTE: The task requires the security stage to review the ENTIRE apps/api/src/media/ subsystem (upload handling, content-type validation, serve path, sanitizer) -- not just this diff. This discharges the retroactive media review deferred from the ms3-completion cycle (see docs/deferred-tasks.md).
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/cleanup-subtask-8-implementer-20260607 lint
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/cleanup-subtask-8-implementer-20260607 typecheck
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/cleanup-subtask-8-implementer-20260607 test
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/cleanup-subtask-8-implementer-20260607 --filter @sfus/api build
+
+Existing validations expected to fail only because approved behavior changed:
+- markdown-sanitizer.test.ts > 'rejects generic on-prefixed handler': input 'onmouseover= something' (plain prose) no longer rejected by context-anchored pattern. Tester must rewrite as paired accept-class/reject-class suite: bare prose passes, <tag onmouseover=...> is rejected.
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-8
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
