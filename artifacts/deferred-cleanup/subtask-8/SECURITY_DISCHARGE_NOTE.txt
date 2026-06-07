@@ -1,0 +1,17 @@
+Subtask-8 Verifier Blocker Discharge
+
+The subtask-8 verifier issued FAIL with BLOCKING finding B1:
+"Missing specialist security stage artifacts (security_report.md + security_result.json)
+required by plan. No explicit waiver recorded."
+
+This blocker was subsequently discharged by the specialist security stage for subtask-8:
+- security_report.md committed at commit 7f0e454
+- security_result.json committed at commit 7f0e454
+- Verdict: CONDITIONAL PASS (0 blocking findings, 2 medium pre-existing findings)
+
+The original verifier FAIL verdict artifact record remains unchanged (by design —
+verifier artifacts are immutable), but the blocking finding is resolved and documented
+in the later specialist security artifacts.
+
+Coordinator disposition: Subtask-8 is complete as of commit 7f0e454 (merge of
+cleanup-subtask-8-security-20260607).

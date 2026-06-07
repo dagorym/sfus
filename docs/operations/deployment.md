@@ -96,6 +96,10 @@ the last good application revision (or the forward-fixed replacement).
   `nginx-proxy` hop so `request.ip` and `X-Forwarded-Proto` resolve correctly (locked
   decision: `docs/architecture/milestone-1-foundation-decisions.md` §Security And Proxy
   Behavior).
+- **HSTS is enforced at the reverse proxy layer** (nginx) per the locked deployment decision
+  (§Security And Proxy Behavior). The web and API applications do not emit
+  `Strict-Transport-Security` headers; HSTS configuration is the nginx-proxy operator's
+  responsibility. Do not add app-level HSTS without re-evaluating the locked decision.
 - Swagger is disabled by default in production; enable explicitly with
   `API_SWAGGER_ENABLED=true` only when needed.
 - In production no Next.js `/api` rewrite exists unless `WEB_API_INTERNAL_URL` is set — the

@@ -25,6 +25,11 @@ const apiProxyTarget = process.env.NODE_ENV === "development" ? developmentApiOr
  *   server. Accepted as a baseline tradeoff until a nonce/hash migration is
  *   planned; see docs/deferred-tasks.md (CSP nonce hardening).
  *
+ * style-src 'unsafe-inline':
+ *   Next.js 15 injects inline styles for CSS module hydration and critical
+ *   path rendering. Like script-src, these cannot be nonce-scoped without a
+ *   custom server. Accepted under the same baseline tradeoff.
+ *
  * connect-src http://localhost:3001 (development only):
  *   In hybrid-dev mode the browser makes direct XHR/fetch calls to the local
  *   API origin before the Next.js proxy rewrites are in place (e.g. during
