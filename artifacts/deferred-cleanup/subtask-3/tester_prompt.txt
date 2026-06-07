@@ -1,0 +1,66 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Trim authorUserId, moderatedByUserId, and moderatedAt from public comment responses (listComments, createComment). Normalize parentId and imageId rejection oracles to single uniform 400 messages per field. Update web mirror types. Update Swagger decorators.
+
+Modified files:
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.service.ts
+- apps/web/app/blog/blog-client.ts
+
+Acceptance criteria to validate (from Planner):
+- Public comment payloads contain none of the three trimmed fields.
+- Admin/moderation behavior unchanged (report states how).
+- parentId and imageId rejections each return a single uniform message/class.
+- Swagger response models and JSDoc match the new contract.
+- Zero apps/web references to the trimmed fields remain.
+
+Tester-owned test files:
+- apps/api/src/blog/blog.controller.test.ts
+- apps/api/src/blog/blog.service.test.ts
+- apps/web/app/blog/blog.spec.ts
+
+Implementation context for testing:
+- deferred-cleanup subtask-3: security data minimization + oracle removal on blog comment endpoints. SECURITY REVIEW REQUIRED.
+- Public endpoints (listComments, createComment) now return PublicBlogCommentDetail, which omits authorUserId, moderatedByUserId, and moderatedAt.
+- Admin/moderation endpoints (moderationListComments, moderateCommentStatus) still return full BlogCommentDetail including those three fields.
+- parentId validation: both "not found" and "belongs to different post" now return 400 with message "parentId is invalid."
+- imageId validation: both "does not exist" and "wrong resource type" now return 400 with message "imageId is invalid."
+
+Tests to add (do not duplicate existing coverage):
+1. Oracle-parity tests in blog.service.test.ts:
+   - parentId nonexistent: expect BadRequestException("parentId is invalid.")
+   - parentId exists but belongs to different post: expect BadRequestException("parentId is invalid.")
+   - imageId nonexistent: expect BadRequestException("imageId is invalid.")
+   - imageId exists but resourceType !== "blog-comment": expect BadRequestException("imageId is invalid.")
+2. Controller-layer tests in blog.controller.test.ts:
+   - listComments response does not include authorUserId, moderatedByUserId, moderatedAt
+   - createComment response does not include authorUserId, moderatedByUserId, moderatedAt
+   - moderationListComments response still includes authorUserId, moderatedByUserId, moderatedAt
+   - moderateCommentStatus response still includes authorUserId, moderatedByUserId, moderatedAt
+3. Additional controller tests already planned by the task:
+   - parseCreateInput / parseUpdateInput / parsePublishAtInput rejection paths
+   - per-handler resolveSession + assertAdminManagementAccess wiring
+   - adjust createComment Swagger source-contract lookback window
+4. Web spec updates in blog.spec.ts:
+   - Confirm BlogCommentDetail type no longer includes the three trimmed fields (type-level only if no runtime test required)
+
+Suggested test commands:
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 test
+- npx --yes pnpm@10.0.0 --filter @sfus/api build
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
