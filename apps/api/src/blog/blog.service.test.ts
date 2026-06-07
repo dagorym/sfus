@@ -1993,10 +1993,16 @@ describe("BlogService.create slug TOCTOU hardening (subtask-4)", () => {
     const dupError = Object.assign(new Error("Duplicate entry"), { code: "ER_DUP_ENTRY", errno: 1062 });
     const postRepo = {
       ...createMinimalRepository(),
-      // findOne: first call = base slug taken, second call = "-2" not taken, third call = reload
+      // findOne call sequence across initial derivation + TOCTOU retry:
+      // Attempt 1: deriveUniqueSlug calls findOne(base) → taken, findOne("-2") → null → "concurrent-post-2"
+      //            save rejects with dupError (TOCTOU race on "-2").
+      // Attempt 2: deriveUniqueSlug calls findOne(base) → null (not taken) → re-derives "concurrent-post"
+      //            save succeeds.
+      // Reload: findOne({id}) → savedPost
       findOne: vi.fn()
-        .mockResolvedValueOnce({ id: "existing", slug: "concurrent-post" }) // base slug taken
-        .mockResolvedValueOnce(null)         // "-2" not taken
+        .mockResolvedValueOnce({ id: "existing", slug: "concurrent-post" }) // attempt 1: base slug taken
+        .mockResolvedValueOnce(null)         // attempt 1: "-2" not taken → derives "concurrent-post-2"
+        .mockResolvedValueOnce(null)         // attempt 2: base not taken → re-derives "concurrent-post"
         .mockResolvedValueOnce(savedPost),   // reload after successful save
       create: vi.fn().mockReturnValue(savedPost),
       // save: first call rejects with duplicate-key (TOCTOU race), second call succeeds
