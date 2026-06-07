@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => {
+  const mockExpressApp = {
+    set: vi.fn()
+  };
   const mockApp = {
     setGlobalPrefix: vi.fn(),
     useGlobalFilters: vi.fn(),
     listen: vi.fn().mockResolvedValue(undefined),
-    get: vi.fn()
+    get: vi.fn(),
+    getHttpAdapter: vi.fn().mockReturnValue({
+      getInstance: vi.fn().mockReturnValue(mockExpressApp)
+    })
   };
   const applicationLogger = {
     info: vi.fn(),
@@ -63,6 +69,7 @@ const state = vi.hoisted(() => {
     createMigrationDataSource: vi.fn(),
     environment,
     mockApp,
+    mockExpressApp,
     nestCreate: vi.fn().mockResolvedValue(mockApp),
     setupSwagger: vi.fn()
   };
@@ -134,6 +141,8 @@ describe("apiBootstrap", () => {
     state.mockApp.listen.mockClear();
     state.mockApp.get.mockClear();
     state.mockApp.get.mockReturnValue(state.applicationLogger);
+    state.mockApp.getHttpAdapter.mockClear();
+    state.mockExpressApp.set.mockClear();
     state.nestCreate.mockClear();
     state.createDocument.mockClear();
     state.setupSwagger.mockClear();
@@ -163,6 +172,29 @@ describe("apiBootstrap", () => {
     );
     expect(state.mockApp.listen).toHaveBeenCalledWith(3001, "0.0.0.0");
     expect(state.createMigrationDataSource).not.toHaveBeenCalled();
+  });
+
+  it("sets trust proxy to 1 on the Express adapter so request.ip resolves the original client IP behind one proxy hop", async () => {
+    // AC: trust proxy is set for exactly one hop; simulated-proxy path exercises the call
+    const { apiBootstrap } = await import("./index.js");
+
+    await apiBootstrap();
+
+    // Verify the Express app received the trust-proxy setting before any other
+    // configuration (setGlobalPrefix is called immediately after).
+    expect(state.mockExpressApp.set).toHaveBeenCalledWith("trust proxy", 1);
+
+    // Verify the value is exactly 1 (one hop), not a boolean true or a broader range
+    const trustProxyCall = state.mockExpressApp.set.mock.calls.find(
+      (call: unknown[]) => call[0] === "trust proxy"
+    );
+    expect(trustProxyCall).toBeDefined();
+    expect(trustProxyCall![1]).toBe(1);
+
+    // Verify ordering: trust proxy must be set before setGlobalPrefix
+    const setOrder = state.mockExpressApp.set.mock.invocationCallOrder[0];
+    const prefixOrder = state.mockApp.setGlobalPrefix.mock.invocationCallOrder[0];
+    expect(setOrder).toBeLessThan(prefixOrder);
   });
 
   it("skips Swagger setup when configuration disables it", async () => {

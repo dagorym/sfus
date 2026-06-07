@@ -1,0 +1,28 @@
+{
+  "artifact_file_paths": [
+    "artifacts/deferred-cleanup/subtask-1/tester_report.md",
+    "artifacts/deferred-cleanup/subtask-1/tester_result.json",
+    "artifacts/deferred-cleanup/subtask-1/documenter_prompt.txt"
+  ],
+  "branch_name": "cleanup-subtask-1-tester-20260607",
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-1-tester-20260607 --filter @sfus/api test --run",
+    "npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-1-tester-20260607 typecheck",
+    "npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-1-tester-20260607 lint"
+  ],
+  "pass_fail_totals": {
+    "test_files_passed": 16,
+    "test_files_skipped": 1,
+    "tests_failed": 0,
+    "tests_passed": 298,
+    "tests_skipped": 2
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": null,
+  "test_commit_hash": "3ae70a8",
+  "test_files_changed": [
+    "apps/api/src/index.test.ts"
+  ],
+  "unmet_acceptance_criteria": []
+}

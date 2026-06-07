@@ -20,6 +20,29 @@ export const apiBootstrap = async (): Promise<void> => {
     });
     const applicationLogger = app.get(JsonLogger);
 
+    /**
+     * Trust exactly one reverse-proxy hop.
+     *
+     * The API runs behind a single shared nginx-proxy instance in production.
+     * Setting `trust proxy` to 1 causes Express to resolve `request.ip` and
+     * `X-Forwarded-Proto` from the `X-Forwarded-For` / `X-Forwarded-Proto`
+     * headers injected by that single upstream proxy, rather than reporting
+     * the proxy's IP address.  All auth audit call sites that read `request.ip`
+     * therefore receive the original client IP with no call-site changes.
+     *
+     * Locked decision: docs/architecture/milestone-1-foundation-decisions.md line 117
+     *   "Trusted proxy behavior is explicitly configured for the expected
+     *    reverse-proxy topology only."
+     * Operational note: docs/operations/deployment.md line 94
+     *   "the reverse proxy must terminate TLS and forward proto headers per the
+     *    locked trusted-proxy decision."
+     *
+     * Direct (un-proxied) connections in local development are unaffected: when
+     * no X-Forwarded-For header is present Express falls back to the socket
+     * remote address, which is correct for direct connections.
+     */
+    app.getHttpAdapter().getInstance().set("trust proxy", 1);
+
     app.setGlobalPrefix("api");
     app.useGlobalFilters(new JsonExceptionFilter(applicationLogger));
 

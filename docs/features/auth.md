@@ -107,6 +107,19 @@ and evaluate the shared authorization contract against an `account` resource
 global role or an explicit ACL grant must allow the `read`/`write` action. `403` when denied.
 See [authorization](authorization.md).
 
+## Audit logging and client IP
+
+All auth event handlers (register, verify-email, login, MFA challenge/enroll/disable,
+logout, external-auth callback, onboarding — 9 call sites in `auth.controller.ts`)
+record `ipAddress: request.ip` in the session or audit payload. Because the API runs
+behind a single shared `nginx-proxy` hop, Express is configured with `trust proxy = 1`
+so `request.ip` resolves to the original client IP from the `X-Forwarded-For` header
+rather than the proxy's address. In direct (un-proxied) local development no
+`X-Forwarded-For` header is present, so Express falls back to the socket remote address,
+which is correct for direct connections. See `apps/api/src/index.ts` for the bootstrap
+configuration and `docs/architecture/milestone-1-foundation-decisions.md` for the locked
+proxy-topology decision.
+
 ## Security invariants
 
 - Two peppers, two jobs: `AUTH_PASSWORD_PEPPER` is used only for password hashing;
