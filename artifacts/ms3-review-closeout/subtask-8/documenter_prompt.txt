@@ -1,0 +1,61 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- REMEDIATION PASS 2: Fix stale Swagger decorator on POST /api/blog/:postIdOrSlug/comments createComment handler. @ApiForbiddenResponse updated from stale 'Post is not published.' to 'Comments are locked on this post.' and @ApiNotFoundResponse updated to 'Post not found or not published.' so the OpenAPI spec accurately reflects implemented behavior. Pass-1 changes to resolvePostId and createComment remain in place providing the actual security behavior. Pass-2 tester adds 3 source-contract assertions to blog.controller.test.ts to prevent stale-decorator regression.
+
+Acceptance criteria validated:
+- POST /api/blog/:postIdOrSlug/comments returns indistinguishable 404 for nonexistent, draft, unpublished, and future-scheduled posts - PASS
+- Comment creation on genuinely public posts unchanged; locked public post still returns 403 - PASS
+- All other comment routes unchanged - PASS
+- Security: no member can distinguish non-public from nonexistent via comment-creation - PASS
+- API builds and typechecks - PASS
+- OpenAPI decorators on createComment accurately reflect 404/403 behavior - PASS (3 new source-contract tests)
+
+Implementation branch or worktree context:
+- Branch: ms3-claude-subtask-8-tester-20260606 (tester worktree at /home/tstephen/repos/worktrees/ms3-claude-subtask-8-tester-20260606)
+- Implementer commit: 624f458 (fix(blog): update createComment Swagger decorators to match implemented visibility behavior)
+- Tester commit: 03fea84 (test(blog): add pass-2 source-contract assertions for Swagger decorators)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/blog/blog.controller.ts (Implementer: Swagger decorators updated on createComment handler)
+- apps/api/src/blog/blog.controller.test.ts (Tester: pass-2 source-contract assertions added for decorator descriptions)
+
+Test commit:
+- 03fea84
+
+Commands executed:
+- pnpm --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-8-tester-20260606 install
+- pnpm --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-8-tester-20260606 --filter api run test
+- pnpm --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-8-tester-20260606 --filter api run lint
+- pnpm --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-8-tester-20260606 --filter api run build
+
+Final test outcomes:
+- blog.controller.test.ts: 7/7 PASS (4 pass-1 oracle-parity/predicate tests + 3 new pass-2 source-contract assertions)
+- blog.service.test.ts: 79/79 PASS (unchanged from pass-1)
+- navigation.controller.test.ts: 0/6 PASS (pre-existing path construction bug, unrelated to this subtask, owned by a separate subtask)
+- All other test files: PASS
+- Build (tsc): PASS
+- Lint: 1 pre-existing failure (unused import in navigation.controller.test.ts, unrelated)
+- Pass-2 source-contract tests confirm @ApiForbiddenResponse='Comments are locked on this post.' and @ApiNotFoundResponse='Post not found or not published.' on the createComment handler
+
+Documentation context:
+- The only implementation change is to Swagger decorator descriptions on blog.controller.ts createComment handler
+- No new behavioral or API changes — only the OpenAPI documentation of the endpoint changed
+- Documentation should reflect that POST /api/blog/:postIdOrSlug/comments now accurately documents: 404 for nonexistent/non-public posts, 403 for commentsLocked only
+- The stale 'Post is not published.' 403 description has been corrected; any docs citing this should be updated
+
+Plan and diff context:
+- Plan: plans/ms3-review-closeout-plan.md
+- Base branch for comparison: ms3-claude (assumption — the coordination branch for this plan)
+- Subtask artifact directory: artifacts/ms3-review-closeout/subtask-8
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-8
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

@@ -1,0 +1,27 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms3-review-closeout/subtask-8/tester_report.md",
+    "artifacts/ms3-review-closeout/subtask-8/tester_result.json",
+    "artifacts/ms3-review-closeout/subtask-8/documenter_prompt.txt"
+  ],
+  "branch_name": "ms3-claude-subtask-8-tester-20260606",
+  "commands_run": [
+    "pnpm --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-8-tester-20260606 install",
+    "pnpm --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-8-tester-20260606 --filter api run test",
+    "pnpm --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-8-tester-20260606 --filter api run lint",
+    "pnpm --dir /home/tstephen/repos/worktrees/ms3-claude-subtask-8-tester-20260606 --filter api run build"
+  ],
+  "pass_fail_totals": {
+    "note": "6 failures are pre-existing in navigation.controller.test.ts (path construction bug, unrelated to this subtask)",
+    "tests_failed": 6,
+    "tests_passed": 270
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": null,
+  "test_commit_hash": "03fea84",
+  "test_files_changed": [
+    "apps/api/src/blog/blog.controller.test.ts"
+  ],
+  "unmet_acceptance_criteria": []
+}
