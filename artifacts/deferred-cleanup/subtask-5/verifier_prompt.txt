@@ -1,0 +1,59 @@
+Your role is 'verifier'. Your task is as follows:
+
+Task summary:
+- Pages module robustness fixes: (1) featuredMediaId existence validated at all 3 write sites in pages.service.ts (create, update, restoreRevision); (2) ManyToOne relation decorator added for currentRevisionId on StandalonePageEntity without schema change; (3) dead resolveCurrentBody deleted from pages.controller.ts; (4) Swagger/JSDoc updated. Tests added for all 3 featuredMediaId rejection sites and RESERVED_PAGE_SLUGS set-equality/cardinality pin.
+
+Acceptance criteria to verify:
+- create() throws BadRequestException when featuredMediaId references a nonexistent media record (site 1) — PASS
+- update() throws BadRequestException when featuredMediaId references a nonexistent media record (site 2) — PASS
+- restoreRevision() throws BadRequestException when source.featuredMediaId references a nonexistent media record (site 3) — PASS
+- RESERVED_PAGE_SLUGS set-equality and cardinality pin: exact 11 members verified — PASS
+- resolveCurrentBody has zero references in the codebase (grep confirmed) — PASS
+- makePagesService updated to pass 4th mediaRepository constructor argument — PASS
+- currentRevision ManyToOne relation with createForeignKeyConstraints: false present on StandalonePageEntity — VERIFIED
+- Full test suite: 297 passed, 0 failed (2 integration skipped, env-gated)
+
+Implementation branch and worktree context:
+- Branch: cleanup-subtask-5-documenter-20260607
+- Worktree: /home/tstephen/repos/sfus/cleanup-subtask-5-documenter-20260607
+- Implementer commit: 0773e3c
+- Tester commit: 5cb6b4a
+- Documenter commit: 5493bdf
+
+Files modified by the Implementer, Tester, and Documenter to inspect for verification scope:
+- apps/api/src/pages/pages.service.ts (implementer)
+- apps/api/src/pages/pages.controller.ts (implementer)
+- apps/api/src/pages/entities/standalone-page.entity.ts (implementer)
+- apps/api/src/pages/pages.module.ts (implementer)
+- apps/api/src/pages/pages.service.test.ts (tester)
+- docs/features/pages.md (documenter)
+
+Documentation changes made:
+- docs/features/pages.md: API routes table updated with 400 response notes for featuredMediaId validation on create, update, and restore
+- docs/features/pages.md: Revision contract section updated with featuredMediaId validation behavior and StandalonePageEntity currentRevision relation
+
+Commands executed by Tester:
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/pages/pages.service.test.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/api lint
+
+Final test outcomes:
+- 41/41 pages.service.test.ts tests pass
+- 297/297 full API test suite tests pass (2 integration skipped, env-gated)
+- TypeScript typecheck: clean
+- ESLint lint: clean (0 warnings)
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-5
+
+Plan context:
+- Active plan: plans/deferred-cleanup-plan.md (subtask-5)
+- Base branch for diff: cleanup
+
+Startup behavior:
+- If blocking inputs are present, begin verification work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or convention details from repository context when repository evidence is sufficient, and label those choices as assumptions rather than treating them as blockers.
+- Do not stop after activation, scope confirmation, or diff inspection when verification work can proceed.
+
+Do not report success unless all required artifacts exist and all changes are committed.
