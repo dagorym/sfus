@@ -1,0 +1,59 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- BlogService.create() hardened against TOCTOU slug collisions — retries deriveUniqueSlug + save up to 3 times on duplicate-key errors (MySQL ER_DUP_ENTRY, SQLite UNIQUE constraint), then throws ConflictException (409) on exhaustion. Only the auto-derive slug path in create() is retried; explicit-slug paths and the update path have no TOCTOU retry (1 write path covered).
+
+Acceptance criteria to verify:
+- AC1 PASS: Duplicate-key errors (MySQL ER_DUP_ENTRY, SQLite UNIQUE constraint) trigger retry — confirmed by 2 targeted tests
+- AC2 PASS: Retry bounded at 3; exhaustion returns ConflictException (409); non-dup-key errors propagate unchanged — confirmed by 2 targeted tests
+- AC3 PASS: 1 write path covered (create only; update not affected, uses explicit or supplied slug paths)
+- AC4 PASS: JSDoc on SLUG_RETRY_LIMIT, isDuplicateKeyError, saveWithDerivedSlugRetry, and create() reflects retry semantics
+
+Implementation branch or worktree context:
+- Implementer branch: cleanup-subtask-4-implementer-20260607
+- Tester branch: cleanup-subtask-4-tester-20260607
+- Documenter branch: cleanup-subtask-4-documenter-20260607
+- Implementer commit: eb03724 (feat(blog): harden slug TOCTOU with duplicate-key retry)
+- Tester commit: bd08d2e (test(blog): fix MySQL ER_DUP_ENTRY retry mock call sequence)
+- Documentation commit: d0a0abd (docs(blog): document TOCTOU slug retry and 409 exhaustion behavior)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/blog/blog.service.ts
+- apps/api/src/blog/blog.service.test.ts
+- docs/features/blog.md
+
+Commands executed:
+- pnpm --filter @sfus/api exec vitest run src/blog/blog.service.test.ts --reporter=verbose
+- pnpm --filter @sfus/api exec vitest run
+- pnpm --filter @sfus/web exec vitest run
+
+Final test outcomes:
+- blog.service.test.ts: 89 pass, 0 fail, 0 skip
+- API full suite: 357 pass, 0 fail, 2 skip
+- Web full suite: 264 pass, 0 fail, 0 skip
+
+Plan or evaluation context guidance:
+- Plan: plans/deferred-cleanup-plan.md, section 'subtask-4 — Blog slug TOCTOU hardening'
+- Register item closed: line 19
+- Security review required: no
+- Depends on: subtask-3 (same files)
+
+Convention-file guidance:
+- docs/features/blog.md is the canonical feature doc for blog behavior
+- API error conventions in docs/development/api-conventions.md
+- Testing conventions in docs/development/testing.md
+- JSDoc on all public and private service methods is required per repository guidance
+
+Updated documentation files:
+- docs/features/blog.md
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-4
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
