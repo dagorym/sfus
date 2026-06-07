@@ -1,0 +1,65 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Pages module robustness fixes: (1) featuredMediaId existence validated at all 3 write sites in pages.service.ts (create, update, restoreRevision); (2) ManyToOne relation decorator added for currentRevisionId on StandalonePageEntity without schema change; (3) dead resolveCurrentBody deleted from pages.controller.ts; (4) Swagger/JSDoc updated. Tests added for all 3 featuredMediaId rejection sites and RESERVED_PAGE_SLUGS set-equality/cardinality pin.
+
+Acceptance criteria validated:
+- create() throws BadRequestException when featuredMediaId references a nonexistent media record (site 1) — PASS
+- update() throws BadRequestException when featuredMediaId references a nonexistent media record (site 2) — PASS
+- restoreRevision() throws BadRequestException when source.featuredMediaId references a nonexistent media record (site 3) — PASS
+- RESERVED_PAGE_SLUGS set-equality and cardinality pin: exact 11 members verified — PASS
+- resolveCurrentBody has zero references in the codebase (grep confirmed) — PASS
+- makePagesService updated to pass 4th mediaRepository constructor argument — PASS
+- currentRevision ManyToOne relation with createForeignKeyConstraints: false present on StandalonePageEntity — VERIFIED
+- Full test suite: 297 passed, 0 failed (2 integration skipped, env-gated)
+
+Implementation branch or worktree context:
+- Branch: cleanup-subtask-5-tester-20260607
+- Worktree: /home/tstephen/repos/worktrees/cleanup-subtask-5-tester-20260607
+- Implementer commit: 0773e3c fix(pages): validate featuredMediaId, add currentRevision relation, remove dead resolveCurrentBody
+- Tester commit: 5cb6b4a test(pages): add featuredMediaId rejection and RESERVED_PAGE_SLUGS pin tests
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/pages/pages.service.ts
+- apps/api/src/pages/pages.controller.ts
+- apps/api/src/pages/entities/standalone-page.entity.ts
+- apps/api/src/pages/pages.module.ts
+- apps/api/src/pages/pages.service.test.ts
+
+Test commit:
+- 5cb6b4a
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/pages/pages.service.test.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/api test
+- npx --yes pnpm@10.0.0 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/api lint
+
+Final test outcomes:
+- 41/41 pages.service.test.ts tests pass
+- 297/297 full API test suite tests pass (2 integration skipped, env-gated)
+- TypeScript typecheck: clean
+- ESLint lint: clean (0 warnings)
+
+Documentation context:
+- docs/features/pages.md — behavior change: featuredMediaId now validated at all 3 write sites (create/update/restoreRevision); BadRequestException thrown when media not found
+- docs/features/pages.md — dead method resolveCurrentBody removed from controller; resolveCurrentRevision is the surviving current-body helper
+- docs/features/pages.md — StandalonePageEntity now has currentRevision ManyToOne relation with createForeignKeyConstraints: false
+- docs/features/pages.md — pages.module.ts now imports MediaReferenceEntity in TypeOrmModule.forFeature (mirrors blog.module.ts pattern)
+- Swagger @ApiBadRequestResponse updated on adminCreate, adminUpdate, adminRestoreRevision to document featuredMediaId validation
+
+Plan and diff context:
+- Active plan: plans/deferred-cleanup-plan.md (subtask-5)
+- Base branch for diff: cleanup (main branch of the deferred-cleanup plan series)
+- Compare cleanup-subtask-5-tester-20260607 against cleanup to see all implementer + tester changes
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
