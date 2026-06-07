@@ -305,8 +305,8 @@ assert_file_contains "${web_env_example}" '^WEB_API_INTERNAL_URL=http://api:3001
 assert_file_exists "${api_env_example}"
 assert_file_contains "${api_env_example}" '^#[[:space:]]*Ownership:[[:space:]]*API application\.[[:space:]]*$' \
   "Expected API env example to document API ownership."
-assert_file_contains "${api_env_example}" '^DB_HOST=mysql$' \
-  "Expected API env example to use mysql service naming."
+assert_file_contains "${api_env_example}" '^DB_HOST=127\.0\.0\.1$' \
+  "Expected API env example to use hybrid-dev default DB_HOST=127.0.0.1 (containers override via compose)."
 assert_file_contains "${api_env_example}" '^DB_PORT=3306$' \
   "Expected API env example to define DB_PORT=3306."
 
@@ -381,7 +381,8 @@ assert_container_stays_running "${api_runtime_image}" "3001" "api" \
   -e DB_USER=sfus \
   -e DB_PASSWORD=changeme-app \
   -e DB_CONNECT_TIMEOUT_MS=5000 \
-  -e DB_MIGRATIONS_TABLE=sfus_migrations
+  -e DB_MIGRATIONS_TABLE=sfus_migrations \
+  -e MEDIA_STORAGE_PATH=/tmp/uploads
 
 ensure_runtime_env_file "${repo_root}/apps/web/.env" "${web_env_example}"
 ensure_runtime_env_file "${repo_root}/apps/api/.env" "${api_env_example}"
