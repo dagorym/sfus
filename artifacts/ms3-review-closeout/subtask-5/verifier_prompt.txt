@@ -1,0 +1,60 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Add 'pages' to RESERVED_PAGE_SLUGS in pages.service.ts (ms3-review-closeout subtask-5, NOTE 3 from final reviewer). Prevents slug 'pages' from being used for a standalone page and ensures /pages nav items are treated as static reserved routes (always rendered), not as standalone-page slug lookups. Tests were added to pin: (1) reserved-slug rejection for 'pages' on both create and update in PagesService, (2) bare-/pages nav item as always-rendered static route in NavigationService.findPublic without consulting standalone_pages table.
+
+Acceptance criteria to verify:
+- Creating or renaming a standalone page with slug 'pages' is rejected with the existing reserved-slug BadRequestException.
+- A public navigation response renders an internal nav item with URL '/pages' regardless of standalone-page publication state.
+- Existing /blog/<slug>, /pages/<slug>, and safe-[] fallback behavior is preserved.
+- Security: strictly fail-closed -- RESERVED_PAGE_SLUGS.has() returns true immediately; no page-table query is made for reserved slugs.
+- The API builds, lints, typechecks, and its unit suite passes.
+
+Implementation branch or worktree context:
+- Branch: ms3-claude-subtask-5-documenter-20260606 (documenter worktree from tester branch ms3-claude-subtask-5-tester-20260606)
+- Implementer branch: ms3-claude-subtask-5-implementer-20260606 (implementer commit: 80d05b1)
+- Tester test commit: c41f73c
+- Documentation commit: a9c27bc
+- Only pages.service.ts was changed by the Implementer; no logic change to navigation.service.ts
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/pages/pages.service.ts (implementer: added 'pages' to RESERVED_PAGE_SLUGS)
+- apps/api/src/pages/pages.service.test.ts (tester: 3 new tests -- pages slug rejection on create, pages slug rejection on update, full-reserved-list test updated to include pages)
+- apps/api/src/navigation/navigation.service.test.ts (tester: 1 new test -- bare /pages nav item renders as static route, standalone_pages table not consulted)
+- docs/README.md (documenter: updated reserved-slug count and list, added bare /pages static-route note in navigation filtering section)
+
+Commands executed:
+- git diff ms3-claude HEAD --name-only (diff surface review)
+- git diff ms3-claude HEAD -- apps/api/src/pages/pages.service.ts apps/api/src/pages/pages.service.test.ts apps/api/src/navigation/navigation.service.test.ts (implementation and test diff review)
+
+Final test outcomes:
+- 278/278 tests passed across 16 test files (from tester pass)
+- pages.service.test.ts: 39 tests passed (3 new added by tester)
+- navigation.service.test.ts: 36 tests passed (1 new added by tester)
+- Lint: clean (0 warnings, 0 errors)
+- Typecheck: clean (0 errors)
+
+Plan or evaluation context guidance:
+- Plan: plans/ms3-review-closeout-plan.md -- subtask-5 (Reserve the 'pages' slug and pin the bare-/pages navigation edge)
+- Closes NOTE 3 from the final reviewer report (artifacts/ms3-landing-refresh-and-review-followups/final-review/)
+- Decision D4: Reserve the 'pages' slug with tests and docs note
+- Documentation Impact per plan subtask-5: docs/README.md reserved-slug list and navigation publication-filtering description gain the 'pages' entry and a note about the bare-/pages static-route behavior
+
+Convention-file guidance:
+- docs/README.md is the canonical location for API contract, reserved-slug list, and navigation filtering rules per AGENTS.md
+- Minimal, localized edits per diff-first-editing skill
+- No in-code JSDoc update required: navigation.service.ts was not changed by the implementer; isLinkedTargetPubliclyVisible references RESERVED_PAGE_SLUGS by name without enumerating slugs
+
+Updated documentation files:
+- docs/README.md -- Slug Validation section: count updated from ten to eleven; 'pages' inserted into the enumerated reserved-slug list. Navigation publication-filtering rules: 'pages' added to RESERVED_PAGE_SLUGS inline list for /<slug> bullet; sentence added clarifying bare /pages URL always renders as static route without consulting standalone_pages.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-5
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
