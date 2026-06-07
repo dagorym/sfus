@@ -1,0 +1,62 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Add 'pages' to RESERVED_PAGE_SLUGS in pages.service.ts (ms3-review-closeout subtask-5, NOTE 3 from final reviewer). Prevents slug 'pages' from being used for a standalone page and ensures /pages nav items are treated as static reserved routes (always rendered), not as standalone-page slug lookups. Tests were added to pin: (1) reserved-slug rejection for 'pages' on both create and update in PagesService, (2) bare-/pages nav item as always-rendered static route in NavigationService.findPublic without consulting standalone_pages table.
+
+Acceptance criteria validated:
+- Creating or renaming a standalone page with slug 'pages' is rejected with the existing reserved-slug BadRequestException. VERIFIED: two new tests pass.
+- A public navigation response renders an internal nav item with URL '/pages' regardless of standalone-page publication state. VERIFIED: new test confirms static-route behavior and verifies standalone_pages table is not consulted.
+- Existing /blog/<slug>, /pages/<slug>, and safe-[] fallback behavior is preserved. VERIFIED: all 36 navigation.service tests pass unchanged.
+- Security: strictly fail-closed -- RESERVED_PAGE_SLUGS.has() returns true immediately; no page-table query is made for reserved slugs.
+- The API builds, lints, typechecks, and its unit suite passes. VERIFIED: lint clean, typecheck clean, 278/278 tests pass.
+
+Implementation branch or worktree context:
+- Branch: ms3-claude-subtask-5-tester-20260606 (tester branch, from ms3-claude coordinator branch)
+- Implementer branch: ms3-claude-subtask-5-implementer-20260606 (implementer commit: 80d05b1)
+- Tester test commit: c41f73c
+- Only pages.service.ts was changed by the Implementer; no logic change to navigation.service.ts
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/pages/pages.service.ts
+- apps/api/src/pages/pages.service.test.ts
+- apps/api/src/navigation/navigation.service.test.ts
+
+Test commit:
+- c41f73c
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/pages/pages.service.test.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/navigation/navigation.service.test.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/api run lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api run typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/api run test
+
+Final test outcomes:
+- 278/278 tests passed across 16 test files
+- pages.service.test.ts: 39 tests passed (added 3 new: pages slug rejection on create, pages slug rejection on update, expanded full-reserved-list test to include pages)
+- navigation.service.test.ts: 36 tests passed (added 1 new: bare /pages nav item renders as static route, standalone_pages table not consulted)
+- Lint: clean (0 warnings, 0 errors)
+- Typecheck: clean (0 errors)
+
+Documentation context:
+- RESERVED_PAGE_SLUGS now includes 'pages' -- this is a behavior contract that may be referenced in docs/README.md under reserved slugs or routing documentation
+- The JSDoc on isLinkedTargetPubliclyVisible in navigation.service.ts already references RESERVED_PAGE_SLUGS by name without enumerating specific slugs -- no JSDoc update was required per implementation context
+- The change closes NOTE 3 from the final reviewer report (artifacts/ms3-landing-refresh-and-review-followups/final-review/): bare /pages navigation edge case is now closed
+- No publicly visible behavior changed for end users -- this is a developer-facing API contract tightening
+
+Plan and diff context:
+- Plan: plans/ms3-review-closeout-plan.md -- subtask-5
+- Base branch for diff: ms3-claude (the coordinator branch for this plan cycle)
+- Final reviewer report: artifacts/ms3-landing-refresh-and-review-followups/final-review/ (NOTE 3)
+- This is a small additive change: one string ('pages') added to a ReadonlySet in pages.service.ts
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
