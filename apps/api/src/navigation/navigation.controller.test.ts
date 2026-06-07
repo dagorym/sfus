@@ -1,14 +1,9 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-import { UnauthorizedException } from "@nestjs/common";
 import { describe, expect, it } from "vitest";
 
-const controllerPath = path.resolve(
-  fileURLToPath(new URL(".", import.meta.url)),
-  "navigation.controller.ts",
-);
+const controllerPath = path.resolve(__dirname, "navigation.controller.ts");
 
 async function readController(): Promise<string> {
   return readFile(controllerPath, "utf8");
