@@ -1,0 +1,61 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Close authenticated-surface publication leak: extend findForAuthenticatedUser in navigation.service.ts to apply the same linked-target publication filtering (filterByLinkedTargetVisibility + isLinkedTargetPubliclyVisible) for non-admin callers as findPublic already uses. Admin callers continue to receive all items without publication filtering.
+
+Acceptance criteria validated:
+- AC1: An authenticated non-admin navigation response omits any nav item (top-level or child) whose internal link targets an unpublished standalone page or blog post, with classification identical to the public surface.
+- AC2: An authenticated admin response is unchanged: visibility-rule filtering only, unpublished-target items still listed.
+- AC3: findPublic and the public endpoint behavior are unchanged (all 12 findPublic tests continue to pass).
+- AC4: Security: no unauthenticated or non-admin authenticated caller can learn the existence, slug, or label of unpublished content through any navigation endpoint.
+- AC5: The API builds, lints, typechecks, and its unit suite passes.
+
+Implementation branch or worktree context:
+- Implementer branch: ms3-claude-subtask-7-implementer-20260607
+- Tester branch: ms3-claude-subtask-7-tester-20260607
+- Base coordination branch: ms3-claude
+- Modified file: apps/api/src/navigation/navigation.service.ts (findForAuthenticatedUser extended with non-admin publication filtering)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/navigation/navigation.service.ts
+- apps/api/src/navigation/navigation.service.test.ts
+
+Test commit:
+- 9427a23
+
+Commands executed:
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-7-tester-20260607 install
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-7-tester-20260607 --filter @sfus/api exec vitest run src/navigation/navigation.service.test.ts --reporter verbose
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-7-tester-20260607 --filter @sfus/api exec vitest run
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-7-tester-20260607 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-7-tester-20260607 --filter @sfus/api lint
+
+Final test outcomes:
+- 53/53 navigation service tests pass (37 pre-existing + 16 new).
+- Full API suite: 297 passed, 2 skipped (integration), 0 failed.
+- Typecheck: pass. Lint: pass.
+- 2 pre-existing AC3 tests updated: URLs changed from non-reserved single-segment slugs to reserved slugs (intentional behavior change).
+- 16 new tests cover non-admin publication filtering for blog posts, standalone pages, canonical /<slug> routes, reserved slugs, external links, children, and admin bypass.
+- Predicate-pinning tests added for blog (status=published + publishedAt LessThanOrEqual) and page (status=published) per security review WARNING 2.
+- Admin bypass confirmed: blog and page repos are NOT queried when caller is admin.
+
+Documentation context:
+- navigation.service.ts JSDoc for findForAuthenticatedUser was updated by the Implementer to state the non-admin publication-filtering guarantee.
+- No new public API endpoints or contracts were introduced; this is a behavioral tightening of an existing authenticated endpoint.
+- The deferred-tasks.md entry regarding authenticated nav publication leak is resolved by this change.
+
+Plan and diff context:
+- Plan: plans/ms3-review-closeout-plan.md (subtask-7: close authenticated-surface publication leak in navigation)
+- Base branch for diff: ms3-claude
+- Coordination branch: ms3-claude
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-7
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

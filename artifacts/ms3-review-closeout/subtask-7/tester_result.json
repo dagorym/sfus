@@ -1,0 +1,29 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms3-review-closeout/subtask-7/tester_report.md",
+    "artifacts/ms3-review-closeout/subtask-7/tester_result.json",
+    "artifacts/ms3-review-closeout/subtask-7/documenter_prompt.txt"
+  ],
+  "branch_name": "ms3-claude-subtask-7-tester-20260607",
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-7-tester-20260607 install",
+    "npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-7-tester-20260607 --filter @sfus/api exec vitest run src/navigation/navigation.service.test.ts --reporter verbose",
+    "npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-7-tester-20260607 --filter @sfus/api exec vitest run",
+    "npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-7-tester-20260607 --filter @sfus/api typecheck",
+    "npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms3-claude-subtask-7-tester-20260607 --filter @sfus/api lint"
+  ],
+  "pass_fail_totals": {
+    "full_api_suite": "297 pass, 2 skipped (integration), 0 fail",
+    "lint": "pass",
+    "navigation_service_tests": "53/53 pass",
+    "typecheck": "pass"
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": null,
+  "test_commit_hash": "9427a23",
+  "test_files_changed": [
+    "apps/api/src/navigation/navigation.service.test.ts"
+  ],
+  "unmet_acceptance_criteria": []
+}
