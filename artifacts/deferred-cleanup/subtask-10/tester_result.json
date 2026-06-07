@@ -1,0 +1,41 @@
+{
+  "status": "pass",
+  "subtask": "deferred-cleanup/subtask-10",
+  "branch": "cleanup-subtask-10-tester-20260607",
+  "test_commit": "8d935ca",
+  "test_files_modified": [
+    "apps/api/src/pages/pages.service.integration.test.ts"
+  ],
+  "commands_run": [
+    "bash /home/tstephen/repos/sfus/cleanup-subtask-10-tester-20260607/cicd/tests/run-validations.sh",
+    "npx --yes pnpm@10.0.0 --prefix /home/tstephen/repos/sfus lint",
+    "npx --yes pnpm@10.0.0 --prefix /home/tstephen/repos/sfus test"
+  ],
+  "pass_total": {
+    "api_unit_tests": 353,
+    "web_unit_tests": 264,
+    "api_skipped": 2,
+    "run_validations": "PASS"
+  },
+  "fail_total": 0,
+  "unmet_acceptance_criteria": [],
+  "acceptance_criteria_results": [
+    {
+      "criterion": "bash cicd/tests/run-validations.sh passes on the subtask branch",
+      "result": "pass"
+    },
+    {
+      "criterion": "The env-example assertion matches the canonical contract in docs/operations/launch.md (DB_HOST=127.0.0.1)",
+      "result": "pass"
+    },
+    {
+      "criterion": "A compose-level DB_HOST=mysql override assertion exists at the verified real location (line 320 in cicd/tests/run-validations.sh already pinned this)",
+      "result": "pass"
+    }
+  ],
+  "artifact_files_written": [
+    "artifacts/deferred-cleanup/subtask-10/tester_report.md",
+    "artifacts/deferred-cleanup/subtask-10/tester_result.json",
+    "artifacts/deferred-cleanup/subtask-10/documenter_prompt.txt"
+  ]
+}
