@@ -4,6 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthModule } from "../auth/auth.module";
 import { AuthorizationModule } from "../authorization/authorization.module";
 import type { ApplicationEnvironment } from "../config/environment";
+import { MediaReferenceEntity } from "../media/entities/media-reference.entity";
 import { PageRevisionEntity } from "./entities/page-revision.entity";
 import { StandalonePageEntity } from "./entities/standalone-page.entity";
 import { PagesController } from "./pages.controller";
@@ -15,7 +16,7 @@ export class PagesModule {
     return {
       module: PagesModule,
       imports: [
-        TypeOrmModule.forFeature([StandalonePageEntity, PageRevisionEntity]),
+        TypeOrmModule.forFeature([StandalonePageEntity, PageRevisionEntity, MediaReferenceEntity]),
         AuthorizationModule,
         AuthModule.register(environment)
       ],

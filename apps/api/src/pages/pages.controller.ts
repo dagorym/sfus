@@ -103,7 +103,7 @@ export class PagesController {
   @ApiOperation({ summary: "Create a new standalone page in draft status (admin)." })
   @ApiUnauthorizedResponse({ description: "No active session." })
   @ApiForbiddenResponse({ description: "Admin role required." })
-  @ApiBadRequestResponse({ description: "Invalid input." })
+  @ApiBadRequestResponse({ description: "Invalid input or featuredMediaId references a nonexistent media record." })
   async adminCreate(
     @Req() request: Request,
     @Body() body: unknown
@@ -121,6 +121,7 @@ export class PagesController {
   @ApiOperation({ summary: "Update a standalone page, creating a new revision (admin)." })
   @ApiUnauthorizedResponse({ description: "No active session." })
   @ApiForbiddenResponse({ description: "Admin role required." })
+  @ApiBadRequestResponse({ description: "Invalid input or featuredMediaId references a nonexistent media record." })
   @ApiNotFoundResponse({ description: "Page not found." })
   async adminUpdate(
     @Req() request: Request,
@@ -193,6 +194,7 @@ export class PagesController {
   @ApiOperation({ summary: "Restore a standalone page to a prior revision (admin)." })
   @ApiUnauthorizedResponse({ description: "No active session." })
   @ApiForbiddenResponse({ description: "Admin role required." })
+  @ApiBadRequestResponse({ description: "featuredMediaId on the source revision references a nonexistent media record." })
   @ApiNotFoundResponse({ description: "Page or revision not found." })
   async adminRestoreRevision(
     @Req() request: Request,
@@ -210,16 +212,6 @@ export class PagesController {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
-
-  /**
-   * Loads the body from the current revision by direct id lookup.
-   * Returns empty string when no current revision is set.
-   */
-  private async resolveCurrentBody(_pageId: string, currentRevisionId: string | null): Promise<string> {
-    if (!currentRevisionId) return "";
-    const revision = await this.pagesService.findRevisionById(currentRevisionId);
-    return revision?.body ?? "";
-  }
 
   /**
    * Loads the current revision for detail responses (includes all metadata fields).
