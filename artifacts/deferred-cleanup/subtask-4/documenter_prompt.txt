@@ -1,0 +1,56 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- BlogService.create() was hardened against TOCTOU slug collisions: on duplicate-key database errors (MySQL ER_DUP_ENTRY or SQLite UNIQUE constraint), the service retries deriveUniqueSlug + save up to SLUG_RETRY_LIMIT=3 times, then throws ConflictException (HTTP 409) on exhaustion. Non-duplicate-key errors propagate unchanged. The Tester also fixed a test mock authoring error in the MySQL ER_DUP_ENTRY test case (insufficient findOne mock sequence).
+
+Acceptance criteria validated:
+- AC1: Save rejected with duplicate-key error retries derivation and succeeds (MySQL ER_DUP_ENTRY + SQLite UNIQUE constraint variants both passing)
+- AC2: Retry attempts bounded at SLUG_RETRY_LIMIT=3; exhaustion returns ConflictException (409); non-dup-key errors propagate without retry
+- AC3: Every deriveUniqueSlug-consuming write path covered — count: 1 (create() only; update() uses explicit slugs)
+- AC4: JSDoc on create(), saveWithDerivedSlugRetry(), and isDuplicateKeyError() reflects retry semantics
+
+Implementation branch or worktree context:
+- Branch: cleanup-subtask-4-tester-20260607
+- Implementer's changes are in commit 1f42aa9 (merged from cleanup-subtask-4-implementer-20260607)
+- Tester's fix is in commit bd08d2e (test mock correction only)
+- Compare against cleanup branch base or main for documentation diff
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/blog/blog.service.ts — primary implementation: new private methods saveWithDerivedSlugRetry(), isDuplicateKeyError(), SLUG_RETRY_LIMIT constant; updated create() JSDoc; updated saveWithDerivedSlugRetry() JSDoc
+- apps/api/src/blog/blog.service.test.ts — tester: fixed MySQL ER_DUP_ENTRY mock call sequence (9 insertions / 3 deletions)
+
+Test commit:
+- bd08d2e (test mock fix — no new tests added, existing TOCTOU describe block is intact and all 4 tests pass)
+
+Commands executed:
+- pnpm -C <worktree> --filter @sfus/api exec vitest run src/blog/blog.service.test.ts --reporter=verbose (89/89 pass)
+- pnpm -C <worktree> --filter @sfus/api exec vitest run (357 pass, 2 skipped DB integration)
+- pnpm -C <worktree> --filter @sfus/web exec vitest run (264 pass)
+
+Final test outcomes:
+- All 4 TOCTOU-hardening tests in "BlogService.create slug TOCTOU hardening (subtask-4)" pass
+- Full API suite: 357 pass, 2 skipped (DB integration, expected)
+- Full web suite: 264 pass
+- No implementation defects found
+
+Documentation context:
+- Primary doc to update: docs/features/blog.md — this is the blog subsystem contract doc. The TOCTOU retry behavior and 409 ConflictException on exhaustion are new observable API behaviors that should be documented.
+- Check whether docs/features/blog.md mentions BlogService.create slug derivation behavior and if it needs a note on the TOCTOU hardening guarantee (up to 3 retries, 409 on failure).
+- docs/development/ may contain API error-response conventions — if a 409 ConflictException from create() is a new response code for the blog API, it may warrant a note in the API conventions doc.
+- No auth, authorization, or middleware changes — those docs are unaffected.
+
+Plan and diff context:
+- Plan: deferred-cleanup plan (plans/ directory, infer exact plan file from repository context if needed)
+- Subtask 4 of the deferred-cleanup cycle
+- Comparison base: cleanup branch (the branch this worktree tracks); compare HEAD of cleanup-subtask-4-tester-20260607 against cleanup to see full implementer + tester diff
+
+Startup behavior:
+- If the worktree branch, story context, and file list above are sufficient, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-4
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

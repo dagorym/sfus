@@ -1,0 +1,44 @@
+{
+  "status": "pass",
+  "task": "deferred-cleanup/subtask-4",
+  "branch": "cleanup-subtask-4-tester-20260607",
+  "test_commit": "bd08d2e",
+  "test_files_modified": [
+    "apps/api/src/blog/blog.service.test.ts"
+  ],
+  "commands_run": [
+    "pnpm -C <worktree> --filter @sfus/api exec vitest run src/blog/blog.service.test.ts --reporter=verbose",
+    "pnpm -C <worktree> --filter @sfus/api exec vitest run",
+    "pnpm -C <worktree> --filter @sfus/web exec vitest run"
+  ],
+  "test_results": {
+    "blog_service_targeted": { "pass": 89, "fail": 0, "skip": 0 },
+    "api_full_suite": { "pass": 357, "fail": 0, "skip": 2 },
+    "web_full_suite": { "pass": 264, "fail": 0, "skip": 0 }
+  },
+  "toctou_describe_block": {
+    "name": "BlogService.create slug TOCTOU hardening (subtask-4)",
+    "tests": [
+      { "name": "retries derivation and succeeds when first save throws a duplicate-key error (MySQL ER_DUP_ENTRY)", "result": "pass" },
+      { "name": "retries derivation and succeeds when first save throws a SQLite UNIQUE constraint error", "result": "pass" },
+      { "name": "throws ConflictException (409-class) after SLUG_RETRY_LIMIT duplicate-key failures (exhausted)", "result": "pass" },
+      { "name": "propagates non-duplicate-key errors without retrying", "result": "pass" }
+    ]
+  },
+  "acceptance_criteria": [
+    { "id": 1, "description": "Retry derivation and succeed on dup-key (MySQL + SQLite)", "result": "pass" },
+    { "id": 2, "description": "Bounded retries (3); exhaustion = ConflictException 409, non-dup errors propagate", "result": "pass" },
+    { "id": 3, "description": "deriveUniqueSlug write paths covered: count=1 (create only)", "result": "pass" },
+    { "id": 4, "description": "JSDoc on affected methods reflects retry semantics", "result": "pass" }
+  ],
+  "tester_fix_applied": {
+    "file": "apps/api/src/blog/blog.service.test.ts",
+    "description": "MySQL ER_DUP_ENTRY test had 3 findOne mock calls but retry flow requires 4. Added missing null call for attempt-2 base-slug check.",
+    "nature": "test_mock_authoring_error"
+  },
+  "artifacts_written": [
+    "artifacts/deferred-cleanup/subtask-4/tester_report.md",
+    "artifacts/deferred-cleanup/subtask-4/tester_result.json",
+    "artifacts/deferred-cleanup/subtask-4/documenter_prompt.txt"
+  ]
+}
