@@ -1,0 +1,55 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Repair stale CI/CD contract-test assertions: update the apps/api/.env.example DB_HOST assertion to match the documented hybrid-dev default (127.0.0.1), and fix the missing MEDIA_STORAGE_PATH env var in the API runtime process check so the full suite passes. The Tester also fixed a stale PagesService constructor call in pages.service.integration.test.ts where PagesService was called with 3 args after a 4th constructor parameter (mediaRepository) was added in commit 0773e3c.
+
+Acceptance criteria to verify:
+- bash cicd/tests/run-validations.sh passes on the subtask branch — PASS
+- The env-example assertion matches the canonical contract in docs/operations/launch.md (DB_HOST=127.0.0.1) — PASS
+- A compose-level DB_HOST=mysql override assertion exists at line 320 in cicd/tests/run-validations.sh — PASS
+
+Implementation branch or worktree context:
+- Implementer branch: cleanup-subtask-10-implementer-20260607 (merged into cleanup)
+- Tester branch: cleanup-subtask-10-tester-20260607
+- Documenter branch: cleanup-subtask-10-documenter-20260607
+- Base branch: cleanup
+- Implementation commit: 08ef7a3 (cicd: repair stale DB_HOST assertion in run-validations.sh)
+- Test commit: 8d935ca (test(pages): fix integration test constructor call after mediaRepository was added)
+- Documentation commit: d0b739f (docs(cicd): document env-example DB_HOST and MEDIA_STORAGE_PATH runtime checks)
+
+Files modified by the Implementer, Tester, and Documenter:
+- cicd/tests/run-validations.sh (implementer: DB_HOST assertion corrected to 127.0.0.1; MEDIA_STORAGE_PATH added to runtime check)
+- apps/api/src/pages/pages.service.integration.test.ts (tester: mediaRepository added as 3rd constructor arg; MediaReferenceEntity import added)
+- cicd/tests/README.md (documenter: coverage bullet added for env-example DB_HOST and MEDIA_STORAGE_PATH runtime checks)
+
+Commands executed:
+- bash cicd/tests/run-validations.sh — PASS
+- npx --yes pnpm@10.0.0 lint — PASS
+- npx --yes pnpm@10.0.0 test — PASS (353 API + 264 web, 2 DB integration skipped)
+
+Final test outcomes:
+- All acceptance criteria pass.
+- run-validations.sh exits 0 with all CI/CD contract checks, Docker builds, and runtime container checks passing.
+- 353 API unit tests pass, 264 web tests pass, 2 DB integration tests skip cleanly (opt-in flag not set).
+
+Plan or evaluation context guidance:
+- Plan: deferred-cleanup plan (artifacts/deferred-cleanup/ for plan context)
+- Subtask artifact directory: artifacts/deferred-cleanup/subtask-10
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table — cicd/tests/README.md documents CI/CD test coverage
+- AGENTS.md is the canonical agent entry point; docs/operations/launch.md is the canonical env-var contract source of truth
+
+Updated documentation files:
+- cicd/tests/README.md
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-10
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
