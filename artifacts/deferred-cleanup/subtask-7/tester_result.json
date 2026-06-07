@@ -1,0 +1,28 @@
+{
+  "status": "success",
+  "subtask": "deferred-cleanup/subtask-7",
+  "branch": "cleanup-subtask-7-tester-20260607",
+  "test_commit_hash": "9d856d5",
+  "test_files_modified": [
+    "apps/api/src/navigation/navigation.service.test.ts"
+  ],
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 install",
+    "npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 --filter @sfus/api exec vitest run src/navigation/navigation.service.test.ts --reporter verbose",
+    "npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 --filter @sfus/api exec vitest run",
+    "npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 --filter @sfus/api typecheck",
+    "npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 --filter @sfus/api lint"
+  ],
+  "pass_fail_totals": {
+    "navigation_service_tests": { "passed": 66, "failed": 0, "note": "53 pre-existing + 13 new" },
+    "full_api_suite": { "passed": 310, "failed": 0, "skipped": 2 },
+    "typecheck": "pass",
+    "lint": "pass"
+  },
+  "unmet_acceptance_criteria": [],
+  "artifacts_written": [
+    "artifacts/deferred-cleanup/subtask-7/tester_report.md",
+    "artifacts/deferred-cleanup/subtask-7/tester_result.json",
+    "artifacts/deferred-cleanup/subtask-7/documenter_prompt.txt"
+  ]
+}

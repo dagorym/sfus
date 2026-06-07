@@ -1,0 +1,74 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- NavigationService.validateUrl was hardened for internal navigation items. Internal
+  items whose URL does not start with '/' or starts with '//' are now rejected with a
+  controlled 400 on create and update. External item validation is unchanged.
+  Enforcement is prospective-only (existing rows unaffected). JSDoc was added
+  documenting the rule and the prospective-only posture.
+
+Acceptance criteria validated:
+- Internal items whose URL does not start with '/' or starts with '//' are rejected with a
+  controlled 400 on create and update; '/about' passes.
+- External item validation unchanged.
+- Read paths (findPublic, findForAuthenticatedUser, findAll) unaffected.
+- JSDoc states the rule and the prospective-only posture.
+
+Implementation branch or worktree context:
+- Implementer branch: cleanup-subtask-7-implementer-20260607 (commit 9950e91)
+- Tester branch: cleanup-subtask-7-tester-20260607 (test commit 9d856d5)
+- Base branch: cleanup
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/navigation/navigation.service.ts (implementer: validateUrl signature, JSDoc, rejection logic)
+- apps/api/src/navigation/navigation.service.test.ts (tester: 13 new tests)
+
+Test commit:
+- 9d856d5
+
+Commands executed:
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 install
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 --filter @sfus/api exec vitest run src/navigation/navigation.service.test.ts --reporter verbose
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 --filter @sfus/api exec vitest run
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 --filter @sfus/api lint
+
+Final test outcomes:
+- 66/66 navigation service tests pass (53 pre-existing + 13 new).
+- Full API suite: 310 passed, 2 skipped (integration), 0 failed.
+- Typecheck: pass. Lint: pass (0 warnings).
+- New tests verified: create-path and update-path rejection for '//', '//evil.com', 'about',
+  'http://example.com' as internal; acceptance of '/about' and 'http://example.com' as external;
+  simultaneous linkType+url update using incoming linkType; moderator as non-admin; edge case
+  where all children are filtered but parent is still visible.
+
+Documentation context:
+- docs/features/navigation.md is the owning doc for navigation behavior; likely needs an update
+  documenting the new internal-URL validation rule (root-relative path required, '//' forbidden)
+  and the prospective-only enforcement posture.
+- The JSDoc on validateUrl in navigation.service.ts is the implementation-level canonical statement;
+  the docs/features/navigation.md entry for admin create/update should reference this rule.
+- No new API endpoints were added; the change affects validation behavior on existing create/update
+  admin endpoints only.
+
+Plan and diff context:
+- Plan: plans/deferred-cleanup-plan.md, subtask-7 (NavigationService.validateUrl hardening).
+- Compare cleanup-subtask-7-implementer-20260607 against the cleanup base to see the full
+  implementation diff; compare cleanup-subtask-7-tester-20260607 against that for test changes.
+- The deferred-cleanup plan notes this enforcement is prospective-only, matching the
+  reserved-slug enforcement posture.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin
+  documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details
+  from repository context when repository evidence is sufficient, and label those choices as
+  assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review
+  when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/deferred-cleanup/subtask-7
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
