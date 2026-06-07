@@ -1,0 +1,63 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- REMEDIATION PASS 2: Fix stale Swagger decorator on POST /api/blog/:postIdOrSlug/comments createComment handler. @ApiForbiddenResponse updated from stale 'Post is not published.' to 'Comments are locked on this post.' and @ApiNotFoundResponse updated to 'Post not found or not published.' so the OpenAPI spec accurately reflects implemented behavior. Pass-1 changes to resolvePostId and createComment remain in place providing the actual security behavior. Pass-2 tester adds 3 source-contract assertions to blog.controller.test.ts to prevent stale-decorator regression.
+
+Acceptance criteria to verify:
+- POST /api/blog/:postIdOrSlug/comments returns indistinguishable 404 for nonexistent, draft, unpublished, and future-scheduled posts - PASS
+- Comment creation on genuinely public posts unchanged; locked public post still returns 403 - PASS
+- All other comment routes unchanged - PASS
+- Security: no member can distinguish non-public from nonexistent via comment-creation - PASS
+- API builds and typechecks - PASS
+- OpenAPI decorators on createComment accurately reflect 404/403 behavior - PASS (3 new source-contract tests)
+
+Implementation branch or worktree context:
+- Implementer branch: ms3-claude-subtask-8-tester-20260606 (tester worktree contains implementer changes)
+- Implementer commit: 624f458 (fix(blog): update createComment Swagger decorators to match implemented visibility behavior)
+- Tester commit: 03fea84 (test(blog): add pass-2 source-contract assertions for Swagger decorators)
+- Tester artifact commit: 866049c (chore(artifacts): tester PASS for ms3-review-closeout subtask-8)
+- Documenter branch: ms3-claude-subtask-8-documenter-20260606
+- Documentation commit: 866049cf563e2e98a580a75ea71d668586f686a5 (no new documentation edits needed; pass-1 documenter commit 3ba4cd6 already covered all behavioral documentation)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.controller.test.ts
+- docs/README.md
+
+Commands executed:
+- pnpm --filter api run test
+- pnpm --filter api run lint
+- pnpm --filter api run build
+
+Final test outcomes:
+- blog.controller.test.ts: 7/7 PASS (4 pass-1 oracle-parity/predicate tests + 3 new pass-2 source-contract assertions)
+- blog.service.test.ts: 79/79 PASS (unchanged from pass-1)
+- navigation.controller.test.ts: 0/6 PASS (pre-existing path construction bug on base branch, unrelated to this subtask)
+- All other test files: PASS
+- Build (tsc): PASS
+- Lint: 1 pre-existing failure (unused import in navigation.controller.test.ts, unrelated)
+
+Plan or evaluation context guidance:
+- Plan: plans/ms3-review-closeout-plan.md
+- Base branch: ms3-claude
+- Subtask-8 of the ms3-review-closeout plan
+- This is pass-2 remediation; verifier-1 returned CONDITIONAL PASS requiring Swagger decorator accuracy fix
+
+Convention-file guidance:
+- Repository requires JSDoc comments on controller handler methods (confirmed present on resolvePostId, updated in pass-1 implementer commit).
+- No new in-code documentation gaps introduced by pass-2 changes.
+- docs/README.md is the canonical home for API route response-code documentation.
+
+Updated documentation files:
+- None
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-8
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
