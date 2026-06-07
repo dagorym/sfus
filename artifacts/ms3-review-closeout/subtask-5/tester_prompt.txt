@@ -1,0 +1,46 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Add 'pages' to RESERVED_PAGE_SLUGS in pages.service.ts to close the bare-/pages navigation edge flagged by the final reviewer (NOTE 3). This prevents slug 'pages' from being used for a standalone page and ensures /pages nav items are treated as static reserved routes (always rendered), not as standalone-page slug lookups.
+
+Modified files:
+- apps/api/src/pages/pages.service.ts
+
+Acceptance criteria to validate (from Planner):
+- Creating or renaming a standalone page with slug 'pages' is rejected with the existing reserved-slug BadRequestException.
+- A public navigation response renders an internal nav item with URL '/pages' regardless of standalone-page publication state; all previously reserved slugs and published/unpublished /<slug> filtering behavior are unchanged.
+- Existing /blog/<slug>, /pages/<slug>, and safe-[] fallback behavior is preserved.
+- Security: the change is strictly fail-closed for content -- no unpublished standalone page becomes publicly visible or resolvable through navigation.
+- The API builds, lints, typechecks, and its unit suite passes.
+
+Create test files in:
+- apps/api/src/pages/pages.service.test.ts -- add a reserved-slug rejection case for 'pages'
+- apps/api/src/navigation/navigation.service.test.ts -- add a bare-'/pages' nav-URL case pinning the always-rendered static behavior
+- Run with: npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/pages/pages.service.test.ts
+- Run with: npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/navigation/navigation.service.test.ts
+
+Implementation context for testing:
+- RESERVED_PAGE_SLUGS in pages.service.ts is a ReadonlySet<string> shared between PagesService.assertSlugValid() and NavigationService.isLinkedTargetPubliclyVisible().
+- assertSlugValid() throws BadRequestException when the slug is in RESERVED_PAGE_SLUGS -- so 'pages' is now blocked on create and rename.
+- isLinkedTargetPubliclyVisible() in navigation.service.ts returns true immediately for single-segment paths that match RESERVED_PAGE_SLUGS, treating them as static routes. Adding 'pages' means /pages nav items always render.
+- The navigation.service.ts JSDoc for isLinkedTargetPubliclyVisible already references RESERVED_PAGE_SLUGS by name and does not enumerate specific slugs, so no JSDoc update was required.
+- No logic change was made to navigation.service.ts -- only pages.service.ts changed.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/api run lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api run typecheck
+- npx --yes pnpm@10.0.0 --filter @sfus/api run test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms3-review-closeout/subtask-5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
