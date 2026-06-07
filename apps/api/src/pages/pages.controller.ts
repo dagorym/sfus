@@ -29,8 +29,8 @@ import type { PageRevisionEntity } from "./entities/page-revision.entity";
 /**
  * PagesController exposes two access surfaces:
  *
- * 1. Public routes (GET /pages/:slug) — no authentication required; only
- *    published pages are returned.
+ * 1. Public routes (GET /pages, GET /pages/:slug) — no authentication required;
+ *    only published pages are returned.
  *
  * 2. Admin management routes (POST/PATCH /pages/admin/**) — require an active
  *    session AND the global "admin" role enforced by PagesService.
@@ -47,6 +47,14 @@ export class PagesController {
   // ---------------------------------------------------------------------------
   // Public routes — guest-accessible, published content only
   // ---------------------------------------------------------------------------
+
+  @Get()
+  @ApiOperation({ summary: "List all published standalone pages (public). Returns index fields only — no body or revision data." })
+  @ApiOkResponse({ description: "Published standalone pages returned, ordered by title ascending." })
+  async listPublished(): Promise<{ pages: PageSummary[] }> {
+    const pages = await this.pagesService.findPublished();
+    return { pages: pages.map(toSummary) };
+  }
 
   @Get(":slug")
   @ApiOperation({ summary: "Get a single published standalone page by slug (public)." })
@@ -226,6 +234,16 @@ export class PagesController {
 // Response shape helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Minimal index shape returned by the public list endpoint.
+ * Body and revision data are intentionally omitted.
+ */
+interface PageSummary {
+  slug: string;
+  title: string;
+  updatedAt: string;
+}
+
 interface PageDetail {
   id: string;
   title: string;
@@ -273,6 +291,14 @@ function toDetail(
     updatedAt: page.updatedAt.toISOString(),
     summary: currentRevision?.summary ?? null,
     featuredMediaId: currentRevision?.featuredMediaId ?? null
+  };
+}
+
+function toSummary(page: StandalonePageEntity): PageSummary {
+  return {
+    slug: page.slug,
+    title: page.title,
+    updatedAt: page.updatedAt.toISOString()
   };
 }
 

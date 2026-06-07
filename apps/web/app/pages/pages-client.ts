@@ -8,6 +8,16 @@
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api";
 
+/**
+ * Minimal index shape returned by the public list endpoint.
+ * Body and revision data are intentionally omitted.
+ */
+export interface PageSummary {
+  slug: string;
+  title: string;
+  updatedAt: string;
+}
+
 export interface PageDetail {
   id: string;
   title: string;
@@ -58,6 +68,18 @@ export interface UpdatePageInput {
 // ---------------------------------------------------------------------------
 // Public routes
 // ---------------------------------------------------------------------------
+
+export async function listPublishedPages(): Promise<PageSummary[]> {
+  const response = await fetch(`${apiBase}/pages`, {
+    cache: "no-store"
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to load pages.");
+  }
+  const data = (await response.json()) as { pages: PageSummary[] };
+  return data.pages;
+}
 
 export async function getPublishedPage(slug: string): Promise<PageDetail | null> {
   const response = await fetch(`${apiBase}/pages/${encodeURIComponent(slug)}`, {
