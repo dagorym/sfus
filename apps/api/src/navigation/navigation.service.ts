@@ -162,7 +162,8 @@ export class NavigationService {
    */
   async create(input: CreateNavigationItemInput): Promise<NavigationItemEntity> {
     this.validateLabel(input.label);
-    this.validateUrl(input.url);
+    const effectiveLinkType = input.linkType ?? "internal";
+    this.validateUrl(input.url, effectiveLinkType);
     if (input.linkType !== undefined) {
       this.validateLinkType(input.linkType);
     }
@@ -198,7 +199,8 @@ export class NavigationService {
       item.label = input.label;
     }
     if (input.url !== undefined) {
-      this.validateUrl(input.url);
+      const effectiveLinkType = input.linkType ?? item.linkType;
+      this.validateUrl(input.url, effectiveLinkType);
       item.url = input.url;
     }
     if (input.linkType !== undefined) {
@@ -275,12 +277,25 @@ export class NavigationService {
     }
   }
 
-  private validateUrl(url: string): void {
+  /**
+   * Validates a navigation-item URL.
+   *
+   * For internal items the URL must begin with a single '/' (i.e. a root-relative
+   * path). Protocol-relative URLs starting with '//' are rejected. This rule is
+   * prospective-only: existing rows are not affected — the same posture used for
+   * reserved-slug enforcement.
+   *
+   * External items are validated only for presence and maximum length.
+   */
+  private validateUrl(url: string, linkType: NavigationLinkType = "internal"): void {
     if (typeof url !== "string" || !url.trim()) {
       throw new BadRequestException("url is required.");
     }
     if (url.length > 512) {
       throw new BadRequestException("url must be 512 characters or fewer.");
+    }
+    if (linkType === "internal" && (!url.startsWith("/") || url.startsWith("//"))) {
+      throw new BadRequestException("Internal navigation item URLs must begin with a single '/' (e.g. '/about').");
     }
   }
 
