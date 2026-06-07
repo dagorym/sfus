@@ -1,0 +1,49 @@
+Your role is 'verifier'. Your task is as follows:
+
+Task summary:
+- NavigationService.validateUrl was hardened for internal navigation items. Internal items whose URL does not start with '/' or starts with '//' are now rejected with a controlled 400 on create and update. External item validation is unchanged. Enforcement is prospective-only (existing rows unaffected). JSDoc was added documenting the rule and the prospective-only posture. docs/features/navigation.md was updated to remove the stale "(no leading-'/' requirement today)" note and document the implemented constraint.
+
+Acceptance criteria to verify:
+- Internal items whose URL does not start with '/' or starts with '//' are rejected with a controlled 400 on create and update; '/about' passes.
+- External item validation unchanged.
+- Read paths (findPublic, findForAuthenticatedUser, findAll) unaffected.
+- JSDoc on validateUrl states the rule and the prospective-only posture.
+- docs/features/navigation.md field-rules accurately reflect the implemented constraint and prospective-only enforcement posture.
+
+Implementation branch: cleanup-subtask-7-implementer-20260607 (commit 9950e91)
+Tester branch: cleanup-subtask-7-tester-20260607 (commit 9d856d5)
+Documenter branch: cleanup-subtask-7-documenter-20260607 (documentation commit 4d3bce1)
+
+Files modified by Implementer, Tester, and Documenter:
+- apps/api/src/navigation/navigation.service.ts (implementer: validateUrl signature, JSDoc, rejection logic)
+- apps/api/src/navigation/navigation.service.test.ts (tester: 13 new tests)
+- docs/features/navigation.md (documenter: field-rules paragraph updated)
+
+Commands previously executed (all passed):
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 --filter @sfus/api exec vitest run src/navigation/navigation.service.test.ts --reporter verbose
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 --filter @sfus/api exec vitest run
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 --filter @sfus/api typecheck
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/cleanup-subtask-7-tester-20260607 --filter @sfus/api lint
+
+Final test outcomes:
+- 66/66 navigation service tests pass (53 pre-existing + 13 new).
+- Full API suite: 310 passed, 2 skipped (integration), 0 failed.
+- Typecheck: pass. Lint: pass (0 warnings).
+
+Plan: plans/deferred-cleanup-plan.md, subtask-7.
+Shared artifact directory: artifacts/deferred-cleanup/subtask-7
+
+Startup behavior:
+- If the documenter branch, required files, and enough context are present, begin verification immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, or convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, or diff inspection when verification work can proceed.
+
+Verification scope:
+- Inspect the full diff on the documenter branch against the cleanup base to confirm implementation, tests, and documentation are present and consistent.
+- Verify that docs/features/navigation.md accurately describes the implemented constraint (internal URL must start with single '/', '//' rejected, prospective-only enforcement).
+- Verify the JSDoc on validateUrl in navigation.service.ts accurately documents the rule and prospective-only posture.
+- Run the navigation service tests on the documenter branch to confirm all 66 pass.
+- Confirm typecheck and lint pass.
+- Check that no behavioral changes were introduced by the Documenter (documentation-only edits only).
+
+Do not report success unless all required artifacts exist and all changes are committed.
