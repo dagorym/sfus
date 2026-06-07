@@ -42,6 +42,7 @@ Load any of these by its bare name with `myteam get skill <skill-name>` (for exa
 - `coordinator-context-anchor`
 - `decision-tracking`
 - `diff-first-editing`
+- `documentation-map`
 - `execution-start`
 - `handoff-prompt-contract`
 - `repository-inference`
