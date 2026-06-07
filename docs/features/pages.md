@@ -21,12 +21,12 @@ All under `/api/pages`. Admin routes require the `sfus_session` cookie + `admin`
 | GET | `/api/pages/:slug` | — | `{ page: PageDetail }`; `404` unless `status = "published"` (the only public-visibility condition — `publishedAt` is informational) |
 | GET | `/api/pages/admin/pages` | admin | all pages, all statuses |
 | GET | `/api/pages/admin/pages/:id` | admin | by UUID; `404` unknown |
-| POST | `/api/pages/admin/pages` | admin | `201`. Body `{ title, slug, body, summary?, changeNote?, featuredMediaId? }`; creates the page in `draft` + revision 1 |
-| PATCH | `/api/pages/admin/pages/:id` | admin | partial update; **every update appends a new revision** |
+| POST | `/api/pages/admin/pages` | admin | `201`. Body `{ title, slug, body, summary?, changeNote?, featuredMediaId? }`; creates the page in `draft` + revision 1. `400` when `featuredMediaId` references a nonexistent media record. |
+| PATCH | `/api/pages/admin/pages/:id` | admin | partial update; **every update appends a new revision**. `400` when `featuredMediaId` references a nonexistent media record. |
 | POST | `/api/pages/admin/pages/:id/publish` | admin | `status = published`, `publishedAt = now` |
 | POST | `/api/pages/admin/pages/:id/unpublish` | admin | `status = unpublished` (kept distinct from `draft` — unlike blog posts) |
 | GET | `/api/pages/admin/pages/:id/revisions` | admin | `{ revisions: RevisionDetail[] }`, revision number ascending |
-| POST | `/api/pages/admin/pages/:id/restore/:revisionId` | admin | appends a new revision copying the source's title/body/summary/featuredMediaId with `changeNote = "Restored from revision <N>"`; never overwrites history |
+| POST | `/api/pages/admin/pages/:id/restore/:revisionId` | admin | appends a new revision copying the source's title/body/summary/featuredMediaId with `changeNote = "Restored from revision <N>"`; never overwrites history. `400` when the source revision's `featuredMediaId` references a nonexistent media record (e.g. the media was deleted after the revision was created). |
 
 ## Status lifecycle
 
@@ -44,9 +44,16 @@ The public route filters on `status = "published"` only.
 - Every update appends a revision (`revisionNumber` = current max + 1) and points
   `currentRevisionId` at it; `editorUserId` is set to the acting user on update and restore.
 - `summary` and `featuredMediaId` returned on `PageDetail` come from the **current revision**.
+- `featuredMediaId` is validated against the media table at all three write sites (create, update,
+  restoreRevision); a nonexistent id is rejected with `400` before any write occurs. The check
+  mirrors `blog`'s `assertFeaturedImageExists` pattern.
 - The create write sequence (insert page → insert revision 1 → set `currentRevisionId`) runs
   in a single DB transaction; a mid-create failure rolls back everything, so no orphaned rows
   and the slug is immediately reusable.
+- `StandalonePageEntity` exposes a `currentRevision` ManyToOne relation (with
+  `createForeignKeyConstraints: false` — the FK already exists from the milestone-three
+  migration). Pass `relations: ["currentRevision"]` to the ORM to eager-load it; the
+  `currentRevisionId` column remains authoritative for identity checks.
 - When an update omits `body`, the current revision's body is reused (fetched by id) and
   passes through `normalizeMarkdownBody` only — no re-validation of already-stored content.
   Supplied bodies go through the full normalize → validate → `400`-on-unsafe pipeline
