@@ -1,0 +1,49 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Verifier-driven remediation: remove & from sanitizeUrl() reject set in markdown-renderer.tsx. & is a legal RFC 3986 query-parameter delimiter that does NOT cause HTML attribute breakout inside double-quoted href attributes. Rejecting & was an over-correction that broke legitimate multi-parameter URLs across blog, pages, and forums. XSS protection is fully preserved because " (the actual attribute-breakout char) remains in the reject set.
+
+Modified files:
+- apps/web/components/markdown-renderer.tsx
+- apps/web/components/authoring-components.spec.ts
+
+Acceptance criteria to validate (from Planner):
+- sanitizeUrl() reject regex updated from /["'<>&]/ to /["'<>]/ — & no longer rejected
+- XSS still inert: [click](/a" onpointerover=alert`1`) still yields href="#" (" remains rejected)
+- Multi-param https URL preserved: https://example.com/?a=1&b=2 yields correct href (not "#")
+- Relative multi-param URL preserved: /path?a=1&b=2 yields correct href (not "#")
+- All 9 original XSS behavioural tests in authoring-components.spec.ts still pass
+- 2 new multi-param & URL preservation tests added and passing
+- No regression in blog, pages, or forums specs (379 total tests pass)
+- pnpm typecheck passes with 0 errors
+- pnpm lint passes clean
+
+Create test files in:
+- apps/web/components/authoring-components.spec.ts — 'MarkdownRenderer XSS behavioural tests — attribute breakout (ST16 security)' describe block
+- The 9 existing XSS tests and 2 new multi-param & URL tests all live in authoring-components.spec.ts
+
+Implementation context for testing:
+- apps/web/components/markdown-renderer.tsx sanitizeUrl() function: regex changed from /["'<>&]/ to /["'<>]/ at line ~243
+- & was incorrectly included in the reject set; it does not cause attribute breakout inside double-quoted href="..."
+- " (double-quote) remains rejected — that is the actual attribute-breakout character and XSS is still inert
+- Two new behavioural tests added to authoring-components.spec.ts: (1) https multi-param URL preserved, (2) relative multi-param URL preserved
+- DOCUMENTER NOTE: docs/features/forums.md ~line 490 incorrectly claims MarkdownRenderer converts @username to profile links. Accurate description: (a) @-autocomplete inserts plain @username text into editor; (b) author bylines link to /users/<username> via JSX <Link>; (c) renderer renders @username as escaped plain text, NOT auto-linkified. Inline-mention auto-linking is M10 scope — do not implement, just correct the doc.
+
+Suggested test command(s):
+- vitest run --root apps/web
+- pnpm typecheck
+- pnpm lint
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST16
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
