@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "subtask": "ST17",
+  "description": "Web: public profile page + avatar upload & display",
+  "branch": "ms4-st17-documenter-20260608",
+  "documentation_commit": "ea31ce4",
+  "documentation_files_changed": [
+    "docs/features/web-shell.md",
+    "docs/features/auth.md"
+  ],
+  "artifact_files_written": [
+    "artifacts/milestone-4-forums/ST17/documenter_report.md",
+    "artifacts/milestone-4-forums/ST17/documenter_result.json",
+    "artifacts/milestone-4-forums/ST17/security_prompt.txt"
+  ],
+  "security_review_required": true,
+  "handoff_artifact": "artifacts/milestone-4-forums/ST17/security_prompt.txt"
+}

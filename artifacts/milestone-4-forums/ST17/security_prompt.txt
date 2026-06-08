@@ -1,0 +1,127 @@
+Your role is 'security'. Your task is as follows:
+
+## ST17 Security Review — Web: public profile page + avatar upload & display
+
+**Branch:** ms4-st17-documenter-20260608
+**Artifact directory:** artifacts/milestone-4-forums/ST17/
+**Plan:** plans/milestone-4-forums-plan.md (ST17)
+**Web test matrix:** 407 tests PASS (28 new ST17 specs), typecheck 0 errors, lint clean.
+**Validation command (web):** `vitest run --root apps/web` (NOT `pnpm --filter`).
+
+### Change set summary
+
+ST17 added the following web-layer components to the existing NestJS API + Next.js app:
+
+1. **Public profile page** (`apps/web/app/users/[username]/page.tsx`):
+   - Client component at `/users/<username>` fetching `GET /api/users/:username`.
+   - Renders ONLY five fields: `username`, `displayName`, `avatar`, `bio`, `joinDate`.
+   - A `profileProjection()` function (exported, unit-tested) enforces the five-field
+     allowlist at runtime — unknown keys from the API response are silently dropped before
+     rendering. Returns `null` (blocking render) if required fields are missing.
+   - All text rendered as React text nodes (no `dangerouslySetInnerHTML`).
+   - `404` from the API shows a "Profile not found" message (no distinction between
+     nonexistent and inactive users — the API already enforces P12 oracle parity).
+
+2. **Avatar upload/remove in `/profile`** (`apps/web/app/profile/page.tsx`):
+   - `ImageUpload` component with `resourceType="avatar"` calls
+     `POST /api/media/upload?resourceType=avatar`.
+   - On successful upload, the page calls `PUT /api/users/me/avatar` (ST15 API) to bind
+     the returned `mediaId`.
+   - "Remove avatar" button calls `DELETE /api/users/me/avatar` (ST15 API).
+   - Client control is UX only — the ST15 API is the real enforcement boundary.
+
+3. **`UserAvatar` display component** (`apps/web/components/user-avatar.tsx`):
+   - Used on: public profile, forum topic/post author bylines (ST16), mention-autocomplete.
+   - Renders an `<img>` when `avatarSrc` is non-null and not in error state; otherwise
+     renders an uppercase-initials text span (no broken image, no raw URL in DOM).
+   - `onError` handler sets `imgError = true`, which triggers the initials fallback.
+
+4. **`auth-client.ts`** additions: `setAvatar(mediaId)` and `removeAvatar()` functions
+   calling `PUT`/`DELETE /api/users/me/avatar`.
+
+5. **`mention-autocomplete.tsx`** updated to use `UserAvatar` for autocomplete result
+   rendering (replacing any prior avatar display).
+
+### Security focus areas
+
+**(a) Public-profile five-field allowlist — no PII leak beyond the five fields**
+
+Verify that `profileProjection()` in `apps/web/app/users/[username]/page.tsx`:
+- Explicitly allowlists ONLY `username`, `displayName`, `avatar`, `bio`, `joinDate`.
+- Drops all other keys (including `email`, `globalRole`, `status`, `id`, any future fields).
+- Returns `null` (not a partial object) when required fields are absent.
+- Is the only projection path — the raw API response is never spread/passed through directly.
+
+Cross-check: the ST14 API (`GET /api/users/:username`) also enforces a server-side allowlist
+(`apps/api/src/users/users.types.ts` `PublicProfileShape`). The client projection is a
+defense-in-depth guard, not the primary enforcement.
+
+**(b) Avatar serve path — gated /api/media/<id>, no raw/un-gated storage URL leak, fallback on error**
+
+Verify:
+- `UserAvatar` receives `avatarSrc` values that are always `/api/media/<id>` URLs (from the
+  ST14 suggest response `avatarUrl` field or the public profile `avatar` field). Never a raw
+  storage path.
+- The component's `resolveAvatarSrc()` function returns `null` (triggering the initials
+  fallback) when `avatarSrc` is falsy or when `hasError` is true.
+- On image load error (`onError`), `imgError` is set to `true` and the component re-renders
+  with the initials fallback. No broken image is displayed and no URL remains in the DOM.
+- The `<img>` element is only rendered when `resolvedSrc` is non-null (after the null guard).
+
+**(c) Username encoding in /users/<username> links**
+
+Verify that every place in the ST17 codebase that constructs a `/users/<username>` link
+uses `encodeURIComponent(username)` — consistent with the ST16 byline convention.
+Check: `apps/web/app/users/[username]/page.tsx` (fetch call), and any links in
+`apps/web/components/mention-autocomplete.tsx` or forum bylines (ST16 territory, confirm
+ST17 did not introduce any un-encoded links).
+
+**(d) Avatar upload/remove calls the ST15 API as the real enforcement boundary**
+
+Verify that the avatar bind flow in `apps/web/app/profile/page.tsx`:
+- Calls `PUT /api/users/me/avatar` with the `mediaId` returned from the media upload, not
+  with a user-controlled string.
+- Does NOT attempt to set any avatar URL without going through the ST15 API.
+- The "Remove avatar" path calls `DELETE /api/users/me/avatar` — it does not attempt to
+  manipulate `avatar_media_id` directly.
+- The `setAvatar` and `removeAvatar` functions in `apps/web/app/auth-client.ts` forward
+  to the correct ST15 API endpoints.
+
+Confirm that a client-side bypass (e.g. passing an arbitrary `mediaId` of another user's
+avatar) is blocked by the ST15 API, not by the web client. The API check is:
+`id = mediaId AND resourceType = 'avatar' AND ownerUserId = callerId` (uniform `403` on any
+mismatch — see `docs/features/auth.md` Avatar self-service API section).
+
+### Files to inspect
+
+**ST17 implementation (Implementer + Tester commits):**
+- `apps/web/app/users/[username]/page.tsx`
+- `apps/web/app/users/users-profile.spec.ts`
+- `apps/web/app/profile/page.tsx`
+- `apps/web/app/auth-client.ts`
+- `apps/web/components/user-avatar.tsx`
+- `apps/web/components/user-avatar.spec.ts`
+- `apps/web/components/user-avatar.module.css`
+- `apps/web/components/mention-autocomplete.tsx`
+- `apps/web/components/mention-autocomplete.spec.ts`
+
+**ST17 documentation (Documenter commit ea31ce4):**
+- `docs/features/web-shell.md`
+- `docs/features/auth.md`
+
+**Reference — ST15 API enforcement (already reviewed, not changed by ST17):**
+- `apps/api/src/users/users.controller.ts`
+- `apps/api/src/users/users.service.ts`
+
+### Acceptance criteria reminder (ST17)
+
+- The public profile page renders only the five permitted fields.
+- A member can upload/replace and remove their avatar; users without an avatar get the
+  fallback (no broken image).
+- Web lint + typecheck pass; web tests (407 total, 28 ST17 specs) all PASS.
+
+### Completion gate
+
+Do not report success unless all required artifacts exist and all changes are committed.
+Continue past activation and scope establishment into the review work in the same run when
+blocking inputs are present.
