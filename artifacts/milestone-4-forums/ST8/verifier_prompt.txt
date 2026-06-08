@@ -1,0 +1,78 @@
+Your role is 'verifier'. Your task is as follows:
+
+ST8 — Throttle module (storage seam, new-account tier, link-limit): implementation, testing, and documentation complete. Verify the full change set.
+
+## Task Summary
+
+Implemented: ThrottleService, ThrottleGuard, InMemoryThrottleStore (IThrottleStore seam), link-limit helpers (countLinks/exceedsLinkLimit), ThrottleModule dynamic registration, and env var validation for all five throttle config fields.
+
+Tested: 67 new tests covering all four acceptance criteria. All 498 tests pass (431 baseline + 67 new).
+
+Documented: rate-limiting section added to api-conventions.md; five throttle env vars added to launch.md.
+
+## Acceptance Criteria to Verify
+
+- AC1: Over-limit returns 429 envelope {error: "TOO_MANY_REQUESTS", message, statusCode: 429, retryAfter}; under-limit passes through. Identity resolution: session userId preferred, falls back to trust-proxy-resolved request.ip — never raw X-Forwarded-For. New-account tier applies when account is younger than THROTTLE_NEW_ACCOUNT_WINDOW_MS.
+- AC2: countLinks/exceedsLinkLimit counts Markdown [text](url) links and bare http(s):// URLs without double-counting; rejects over-max, accepts compliant.
+- AC3: All throttle state accessed through IThrottleStore.hit(); InMemoryThrottleStore is the default; test-double seam proven; Redis swap requires no guard/route change.
+- AC4: Five throttle env vars (THROTTLE_WINDOW_MS 1000–3600000, THROTTLE_MAX_HITS 1–10000, THROTTLE_NEW_ACCOUNT_MAX_HITS 1–10000, THROTTLE_NEW_ACCOUNT_WINDOW_MS 60000–2592000000, THROTTLE_MAX_LINKS_PER_POST 0–100) are required; missing/invalid causes startup failure; THROTTLE_NEW_ACCOUNT_MAX_HITS must be ≤ THROTTLE_MAX_HITS.
+
+## Worktree and Branch Context
+
+- Worktree: /home/tstephen/repos/worktrees/ms4-st8-documenter-20260608
+- Branch: ms4-st8-documenter-20260608
+- Comparison base: ms4
+
+## Files Modified (Implementer + Tester + Documenter)
+
+### Implementation
+- apps/api/src/common/throttle/throttle.types.ts
+- apps/api/src/common/throttle/throttle-store.ts
+- apps/api/src/common/throttle/link-limit.ts
+- apps/api/src/common/throttle/throttle.service.ts
+- apps/api/src/common/throttle/throttle.guard.ts
+- apps/api/src/common/throttle/throttle.module.ts
+- apps/api/src/config/environment.ts
+- apps/api/src/app.module.ts
+
+### Tests
+- apps/api/src/common/throttle/throttle.service.test.ts
+- apps/api/src/common/throttle/throttle-store.test.ts
+- apps/api/src/common/throttle/link-limit.test.ts
+- apps/api/src/common/throttle/throttle-env.test.ts
+
+### Documentation (Documenter — commit 9dd6880050ae837ec986646ad281fdc3068b46f0)
+- docs/development/api-conventions.md — new Rate limiting and anti-spam section
+- docs/operations/launch.md — five throttle env vars added to the canonical API env table
+
+## Plan
+
+plans/milestone-4-forums-plan.md (ST8)
+
+## Shared Artifact Directory
+
+artifacts/milestone-4-forums/ST8
+
+## Convention Files
+
+- docs/README.md (routing table — governs doc ownership)
+- docs/development/api-conventions.md (rate-limiting section just added)
+- docs/operations/launch.md (env contract)
+
+## Test Outcomes
+
+All 498 tests pass. Run: `npx --yes pnpm@10.0.0 --filter @sfus/api run test` from the repo root to confirm.
+
+## Scope Notes
+
+- Route wiring/enforcement for the throttle module lands in ST9 — this subtask delivers the reusable mechanism only.
+- docs/deferred-tasks.md was NOT edited (D1 Redis-storage-swap is a planner register item handled separately).
+- No migration changes in this subtask.
+
+## Startup Behavior
+
+Blocking inputs are present. Begin verification immediately. Do not stop after role activation, scope confirmation, or diff inspection when verification work can proceed.
+
+## Completion Gate
+
+Do not report success unless all required artifacts exist and all changes are committed.
