@@ -17,7 +17,11 @@ def git_stdout(repo_root: Path, *args: str) -> str:
         capture_output=True,
         text=True,
     )
-    return completed.stdout.strip()
+    # Strip only trailing newlines: `git status --short` lines are column-aligned
+    # (XY + space + path), so a full strip() would eat the leading status column
+    # of the first line and corrupt its parsed path (e.g. " M artifacts/x" ->
+    # "M artifacts/x" -> path parsed as "rtifacts/x").
+    return completed.stdout.rstrip("\n")
 
 
 def changed_files(repo_root: Path) -> list[str]:
