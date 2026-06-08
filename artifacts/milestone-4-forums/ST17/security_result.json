@@ -1,0 +1,25 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST17/security_report.md",
+    "artifacts/milestone-4-forums/ST17/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st17-security-20260608",
+  "documentation_sufficiency_summary": [
+    "ADEQUATE. docs/features/web-shell.md documents the /users/<username> route (five fields only), the /profile avatar upload/replace/remove flow, the UserAvatar component and its fallback, and states the security contract: avatarSrc must always be the gated /api/media/<id> path, the client control is UX-only with ST15 server-side enforcement, and /users/<username> links are encodeURIComponent-encoded.",
+    "docs/features/auth.md carries the ST15 avatar self-service API enforcement contract that web-shell.md links to. No operational/runbook gap for this UI change."
+  ],
+  "note_finding_count": 2,
+  "outcome": "PASS",
+  "pass_label": "security-1",
+  "status": "complete",
+  "task_id": "ST17",
+  "test_sufficiency_summary": [
+    "ADEQUATE for the in-scope security invariants. Web matrix run worktree-locally: vitest run --root apps/web -> 12 files, 407 tests PASS (incl. user-avatar.spec.ts 16, users-profile.spec.ts 12, mention-autocomplete.spec.ts 24).",
+    "profileProjection tests prove the five-field allowlist: extra keys (email, globalRole, status, id, passwordHash) are dropped; missing required username/joinDate -> null (no partial render); non-string/blank avatar -> null.",
+    "resolveAvatarSrc tests prove the error/missing degradation invariant: null avatar -> null, empty-string -> null, hasError=true -> null (no broken image, no raw URL retained on error).",
+    "mention-autocomplete + suggestUsers contract tests confirm data minimization (username/displayName/avatarUrl only; no email/id/globalRole/passwordHash), encodeURIComponent on the suggest query, plain-text @username insertion, and no dangerouslySetInnerHTML.",
+    "Byline link encoding is pinned: post/topic author links use /users/${encodeURIComponent(...)}. No jsdom harness exists in this workspace; pure-function unit tests + source-contract tests cover the security-relevant behaviors that cannot be executed without a DOM."
+  ],
+  "warning_finding_count": 0
+}

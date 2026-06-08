@@ -1,130 +1,88 @@
-You are the Verifier Agent for this project.
+=== VERIFIER HANDOFF — Milestone 4 ST17 ===
+Your role is 'verifier'. Subtask: ST17 — Web: public profile page + avatar upload & display.
+Branch: ms4-st17-security-20260608 (you are/should be in its worktree).
+Source of truth: plans/milestone-4-forums-plan.md (ST17, lines 446-464).
 
-## Task
+------------------------------------------------------------------
+ST17 SCOPE
+------------------------------------------------------------------
+1. Public profile page apps/web/app/users/[username]/page.tsx — client component at
+   /users/<username>; fetches GET /api/users/:username; renders ONLY five fields
+   (username, displayName, avatar, bio, joinDate). A pure, exported profileProjection()
+   enforces the five-field allowlist at runtime (drops unknown keys; returns null if a
+   required field is missing). 404 -> "Profile not found". All text via React text nodes
+   (no dangerouslySetInnerHTML).
+2. Avatar upload/replace/remove in apps/web/app/profile/page.tsx — ImageUpload
+   resourceType="avatar" -> POST /api/media/upload?resourceType=avatar; on success
+   PUT /api/users/me/avatar (ST15) to bind mediaId; Remove -> DELETE /api/users/me/avatar.
+   Client control is UX only; ST15 API is the real enforcement boundary.
+3. Shared UserAvatar component apps/web/components/user-avatar.tsx — used on public profile,
+   ST16 forum bylines, and mention-autocomplete. Pure resolveAvatarSrc()/deriveInitials().
+   Renders <img> only when avatarSrc is non-null AND not errored; otherwise an uppercase
+   initials span. onError -> imgError -> initials (no broken image, no raw URL in DOM).
+4. auth-client.ts setAvatar(mediaId)/removeAvatar() -> PUT/DELETE /api/users/me/avatar.
+5. mention-autocomplete.tsx uses UserAvatar for result rendering; inserts plain-text @username.
 
-Verify ST17: Web — Public Profile Page + Avatar Upload & Display.
+------------------------------------------------------------------
+SECURITY OUTCOME (pass 1) = PASS
+------------------------------------------------------------------
+Overall: PASS. 0 blocking, 0 warning, 2 NOTE (non-blocking, defense-in-depth).
+Artifacts: artifacts/milestone-4-forums/ST17/security_report.md + security_result.json
+(committed on branch ms4-st17-security-20260608).
 
-This is a pass-2 tester handoff. The Tester passed on pass-2 after the Implementer
-remediated a single lint defect from pass-1. All acceptance criteria are now met and
-the full validation matrix is green.
+Confirmed PASS criteria:
+- No PII leak beyond the five allowlisted profile fields. Client profileProjection() drops
+  email/globalRole/status/id/passwordHash and returns null on missing required field; this is
+  defense-in-depth over the ST14 server-side allowlist (users.service.ts findPublicProfile
+  returns exactly five fields).
+- Avatar serve path is the gated /api/media/<id> URL (built server-side from avatarMediaId),
+  never a raw storage URL. resolveAvatarSrc returns null (initials fallback) when src is
+  falsy OR hasError; <img> is rendered only after the null guard; onError degrades to initials.
+- Every /users/<username> link is encodeURIComponent-encoded (public-profile fetch, suggest
+  fetch, ST16 byline post/topic author links). ST17 introduced no un-encoded link.
+- Avatar bind/remove uses the ST15 API as the real boundary: users.service.ts setAvatar queries
+  id=mediaId AND resourceType='avatar' AND ownerUserId=callerId and throws a uniform
+  ForbiddenException (oracle parity) otherwise — a client-side bypass passing another user's
+  mediaId is blocked SERVER-SIDE, not by the client.
+- No dangerouslySetInnerHTML / innerHTML anywhere in the ST17 surface.
 
-## Branch and Worktree
+NOTE findings to carry forward (NON-BLOCKING — do not gate on these):
+  N1. user-avatar.tsx resolveAvatarSrc returns avatarSrc verbatim with no scheme/prefix check;
+      relies on callers passing only /api/media/<id>. Not exploitable as built (server-built
+      src; img src does not execute javascript:; profileProjection coerces bad avatar to null).
+      Optional future hardening: assert the API media prefix.
+  N2. No jsdom/RTL harness exists in this workspace. ST17 proves security behaviors via pure
+      unit tests (profileProjection, resolveAvatarSrc, deriveInitials) + source-contract tests
+      for JSX-bound behavior (encoded links, no innerHTML, plain-text insertion). Judged
+      ADEQUATE; the render-time assertions are pinned by the repo's existing source-audit
+      pattern, not by an executing DOM.
 
-Branch: ms4-st17-tester-20260608
-Worktree: /home/tstephen/repos/worktrees/ms4-st17-tester-20260608
+------------------------------------------------------------------
+VALIDATION MATRIX (run worktree-locally by Security)
+------------------------------------------------------------------
+After: pnpm --dir <this-worktree> install --frozen-lockfile
+- vitest run --root apps/web   -> 12 files, 407 tests PASS (incl. user-avatar.spec.ts 16,
+  users-profile.spec.ts 12, mention-autocomplete.spec.ts 24).
+- pnpm typecheck               -> apps/api + apps/web: Done (0 errors).
+- pnpm lint                    -> apps/api + apps/web: Done (eslint --max-warnings=0, clean).
 
-## ST17 Scope
+IMPORTANT (WEB matrix invocation): run vitest WORKTREE-LOCALLY with
+  vitest run --root apps/web
+NOT `pnpm --filter`, which can resolve to the MAIN repo and silently skip the new ST17 specs.
+Use the worktree-local vitest binary (e.g. ./node_modules/.bin/vitest after
+`pnpm --dir <this-worktree> install --frozen-lockfile`).
 
-ST17 implements the user-facing public profile system:
-
-1. **`UserAvatar` component** (`apps/web/components/user-avatar.tsx`)
-   - Displays a user's avatar image from the `/api/media/<id>` gated path
-   - Falls back to a circular initials placeholder when no avatar or on image load error
-   - `onError` → `setImgError(true)` → initials fallback (no broken image, no raw URL leak)
-   - `deriveInitials()` and `resolveAvatarSrc()` exported for unit-testability
-   - Styles: `apps/web/components/user-avatar.module.css`
-
-2. **Public profile page** (`apps/web/app/users/[username]/page.tsx`)
-   - URL: `/users/<username>` — publicly accessible, no authentication required
-   - Fetches from `/api/users/<username>` with the five-field `profileProjection()` allowlist
-   - Fields: username, displayName, bio, avatarMediaId, createdAt
-   - Renders `UserAvatar`, display name, bio, and member-since date
-
-3. **Avatar management in `/profile`** (`apps/web/app/profile/page.tsx`)
-   - Uses `ImageUpload(resourceType='avatar')` for upload and remove
-   - Integrated with existing profile settings page
-
-4. **Mention-autocomplete byline** (`apps/web/components/mention-autocomplete.tsx`)
-   - Updated to display `UserAvatar` in the mention suggestion list
-
-5. **Lint remediation** (`apps/web/components/user-avatar.tsx`, line 102)
-   - Added `// eslint-disable-next-line @next/next/no-img-element` above the `<img>`
-   - Matches repo convention (same pattern in `apps/web/app/[slug]/page.tsx` and
-     `apps/web/app/pages/[slug]/page.tsx`)
-   - Scoped to a single line only — NOT a file-wide disable
-   - No behavior change
-
-## Validation Matrix (Tester-Confirmed, Pass 2)
-
-| Check | Command | Result |
-|-------|---------|--------|
-| Install | `pnpm --dir <worktree> install --frozen-lockfile` | Done in 1.1s |
-| Web tests | `<worktree>/node_modules/.bin/vitest run --root apps/web` | 407 passed / 0 failed |
-| Typecheck | `pnpm --dir <worktree> typecheck` | 0 errors |
-| Lint | `pnpm --dir <worktree> lint` | CLEAN — exit 0, 0 warnings |
-
-Lint full output (pass 2):
-```
-> sfus-milestone-1@0.1.0 lint /home/tstephen/repos/worktrees/ms4-st17-tester-20260608
-> pnpm -r --filter "./apps/*" run lint
-
-Scope: 2 of 4 workspace projects
-apps/api lint$ eslint "src/**/*.ts" --max-warnings=0
-apps/web lint$ eslint app components --ext .ts,.tsx --max-warnings=0
-apps/api lint: Done
-apps/web lint: Done
-```
-
-ST17 specs: `user-avatar.spec.ts` (16 tests), `users-profile.spec.ts` (12 tests) — all 28 pass.
-ST16 regression: `mention-autocomplete.spec.ts` 24/24 pass. No regression.
-
-## Key Commits
-
-- `cecfa16 feat(ST17): public profile page + avatar upload & display` — main implementation
-- `d385adf fix(web): suppress no-img-element lint warning in UserAvatar` — lint remediation
-
-## Files Changed by Implementer
-
-New files:
-- `apps/web/app/users/[username]/page.tsx` — public profile page
-- `apps/web/components/user-avatar.tsx` — UserAvatar component
-- `apps/web/components/user-avatar.module.css` — avatar styles
-- `apps/web/components/user-avatar.spec.ts` — 16 unit tests
-- `apps/web/app/users/users-profile.spec.ts` — 12 integration-style tests
-
-Modified files:
-- `apps/web/app/profile/page.tsx` — avatar upload/remove integration
-- `apps/web/components/mention-autocomplete.tsx` — avatar byline
-- `apps/web/components/mention-autocomplete.spec.ts` — updated for avatar
-- API migration: `apps/api/src/database/migrations/1780892561355-user-bio-and-avatar.ts`
-
-## Your Instructions
-
-**You must run the validation matrix worktree-locally** — do not rely solely on the
-Tester's reported results. Use the following commands from the worktree root:
-
-```bash
-pnpm --dir /home/tstephen/repos/worktrees/ms4-st17-tester-20260608 install --frozen-lockfile
-/home/tstephen/repos/worktrees/ms4-st17-tester-20260608/node_modules/.bin/vitest run --root /home/tstephen/repos/worktrees/ms4-st17-tester-20260608/apps/web
-pnpm --dir /home/tstephen/repos/worktrees/ms4-st17-tester-20260608 typecheck
-pnpm --dir /home/tstephen/repos/worktrees/ms4-st17-tester-20260608 lint
-```
-
-Verify:
-1. `pnpm lint` exits 0 with 0 warnings — confirm the no-img-element fix is effective
-2. `vitest` reports exactly 407 passed / 0 failed
-3. `typecheck` reports 0 errors
-4. The eslint-disable in `user-avatar.tsx` is scoped to line 102 only (single-line,
-   not file-wide)
-5. The `onError` → initials fallback behavior is present and tested
-6. ST16 regression: `mention-autocomplete.spec.ts` 24/24 pass
-7. The five-field profileProjection allowlist (username, displayName, bio, avatarMediaId,
-   createdAt) is enforced — verify no additional fields leak
-
-Verify the full implementation+tests+docs diff against the ST17 plan ACs. Confirm that:
-- All ST17 plan acceptance criteria are met
-- No unintended files were modified outside ST17 scope
-- The lint remediation matches the repo convention (not a workaround that bypasses checks)
-
-## Completion Gate
-
-Report PASS only when:
-- All four validation commands confirm the above results worktree-locally
-- The full diff has been reviewed against the ST17 plan ACs
-- All artifacts exist and are committed on branch ms4-st17-tester-20260608
-
-## Artifact Path
-
-artifacts/milestone-4-forums/ST17/
-
-Write your verifier_report.md and verifier_result.json to that directory and commit them.
+------------------------------------------------------------------
+VERIFIER TASK
+------------------------------------------------------------------
+Confirm the full implementation + tests + docs diff against the ST17 plan ACs:
+  - Public profile renders only the five permitted fields (verify profileProjection + render).
+  - Member can upload/replace and remove avatar; no-avatar users get the initials fallback
+    (no broken image).
+  - Web lint + typecheck pass; web tests (407 total, ST17 specs included) all PASS.
+  - Docs updated: docs/features/web-shell.md (route map /users/<username> + UserAvatar security
+    note) and docs/features/auth.md (ST15 avatar API contract referenced).
+Re-run the web matrix worktree-locally (vitest run --root apps/web), plus pnpm typecheck and
+pnpm lint, and paste the real summary lines. Treat the security outcome as PASS with the two
+NOTE observations forwarded (non-blocking). Write your verifier_report.md / verifier_result.json
+and commit on branch ms4-st17-security-20260608.
