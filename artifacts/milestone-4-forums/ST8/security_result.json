@@ -1,0 +1,22 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST8/security_report.md",
+    "artifacts/milestone-4-forums/ST8/security_result.json"
+  ],
+  "blocking_finding_count": 1,
+  "branch_name": "ms4-st8-security-20260608",
+  "documentation_sufficiency_summary": [
+    "MOSTLY ADEQUATE: docs/development/api-conventions.md adds a clear rate-limiting/anti-spam section (identity resolution + no-XFF, 429 envelope, IThrottleStore seam, link limit) and docs/operations/launch.md documents all five env vars with ranges and the cross-field constraint.",
+    "GAPS: (1) The doc claims 'the userCreatedAt timestamp is supplied by the guard from the session payload', which is false for the wired guard (always null) \u2014 P1 docs/code drift; correct it or mark the tier as not-yet-enforced-until-ST9. (2) No documentation of the fail-closed-on-store-error behavior that R2 specifically calls out \u2014 worth stating explicitly so a future Redis-store author preserves it. (3) The link-limiter's scheme/word coverage limits (scheme-less and www. domains not counted) are not documented as a known gap."
+  ],
+  "note_finding_count": 2,
+  "outcome": "FAIL",
+  "pass_label": "FAIL",
+  "status": "completed",
+  "task_id": "milestone-4-forums/ST8",
+  "test_sufficiency_summary": [
+    "ADEQUATE at the unit level for the service, store, link-limit, and env-validation surfaces: 67 throttle tests (service 18, env 21, link-limit 20, store 8) cover over/under/at-limit -> 429 envelope, identity preference + IP fallback + no-XFF, new-account tier logic (when createdAt is supplied), IThrottleStore seam via a test double, and all five env vars incl. boundaries + the cross-field newAccountMaxHits<=maxHits check. Full matrix re-run by this reviewer: lint/typecheck/test/API-tsc-build all PASS.",
+    "GAPS (security-relevant): (1) No ReDoS / adversarial-input test for the link limiter \u2014 the catastrophic-backtracking input was never exercised, so the BLOCKING defect shipped green. (2) No throttle.guard.test.ts \u2014 the fail-closed-on-store-error guarantee, the resolveSession try/catch IP fallback, and the always-null userCreatedAt are untested. (3) The InMemoryThrottleStore sweep/eviction (memory-exhaustion mitigation) is untested. Absence of failing tests here is not evidence of security adequacy."
+  ],
+  "warning_finding_count": 4
+}
