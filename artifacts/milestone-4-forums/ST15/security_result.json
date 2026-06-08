@@ -1,0 +1,26 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST15/security_report.md",
+    "artifacts/milestone-4-forums/ST15/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st15-security-20260608",
+  "documentation_sufficiency_summary": [
+    "SUFFICIENT. docs/features/auth.md adds the set/remove-avatar contract with the correct 400->401->403->DB order, the three-predicate ownership WHERE, the uniform 403 oracle-parity statement, and the removal-only-clears-own-field semantics; the route table and avatarMediaId writability note are updated accurately.",
+    "docs/features/media.md cross-references the avatar upload resourceType. No documentation misstatement (no 404-vs-403 confusion, no oracle distinction leaked).",
+    "No operational/runbook gap: behavior is request-scoped with no new env, secret, or destructive operation."
+  ],
+  "note_finding_count": 4,
+  "outcome": "PASS",
+  "pass_label": "PASS",
+  "status": "complete",
+  "task_id": "ST15",
+  "test_sufficiency_summary": [
+    "SUFFICIENT. users tests green via 'vitest run --root apps/api src/users/users.controller.test.ts src/users/users.service.test.ts' (the correct invocation - NOT pnpm --filter @sfus/api test): 68 passed (42 controller + 26 service).",
+    "Negative coverage for R7 is complete: nonexistent id, wrong resourceType, and foreign-owner cases each assert ForbiddenException and that avatarMediaId is NOT updated; operator-pinned WHERE-clause assertions confirm id + resourceType='avatar' + ownerUserId=callerId are all present in a single query.",
+    "Oracle-parity tests assert byte-identical 403 message across all three not-allowed cases at both controller and service layers.",
+    "Auth/input tests: 400 for null/missing/non-string/empty/whitespace mediaId (service not reached); 401 for no session (service not reached); success persists and returns /api/media/<id>; remove returns { avatarUrl: null } and calls update with avatarMediaId: null scoped to the caller.",
+    "Full matrix green from this worktree after pnpm install --frozen-lockfile: typecheck (api + web) pass; lint (api + web, --max-warnings=0) pass."
+  ],
+  "warning_finding_count": 0
+}
