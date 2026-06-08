@@ -1,4 +1,4 @@
-import { Column, Entity, Index, OneToMany, PrimaryColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryColumn } from "typeorm";
 
 import { AuthIdentityEntity } from "../../auth/entities/auth-identity.entity";
 import { AuthSessionEntity } from "../../auth/entities/auth-session.entity";
@@ -7,6 +7,7 @@ import { PasswordAuthenticatorEntity } from "../../auth/entities/password-authen
 import { TotpRecoveryCodeEntity } from "../../auth/entities/totp-recovery-code.entity";
 import { TotpSecretEntity } from "../../auth/entities/totp-secret.entity";
 import { AuthorizationGrantEntity } from "../../authorization/entities/authorization-grant.entity";
+import { MediaReferenceEntity } from "../../media/entities/media-reference.entity";
 
 @Entity("users")
 @Index("uq_users_username", ["username"], { unique: true })
@@ -32,6 +33,12 @@ export class UserEntity {
 
   @Column("datetime", { name: "email_verified_at", precision: 3, nullable: true })
   emailVerifiedAt!: Date | null;
+
+  @Column("text", { nullable: true })
+  bio!: string | null;
+
+  @Column("char", { name: "avatar_media_id", length: 36, nullable: true })
+  avatarMediaId!: string | null;
 
   @Column("datetime", { name: "created_at", precision: 3, default: () => "CURRENT_TIMESTAMP(3)" })
   createdAt!: Date;
@@ -64,4 +71,8 @@ export class UserEntity {
 
   @OneToMany(() => AuthorizationGrantEntity, (grant) => grant.subjectUser)
   authorizationGrants!: AuthorizationGrantEntity[];
+
+  @ManyToOne(() => MediaReferenceEntity, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "avatar_media_id" })
+  avatarMedia!: MediaReferenceEntity | null;
 }

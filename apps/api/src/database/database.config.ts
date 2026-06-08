@@ -24,13 +24,15 @@ import { FoundationBaseline1711843200000 } from "./migrations/1711843200000-foun
 import { IdentityAuthorizationFoundation1714435200000 } from "./migrations/1714435200000-identity-authorization-foundation";
 import { MilestoneThreeContentFoundation1748736000000 } from "./migrations/1748736000000-milestone-three-content-foundation";
 import { MilestoneFourForumsFoundation1780890123767 } from "./migrations/1780890123767-milestone-four-forums-foundation";
+import { UserBioAndAvatar1780892561355 } from "./migrations/1780892561355-user-bio-and-avatar";
 import { UserEntity } from "../users/entities/user.entity";
 
 const reviewedMigrationClasses = [
   FoundationBaseline1711843200000,
   IdentityAuthorizationFoundation1714435200000,
   MilestoneThreeContentFoundation1748736000000,
-  MilestoneFourForumsFoundation1780890123767
+  MilestoneFourForumsFoundation1780890123767,
+  UserBioAndAvatar1780892561355
 ];
 
 const reviewedEntityClasses = [

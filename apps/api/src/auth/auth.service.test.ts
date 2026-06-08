@@ -1035,6 +1035,8 @@ describe("AuthService", () => {
       globalRole: "user",
       status: "active",
       emailVerifiedAt: new Date(),
+      bio: null,
+      avatarMediaId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       authIdentities: [],
@@ -1043,7 +1045,8 @@ describe("AuthService", () => {
       emailVerifications: [],
       totpSecrets: [],
       recoveryCodes: [],
-      authorizationGrants: []
+      authorizationGrants: [],
+      avatarMedia: null
     });
 
     await expect(
