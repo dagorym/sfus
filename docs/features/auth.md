@@ -19,7 +19,8 @@ default `user`), `status` (`active` | `onboarding_required`), `emailVerifiedAt` 
 - `user.onboardingRequired` in API payloads is derived: `status === "onboarding_required"`.
 - Username rule: `^[A-Za-z0-9_.-]{3,32}$`. Password rule: minimum 12 characters.
 - Email is normalized (trim + lowercase) and must match a basic `local@domain.tld` shape.
-- `bio` and `avatarMediaId` are stored server-side but not yet editable via the authenticated profile/settings API. They are exposed read-only via the public profile endpoint (see below).
+- `bio` is stored server-side but not yet editable via the authenticated profile/settings API. It is exposed read-only via the public profile endpoint (see below).
+- `avatarMediaId` is now writable via the self-service avatar surface (`PUT /api/users/me/avatar`, `DELETE /api/users/me/avatar`, added ST15); it is exposed read-only in the public profile and suggest endpoints (ST14).
 
 ## API routes
 
@@ -46,6 +47,8 @@ All routes below sit under the global `/api` prefix.
 | POST | `/api/auth/onboarding/username` | session | `{ user, session }`; `400` invalid/duplicate username; `401` no session or onboarding not required |
 | GET | `/api/users/suggest?q=` | session | `{ users: [{ username, displayName, avatarUrl }] }` — up to 10 active users whose username starts with `q`; `400` missing/non-string `q`; `401` no session; `429` throttle exceeded. |
 | GET | `/api/users/:username` | — | `{ profile: { username, displayName, avatar, bio, joinDate } }` — public profile; `400` empty/non-string param; `404` nonexistent or inactive (identical message). |
+| PUT | `/api/users/me/avatar` | session | `{ avatarUrl: "/api/media/<id>" }` — binds a media_references row as the caller's avatar; `400` missing/non-string `mediaId`; `401` no session; `403` media not found, wrong resourceType, or not owned by caller (uniform message). |
+| DELETE | `/api/users/me/avatar` | session | `{ avatarUrl: null }` — clears the caller's avatar; `401` no session. |
 
 MFA proof = `totpCode` **or** `recoveryCode` in the request body; at least one required.
 
@@ -201,6 +204,57 @@ The response **never** includes `email`, `globalRole`, `status`, `id`, or any ot
 
 The split is required because a naive `UsersModule` importing `AuthModule` would create the
 cycle `AuthModule → UsersModule → AuthModule`.
+
+## Avatar self-service API (ST15)
+
+Two session-gated endpoints in `UsersModule` allow users to set or remove their own avatar.
+
+### PUT /api/users/me/avatar — set avatar
+
+**Security order (400 → 401 → 403 → DB):**
+
+1. `mediaId` in request body must be a non-empty string — missing or wrong type returns `400`.
+2. Active session required (`sfus_session` cookie) — `401` before any DB work.
+3. `UsersService.setAvatar` performs a single DB lookup with three predicates:
+   `id = mediaId AND resourceType = 'avatar' AND ownerUserId = callerId`. A row not matching
+   all three conditions (nonexistent id, wrong `resourceType`, or owned by a different user)
+   returns a uniform `403 "Media id not found or not usable as your avatar."`. The caller
+   cannot determine whether a foreign media id exists (oracle parity).
+4. On success, `users.avatar_media_id` is updated to `mediaId` and the endpoint returns
+   `{ avatarUrl: "/api/media/<id>" }`.
+
+**Important:** only media uploaded with `resourceType='avatar'` (via `POST /api/media/upload?resourceType=avatar`)
+can be bound. Attempting to bind a media id uploaded under any other resource type yields
+the same uniform `403` as a nonexistent or foreign id. See [media.md](media.md) for the
+upload contract.
+
+The set avatar is immediately reflected in the public profile (`GET /api/users/:username`)
+and the suggest endpoint (`GET /api/users/suggest`).
+
+**Error contract:**
+
+| Status | Condition |
+|---|---|
+| 400 | Missing or non-string `mediaId` in request body |
+| 401 | No active session |
+| 403 | Media id nonexistent, wrong resourceType, or not owned by caller — uniform message |
+
+### DELETE /api/users/me/avatar — remove avatar
+
+**Security order (401 → DB):**
+
+1. Active session required (`sfus_session` cookie) — `401` otherwise.
+2. `UsersService.removeAvatar` sets `users.avatar_media_id = NULL` for the calling user.
+3. Returns `{ avatarUrl: null }`.
+
+No ownership check is required for removal because the endpoint only clears the caller's own
+`avatar_media_id` field; it does not affect the underlying `media_references` row.
+
+**Error contract:**
+
+| Status | Condition |
+|---|---|
+| 401 | No active session |
 
 ## Security invariants
 

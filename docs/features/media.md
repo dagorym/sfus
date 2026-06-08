@@ -19,6 +19,14 @@ write path, and the reusable authoring web components.
 Write-time authorization controls what gets stored; the serve endpoint is intentionally
 public and does not re-authenticate readers.
 
+**Avatar ownership enforcement (ST15):** a `media_references` row uploaded with
+`resourceType='avatar'` can only be bound as a user's avatar when *both* predicates hold:
+the row's `ownerUserId` matches the calling user's id AND `resourceType` is `'avatar'`. The
+lookup applies both conditions in a single query so the result is a uniform `403` for
+nonexistent ids, wrong `resourceType`, and foreign-owned ids alike (no existence oracle for
+foreign media). The primary contract for `PUT /api/users/me/avatar` lives in
+[auth.md — Avatar self-service API](auth.md#avatar-self-service-api-st15).
+
 ## Upload pipeline
 
 - Server-side MIME allow-list (`MEDIA_ALLOWED_MIME_TYPES`) and size limits are authoritative;
