@@ -1,0 +1,28 @@
+{
+  "status": "success",
+  "subtask_id": "ST18",
+  "branch_name": "ms4-st18-implementer-20260608",
+  "code_commit_hash": "066b435",
+  "task_summary": "ST18: Exercise StandalonePageEntity.currentRevision relation — add a DB-gated integration test that loads the entity with relations:[\"currentRevision\"] and asserts the joined revision is the current one. Closes the deferred-register note that the @ManyToOne decorator existed but was never exercised.",
+  "acceptance_criteria": [
+    "A test or product path loads a StandalonePageEntity with currentRevision populated and asserts the joined revision is the current one.",
+    "Runs (or skips cleanly) under SFUS_DB_INTEGRATION without breaking the default no-DB test pass.",
+    "No schema change; createForeignKeyConstraints:false semantics preserved."
+  ],
+  "changed_files": [
+    "apps/api/src/pages/pages.service.integration.test.ts"
+  ],
+  "test_location_guidance": "apps/api/src/pages/pages.service.integration.test.ts — Test 3 (the new case) is inside the existing describe.skipIf(!DB_INTEGRATION_ENABLED) block. Run worktree-locally: /home/tstephen/repos/worktrees/ms4-st18-implementer-20260608/node_modules/.bin/vitest run --root /home/tstephen/repos/worktrees/ms4-st18-implementer-20260608/apps/api",
+  "implementation_context": "Added Test 3 to the existing DB-gated integration suite (pages.service.integration.test.ts). The test: (1) calls service.create() to create a page and gets back an entity with currentRevisionId set; (2) calls pageRepo.findOne({ where: { id }, relations: [\"currentRevision\"] }) to exercise the TypeORM relation join; (3) asserts currentRevision is non-null and defined; (4) asserts currentRevision.id === created.currentRevisionId (non-vacuous: a mis-joined relation would produce a different id or null); (5) asserts revisionNumber === 1, pageId matches, authorUserId matches. No schema change; createForeignKeyConstraints:false semantics preserved. Test-only change; no product consumer added. Docs impact: NONE.",
+  "validation_commands": [
+    "pnpm --dir <worktree> install --frozen-lockfile",
+    "<worktree>/node_modules/.bin/vitest run --root <worktree>/apps/api",
+    "pnpm --dir <worktree> typecheck",
+    "pnpm --dir <worktree> lint",
+    "pnpm --dir <worktree>/apps/api exec tsc -p tsconfig.json --noEmit"
+  ],
+  "validation_outcome": "All pass. Default no-DB run: 863 tests passed, 3 skipped (integration suite incl. new Test 3 skips cleanly). Typecheck: 0 errors. Lint: 0 warnings. API tsc build: clean. DB-gated path not run (no DB available); clean-skip proven; assertion correctness verified by inspection.",
+  "artifact_dir": "artifacts/milestone-4-forums/ST18",
+  "implementation_type": "test-only",
+  "docs_impact": "NONE — only a DB-gated test was added; no product consumer introduced. docs/features/pages.md does not require update."
+}

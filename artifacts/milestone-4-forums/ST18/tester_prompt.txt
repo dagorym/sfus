@@ -1,0 +1,51 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- ST18: Exercise StandalonePageEntity.currentRevision relation — add a DB-gated integration test that loads the entity with relations:["currentRevision"] and asserts the joined revision is the current one. Closes the deferred-register note that the @ManyToOne decorator existed but was never exercised.
+
+Modified files:
+- apps/api/src/pages/pages.service.integration.test.ts
+
+Acceptance criteria to validate (from Planner):
+- A test or product path loads a StandalonePageEntity with currentRevision populated and asserts the joined revision is the current one.
+- Runs (or skips cleanly) under SFUS_DB_INTEGRATION without breaking the default no-DB test pass.
+- No schema change; createForeignKeyConstraints:false semantics preserved.
+
+Test file location:
+- apps/api/src/pages/pages.service.integration.test.ts — the new case is Test 3 inside the existing describe.skipIf(!DB_INTEGRATION_ENABLED) block.
+
+Implementation context for testing:
+- Added Test 3 to the existing DB-gated integration suite in pages.service.integration.test.ts.
+- The test: (1) calls service.create() to create a page and gets back an entity with currentRevisionId set; (2) calls pageRepo.findOne({ where: { id }, relations: ["currentRevision"] }) to exercise the TypeORM relation join; (3) asserts currentRevision is non-null and defined; (4) asserts currentRevision.id === created.currentRevisionId (non-vacuous: a mis-joined relation would produce a different id or null); (5) asserts revisionNumber === 1, pageId matches, authorUserId matches.
+- No schema change; createForeignKeyConstraints:false semantics preserved. Test-only change; no product consumer added. Docs impact: NONE.
+
+Validation instructions (CRITICAL — follow coordinator lessons):
+1. Run the API matrix WORKTREE-LOCALLY (do NOT use pnpm --filter from the worktree — it resolves to main repo). Use the worktree-local vitest binary:
+   pnpm --dir <worktree> install --frozen-lockfile
+   <worktree>/node_modules/.bin/vitest run --root <worktree>/apps/api
+2. Confirm the default no-DB pass stays green: 863+ tests pass, the integration suite (3 tests) skips cleanly including the new Test 3.
+3. Confirm the new assertion is non-vacuous: it asserts currentRevision.id === created.currentRevisionId AND revisionNumber === 1 AND pageId and authorUserId match. A test that only checked non-null would be vacuous; this test is not.
+4. If SFUS_DB_INTEGRATION=1 is available with a real DB: run the DB-gated path and confirm Test 3 passes (loads the entity with the relation and all assertions pass).
+5. If no DB is available: confirm clean skip and verify by code inspection that the assertion is correct and non-vacuous.
+6. Also run: pnpm --dir <worktree> typecheck AND pnpm --dir <worktree> lint AND pnpm --dir <worktree>/apps/api exec tsc -p tsconfig.json --noEmit — all must pass.
+
+Validation commands run by implementer (real output confirmed):
+- pnpm --dir <worktree> install --frozen-lockfile → Done in 1.1s
+- vitest run --root apps/api → 863 passed, 3 skipped (integration suite skips cleanly including new Test 3)
+- pnpm typecheck → apps/api typecheck: Done, apps/web typecheck: Done (0 errors)
+- pnpm lint → apps/api lint: Done, apps/web lint: Done (0 warnings)
+- API tsc build → clean (no output)
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST18
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
