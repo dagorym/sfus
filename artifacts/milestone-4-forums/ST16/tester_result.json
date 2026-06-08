@@ -1,0 +1,38 @@
+{
+  "status": "pass",
+  "subtask": "ST16",
+  "plan": "milestone-4-forums",
+  "branch": "ms4-st16-tester-20260608",
+  "test_commit": "d0a9080",
+  "test_files_added": [
+    "apps/web/app/forums/forums.spec.ts",
+    "apps/web/components/mention-autocomplete.spec.ts"
+  ],
+  "test_files_modified": [],
+  "commands_run": [
+    "npx vitest run --root apps/web",
+    "pnpm typecheck",
+    "pnpm lint"
+  ],
+  "results": {
+    "tests_total": 368,
+    "tests_passed": 368,
+    "tests_failed": 0,
+    "new_tests": 75,
+    "typecheck_errors": 0,
+    "lint_errors": 0
+  },
+  "acceptance_criteria": {
+    "AC1_site_only_boards_and_sanitization": "pass",
+    "AC2_member_guest_affordance_next_param": "pass",
+    "AC3_locked_topic_reply_gate": "pass",
+    "AC4_moderator_only_controls_both_directions": "pass",
+    "AC5_autocomplete_suggest_insertion_mention_links": "pass"
+  },
+  "unmet_acceptance_criteria": [],
+  "artifact_files_written": [
+    "artifacts/milestone-4-forums/ST16/tester_report.md",
+    "artifacts/milestone-4-forums/ST16/tester_result.json",
+    "artifacts/milestone-4-forums/ST16/documenter_prompt.txt"
+  ]
+}

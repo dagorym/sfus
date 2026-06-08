@@ -1,0 +1,65 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST16: Milestone 4 web forum browsing, authoring, @-mention autocomplete, and moderator controls. The Implementer created the complete Next.js client-side web layer: forum index, board view, topic view, new-topic form, forums API client, and MentionAutocomplete component. The Tester added 75 source-contract behavioral tests covering all five acceptance criteria; all 368 web tests pass with 0 typecheck errors and 0 lint errors.
+
+Acceptance criteria validated:
+- AC1: Forum index renders ONLY site boards via the public read API (listCategories); board links use slug not UUID; all post/topic bodies render through MarkdownRenderer with stripRawHtml + sanitizeUrl (strips <script>, rejects javascript:, data: URIs). No raw dangerouslySetInnerHTML on user input in any forum page.
+- AC2: Authenticated members see a create-topic link and reply form; guests see a sign-in affordance at /login?next=<encoded-forum-url> that preserves the intended destination. The create-topic page uses resolveProtectedSession to redirect unauthenticated visitors.
+- AC3: Locked topics show a lock notice ("No new replies can be posted") and hide the reply form entirely (isLocked check gates both).
+- AC4: Moderator controls (pin/unpin, lock/unlock, move) render only when isModerator is true (derived from hasGlobalRole(session.user, "moderator")). Non-moderator sessions render no controls at all (both directions tested). Controls call the ST6 moderation API functions (pinTopic, unpinTopic, lockTopic, unlockTopic, moveTopic from forums-client.ts).
+- AC5: MentionAutocomplete detects @-triggers at word boundaries, calls suggestUsers (ST14 endpoint) with a debounced prefix query, inserts @username as plain text (no HTML injection), and positions the cursor after the inserted mention. Rendered author usernames link to /users/<encodeURIComponent(username)>. Component never uses dangerouslySetInnerHTML.
+
+Implementation branch or worktree context:
+- Implementer branch: ms4-st16-implementer-20260608
+- Tester branch: ms4-st16-tester-20260608 (worktree at /home/tstephen/repos/worktrees/ms4-st16-tester-20260608)
+- Base branch for comparison: ms4 (or the most recent common ancestor with ms4-st16-implementer-20260608)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/forums/page.tsx (new — forum index)
+- apps/web/app/forums/[boardSlug]/page.tsx (new — board view)
+- apps/web/app/forums/[boardSlug]/[topicSlug]/page.tsx (new — topic view)
+- apps/web/app/forums/[boardSlug]/new-topic/page.tsx (new — create-topic form)
+- apps/web/app/forums/forums-client.ts (new — API client)
+- apps/web/app/forums/forums.module.css (new — forum styles)
+- apps/web/components/mention-autocomplete.tsx (new — @mention autocomplete)
+- apps/web/components/mention-autocomplete.module.css (new — autocomplete styles)
+- apps/web/app/forums/forums.spec.ts (new — tester, 51 tests)
+- apps/web/components/mention-autocomplete.spec.ts (new — tester, 24 tests)
+
+Test commit:
+- d0a9080
+
+Commands executed:
+- npx vitest run --root apps/web
+- pnpm typecheck
+- pnpm lint
+
+Final test outcomes:
+- 368 tests passed, 0 failed (10 test files)
+- New: apps/web/app/forums/forums.spec.ts — 51 tests PASS
+- New: apps/web/components/mention-autocomplete.spec.ts — 24 tests PASS
+- 0 typecheck errors
+- 0 lint errors
+
+Documentation context:
+- The likely documentation target is docs/features/ for the new forum subsystem (check docs/README.md routing table for the exact location; a new forums feature doc may need to be created or an existing MS4 plan doc updated).
+- Key behaviors now confirmed and worth documenting: public read surface (no auth required for browsing); member-authenticated create/reply; locked-topic UI; client-side moderator gate backed by ST6 API; @-mention autocomplete (ST14 suggest endpoint); MarkdownRenderer XSS pipeline applied to all forum content.
+- The MentionAutocomplete component is a new shared component in apps/web/components/ and should be noted in any component documentation.
+- The forums-client.ts API client documents the full public/member/moderation/suggest API surface with JSDoc; this may inform API documentation updates.
+
+Plan and diff context:
+- Plan document: plans/ directory — look for the Milestone 4 forums plan (likely plans/milestone-4-forums* or similar); the MS4 plan document is at plans/ in the repo root.
+- Comparison base: ms4 branch (or ms4-st16-implementer-20260608 against ms4 to see only ST16 changes)
+- If the exact plan path is not found, infer from the docs/README.md routing table and the story context provided above.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST16
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
