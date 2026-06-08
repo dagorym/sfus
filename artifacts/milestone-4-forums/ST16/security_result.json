@@ -1,0 +1,23 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST16/security_report.md",
+    "artifacts/milestone-4-forums/ST16/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st16-security-20260608",
+  "documentation_sufficiency_summary": [
+    "SUFFICIENT. docs/features/media.md (and the renderer's own JSDoc, lines 215-249) now correctly document the reject set as `\" ' < >` with `&` intentionally allowed as a legal RFC 3986 query delimiter that cannot break a double-quoted attribute. This supersedes the prior pass-2 doc state that recorded the `&` multi-param behaviour as a pending regression; the correctness fix resolved that and the docs match the shipped /[\"'<>]/ behaviour.",
+    "No operational/runbook gap: the change is a client-render hardening with no new env var, migration, or deployment surface."
+  ],
+  "note_finding_count": 4,
+  "outcome": "PASS",
+  "pass_label": "security-3",
+  "status": "complete",
+  "task_id": "milestone-4-forums/ST16",
+  "test_sufficiency_summary": [
+    "SUFFICIENT for the security AC. Validation matrix GREEN worktree-locally: vitest run --root apps/web = 10 files / 379 tests passed, 0 failures (authoring-components.spec.ts: 47 tests incl. the 11 MarkdownRenderer XSS/URL tests). pnpm typecheck (api+web) = Done. pnpm lint (api+web, --max-warnings=0) = Done.",
+    "Independent empirical re-review beyond the committed suite: a throwaway vitest harness (run worktree-locally against the REAL markdown-renderer source, then removed) executed 10 checks covering the proven payload, image/onerror, single-quote, angle-bracket (stripped by stripRawHtml backstop), javascript:/data:, `&` multi-param, and the &quot;/&#34; entity-decode concern. All confirmed inert: proven->href=\"#\", image->src=\"#\", `&` preserved verbatim (?a=1&b=2), entity payloads stay as literal attribute-value data with balanced quotes and no top-level event-handler attribute.",
+    "Non-vacuity re-confirmed: the proven and onerror behavioural assertions FAIL against the extracted pre-fix sanitizeUrl (commit 8a17e49) and PASS against the current code; the two `&`-preservation tests FAIL against the intermediate /[\"'<>&]/ reject set and PASS now."
+  ],
+  "warning_finding_count": 0
+}
