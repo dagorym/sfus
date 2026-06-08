@@ -2,7 +2,7 @@
   "status": "PASS",
   "subtask": "ST17",
   "description": "Web: public profile page + avatar upload & display",
-  "branch": "ms4-st17-documenter-20260608",
+  "branch_name": "ms4-st17-documenter-20260608",
   "documentation_commit": "ea31ce4",
   "documentation_files_changed": [
     "docs/features/web-shell.md",
