@@ -1,0 +1,29 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST5/verifier_report.md",
+    "artifacts/milestone-4-forums/ST5/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st5-verifier-20260608",
+  "documentation_accuracy_summary": [
+    "ACCURATE. docs/features/forums.md post-routes section correctly documents: the full board+topic visibility gate, uniform 404 oracle-parity message, locked-topic 403 message, body type-guard and sanitizer order (steps 1-8), parentId uniform 400 with explicit no-oracle language, quotedPostId soft-reference (render deferred to ST16), PublicPostShape field table with exposed parentId, deterministic createdAt-ASC/id-ASC oldest-first pagination, clamp bounds (1-100), and soft-delete exclusion.",
+    "The two stale inline type comments (NOTE-1 and NOTE-2 above) are the only inaccuracies; user-facing documentation is fully accurate."
+  ],
+  "note_finding_count": 3,
+  "pass_label": "PASS",
+  "status": "completed",
+  "task_id": "ST5",
+  "test_sufficiency_summary": [
+    "SUFFICIENT. 173/173 forums tests pass (service: 112, controller: 61) from this worktree. Full suite: 709/709 non-integration tests pass (0 failures). Typecheck: 0 errors. Lint: 0 warnings.",
+    "All 7 acceptance-criteria dimensions are directly tested with non-vacuous assertions:",
+    "  (1) 401-before-service: controller test asserts createPost spy not called when resolveSession rejects.",
+    "  (2) Gated/nonexistent 404 oracle parity: createPost and listPosts each assert gatedMsg===missingMsg===TOPIC_NOT_FOUND_MESSAGE.",
+    "  (3) Locked-topic 403: ForbiddenException asserted and save spy confirmed not called.",
+    "  (4) parentId invalid-a/b/c: uniform BadRequestException with identical message (no oracle); save not called.",
+    "  (5) Unsafe Markdown / non-string body: BadRequestException before save; three body type variants tested.",
+    "  (6) Post public shape: authorUserId, topicId, deletedAt absent; author.username/displayName and quotedPostId present.",
+    "  (7) listPosts pagination: createdAt ASC+id ASC order, deletedAt IsNull, pageSize clamped to 100 and 1, skip/take offset."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
