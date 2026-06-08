@@ -1,0 +1,63 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST7: CommonJS-safe supertest harness (test-harness.ts) + two executed HTTP integration test groups — proxy-hop request.ip assertion and helmet baseline header assertions — for the SFUS API.
+
+Acceptance criteria validated:
+- AC1 (proxy-hop): Executed test asserts request.ip equals the injected X-Forwarded-For client address on a real Express HTTP response — test uses real HTTP via supertest, no mocking — PASSED
+- AC2 (helmet): Executed tests assert X-Content-Type-Options:nosniff present, Strict-Transport-Security absent, Content-Security-Policy absent on real HTTP responses — all 3 assertions PASSED
+- AC3 (harness): test-harness.ts is a reusable exported helper (createTestApp), CommonJS-safe (no import.meta), and API tsc build passes — PASSED
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st7-tester-20260607
+- Branch: ms4
+- Implementation commit: 0adb825 (feat(api): ST7 supertest harness + proxy-hop and helmet integration tests)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/test-harness.ts — new shared harness helper exported for ST8/ST9 reuse
+- apps/api/src/http.integration.test.ts — new HTTP integration test file with proxy-hop and helmet groups
+- apps/api/package.json — added supertest ^7.2.2, @types/supertest ^7.2.0, express ^5.2.1 as API devDependencies
+- pnpm-lock.yaml — updated lockfile
+
+Test commit:
+- No Changes Made
+
+Commands executed:
+- pnpm --dir apps/api test
+- pnpm --dir apps/api lint
+- pnpm --dir apps/api typecheck
+- pnpm --dir apps/api build
+
+Final test outcomes:
+- PASS — http.integration.test.ts: 5/5 tests passed, no failures
+- PASS — 'Proxy-hop: request.ip under trust proxy=1': resolves request.ip to injected XFF address (non-mocked real HTTP) — AC1 met
+- PASS — 'Proxy-hop: request.ip under trust proxy=1': falls back to socket remote address when no XFF present — covers trust proxy fallback correctly
+- PASS — 'Helmet baseline: security headers on API responses': X-Content-Type-Options: nosniff present — AC2 met
+- PASS — 'Helmet baseline: security headers on API responses': Strict-Transport-Security absent — AC2 met
+- PASS — 'Helmet baseline: security headers on API responses': Content-Security-Policy absent — AC2 met
+- PASS — lint: no warnings or errors on test-harness.ts or http.integration.test.ts
+- PASS — typecheck: tsc -p tsconfig.json --noEmit clean (CommonJS-safe, no import.meta) — AC3 met
+- PASS — build: tsc -p tsconfig.json produces no errors — AC3 met
+- OBSERVATION — Harness helmet/trust-proxy config faithfully mirrors production index.ts: trust proxy=1 and helmet({strictTransportSecurity:false,contentSecurityPolicy:false}) are identical. Config divergence between test harness and production is not present.
+- OBSERVATION — No test commit needed: test files were delivered by the Implementer in commit 0adb825 and were already present in the worktree. The Tester executed and validated only.
+
+Documentation context:
+- docs/development/testing.md — may need to mention the new HTTP integration test harness pattern (createTestApp) available for ST8/ST9 reuse
+- The harness creates minimal Express apps mirroring production security config (trust proxy=1, helmet baseline) without a DB connection — a new pattern not previously documented
+- No behavior changes to production API routes; changes are test infrastructure only
+
+Plan and diff context:
+- Plan: plans/milestone-4-forums-plan.md — ST7 is the supertest harness and HTTP integration test subtask
+- Comparison base: branch ms4 diverged from main; diff the ST7 implementation commit 0adb825 against its parent for the exact change set
+- Relevant architecture: docs/architecture/milestone-1-foundation-decisions.md (trust proxy and HSTS decisions documented there)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST7
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
