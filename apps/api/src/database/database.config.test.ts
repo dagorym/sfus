@@ -76,7 +76,8 @@ describe("database config", () => {
     expect(reviewedMigrationNames).toEqual([
       "FoundationBaseline1711843200000",
       "IdentityAuthorizationFoundation1714435200000",
-      "MilestoneThreeContentFoundation1748736000000"
+      "MilestoneThreeContentFoundation1748736000000",
+      "MilestoneFourForumsFoundation1780890123767"
     ]);
   });
 
