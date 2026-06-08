@@ -1,0 +1,76 @@
+Your role is 'tester'. Your task is as follows:
+
+Test Milestone 4 subtask ST4 — Topics: create, paginated read, visibility, pinned ordering.
+This is remediation pass 2; test both the original ST4 acceptance criteria AND the two new
+regression requirements introduced by the verifier-1-warning remediation pass.
+
+Source of truth: plans/milestone-4-forums-plan.md (ST4 AC), implementation commits b73d475
+(original ST4) and d0e8110 (remediation: type guards for missing/non-string title+body)
+on branch ms4-st4-implementer-20260608.
+
+Changed files (across both passes):
+- apps/api/src/forums/forums.controller.ts
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.types.ts
+- apps/api/src/forums/forums.service.test.ts (factory updated for new topicRepo constructor arg — P7 breadth)
+
+Test file location (add new describe blocks to existing files; do not create new files unless necessary):
+- apps/api/src/forums/forums.service.test.ts (service unit tests for createTopic, listTopics)
+- apps/api/src/forums/forums.controller.test.ts (controller unit tests for createTopic/listTopics routes)
+
+Acceptance criteria to validate:
+- AC1: Create topic requires an active session (401); writes to a non-readable/nonexistent board return 404 with a uniform message (oracle parity — identical message for both cases).
+- AC2: Topic list paginates with deterministic order (isPinned DESC, lastPostAt DESC, createdAt DESC) and a stable page contract (page 1-indexed, pageSize 1-100 default 20, total returned).
+- AC3: Unsafe Markdown rejected 400 before persistence (validateMarkdownBody called before save).
+- AC4: Visibility checks use shared predicate helpers (isBoardPubliclyReadable/evaluate() is actually called — operator-pinned test).
+- AC5: Public topic shape exposes only id, title, slug, body, isPinned, replyCount, lastPostAt, author{username,displayName}, createdAt, updatedAt. Must NOT expose authorUserId, boardId, isLocked, movedByUserId, movedAt, lockedByUserId, lockedAt, deletedAt.
+
+Required test cases — ORIGINAL ST4 (all must pass):
+1. ORACLE PARITY — createTopic with a nonexistent boardId (boardRepo.findOne returns null) throws NotFoundException with message === ForumsService.TOPIC_NOT_FOUND_MESSAGE.
+2. ORACLE PARITY — createTopic with a gated board (project-scoped or members-visibility) throws NotFoundException with message === ForumsService.TOPIC_NOT_FOUND_MESSAGE (byte-identical to truly-nonexistent case).
+3. ORACLE PARITY — listTopics with a nonexistent boardId throws NotFoundException with message === ForumsService.TOPIC_NOT_FOUND_MESSAGE.
+4. ORACLE PARITY — listTopics with a gated board throws NotFoundException with message === ForumsService.TOPIC_NOT_FOUND_MESSAGE.
+5. OPERATOR-PINNED PREDICATE — createTopic on a readable board causes AuthorizationService.evaluate() to be called. Use vi.spyOn(authorizationService, 'evaluate') and assert it was called.
+6. OPERATOR-PINNED PREDICATE — listTopics on a readable board causes AuthorizationService.evaluate() to be called.
+7. UNSAFE MARKDOWN — createTopic with a body containing <script>alert(1)</script> throws BadRequestException (400). topicRepo.save must NOT be called (assert via spy before the throw).
+8. UNSAFE MARKDOWN — createTopic with a body containing a javascript: link throws BadRequestException (400) before persistence.
+9. PINNED ORDERING — listTopics repository call uses order: { isPinned: 'DESC', lastPostAt: 'DESC', createdAt: 'DESC' }. Assert the findAndCount order option.
+10. PUBLIC SHAPE FIELD-STRIPPING — createTopic response does NOT contain authorUserId, boardId, isLocked, movedByUserId, lockedByUserId, deletedAt. DOES contain author.username and author.displayName.
+11. PUBLIC SHAPE FIELD-STRIPPING — listTopics response topic items do NOT contain the above internal fields.
+12. PAGINATION — listTopics with page=2, pageSize=5 calls repository with skip=5 and take=5.
+13. PAGINATION — listTopics clamps pageSize to 100 when a larger value (e.g. 999) is provided; clamps to 1 when 0 or negative is provided.
+14. 401 gate on controller — controller createTopic handler throws UnauthorizedException when resolveSession rejects, before any ForumsService call is made.
+
+Required test cases — NEW (from remediation pass 2, both must be non-vacuous):
+
+15. SOFT-DELETE EXCLUSION — listTopics repository call passes `where: { boardId: <id>, deletedAt: IsNull() }` (or equivalent TypeORM IsNull()). Assert the findAndCount where-clause includes the deletedAt: IsNull() condition directly. This test must fail if that condition is removed — it must NOT be vacuous (e.g. do not just check the result length; inspect the actual repository call arguments).
+
+16. MALFORMED-BODY -> 400 — createTopic with a missing body (body: undefined or body omitted from input) throws BadRequestException (400), NOT a TypeError or 500. Similarly, createTopic with a non-string body (e.g. body: 42 or body: {}) throws BadRequestException (400). topicRepo.save must NOT be called in either case.
+    Also verify: createTopic with a missing/undefined title (title: undefined) throws BadRequestException (400), not a TypeError or 500. createTopic with a non-string title (e.g. title: 123) throws BadRequestException (400).
+
+Implementation context for testing:
+- ForumsService.createTopic: board loaded via boardRepo.findOne, then isBoardPubliclyReadable checks scopeType and calls evaluate(). If board null or not readable then NotFoundException. TYPE GUARD: typeof input.title !== "string" -> BadRequestException before assertTopicTitleValid. assertTopicTitleValid checks empty/whitespace. TYPE GUARD: typeof input.body !== "string" -> BadRequestException before normalizeMarkdownBody. normalizeMarkdownBody(input.body ?? "") then validateMarkdownBody throw 400 if unsafe. topicRepo.create + save. topicRepo.findOne with relations:['author'] reload. toTopicShape() maps to allowlist.
+- ForumsService.listTopics: board loaded via boardRepo.findOne, isBoardPubliclyReadable check. If not readable then NotFoundException. topicRepo.findAndCount with where:{boardId, deletedAt: IsNull()}, relations:['author'], order:{isPinned:'DESC', lastPostAt:'DESC', createdAt:'DESC'}, skip, take.
+- ForumsService.TOPIC_NOT_FOUND_MESSAGE = "Forum topic not found." — use this constant in oracle-parity assertions.
+- makeForumsService in forums.service.test.ts now accepts (categoryRepo?, boardRepo?, topicRepo?) as 3 optional params; pass a topicRepo override when testing topic methods.
+- For operator-pinned tests, construct a new AuthorizationService(), spy on evaluate(), and pass it directly: new ForumsService(catRepo, boardRepo, topicRepo, authorizationService).
+
+Validation commands (run from the worktree root; PASTE real output summary — do not use abbreviated or inferred output):
+  node_modules/.bin/vitest run --root apps/api
+  pnpm typecheck
+  pnpm lint
+
+IMPORTANT: Use `node_modules/.bin/vitest run --root apps/api` (or the equivalent absolute path), NOT `pnpm --filter @sfus/api test`, which resolves to the main repo and skips worktree-local tests. Paste the real vitest summary line (Test Files X passed, Tests X passed).
+
+Do NOT write brittle source-slice assertions (e.g. asserting exact line numbers or literal code strings). Assert behavior through the public API of the service (call the method, check what was called on mocks, check what was thrown).
+
+Security review: required — flag any visibility/oracle parity gap found during testing.
+
+Existing validations expected to fail only because approved behavior changed:
+- None.
+
+Shared artifact directory: artifacts/milestone-4-forums/ST4/
+
+Completion gate: do not report success unless ALL required test cases (1-16) pass and all validation commands succeed with 0 failures, and the real vitest summary is pasted.
+
+Forward note (no action required): The anonymous-actor predicate in isBoardPubliclyReadable means members-only or project-scoped boards are not topic-creatable/listable even by authenticated members. This is intentional and fail-closed for ST4. A later member-scoped-board subtask will re-evaluate with a real actor. Do not widen the predicate.
