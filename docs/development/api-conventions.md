@@ -127,9 +127,11 @@ This means an attacker cannot bypass the IP-based guest limit by spoofing
 When a request is authenticated **and** the account was created within the last
 `THROTTLE_NEW_ACCOUNT_WINDOW_MS` milliseconds, a stricter limit
 (`THROTTLE_NEW_ACCOUNT_MAX_HITS`) applies instead of the standard
-`THROTTLE_MAX_HITS`. The `userCreatedAt` timestamp is supplied by the guard from
-the session payload. The tier is inactive for guest requests and for accounts
-older than the window.
+`THROTTLE_MAX_HITS`. The mechanism is wired and validated, but the tier only
+becomes effective when the guard supplies a non-null `userCreatedAt` timestamp.
+The ST8 `ThrottleGuard` passes `userCreatedAt: null`; the tier will activate
+once ST9 wires the guard with the authenticated user's account creation time.
+The tier is inactive for guest requests and for accounts older than the window.
 
 ### 429 response envelope
 
@@ -159,10 +161,19 @@ Redis, implement `IThrottleStore` and replace the `THROTTLE_STORE` provider in
 ### Per-post link limit
 
 `countLinks(body)` and `exceedsLinkLimit(body, maxLinks)` (from
-`apps/api/src/common/throttle/link-limit.ts`) count Markdown-syntax links
-(`[text](url)`) and bare `http(s)://` URLs without double-counting. Controllers
-should call `exceedsLinkLimit(body, environment.throttle.maxLinksPerPost)` to
-reject bodies that exceed the configured cap (`THROTTLE_MAX_LINKS_PER_POST`).
+`apps/api/src/common/throttle/link-limit.ts`) count links in a Markdown body
+without double-counting. The following are counted:
+
+- Markdown-syntax links `[text](destination)` — destination may use any scheme.
+- Bare `http://` and `https://` URLs outside Markdown link syntax.
+- Bare `ftp://`, `mailto:`, and `tel:` URIs (evasion-scheme detection).
+- Bare `www.`-prefixed hosts at a word boundary.
+
+The scanner is linear-time (indexOf-based, no backtracking regex on
+attacker-supplied input) and caps the inspected region at 256 KB regardless of
+body size. Controllers should call
+`exceedsLinkLimit(body, environment.throttle.maxLinksPerPost)` to reject bodies
+that exceed the configured cap (`THROTTLE_MAX_LINKS_PER_POST`).
 
 ---
 
