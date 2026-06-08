@@ -1,0 +1,50 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- ST8 Security Remediation Pass 2: Fixed blocking ReDoS in link-limit.ts, broadened evasion detection, and added THROTTLE_* env vars to .env.example
+
+Modified files:
+- apps/api/src/common/throttle/link-limit.ts
+- apps/api/.env.example
+
+Acceptance criteria to validate (from Planner):
+- AC1: Over-limit request -> 429 envelope; under-limit passes through; identity prefers session user id, falls back to proxy-resolved IP; new-account-tier limits apply to young accounts.
+- AC2: Link-count limiter rejects over-max bodies and accepts compliant ones.
+- AC3: Storage accessed only through IThrottleStore; in-memory store wired by default; swapping implementation needs no guard/route change.
+- AC4: New env vars validated in environment.ts; startup failure on missing/invalid values.
+- AC-Security-ReDoS: countLinks must complete a 1 MB pathological body in under 100 ms.
+- AC-Security-Evasion: ftp://, mailto:, tel:, and www.-prefixed bare hosts each count as 1 link.
+
+Create test files in:
+- apps/api/src/common/throttle/link-limit.test.ts — add ReDoS regression and evasion-case tests
+- apps/api/src/common/throttle/throttle.guard.test.ts — new file: fail-CLOSED on store error, IP-fallback, store sweep/eviction
+- apps/api/src/common/throttle/throttle.service.test.ts — existing suite covers AC1/AC3
+- apps/api/src/common/throttle/throttle-env.test.ts — existing suite covers AC4
+
+Implementation context for testing:
+- Security remediation pass 2 for ST8. Three fixes applied:
+- (1) BLOCKING ReDoS: replaced backtracking /\]\([^)]*\)/g regex in link-limit.ts with linear indexOf-based scanner (scanMarkdownLinks + scanBareUrls). Old regex: 1211 ms for 64 KB pathological input. New implementation: under 1 ms on 1 MB. MAX_SCAN_BYTES=262144 caps work.
+- (2) Evasion broadening: bare-URL detection now also counts ftp://, mailto:, tel:, and www.-prefixed bare hosts via indexOf-only scanning. www. detection requires word boundary (space/tab/newline/bracket).
+- (3) Deploy-env footgun: all five THROTTLE_* vars added to tracked apps/api/.env.example with sane defaults (THROTTLE_WINDOW_MS=60000, THROTTLE_MAX_HITS=100, THROTTLE_NEW_ACCOUNT_MAX_HITS=20, THROTTLE_NEW_ACCOUNT_WINDOW_MS=604800000, THROTTLE_MAX_LINKS_PER_POST=10).
+- All 498 existing tests pass unchanged (20 link-limit, 29 throttle-env, 11 throttle-service, etc.).
+- DOCUMENTER NOTE (P1): docs/development/api-conventions.md overstates that the throttle guard supplies userCreatedAt. Guard actually passes userCreatedAt: null; ST9 wires real user context. Doc must be corrected.
+
+Suggested test command(s):
+- pnpm lint
+- pnpm typecheck
+- pnpm test
+- pnpm --filter @sfus/api exec tsc -p tsconfig.json --noEmit
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST8
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
