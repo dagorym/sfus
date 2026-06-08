@@ -24,7 +24,7 @@ import React, { useId, useRef, useState } from "react";
 import styles from "./image-upload.module.css";
 
 /** Resource type values accepted by the API upload endpoint. */
-export type ImageUploadResourceType = "blog-post" | "standalone-page" | "blog-comment";
+export type ImageUploadResourceType = "blog-post" | "standalone-page" | "blog-comment" | "forum-post";
 
 export interface ImageUploadResult {
   id: string;

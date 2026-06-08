@@ -1,0 +1,70 @@
+/* MentionAutocomplete — textarea wrapper with dropdown */
+
+.wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.textarea {
+  width: 100%;
+  border: 1px solid var(--color-border, #1e2d3d);
+  border-radius: 8px;
+  padding: 0.65rem 0.8rem;
+  background: rgba(6, 13, 23, 0.78);
+  color: var(--color-text, #cdd6f4);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  resize: vertical;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.textarea:focus {
+  outline: 2px solid var(--color-accent, #7aa2ff);
+  outline-offset: 1px;
+}
+
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  background: var(--color-background-elevated, #0d1b2a);
+  border: 1px solid var(--color-border, #1e2d3d);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.88rem;
+  transition: background 0.1s;
+}
+
+.dropdownItem:hover,
+.dropdownItemActive {
+  background: rgba(122, 162, 255, 0.1);
+}
+
+.username {
+  font-weight: 700;
+  color: var(--color-accent, #7aa2ff);
+}
+
+.displayName {
+  color: var(--color-text-muted, #8895a7);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

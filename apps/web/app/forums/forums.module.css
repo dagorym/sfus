@@ -1,0 +1,465 @@
+/* Forums layout styles */
+
+.container {
+  padding: clamp(var(--space-lg, 1.5rem), 4vw, var(--space-3xl, 4rem));
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.heading {
+  font-family: var(--font-display, sans-serif);
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 1.5rem;
+}
+
+.subheading {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  color: var(--color-accent-strong, #7aa2ff);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.description {
+  margin: 0;
+  color: var(--color-text-muted, #8895a7);
+  line-height: 1.65;
+}
+
+.categorySection {
+  margin-bottom: 2rem;
+  border: 1px solid var(--color-border, #1e2d3d);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.categoryHeader {
+  padding: 0.75rem 1rem;
+  background: rgba(122, 162, 255, 0.06);
+  border-bottom: 1px solid var(--color-border, #1e2d3d);
+}
+
+.categoryTitle {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-accent-strong, #7aa2ff);
+}
+
+.boardList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.boardItem {
+  border-bottom: 1px solid var(--color-border, #1e2d3d);
+}
+
+.boardItem:last-child {
+  border-bottom: none;
+}
+
+.boardLink {
+  display: block;
+  padding: 0.85rem 1rem;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.boardLink:hover {
+  background: rgba(122, 162, 255, 0.04);
+}
+
+.boardName {
+  margin: 0 0 0.2rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.boardDescription {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted, #8895a7);
+}
+
+/* Topic list */
+
+.topicList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--color-border, #1e2d3d);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.topicItem {
+  border-bottom: 1px solid var(--color-border, #1e2d3d);
+}
+
+.topicItem:last-child {
+  border-bottom: none;
+}
+
+.topicLink {
+  display: block;
+  padding: 0.85rem 1rem;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.topicLink:hover {
+  background: rgba(122, 162, 255, 0.04);
+}
+
+.topicTitle {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.topicMeta {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted, #8895a7);
+}
+
+.pinnedBadge {
+  display: inline-block;
+  margin-right: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(122, 162, 255, 0.18);
+  color: var(--color-accent, #7aa2ff);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  vertical-align: middle;
+}
+
+.lockedBadge {
+  display: inline-block;
+  margin-right: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(255, 180, 180, 0.12);
+  color: #ffb4b4;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  vertical-align: middle;
+}
+
+/* Post rendering */
+
+.postList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.postItem {
+  border: 1px solid var(--color-border, #1e2d3d);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.postQuote {
+  border-left: 3px solid var(--color-accent, #7aa2ff);
+  padding: 0.5rem 0.75rem;
+  margin: 0 0 0.75rem;
+  background: rgba(122, 162, 255, 0.06);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.88rem;
+  color: var(--color-text-muted, #8895a7);
+}
+
+.postQuoteLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.3rem;
+  color: var(--color-accent, #7aa2ff);
+}
+
+.postAuthor {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted, #8895a7);
+}
+
+.authorLink {
+  color: var(--color-accent, #7aa2ff);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.authorLink:hover {
+  text-decoration: underline;
+}
+
+/* Forms */
+
+.form {
+  margin-top: 2rem;
+  display: grid;
+  gap: 1rem;
+  border: 1px solid var(--color-border, #1e2d3d);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.formTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.formLabel {
+  display: grid;
+  gap: 0.3rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.formInput {
+  width: 100%;
+  border: 1px solid var(--color-border, #1e2d3d);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  background: rgba(6, 13, 23, 0.78);
+  color: var(--color-text, #cdd6f4);
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.submitButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 8rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: 0;
+  cursor: pointer;
+  background: var(--color-accent, #7aa2ff);
+  color: #05101c;
+}
+
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lockedNotice {
+  padding: 0.6rem 0.9rem;
+  background: rgba(255, 180, 180, 0.08);
+  border: 1px solid rgba(255, 180, 180, 0.2);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  color: #ffb4b4;
+  margin-top: 1.5rem;
+}
+
+.signInPrompt {
+  margin-top: 1.5rem;
+  color: var(--color-text-muted, #8895a7);
+  font-size: 0.9rem;
+}
+
+.signInLink {
+  color: var(--color-accent, #7aa2ff);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.signInLink:hover {
+  text-decoration: underline;
+}
+
+.error {
+  color: #ffb4b4;
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+.success {
+  color: #b4ffb4;
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+/* Pagination */
+
+.pagination {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  align-items: center;
+}
+
+.pageButton {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--color-border, #1e2d3d);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text, #cdd6f4);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.pageButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pageInfo {
+  font-size: 0.85rem;
+  color: var(--color-text-muted, #8895a7);
+}
+
+/* Moderation controls */
+
+.moderationBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgba(122, 162, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(122, 162, 255, 0.04);
+}
+
+.modButton {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--color-border, #1e2d3d);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text, #cdd6f4);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.modButton:hover {
+  background: rgba(122, 162, 255, 0.08);
+}
+
+.modButtonDanger {
+  border-color: rgba(255, 180, 180, 0.3);
+  color: #ffb4b4;
+}
+
+.modButtonDanger:hover {
+  background: rgba(255, 180, 180, 0.08);
+}
+
+.moveForm {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.moveInput {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--color-border, #1e2d3d);
+  border-radius: 6px;
+  background: rgba(6, 13, 23, 0.78);
+  color: var(--color-text, #cdd6f4);
+  font-size: 0.8rem;
+}
+
+/* Breadcrumb */
+
+.breadcrumb {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--color-text-muted, #8895a7);
+}
+
+.breadcrumb a {
+  color: var(--color-accent, #7aa2ff);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.breadcrumbSep {
+  opacity: 0.5;
+}
+
+/* Quote affordance */
+
+.quoteButton {
+  display: inline;
+  background: none;
+  border: none;
+  color: var(--color-accent, #7aa2ff);
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 0;
+  margin-left: 0.5rem;
+  font-weight: 600;
+}
+
+.quoteButton:hover {
+  text-decoration: underline;
+}
+
+/* Back link */
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 1rem;
+  color: var(--color-accent, #7aa2ff);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
