@@ -1,0 +1,73 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST9 — Enforce the ST8 throttle + link-limit on forum posting (createTopic, createPost) and blog comment creation (createComment). Implementation commit 9575004 on branch ms4-st9-implementer-20260608 wired ThrottleService.checkRequest and exceedsLinkLimit into all 3 handlers, fetching userCreatedAt from UsersService so the new-account tier activates. ThrottleModule + UsersModule were imported into ForumsModule and BlogModule.
+
+Acceptance criteria validated:
+- Over-limit: ThrottleService throws 429 -> handler propagates 429, persist not called (all 3 sites).
+- Under-limit: normal request passes through; auth/visibility gates run before throttle (all 3 sites).
+- checkRequest called with userId AND userCreatedAt (non-null Date) from usersService.findById (all 3 sites).
+- New-account tier: young account throttled at newAccountMaxHits=2; old account uses maxHits=10 — differentiation proven with real ThrottleService + InMemoryThrottleStore.
+- Null-createdAt proof: tier inactive when createdAt not wired; same request count passes, confirming the wiring is non-vacuous.
+- Link limit: body exceeding maxLinksPerPost -> BadRequestException(400), persist not called (all 3 sites).
+- Enforcement reuses ST8 ThrottleService/exceedsLinkLimit; no reimplemented throttle logic.
+- 3 protected sites: forum-topic-create, forum-post-create, blog-comment-create.
+- Existing 401/403/404 semantics and ordering unchanged — 401 blocks before throttle check verified.
+
+Implementation branch or worktree context:
+- Implementation branch: ms4-st9-implementer-20260608 (commit 9575004)
+- Tester worktree: ms4-st9-tester-20260608 (branched from implementer branch)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/forums/forums.controller.ts — throttle + link-limit wired into createTopic and createPost
+- apps/api/src/blog/blog.controller.ts — throttle + link-limit wired into createComment
+- apps/api/src/forums/forums.module.ts — ThrottleModule + UsersModule imported
+- apps/api/src/blog/blog.module.ts — ThrottleModule + UsersModule imported
+- apps/api/src/common/throttle/throttle.module.ts — THROTTLE_CONFIG exported
+- apps/api/src/forums/forums.controller.test.ts — ST9 test scenarios added (tester)
+- apps/api/src/blog/blog.controller.test.ts — ST9 test scenarios added (tester)
+- apps/api/src/forums/forums.module.test.ts — fixture updates (implementer)
+
+Test commit:
+- dd2afcd744eff9338babe18f9959e4d59c3a6c26
+
+Commands executed:
+- pnpm --dir <worktree> install --frozen-lockfile
+- vitest run --root apps/api
+- pnpm typecheck
+- pnpm lint
+
+Final test outcomes:
+- 788 tests pass, 0 failures (23 new ST9 tests added across forums and blog controller test files).
+- forums.controller.test.ts and blog.controller.test.ts both appear in the vitest run.
+- Typecheck: 0 errors. Lint: 0 warnings.
+- All 3 protected sites covered: forum-topic-create, forum-post-create, blog-comment-create.
+- Over-limit 429: handler propagates exception, createTopic/createPost/createComment NOT called.
+- Under-limit: happy path completes, service spy called.
+- Auth gate before throttle: 401 blocks before checkRequest is reached (spy confirmed).
+- createdAt wiring: checkRequest called with non-null Date from usersService.findById.
+- New-account tier: real ThrottleService + InMemoryThrottleStore: young account (1h old) throttled at hit 3 (newAccountMaxHits=2); old account (10d) passes same 3 hits (maxHits=10). Null-createdAt proof shows tier inactive without wiring.
+- Link limit: body with 2 links exceeds maxLinksPerPost=1 -> BadRequestException(400), persist not called.
+- Enforcement reuses ST8 ThrottleService + exceedsLinkLimit — no reimplemented throttle logic in controllers confirmed.
+
+Documentation context:
+- docs/features/forums.md — rate-limiting and link-limit enforcement on createTopic and createPost should be documented.
+- docs/features/blog.md — rate-limiting and link-limit enforcement on createComment should be documented.
+- New-account tier wiring pattern (usersService.findById + userCreatedAt) is now applied to 3 routes, warranting a cross-cutting note in docs/development/api-conventions.md or the relevant feature docs.
+- ThrottleModule + UsersModule now imported by ForumsModule and BlogModule — module dependency graph updated.
+
+Plan and diff context:
+- Plan path: plans/milestone-4-forums-plan.md (ST9 subtask)
+- Comparison base: ms4 branch (main Milestone 4 coordination branch); implementer branch ms4-st9-implementer-20260608 diverges from ms4
+- Tester branch ms4-st9-tester-20260608 adds 23 tests on top of the implementer commit
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST9
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
