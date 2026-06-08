@@ -1,0 +1,33 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST6/verifier_report.md",
+    "artifacts/milestone-4-forums/ST6/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st6-verifier-20260608",
+  "documentation_accuracy_summary": [
+    "MOSTLY ACCURATE \u2014 one WARNING finding (four doc-text errors in forums.md Moderation section; non-functional).",
+    "Route table (lines 380-384) is correct: five endpoints listed with correct status codes.",
+    "Authorization gate description, lock semantics, audit columns, input guard, cross-scope leak prevention, ModeratedTopicShape table, and content-management.md how-to guide are all accurate.",
+    "WARNING: line 363/415/438 say 'six' endpoints (correct: five); line 405 lists 'unlisted' as rejected move destination (correct: unlisted is permitted \u2014 isBoardPubliclyReadable returns true for site-scoped unlisted boards per authorization.service.ts:54 and service test line 636-650)."
+  ],
+  "note_finding_count": 3,
+  "pass_label": "PASS",
+  "status": "complete",
+  "task_id": "milestone-4-forums/ST6",
+  "test_sufficiency_summary": [
+    "SUFFICIENT. 229/229 forums tests pass (controller: 96, service: 133). Typecheck: 0 errors. Lint: 0 warnings (--max-warnings=0).",
+    "All ST6 acceptance criteria dimensions are directly tested with non-vacuous assertions:",
+    "  (1) 401-before-data: assertModeration401FiresBeforeData helper covers all 5 endpoints; dataSpy assert not called.",
+    "  (2) 403-before-data: assertModeration403FiresBeforeData helper covers all 5 endpoints; dataSpy assert not called.",
+    "  (3) assertModerationAccess gate: moderator/admin pass; user/''/undefined throw ForbiddenException.",
+    "  (4) setPinned: isPinned persisted true/false; ModeratedTopicShape returned with all required fields; nonexistent+gated-board 404 with save not called.",
+    "  (5) setLocked: isLocked/lockedByUserId/lockedAt persisted on lock; all cleared on unlock; nonexistent+gated-board 404.",
+    "  (6) Lock integration: setLocked(true) \u2192 createPost rejects with ForbiddenException; postSave not called.",
+    "  (7) moveTopic: valid move persists boardId+audit; project-scoped dest rejected (save not called); members-visibility dest rejected (evaluate() called, save not called); nonexistent dest \u2192 BOARD_NOT_FOUND_MESSAGE; nonexistent source \u2192 TOPIC_NOT_FOUND_MESSAGE; same-board no-op.",
+    "  (8) Input guard: undefined/empty/whitespace/numeric/object destinationBoardId \u2192 400; moveTopic service spy not called.",
+    "  (9) Swagger decorators: per-handler @ApiUnauthorizedResponse (401), @ApiForbiddenResponse (403), @ApiNotFoundResponse (404), and @ApiBadRequestResponse (400 on move) asserted via Reflect.getMetadata."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 1
+}
