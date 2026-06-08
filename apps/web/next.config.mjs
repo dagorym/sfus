@@ -22,8 +22,8 @@ const apiProxyTarget = process.env.NODE_ENV === "development" ? developmentApiOr
  * script-src 'unsafe-inline':
  *   Next.js 15 injects inline scripts for hydration state (e.g. __NEXT_DATA__
  *   and server-action manifest). These cannot be nonce-scoped without a custom
- *   server. Accepted as a baseline tradeoff until a nonce/hash migration is
- *   planned; see docs/deferred-tasks.md (CSP nonce hardening).
+ *   server. Accepted as a baseline tradeoff; a nonce/hash migration is a
+ *   candidate for the deferred-work register in the next planning cycle.
  *
  * style-src 'unsafe-inline':
  *   Next.js 15 injects inline styles for CSS module hydration and critical
@@ -37,11 +37,12 @@ const apiProxyTarget = process.env.NODE_ENV === "development" ? developmentApiOr
  *   prevents CSP violations in development without affecting production, where
  *   this value is omitted.
  *
- * img-src data::
- *   markdown-renderer.tsx uses inline data: URIs for image previews rendered
- *   from markdown content. data: URIs are required for that rendering path.
- *
  * No Swagger UI is mounted by this app; no additional CSP exception is needed.
+ *
+ * img-src is 'self' only: all image paths (featured images, markdown-rendered
+ * images, upload previews) load via the proxied /api/media/... route, and
+ * markdown-renderer.tsx rejects data: URIs outright — no data: allowance is
+ * needed or justified.
  */
 const buildCsp = () => {
   const isDev = process.env.NODE_ENV === "development";
@@ -57,8 +58,9 @@ const buildCsp = () => {
     // 'unsafe-inline' required for Next.js 15 hydration scripts; see comment above.
     "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
-    // data: required for markdown image preview rendering; see comment above.
-    "img-src 'self' data:",
+    // All image sources route through the proxied /api/media path ('self');
+    // markdown-renderer.tsx rejects data: URIs, so no data: allowance exists.
+    "img-src 'self'",
     `connect-src ${connectSrc}`,
     "font-src 'self'",
     "object-src 'none'",

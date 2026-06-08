@@ -162,8 +162,10 @@ describe("web next config — security headers (AC1, AC2)", () => {
     expect(cspHeader!.value).toContain("style-src 'self' 'unsafe-inline'");
   });
 
-  it("includes img-src data: for markdown image preview rendering", async () => {
-    // AC4 (justification): data: URI required for markdown-renderer.tsx image previews
+  it("restricts img-src to 'self' with no data: allowance (markdown-renderer rejects data: URIs)", async () => {
+    // AC4 (justification): all image paths load via the proxied /api/media route
+    // ('self') and markdown-renderer.tsx rejects data: URIs, so img-src must not
+    // carry a data: allowance.
     process.env = { ...ORIGINAL_ENV, NODE_ENV: "production" };
 
     const nextConfig = (await import("./next.config.mjs")).default;
@@ -171,7 +173,8 @@ describe("web next config — security headers (AC1, AC2)", () => {
 
     const cspHeader = findHeader(headers!, "Content-Security-Policy");
     expect(cspHeader).toBeDefined();
-    expect(cspHeader!.value).toContain("img-src 'self' data:");
+    expect(cspHeader!.value).toContain("img-src 'self'");
+    expect(cspHeader!.value).not.toContain("data:");
   });
 });
 

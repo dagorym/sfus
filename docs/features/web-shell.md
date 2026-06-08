@@ -88,7 +88,7 @@ The CSP is enforced (not `Content-Security-Policy-Report-Only`) and built by `bu
 default-src 'self';
 script-src 'self' 'unsafe-inline';
 style-src 'self' 'unsafe-inline';
-img-src 'self' data:;
+img-src 'self';
 connect-src 'self' [+http://localhost:3001 in development];
 font-src 'self';
 object-src 'none';
@@ -102,13 +102,15 @@ Allowances beyond `'self'` and their justifications (also documented as inline c
 
 - **`script-src 'unsafe-inline'`** — Next.js 15 injects inline scripts for hydration state
   (`__NEXT_DATA__`, server-action manifest) that cannot be nonce-scoped without a custom
-  server. Accepted as a baseline tradeoff; nonce/hash migration is tracked in
-  `docs/deferred-tasks.md` (CSP nonce hardening).
-- **`img-src data:`** — `markdown-renderer.tsx` uses inline `data:` URIs for image previews
-  rendered from markdown content.
+  server. Accepted as a baseline tradeoff; a nonce/hash migration is a candidate for the
+  deferred-work register in the next planning cycle.
 - **`connect-src http://localhost:3001` (development only)** — in hybrid-dev mode the browser
   makes direct fetch calls to the local API origin before the Next.js proxy rewrites are in
   place; omitted in production.
+
+`img-src` is `'self'` only: every image path (featured images, markdown-rendered images,
+upload previews) loads via the proxied `/api/media/...` route, and `markdown-renderer.tsx`
+rejects `data:` URIs outright, so no `data:` allowance exists.
 
 ## Reaching the API
 
