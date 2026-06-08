@@ -195,6 +195,7 @@ export class BlogService {
 
     if (useExplicitSlug) {
       // Explicit slug path — no TOCTOU retry needed (caller owns the slug value).
+      // A duplicate-key error means the slug is already taken; map to 409.
       const post = this.blogPostRepository.create({
         id,
         authorUserId,
@@ -207,7 +208,14 @@ export class BlogService {
         featuredImageId: input.featuredImageId ?? null,
         publishedAt: null
       });
-      await this.blogPostRepository.save(post);
+      try {
+        await this.blogPostRepository.save(post);
+      } catch (err: unknown) {
+        if (BlogService.isDuplicateKeyError(err)) {
+          throw new ConflictException("A post with this slug already exists.");
+        }
+        throw err;
+      }
     } else {
       // Auto-derive path — apply TOCTOU retry on duplicate-key save failures.
       await this.saveWithDerivedSlugRetry(id, authorUserId, input, normalizedBody);
@@ -260,7 +268,14 @@ export class BlogService {
       post.isFeatured = input.isFeatured;
     }
 
-    await this.blogPostRepository.save(post);
+    try {
+      await this.blogPostRepository.save(post);
+    } catch (err: unknown) {
+      if (BlogService.isDuplicateKeyError(err) && input.slug !== undefined) {
+        throw new ConflictException("A post with this slug already exists.");
+      }
+      throw err;
+    }
 
     if (input.tags !== undefined) {
       await this.replaceTags(id, input.tags);
