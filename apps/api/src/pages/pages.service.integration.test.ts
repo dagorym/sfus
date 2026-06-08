@@ -153,6 +153,51 @@ describe.skipIf(!DB_INTEGRATION_ENABLED)(
     );
 
     // -----------------------------------------------------------------------
+    // Test 3: currentRevision relation loading — exercises the @ManyToOne
+    // decorator that previously existed but was never loaded via relations.
+    // -----------------------------------------------------------------------
+
+    it(
+      "loads StandalonePageEntity with relations: [\"currentRevision\"] and the joined object is the current revision",
+      async () => {
+        const slug = `it-rel-${crypto.randomUUID().slice(0, 8)}`;
+
+        const created = await service.create(authorUserId, {
+          title: "Relation Test Page",
+          slug,
+          body: "## Relation\nExercising the currentRevision join."
+        });
+
+        // Track for cleanup.
+        createdPageIds.push(created.id);
+
+        // The service returned a page with a non-null currentRevisionId.
+        expect(created.currentRevisionId).toBeTruthy();
+
+        // Load the same entity via the ORM with the relation populated.
+        const pageWithRevision = await pageRepo.findOne({
+          where: { id: created.id },
+          relations: ["currentRevision"]
+        });
+
+        // The relation must be populated (not null / undefined).
+        expect(pageWithRevision).not.toBeNull();
+        expect(pageWithRevision!.currentRevision).not.toBeNull();
+        expect(pageWithRevision!.currentRevision).toBeDefined();
+
+        // The joined revision must be the correct one — its id must match
+        // currentRevisionId on the parent entity.  A mis-joined relation would
+        // return a different (or no) revision and this assertion would fail.
+        expect(pageWithRevision!.currentRevision!.id).toBe(created.currentRevisionId);
+
+        // Sanity-check additional fields to confirm the relation body is real.
+        expect(pageWithRevision!.currentRevision!.revisionNumber).toBe(1);
+        expect(pageWithRevision!.currentRevision!.pageId).toBe(created.id);
+        expect(pageWithRevision!.currentRevision!.authorUserId).toBe(authorUserId);
+      }
+    );
+
+    // -----------------------------------------------------------------------
     // Test 2: forced mid-transaction failure proves DB rollback atomicity
     //
     // WHY THIS TEST DOES NOT CALL service.create() DIRECTLY
