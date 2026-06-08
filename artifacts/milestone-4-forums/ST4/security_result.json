@@ -1,0 +1,23 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST4/security_report.md",
+    "artifacts/milestone-4-forums/ST4/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st4-security-20260608",
+  "documentation_sufficiency_summary": [
+    "docs/features/forums.md accurately documents the ST4 security contract: identical TOPIC_NOT_FOUND_MESSAGE for nonexistent vs hidden boards (oracle parity, P12), the 401-first ordering, the normalizeMarkdownBody -> validateMarkdownBody before-persist sequence with <script>/javascript: examples, pageSize clamping 1-100, soft-delete (deletedAt IS NULL) exclusion, and the explicit PublicTopicShape/PublicAuthorShape allowlist with the stripped internal-field list.",
+    "Documentation is sufficient for safe operation; no documentation finding. Recommend a brief note clarifying the malformed-body (missing body) response once the WARNING above is addressed."
+  ],
+  "note_finding_count": 1,
+  "outcome": "CONDITIONAL PASS",
+  "pass_label": "CONDITIONAL PASS",
+  "status": "complete",
+  "task_id": "ST4",
+  "test_sufficiency_summary": [
+    "Validation matrix GREEN (run from this worktree): vitest run forums.controller.test.ts + forums.service.test.ts = 140 tests passed (57 controller, 83 service); pnpm typecheck = pass (apps/api + apps/web); pnpm lint = pass (--max-warnings=0).",
+    "Security-critical behaviors are covered: oracle parity for create and list asserts byte-identical TOPIC_NOT_FOUND_MESSAGE via toBe for gated-vs-nonexistent boards (TC1-TC4); evaluate() is invoked on the readable path (TC5/TC6 spies); 401-before-any-service-call asserted with forumsService.createTopic not called (TC14); unsafe Markdown <script> and javascript: link rejected 400 with save NOT called (TC7/TC8); public shape strips authorUserId/boardId/isLocked/movedByUserId/lockedByUserId/deletedAt and exposes only author.username/displayName (TC10/TC11); pagination offset (TC12) and pageSize clamp to 100 (TC13) and pinned order (TC9).",
+    "Gap: soft-delete (deletedAt IS NULL) exclusion is implemented but not directly asserted (see WARNING). No member-vs-public board-visibility differential test for the create path (covered conceptually by the anonymous-predicate NOTE)."
+  ],
+  "warning_finding_count": 2
+}
