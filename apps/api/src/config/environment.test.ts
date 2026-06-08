@@ -21,6 +21,7 @@ const createValidEnvironment = (): NodeJS.ProcessEnv => ({
   AUTH_RECOVERY_CODE_COUNT: "10",
   AUTH_RECOVERY_CODE_LENGTH: "12",
   MEDIA_UPLOAD_MAX_SIZE_BYTES: "5242880",
+  MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES: "1048576",
   MEDIA_ALLOWED_MIME_TYPES: "image/jpeg,image/png,image/gif,image/webp",
   MEDIA_STORAGE_PATH: "./storage/uploads",
   THROTTLE_WINDOW_MS: "60000",
@@ -47,6 +48,7 @@ describe("loadEnvironment", () => {
       swaggerEnabled: true,
       media: {
         uploadMaxSizeBytes: 5242880,
+        avatarUploadMaxSizeBytes: 1048576,
         allowedMimeTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
         storagePath: "./storage/uploads"
       },

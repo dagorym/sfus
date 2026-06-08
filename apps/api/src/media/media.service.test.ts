@@ -40,6 +40,7 @@ const makeTestEnvironment = (overrides: Partial<ApplicationEnvironment["media"]>
   swaggerEnabled: false,
   media: {
     uploadMaxSizeBytes: 5 * 1024 * 1024, // 5 MB
+    avatarUploadMaxSizeBytes: 1 * 1024 * 1024, // 1 MB avatar cap
     allowedMimeTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
     storagePath: "/tmp/sfus-test-uploads",
     ...overrides
@@ -161,7 +162,7 @@ describe("MediaService.assertValidResourceType", () => {
 
   it("accepts all allowed resource types", () => {
     const service = makeMediaService();
-    for (const rt of ["blog-post", "standalone-page", "blog-comment"]) {
+    for (const rt of ["blog-post", "standalone-page", "blog-comment", "avatar"]) {
       expect(() => service.assertValidResourceType(rt)).not.toThrow();
     }
   });

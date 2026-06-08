@@ -11,6 +11,8 @@ export interface ApplicationEnvironment {
   swaggerEnabled: boolean;
   media: {
     uploadMaxSizeBytes: number;
+    /** Tighter size cap applied to avatar uploads only (MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES). */
+    avatarUploadMaxSizeBytes: number;
     allowedMimeTypes: string[];
     storagePath: string;
   };
@@ -198,6 +200,12 @@ export const loadEnvironment = (
     { min: 1024, max: 20971520 },
     errors
   );
+  const mediaAvatarUploadMaxSizeBytes = parseInteger(
+    source.MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES,
+    "MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES",
+    { min: 1024, max: 2097152 },
+    errors
+  );
   const mediaAllowedMimeTypes = parseMimeTypeList(
     source.MEDIA_ALLOWED_MIME_TYPES,
     "MEDIA_ALLOWED_MIME_TYPES",
@@ -254,6 +262,7 @@ export const loadEnvironment = (
     swaggerEnabled,
     media: {
       uploadMaxSizeBytes: mediaUploadMaxSizeBytes,
+      avatarUploadMaxSizeBytes: mediaAvatarUploadMaxSizeBytes,
       allowedMimeTypes: mediaAllowedMimeTypes,
       storagePath: mediaStoragePath
     },

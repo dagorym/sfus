@@ -47,11 +47,11 @@ export class MediaController {
   ) {}
 
   /**
-   * Upload an image for use in blog posts, standalone pages, or blog comments.
+   * Upload an image for use in blog posts, standalone pages, blog comments, or user avatars.
    *
    * Authorization rules (role-scoped):
    *  - blog-post / standalone-page: requires admin global role.
-   *  - blog-comment: requires any authenticated user.
+   *  - blog-comment / avatar: requires any authenticated user (self-service).
    *  - unauthenticated requests: rejected with 401.
    */
   @Post("upload")
@@ -63,7 +63,7 @@ export class MediaController {
       limits: { fileSize: 20 * 1024 * 1024 }
     })
   )
-  @ApiOperation({ summary: "Upload an image for use in Milestone 3 content." })
+  @ApiOperation({ summary: "Upload an image for use in blog posts, pages, comments, or avatars." })
   @ApiConsumes("multipart/form-data")
   @ApiBody({
     schema: {

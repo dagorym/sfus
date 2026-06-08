@@ -40,7 +40,7 @@ export interface MediaServeResult {
 }
 
 /** Resource type values accepted as the resource context for an upload. */
-export const ALLOWED_RESOURCE_TYPES = ["blog-post", "standalone-page", "blog-comment"] as const;
+export const ALLOWED_RESOURCE_TYPES = ["blog-post", "standalone-page", "blog-comment", "avatar"] as const;
 export type AllowedResourceType = (typeof ALLOWED_RESOURCE_TYPES)[number];
 
 @Injectable()
@@ -71,7 +71,7 @@ export class MediaService {
   ): Promise<MediaUploadResult> {
     this.assertValidMimeType(file.mimetype);
     this.assertValidMagicBytes(file.buffer, file.mimetype);
-    this.assertValidFileSize(file.size);
+    this.assertValidFileSize(file.size, resourceType);
     this.assertValidResourceType(resourceType);
 
     const id = randomUUID();
@@ -164,7 +164,7 @@ export class MediaService {
    * the client-supplied content-type, catching polyglot and mislabelled files.
    *
    * Applies to every image resourceType handled by this service:
-   *   blog-post, standalone-page, blog-comment (and avatar once ST12 lands).
+   *   blog-post, standalone-page, blog-comment, avatar.
    *
    * SVG (`image/svg+xml`) is absent from both this check and the MIME allow-list
    * because SVG can embed executable content.
@@ -177,9 +177,13 @@ export class MediaService {
     }
   }
 
-  assertValidFileSize(sizeBytes: number): void {
-    if (sizeBytes > this.environment.media.uploadMaxSizeBytes) {
-      const maxMb = (this.environment.media.uploadMaxSizeBytes / (1024 * 1024)).toFixed(1);
+  assertValidFileSize(sizeBytes: number, resourceType?: string): void {
+    const maxSizeBytes =
+      resourceType === "avatar"
+        ? this.environment.media.avatarUploadMaxSizeBytes
+        : this.environment.media.uploadMaxSizeBytes;
+    if (sizeBytes > maxSizeBytes) {
+      const maxMb = (maxSizeBytes / (1024 * 1024)).toFixed(1);
       throw new BadRequestException(`File too large. Maximum allowed size is ${maxMb} MB.`);
     }
   }
