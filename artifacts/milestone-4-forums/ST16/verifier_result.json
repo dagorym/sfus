@@ -1,0 +1,26 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST16/verifier_report.md",
+    "artifacts/milestone-4-forums/ST16/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st16-verifier-20260608",
+  "documentation_accuracy_summary": [
+    "ACCURATE after pass-1 remediation. Pass-1 WARNING and NOTE are both resolved.",
+    "docs/features/forums.md: lines 477-493 correctly describe sanitizeUrl's reject set ('\"' ' < >', & allowed), @username rendering as HTML-escaped plain text (no auto-linkify), bylines as JSX <Link> to /users/<username>.",
+    "docs/features/media.md: lines 100-104 correctly document the rejected-char set as '\"' ' < >' with & intentionally allowed; the prior & caveat/regression note is gone.",
+    "docs/features/web-shell.md and docs/guides/content-management.md: no inaccuracies found in the changed sections."
+  ],
+  "note_finding_count": 5,
+  "pass_label": "verifier-2",
+  "status": "complete",
+  "task_id": "milestone-4-forums/ST16",
+  "test_sufficiency_summary": [
+    "SUFFICIENT. Validation matrix GREEN worktree-locally: vitest run --root apps/web = 10 files / 379 tests passed, 0 failures. Typecheck (api + web) = 0 errors. Lint (api + web, --max-warnings=0) = 0 warnings.",
+    "11 MarkdownRenderer XSS/URL behavioral tests (authoring-components.spec.ts:325-404): 9 original XSS tests + 2 new multi-param-& preservation tests. Non-vacuous: original XSS tests fail against pre-fix sanitizeUrl; & tests fail against intermediate /[\"'<>&]/ reject set and pass against /[\"'<>]/.",
+    "51 forum tests (forums.spec.ts) cover all 5 ACs: AC1 site-boards-only index, AC2 member create + guest ?next= redirect, AC3 locked-topic UX, AC4 moderator controls both directions, AC5 @-autocomplete + byline profile links.",
+    "24 mention-autocomplete tests (mention-autocomplete.spec.ts) cover AC5 @-autocomplete behavior."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
