@@ -1,0 +1,23 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST12/security_report.md",
+    "artifacts/milestone-4-forums/ST12/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st12-security-20260608",
+  "documentation_sufficiency_summary": [
+    "docs/features/media.md correctly documents the avatar resourceType, self-service auth, dual size limits, and that magic-byte/SVG exclusion applies to avatar.",
+    "docs/operations/launch.md correctly documents MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES (range 1024-2097152, recommended 1048576).",
+    "Gap: the git-tracked seed env files (apps/api/.env.example, apps/api/.env) were not updated with the new required var, so operators following the env contract files would hit a fail-closed startup crash (see WARNING finding)."
+  ],
+  "note_finding_count": 3,
+  "outcome": "CONDITIONAL PASS",
+  "pass_label": "security-1",
+  "status": "completed",
+  "task_id": "ST12",
+  "test_sufficiency_summary": [
+    "Avatar-surface security behavior IS well covered: media.controller.test.ts adds avatar 401-no-session, non-admin self-service success, and admin success; media.service.test.ts adds avatar/ prefix, oversized-avatar -> 400, polyglot-avatar -> 400, SVG-avatar -> 400, and a test confirming the GENERAL cap (not the avatar cap) applies to non-avatar types; environment.test.ts adds missing/below-min/above-max/boundary validation for the avatar cap.",
+    "However, the suite does NOT pass on this branch: 6 of 538 API tests fail and the API typecheck reports 4 errors, all because ST12 added a required env field without updating sibling environment fixtures (see WARNING findings). Per role policy, absence of green tests is treated as a real gap; the change set must restore a green typecheck + test suite before merge."
+  ],
+  "warning_finding_count": 2
+}
