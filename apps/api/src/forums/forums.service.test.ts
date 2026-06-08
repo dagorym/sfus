@@ -14,6 +14,7 @@
 
 import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
+import { IsNull } from "typeorm";
 
 import { AuthorizationService } from "../authorization/authorization.service";
 import { ForumsService } from "./forums.service";
@@ -1303,5 +1304,124 @@ describe("ForumsService.listTopics (ST4: board gate + pagination)", () => {
     await service.listTopics("board-pub", { page: 1, pageSize: 999 });
     const callArgs = topicFindAndCountSpy.mock.calls[0][0] as { take: number };
     expect(callArgs.take).toBe(100);
+  });
+
+  // TEST A (WARNING-2 regression coverage): listTopics must include deletedAt: IsNull() in the
+  // where clause to exclude soft-deleted topics. Dropping that condition would expose deleted
+  // topics to public consumers; this assertion would catch such a regression.
+  it("issues repository query with deletedAt: IsNull() in the where clause (TEST A: soft-delete exclusion)", async () => {
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicFindAndCountSpy = vi.fn().mockResolvedValue([[], 0]);
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { findAndCount: topicFindAndCountSpy }
+    );
+    await service.listTopics("board-pub", {});
+    const callArgs = topicFindAndCountSpy.mock.calls[0][0] as { where: Record<string, unknown> };
+    // The where clause must include a TypeORM IsNull() FindOperator for deletedAt.
+    // Any regression dropping this condition would pass `undefined` or omit the key entirely,
+    // causing this assertion to fail and deleted topics to leak.
+    expect(callArgs.where).toHaveProperty("deletedAt");
+    expect(callArgs.where.deletedAt).toEqual(IsNull());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TEST B (WARNING-1 fix validation): createTopic must reject missing/non-string
+// title or body with BadRequestException (400), NOT a TypeError (500).
+// save must NOT be called in these cases.
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.createTopic (TEST B: WARNING-1 type-guard regression)", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+
+  const makePublicBoard = () => ({
+    id: "board-pub",
+    name: "Public Board",
+    slug: "public-board",
+    description: null,
+    sortOrder: 0,
+    scopeType: "site",
+    visibility: "public",
+    projectId: null,
+    categoryId: "cat-1",
+    createdAt: now,
+    updatedAt: now
+  });
+
+  // Missing/undefined body → BadRequestException (400), save NOT called.
+  it("throws BadRequestException (400) for undefined body — save NOT called", async () => {
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { save: topicSaveSpy }
+    );
+    await expect(
+      service.createTopic("user-1", { boardId: "board-pub", title: "Hello", body: undefined as never })
+    ).rejects.toThrow(BadRequestException);
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // Non-string body (number 42) → BadRequestException (400), save NOT called.
+  it("throws BadRequestException (400) for body=42 (number) — save NOT called", async () => {
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { save: topicSaveSpy }
+    );
+    await expect(
+      service.createTopic("user-1", { boardId: "board-pub", title: "Hello", body: 42 as never })
+    ).rejects.toThrow(BadRequestException);
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // Non-string body (object {}) → BadRequestException (400), save NOT called.
+  it("throws BadRequestException (400) for body={} (object) — save NOT called", async () => {
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { save: topicSaveSpy }
+    );
+    await expect(
+      service.createTopic("user-1", { boardId: "board-pub", title: "Hello", body: {} as never })
+    ).rejects.toThrow(BadRequestException);
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // Missing/undefined title → BadRequestException (400), save NOT called.
+  it("throws BadRequestException (400) for undefined title — save NOT called", async () => {
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { save: topicSaveSpy }
+    );
+    await expect(
+      service.createTopic("user-1", { boardId: "board-pub", title: undefined as never, body: "World" })
+    ).rejects.toThrow(BadRequestException);
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // Non-string title (number 99) → BadRequestException (400), save NOT called.
+  it("throws BadRequestException (400) for title=99 (number) — save NOT called", async () => {
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { save: topicSaveSpy }
+    );
+    await expect(
+      service.createTopic("user-1", { boardId: "board-pub", title: 99 as never, body: "World" })
+    ).rejects.toThrow(BadRequestException);
+    expect(topicSaveSpy).not.toHaveBeenCalled();
   });
 });
