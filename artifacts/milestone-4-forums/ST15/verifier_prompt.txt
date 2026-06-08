@@ -1,0 +1,67 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST15 — self-service set/remove-avatar with OWNERSHIP enforcement. PUT /api/users/me/avatar: 400 (malformed mediaId) -> 401 (no session) -> 403 (ownership) -> persist; returns {avatarUrl:"/api/media/<id>"}. DELETE /api/users/me/avatar: 401 -> clears avatar_media_id; returns {avatarUrl:null}. UsersService.setAvatar uses a single WHERE {id, resourceType:'avatar', ownerUserId:callerId} so a nonexistent / wrong-resourceType / foreign-owned media id ALL yield a uniform 403 ForbiddenException (oracle parity). On success users.avatar_media_id persists and shows in the ST14 public profile.
+
+Acceptance criteria to verify:
+- set-avatar rejects nonexistent/wrong-type/foreign media ids with uniform 403 (oracle parity)
+- success persists avatar_media_id and avatar appears in GET /api/users/:username profile
+- remove clears avatar_media_id; GET /api/users/:username returns avatar: null
+- 401 without active session for both PUT and DELETE
+- malformed or missing mediaId returns 400
+- 31 new tests added; full suite 863 pass, 0 fail; typecheck 0 errors; lint clean
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st15-documenter-20260608
+- Branch: ms4-st15-documenter-20260608 (includes Implementer commit ddf22c1 and Tester commit ece6ee7)
+- Base branch: ms4
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/users/users.controller.ts
+- apps/api/src/users/users.service.ts
+- apps/api/src/users/users.types.ts
+- apps/api/src/users/users.module.ts
+- apps/api/src/users/users.controller.test.ts
+- apps/api/src/users/users.service.test.ts
+- docs/features/auth.md
+- docs/features/media.md
+
+Commands executed:
+- git diff ms4 --name-only (identify changed files)
+- Read docs/features/auth.md
+- Read docs/features/media.md
+- Read apps/api/src/users/users.controller.ts
+- Read apps/api/src/users/users.service.ts
+
+Final test outcomes:
+- 863 tests passed, 2 skipped, 0 failed (tester-validated)
+- users.controller.test.ts: 42 tests (23 ST14 + 19 ST15)
+- users.service.test.ts: 28 tests (14 ST14 + 14 ST15)
+- 0 typecheck errors, 0 lint warnings
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-plan.md — ST15 section
+- Documentation Impact: EXTEND docs/features/auth.md with set/remove-avatar contract; cross-reference in media.md if appropriate; do NOT edit docs/deferred-tasks.md
+- Base branch: ms4
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table
+- docs/features/auth.md covers the user/profile surface (primary home for avatar self-service contract)
+- docs/features/media.md covers media_references resourceType behavior (cross-reference home)
+- API conventions: docs/development/api-conventions.md
+- One fact, one home — avoid duplicating the full contract in media.md
+
+Updated documentation files:
+- docs/features/auth.md
+- docs/features/media.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST15
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
