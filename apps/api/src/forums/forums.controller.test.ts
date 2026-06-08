@@ -71,6 +71,9 @@ const makeForumsService = (overrides?: Record<string, unknown>) => ({
   // ST4: topic routes
   createTopic: vi.fn().mockResolvedValue({ id: "topic-new", title: "Test", slug: "test", body: "Body", isPinned: false, replyCount: 0, lastPostAt: null, author: { username: "u", displayName: null }, createdAt: new Date(), updatedAt: new Date() }),
   listTopics: vi.fn().mockResolvedValue({ topics: [], total: 0, page: 1, pageSize: 20 }),
+  // ST5: post routes
+  createPost: vi.fn().mockResolvedValue({ id: "post-new", body: "Reply", parentId: null, quotedPostId: null, author: { username: "u", displayName: null }, createdAt: new Date(), updatedAt: new Date() }),
+  listPosts: vi.fn().mockResolvedValue({ posts: [], total: 0, page: 1, pageSize: 20 }),
   ...overrides
 });
 
@@ -779,5 +782,99 @@ describe("ForumsController: listTopics (ST4: public route, no auth)", () => {
     const controller = makeController(forumsService as never, makeAuthService() as never);
     await controller.listTopics("board-1", "2", "5");
     expect(listTopicsSpy).toHaveBeenCalledWith("board-1", { page: 2, pageSize: 5 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST5: createPost — 401 gate fires before any service call
+// ---------------------------------------------------------------------------
+
+describe("ForumsController: createPost — 401 gate fires before any service call (ST5-AC-auth)", () => {
+  // ST5-AUTH: resolveSession rejection → UnauthorizedException BEFORE createPost service call
+  it("throws UnauthorizedException and does NOT call forumsService.createPost when session is missing", async () => {
+    const createPostSpy = vi.fn();
+    const forumsService = makeForumsService({ createPost: createPostSpy });
+    const authService = makeAuthServiceNoSession();
+    const controller = makeController(forumsService as never, authService as never);
+
+    await expect(
+      controller.createPost(makeRequest() as never, "topic-1", { body: "Hello" })
+    ).rejects.toThrow(UnauthorizedException);
+
+    // Service must NOT have been called before 401 is thrown
+    expect(createPostSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST5: listPosts — public route, no auth required
+// ---------------------------------------------------------------------------
+
+describe("ForumsController: listPosts (ST5: public route, no auth)", () => {
+  it("delegates to forumsService.listPosts and returns paginated result without touching auth", async () => {
+    const now = new Date("2026-01-01T00:00:00Z");
+    const paginatedResult = {
+      posts: [
+        {
+          id: "post-1",
+          body: "Hello world",
+          parentId: null,
+          quotedPostId: null,
+          author: { username: "user1", displayName: "User One" },
+          createdAt: now,
+          updatedAt: now
+        }
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 20
+    };
+    const listPostsSpy = vi.fn().mockResolvedValue(paginatedResult);
+    const authServiceSpy = { resolveSession: vi.fn() };
+    const forumsService = makeForumsService({ listPosts: listPostsSpy });
+    const controller = makeController(forumsService as never, authServiceSpy as never);
+    const result = await controller.listPosts("topic-1");
+    expect(result).toEqual(paginatedResult);
+    expect(listPostsSpy).toHaveBeenCalledWith("topic-1", { page: undefined, pageSize: undefined });
+    // Auth is NOT invoked for public listing
+    expect(authServiceSpy.resolveSession).not.toHaveBeenCalled();
+  });
+
+  it("passes parsed page and pageSize query params to forumsService.listPosts", async () => {
+    const listPostsSpy = vi.fn().mockResolvedValue({ posts: [], total: 0, page: 3, pageSize: 10 });
+    const forumsService = makeForumsService({ listPosts: listPostsSpy });
+    const controller = makeController(forumsService as never, makeAuthService() as never);
+    await controller.listPosts("topic-1", "3", "10");
+    expect(listPostsSpy).toHaveBeenCalledWith("topic-1", { page: 3, pageSize: 10 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST5: createPost — happy-path delegation
+// ---------------------------------------------------------------------------
+
+describe("ForumsController: createPost (ST5: happy path delegation)", () => {
+  it("resolves session and delegates to forumsService.createPost, returning { post }", async () => {
+    const now = new Date("2026-01-01T00:00:00Z");
+    const createdPost = {
+      id: "post-new",
+      body: "Reply text",
+      parentId: null,
+      quotedPostId: null,
+      author: { username: "replyuser", displayName: "Reply User" },
+      createdAt: now,
+      updatedAt: now
+    };
+    const createPostSpy = vi.fn().mockResolvedValue(createdPost);
+    const authService = makeAuthService(makeUserSession());
+    const forumsService = makeForumsService({ createPost: createPostSpy });
+    const controller = makeController(forumsService as never, authService as never);
+    const result = await controller.createPost(
+      makeRequest() as never,
+      "topic-1",
+      { body: "Reply text" }
+    );
+    expect(result).toEqual({ post: createdPost });
+    expect(createPostSpy).toHaveBeenCalledWith("user-regular", { topicId: "topic-1", body: "Reply text" });
   });
 });

@@ -1338,6 +1338,523 @@ describe("ForumsService.listTopics (ST4: board gate + pagination)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// ST5: createPost — topic gate, locked topic, input guards, threading, shape
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.createPost (ST5: topic gate + 401 boundary)", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+
+  const makePublicBoard = () => ({
+    id: "board-pub",
+    name: "Public Board",
+    slug: "public-board",
+    description: null,
+    sortOrder: 0,
+    scopeType: "site",
+    visibility: "public",
+    projectId: null,
+    categoryId: "cat-1",
+    createdAt: now,
+    updatedAt: now
+  });
+
+  const makeUnlockedTopic = () => ({
+    id: "topic-1",
+    boardId: "board-pub",
+    authorUserId: "user-1",
+    title: "Test Topic",
+    slug: "test-topic",
+    body: "Topic body",
+    isPinned: false,
+    isLocked: false,
+    replyCount: 0,
+    lastPostAt: null,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    board: makePublicBoard()
+  });
+
+  const makeSavedPost = (overrides?: object) => ({
+    id: "post-1",
+    topicId: "topic-1",
+    authorUserId: "user-1",
+    body: "Hello world",
+    parentId: null,
+    quotedPostId: null,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    author: { username: "testuser", displayName: "Test User" },
+    ...overrides
+  });
+
+  // ST5-AC1a: nonexistent topic → TOPIC_NOT_FOUND_MESSAGE
+  it("throws NotFoundException with TOPIC_NOT_FOUND_MESSAGE for nonexistent topic", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(null);
+    const service = makeForumsService(undefined, undefined, { findOne: topicFindOneSpy });
+    await expect(
+      service.createPost("user-1", { topicId: "topic-nonexistent", body: "Hello" })
+    ).rejects.toThrow(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+  });
+
+  // ST5-AC1b: gated board (topic exists but board is not publicly readable) → IDENTICAL TOPIC_NOT_FOUND_MESSAGE
+  it("throws IDENTICAL TOPIC_NOT_FOUND_MESSAGE for topic with gated board as for nonexistent topic (oracle parity)", async () => {
+    const gatedBoard = { ...makePublicBoard(), visibility: "members" };
+    const topicWithGatedBoard = { ...makeUnlockedTopic(), board: gatedBoard };
+    const gatedService = makeForumsService(
+      undefined, undefined,
+      { findOne: vi.fn().mockResolvedValue(topicWithGatedBoard) }
+    );
+    const missingService = makeForumsService(
+      undefined, undefined,
+      { findOne: vi.fn().mockResolvedValue(null) }
+    );
+    let gatedMsg = "";
+    let missingMsg = "";
+    try { await gatedService.createPost("user-1", { topicId: "topic-gated", body: "Hello" }); } catch (e: unknown) { gatedMsg = (e as Error).message; }
+    try { await missingService.createPost("user-1", { topicId: "topic-missing", body: "Hello" }); } catch (e: unknown) { missingMsg = (e as Error).message; }
+    expect(gatedMsg).toBe(missingMsg);
+    expect(gatedMsg).toBe(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+  });
+
+  // ST5-AC1c: locked topic → 403 thread-locked, save NOT called
+  it("throws ForbiddenException for locked topic and does NOT call save (ST5: locked topic 403)", async () => {
+    const lockedTopic = { ...makeUnlockedTopic(), isLocked: true };
+    const topicFindOneSpy = vi.fn().mockResolvedValue(lockedTopic);
+    const postSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy, save: postSaveSpy },
+      { save: postSaveSpy }
+    );
+    await expect(
+      service.createPost("user-1", { topicId: "topic-1", body: "Hello" })
+    ).rejects.toThrow(ForbiddenException);
+    expect(postSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // ST5: createPost calls AuthorizationService.evaluate()
+  it("calls AuthorizationService.evaluate() when board is readable (ST5: spy asserted)", async () => {
+    const authorizationService = new AuthorizationService();
+    const evaluateSpy = vi.spyOn(authorizationService, "evaluate");
+
+    const savedPost = makeSavedPost();
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+    const postCreateSpy = vi.fn().mockReturnValue(savedPost);
+    const postSaveSpy = vi.fn().mockResolvedValue(savedPost);
+    const postFindOneSpy = vi.fn().mockResolvedValue(savedPost);
+    // need topicRepo.save too for replyCount update
+    const topicSaveSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      { ...createMinimalRepository(), findOne: topicFindOneSpy, save: topicSaveSpy } as never,
+      { ...createMinimalRepository(), create: postCreateSpy, save: postSaveSpy, findOne: postFindOneSpy } as never,
+      authorizationService
+    );
+    await service.createPost("user-1", { topicId: "topic-1", body: "Hello world" });
+    expect(evaluateSpy).toHaveBeenCalled();
+  });
+
+  // ST5-THREADING-valid: valid parentId (top-level post on same topic) → accepted
+  it("accepts valid parentId that is a top-level post on the same topic", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+    const parentPost = {
+      id: "parent-post-1",
+      topicId: "topic-1",
+      parentId: null, // top-level
+      deletedAt: null
+    };
+    const savedPost = makeSavedPost({ parentId: "parent-post-1" });
+    const postFindOneSpy = vi.fn()
+      .mockResolvedValueOnce(parentPost)  // parent lookup
+      .mockResolvedValueOnce(savedPost);  // reload after save
+    const postCreateSpy = vi.fn().mockReturnValue(savedPost);
+    const postSaveSpy = vi.fn().mockResolvedValue(savedPost);
+    const topicSaveSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy, save: topicSaveSpy },
+      { findOne: postFindOneSpy, create: postCreateSpy, save: postSaveSpy }
+    );
+    const result = await service.createPost("user-1", {
+      topicId: "topic-1",
+      body: "Hello world",
+      parentId: "parent-post-1"
+    });
+    expect(result.parentId).toBe("parent-post-1");
+  });
+
+  // ST5-THREADING-invalid-a: nonexistent parentId → uniform 400, save NOT called
+  it("throws uniform BadRequestException for nonexistent parentId — save NOT called (ST5: threading invalid-a)", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+    const postFindOneSpy = vi.fn()
+      .mockResolvedValueOnce(null); // parent not found
+    const postSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { findOne: postFindOneSpy, save: postSaveSpy }
+    );
+    await expect(
+      service.createPost("user-1", { topicId: "topic-1", body: "Hello", parentId: "nonexistent-parent" })
+    ).rejects.toThrow(BadRequestException);
+    expect(postSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // ST5-THREADING-invalid-b: parentId belongs to different topic → uniform 400 with IDENTICAL message
+  it("throws uniform BadRequestException for parentId from different topic — IDENTICAL message as nonexistent (ST5: threading invalid-b)", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+    const wrongTopicParent = {
+      id: "parent-other-topic",
+      topicId: "topic-OTHER",
+      parentId: null,
+      deletedAt: null
+    };
+    const notFoundParent = null;
+    const serviceA = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { findOne: vi.fn().mockResolvedValueOnce(wrongTopicParent), save: vi.fn() }
+    );
+    const serviceB = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { findOne: vi.fn().mockResolvedValueOnce(notFoundParent), save: vi.fn() }
+    );
+    let msgA = "";
+    let msgB = "";
+    try { await serviceA.createPost("user-1", { topicId: "topic-1", body: "Hi", parentId: "parent-other-topic" }); } catch (e: unknown) { msgA = (e as Error).message; }
+    try { await serviceB.createPost("user-1", { topicId: "topic-1", body: "Hi", parentId: "nonexistent" }); } catch (e: unknown) { msgB = (e as Error).message; }
+    expect(msgA).toBe(msgB); // IDENTICAL message — no oracle
+    expect(msgA).toBeTruthy();
+  });
+
+  // ST5-THREADING-invalid-c: parentId is itself a reply (reply-to-a-reply) → uniform 400, save NOT called
+  it("throws uniform BadRequestException for reply-to-a-reply parentId — same message — save NOT called (ST5: threading invalid-c)", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+    const replyPost = {
+      id: "reply-post-1",
+      topicId: "topic-1",
+      parentId: "some-other-post", // is a reply, not top-level
+      deletedAt: null
+    };
+    const notFoundParent = null;
+    const serviceA = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { findOne: vi.fn().mockResolvedValueOnce(replyPost), save: vi.fn() }
+    );
+    const serviceB = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { findOne: vi.fn().mockResolvedValueOnce(notFoundParent), save: vi.fn() }
+    );
+    let msgA = "";
+    let msgB = "";
+    try { await serviceA.createPost("user-1", { topicId: "topic-1", body: "Hi", parentId: "reply-post-1" }); } catch (e: unknown) { msgA = (e as Error).message; }
+    try { await serviceB.createPost("user-1", { topicId: "topic-1", body: "Hi", parentId: "nonexistent" }); } catch (e: unknown) { msgB = (e as Error).message; }
+    expect(msgA).toBe(msgB); // IDENTICAL — uniform 400
+    expect(msgA).toBeTruthy();
+  });
+
+  // ST5-MARKDOWN: unsafe body (<script>) → 400 BEFORE persistence
+  it("rejects <script> body with BadRequestException before persistence (ST5: unsafe Markdown)", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+    const postSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { save: postSaveSpy }
+    );
+    await expect(
+      service.createPost("user-1", { topicId: "topic-1", body: "<script>alert('xss')</script>" })
+    ).rejects.toThrow(BadRequestException);
+    expect(postSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // ST5-MARKDOWN: javascript: URL in body → 400 BEFORE persistence
+  it("rejects javascript: link body with BadRequestException before persistence (ST5: unsafe Markdown URL)", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+    const postSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { save: postSaveSpy }
+    );
+    await expect(
+      service.createPost("user-1", { topicId: "topic-1", body: "[click](javascript:alert(1))" })
+    ).rejects.toThrow(BadRequestException);
+    expect(postSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // ST5-INPUT: undefined body → BadRequestException (400), NOT TypeError/500, save NOT called
+  it("throws BadRequestException (400) for undefined body — NOT TypeError — save NOT called", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+    const postSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { save: postSaveSpy }
+    );
+    const err = await service.createPost("user-1", { topicId: "topic-1", body: undefined as never }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect(postSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // ST5-INPUT: body=42 → BadRequestException (400), save NOT called
+  it("throws BadRequestException (400) for body=42 (number) — save NOT called", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+    const postSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { save: postSaveSpy }
+    );
+    await expect(
+      service.createPost("user-1", { topicId: "topic-1", body: 42 as never })
+    ).rejects.toThrow(BadRequestException);
+    expect(postSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // ST5-INPUT: body={} → BadRequestException (400), save NOT called
+  it("throws BadRequestException (400) for body={} (object) — save NOT called", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+    const postSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { save: postSaveSpy }
+    );
+    await expect(
+      service.createPost("user-1", { topicId: "topic-1", body: {} as never })
+    ).rejects.toThrow(BadRequestException);
+    expect(postSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // ST5-SHAPE: public post shape strips authorUserId, topicId, deletedAt; exposes author.username/displayName and quotedPostId
+  it("response shape strips authorUserId, topicId, deletedAt and exposes author/quotedPostId (ST5: public shape)", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+    const rawPost = {
+      id: "post-shape",
+      topicId: "topic-SECRET",
+      authorUserId: "user-SECRET",
+      body: "Hello world",
+      parentId: null,
+      quotedPostId: "quoted-post-99",
+      deletedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      author: { username: "shapeuser", displayName: "Shape User" }
+    };
+    const postCreateSpy = vi.fn().mockReturnValue(rawPost);
+    const postSaveSpy = vi.fn().mockResolvedValue(rawPost);
+    const postFindOneSpy = vi.fn().mockResolvedValue(rawPost);
+    const topicSaveSpy = vi.fn().mockResolvedValue(makeUnlockedTopic());
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy, save: topicSaveSpy },
+      { create: postCreateSpy, save: postSaveSpy, findOne: postFindOneSpy }
+    );
+    const result = await service.createPost("user-1", { topicId: "topic-1", body: "Hello world", quotedPostId: "quoted-post-99" });
+    // Stripped internal fields
+    expect(result).not.toHaveProperty("authorUserId");
+    expect(result).not.toHaveProperty("topicId");
+    expect(result).not.toHaveProperty("deletedAt");
+    // Exposed public fields
+    expect(result.author).toBeDefined();
+    expect(result.author.username).toBe("shapeuser");
+    expect(result.author.displayName).toBe("Shape User");
+    expect(result.quotedPostId).toBe("quoted-post-99");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST5: listPosts — topic gate, query/order contract, pagination, public shape
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.listPosts (ST5: topic gate + pagination)", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+
+  const makePublicBoard = () => ({
+    id: "board-pub",
+    name: "Public Board",
+    slug: "public-board",
+    description: null,
+    sortOrder: 0,
+    scopeType: "site",
+    visibility: "public",
+    projectId: null,
+    categoryId: "cat-1",
+    createdAt: now,
+    updatedAt: now
+  });
+
+  const makeTopicWithPublicBoard = () => ({
+    id: "topic-1",
+    boardId: "board-pub",
+    authorUserId: "user-1",
+    title: "Test Topic",
+    slug: "test-topic",
+    body: "Topic body",
+    isPinned: false,
+    isLocked: false,
+    replyCount: 0,
+    lastPostAt: null,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    board: makePublicBoard()
+  });
+
+  // ST5-GATE-a: nonexistent topic → TOPIC_NOT_FOUND_MESSAGE
+  it("throws NotFoundException with TOPIC_NOT_FOUND_MESSAGE for nonexistent topic (ST5: listPosts gate)", async () => {
+    const service = makeForumsService(undefined, undefined, { findOne: vi.fn().mockResolvedValue(null) });
+    await expect(service.listPosts("topic-missing", {})).rejects.toThrow(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+  });
+
+  // ST5-GATE-b: gated topic (board not readable) → IDENTICAL TOPIC_NOT_FOUND_MESSAGE
+  it("throws IDENTICAL TOPIC_NOT_FOUND_MESSAGE for gated topic as for nonexistent (oracle parity)", async () => {
+    const gatedTopic = { ...makeTopicWithPublicBoard(), board: { ...makePublicBoard(), visibility: "project-only" } };
+    const gatedService = makeForumsService(undefined, undefined, { findOne: vi.fn().mockResolvedValue(gatedTopic) });
+    const missingService = makeForumsService(undefined, undefined, { findOne: vi.fn().mockResolvedValue(null) });
+    let gatedMsg = "";
+    let missingMsg = "";
+    try { await gatedService.listPosts("topic-gated", {}); } catch (e: unknown) { gatedMsg = (e as Error).message; }
+    try { await missingService.listPosts("topic-missing", {}); } catch (e: unknown) { missingMsg = (e as Error).message; }
+    expect(gatedMsg).toBe(missingMsg);
+    expect(gatedMsg).toBe(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+  });
+
+  // ST5: listPosts calls AuthorizationService.evaluate()
+  it("calls AuthorizationService.evaluate() when topic is readable (ST5: spy asserted)", async () => {
+    const authorizationService = new AuthorizationService();
+    const evaluateSpy = vi.spyOn(authorizationService, "evaluate");
+
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeTopicWithPublicBoard());
+    const postFindAndCountSpy = vi.fn().mockResolvedValue([[], 0]);
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      { ...createMinimalRepository(), findOne: topicFindOneSpy } as never,
+      { ...createMinimalRepository(), findAndCount: postFindAndCountSpy } as never,
+      authorizationService
+    );
+    await service.listPosts("topic-1", {});
+    expect(evaluateSpy).toHaveBeenCalled();
+  });
+
+  // ST5-ORDER: listPosts passes { createdAt: 'ASC', id: 'ASC' } order to findAndCount
+  it("passes oldest-first order { createdAt: ASC, id: ASC } to findAndCount (ST5: deterministic order)", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeTopicWithPublicBoard());
+    const postFindAndCountSpy = vi.fn().mockResolvedValue([[], 0]);
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { findAndCount: postFindAndCountSpy }
+    );
+    await service.listPosts("topic-1", {});
+    expect(postFindAndCountSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order: { createdAt: "ASC", id: "ASC" }
+      })
+    );
+  });
+
+  // ST5-SOFTDELETE: listPosts includes deletedAt: IsNull() in where clause
+  it("issues query with deletedAt: IsNull() in where clause (ST5: soft-delete exclusion regression guard)", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeTopicWithPublicBoard());
+    const postFindAndCountSpy = vi.fn().mockResolvedValue([[], 0]);
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { findAndCount: postFindAndCountSpy }
+    );
+    await service.listPosts("topic-1", {});
+    const callArgs = postFindAndCountSpy.mock.calls[0][0] as { where: Record<string, unknown> };
+    expect(callArgs.where).toHaveProperty("deletedAt");
+    expect(callArgs.where.deletedAt).toEqual(IsNull());
+  });
+
+  // ST5-PAGINATION: page=2, pageSize=5 → skip=5, take=5
+  it("translates page=2, pageSize=5 into skip=5, take=5 (ST5: pagination offset)", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeTopicWithPublicBoard());
+    const postFindAndCountSpy = vi.fn().mockResolvedValue([[], 0]);
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { findAndCount: postFindAndCountSpy }
+    );
+    await service.listPosts("topic-1", { page: 2, pageSize: 5 });
+    expect(postFindAndCountSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 5, take: 5 })
+    );
+  });
+
+  // ST5-PAGINATION: pageSize=999 → clamped to 100
+  it("clamps pageSize=999 to 100 (ST5: pageSize clamp)", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeTopicWithPublicBoard());
+    const postFindAndCountSpy = vi.fn().mockResolvedValue([[], 0]);
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { findAndCount: postFindAndCountSpy }
+    );
+    await service.listPosts("topic-1", { page: 1, pageSize: 999 });
+    const callArgs = postFindAndCountSpy.mock.calls[0][0] as { take: number };
+    expect(callArgs.take).toBe(100);
+  });
+
+  // ST5-PAGINATION: pageSize=0 → clamped to 1
+  it("clamps pageSize=0 to 1 (ST5: pageSize minimum clamp)", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeTopicWithPublicBoard());
+    const postFindAndCountSpy = vi.fn().mockResolvedValue([[], 0]);
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { findAndCount: postFindAndCountSpy }
+    );
+    await service.listPosts("topic-1", { page: 1, pageSize: 0 });
+    const callArgs = postFindAndCountSpy.mock.calls[0][0] as { take: number };
+    expect(callArgs.take).toBe(1);
+  });
+
+  // ST5-SHAPE: listPosts public shape strips authorUserId, topicId, deletedAt; exposes author/quotedPostId
+  it("returned post shapes strip internal fields and expose author.username/displayName and quotedPostId (ST5: public shape)", async () => {
+    const postEntity = {
+      id: "post-list",
+      topicId: "topic-SECRET",
+      authorUserId: "user-SECRET",
+      body: "Content",
+      parentId: null,
+      quotedPostId: "quoted-ref-55",
+      deletedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      author: { username: "listposter", displayName: "List Poster" }
+    };
+    const topicFindOneSpy = vi.fn().mockResolvedValue(makeTopicWithPublicBoard());
+    const postFindAndCountSpy = vi.fn().mockResolvedValue([[postEntity], 1]);
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy },
+      { findAndCount: postFindAndCountSpy }
+    );
+    const result = await service.listPosts("topic-1", {});
+    expect(result.posts).toHaveLength(1);
+    const post = result.posts[0];
+    expect(post).not.toHaveProperty("authorUserId");
+    expect(post).not.toHaveProperty("topicId");
+    expect(post).not.toHaveProperty("deletedAt");
+    expect(post.author.username).toBe("listposter");
+    expect(post.author.displayName).toBe("List Poster");
+    expect(post.quotedPostId).toBe("quoted-ref-55");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // TEST B (WARNING-1 fix validation): createTopic must reject missing/non-string
 // title or body with BadRequestException (400), NOT a TypeError (500).
 // save must NOT be called in these cases.
