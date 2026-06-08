@@ -51,7 +51,8 @@ function escapeHtml(text: string): string {
 // Minimal Markdown → HTML converter
 // ---------------------------------------------------------------------------
 
-function convertMarkdownToHtml(markdown: string): string {
+/** @internal Exported for unit testing only — not part of the public API. */
+export function convertMarkdownToHtml(markdown: string): string {
   // 1. Strip any raw HTML before processing.
   const safe = stripRawHtml(markdown);
 
@@ -212,17 +213,37 @@ function renderInline(text: string): string {
 }
 
 /**
- * Sanitizes a URL so only safe schemes are rendered as links/image sources.
+ * Sanitizes a URL so only safe schemes are rendered as links/image sources,
+ * and the result is safe to interpolate directly into href="..." or src="..."
+ * without HTML-attribute breakout.
+ *
  * Rejects javascript:, vbscript:, data:, and any other non-http(s)/ scheme.
+ * Rejects any URL that contains a double-quote, single-quote, `<`, `>`, or `&`
+ * as a raw character — these would break out of or corrupt the surrounding
+ * HTML attribute even when HTML-entity-encoded (because &quot; is decoded back
+ * to " by the HTML parser and terminates the attribute). Legitimate URLs use
+ * percent-encoding (%22, %27, etc.) for these characters, so safe real-world
+ * URLs are unaffected.
  */
 function sanitizeUrl(url: string): string {
   const trimmed = url.trim();
   // Allow relative paths and http(s):// only.
-  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("/") || trimmed.startsWith("./") || trimmed.startsWith("../")) {
-    return trimmed;
+  const schemeAllowed =
+    /^https?:\/\//i.test(trimmed) ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("./") ||
+    trimmed.startsWith("../");
+  if (!schemeAllowed) {
+    return "#";
   }
-  // Reject all other schemes (javascript:, data:, etc.)
-  return "#";
+  // Reject any URL containing attribute-breaking characters. A raw " in a URL
+  // breaks out of href="..." / src="..." even when encoded as &quot; because the
+  // HTML parser resolves &quot; → " and terminates the attribute. Legitimate
+  // URLs percent-encode these chars, so rejecting them is safe for real URLs.
+  if (/["'<>&]/.test(trimmed)) {
+    return "#";
+  }
+  return trimmed;
 }
 
 // ---------------------------------------------------------------------------

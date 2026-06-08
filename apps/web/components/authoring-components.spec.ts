@@ -18,6 +18,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { convertMarkdownToHtml } from "./markdown-renderer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,8 +47,8 @@ describe("MarkdownRenderer source contracts", () => {
     // sanitizeUrl must reject javascript: scheme.
     expect(source).toContain("sanitizeUrl");
     expect(source).toContain("javascript");
-    // The fallback return value when an unsafe scheme is detected.
-    expect(source).toContain('return "#"');
+    // The fallback value when an unsafe scheme is detected (safe = allowed ? trimmed : "#").
+    expect(source).toContain('"#"');
   });
 
   it("rejects vbscript: URIs", async () => {
@@ -60,8 +61,8 @@ describe("MarkdownRenderer source contracts", () => {
     // The sanitizeUrl function uses an explicit allowlist: https?:// and relative paths.
     // Any unrecognised scheme (including data:) falls through to the "#" fallback.
     expect(source).toContain("https?:\\/\\/");
-    // Confirm the allowlist approach: the function returns "#" for unsafe schemes.
-    expect(source).toContain('return "#"');
+    // Confirm the allowlist approach: the fallback is "#" for unsafe schemes.
+    expect(source).toContain('"#"');
     // Confirm the comment documents data: as a rejected scheme.
     expect(source).toContain("data:");
   });
@@ -307,5 +308,84 @@ describe("Authoring workflow reusability contracts (AC4)", () => {
     // The component accepts an apiBasePath prop instead of a hardcoded path.
     expect(source).toContain("apiBasePath");
     expect(source).toContain("NEXT_PUBLIC_API_BASE_PATH");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SECURITY: MarkdownRenderer XSS behavioural tests (ST16 security remediation)
+//
+// These are BEHAVIOURAL tests that call the pure convertMarkdownToHtml function
+// directly with live XSS payloads and assert the rendered output is INERT.
+// They require NO jsdom or React rendering harness.
+//
+// These tests MUST FAIL against the old renderer (pre-fix) where sanitizeUrl()
+// returned a raw URL without HTML-attribute encoding.
+// ---------------------------------------------------------------------------
+
+describe("MarkdownRenderer XSS behavioural tests — attribute breakout (ST16 security)", () => {
+  it("proven XSS payload: quote in link href does NOT produce a live event handler", () => {
+    // Proven payload: [click](/a" onpointerover=alert`1`)
+    // Old renderer: <a href="/a" onpointerover=alert`1`" ...> (LIVE handler)
+    // Fixed renderer: URL containing " is REJECTED → href="#" (no event handler injected).
+    const payload = '[click](/a" onpointerover=alert`1`)';
+    const output = convertMarkdownToHtml(payload);
+    // The event handler must NOT appear in the output at all — URL was rejected.
+    expect(output).not.toContain('onpointerover=');
+    // The URL with " is rejected — href falls back to "#"
+    expect(output).toContain('href="#"');
+  });
+
+  it("quote in link href: URL containing \" is rejected to # (attribute breakout blocked)", () => {
+    const output = convertMarkdownToHtml('[text](/path?foo=bar"&baz=1)');
+    // URL contains " — rejected to "#", no breakout possible.
+    expect(output).toContain('href="#"');
+    // No bare double-quote from the URL should appear in the href attribute value.
+    expect(output).not.toContain('/path?foo=bar"');
+  });
+
+  it("onerror injection via image src does NOT produce a live event handler", () => {
+    // Attempt: ![alt](/x" onerror=alert`1`)
+    const payload = '![alt](/x" onerror=alert`1`)';
+    const output = convertMarkdownToHtml(payload);
+    // URL containing " is rejected — onerror handler never appears.
+    expect(output).not.toContain('onerror=');
+    // src falls back to "#"
+    expect(output).toContain('src="#"');
+  });
+
+  it("quote in image src: URL containing \" is rejected to # (no raw quote in output)", () => {
+    const output = convertMarkdownToHtml('![img](/img?size=1"&fmt=png)');
+    // URL contains " — rejected to "#"
+    expect(output).toContain('src="#"');
+    expect(output).not.toContain('/img?size=1"');
+  });
+
+  it("javascript: scheme in link href is rejected (returns # as href)", () => {
+    const output = convertMarkdownToHtml("[click](javascript:alert(1))");
+    expect(output).not.toContain("javascript:");
+    expect(output).toContain('href="#"');
+  });
+
+  it("javascript: scheme in image src is rejected (returns # as src)", () => {
+    const output = convertMarkdownToHtml("![img](javascript:alert(1))");
+    expect(output).not.toContain("javascript:");
+    expect(output).toContain('src="#"');
+  });
+
+  it("data: URI in link href is rejected", () => {
+    const output = convertMarkdownToHtml("[click](data:text/html,<script>alert(1)</script>)");
+    expect(output).not.toContain("data:");
+    expect(output).toContain('href="#"');
+  });
+
+  it("clean URL without special chars passes through intact", () => {
+    // Confirm safe URLs are not rejected (regression guard).
+    const output = convertMarkdownToHtml("[link](/path?a=1)");
+    expect(output).toContain('href="/path?a=1"');
+  });
+
+  it("https URL without special chars passes through intact", () => {
+    const output = convertMarkdownToHtml("[link](https://example.com/path)");
+    expect(output).toContain('href="https://example.com/path"');
   });
 });

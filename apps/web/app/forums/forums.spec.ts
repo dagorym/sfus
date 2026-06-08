@@ -398,7 +398,8 @@ describe("MarkdownRenderer sanitization source contracts (AC1 — no XSS executi
     // AC1: javascript: scheme must be blocked
     expect(source).toContain("sanitizeUrl");
     expect(source).toContain("javascript");
-    expect(source).toContain('return "#"');
+    // The fallback value for unsafe schemes is "#"
+    expect(source).toContain('"#"');
   });
 
   it("rejects data: URIs (only http(s) and relative paths allowed)", async () => {
@@ -407,8 +408,8 @@ describe("MarkdownRenderer sanitization source contracts (AC1 — no XSS executi
     const sanitizeBlock = source.slice(source.indexOf("function sanitizeUrl"));
     // The allowlist uses a regex for http(s):// — check the comment documents it
     expect(sanitizeBlock).toContain("http(s)://");
-    // The reject-all-else fallback is return "#"
-    expect(sanitizeBlock).toContain('return "#"');
+    // The reject-all-else fallback assigns "#" for unsafe schemes
+    expect(sanitizeBlock).toContain('"#"');
     // data: must NOT appear in the allowlist — it is not an allowed scheme
     expect(sanitizeBlock).not.toContain('allow.*data:');
   });
