@@ -1,46 +1,99 @@
 Your role is 'verifier'. Your task is as follows:
 
-Task summary:
-- ST18: Exercise StandalonePageEntity.currentRevision relation. Added DB-gated integration Test 3 in apps/api/src/pages/pages.service.integration.test.ts that loads a StandalonePageEntity with relations:["currentRevision"] and asserts the joined revision is the correct current one. Closes the deferred-register note that the @ManyToOne decorator existed but was never exercised. Test-only change; no product consumer modified; no schema change; no API surface changed.
+## ST18 Scope
 
-Acceptance criteria verified by Tester:
-- A test/product path loads a StandalonePageEntity with currentRevision populated and asserts the joined revision is the current one — VERIFIED by Test 3 (lines 160-197): pageRepo.findOne with relations:["currentRevision"], asserts currentRevision.id === created.currentRevisionId, revisionNumber===1, pageId, authorUserId.
-- Runs (or skips cleanly) under SFUS_DB_INTEGRATION WITHOUT breaking the default no-DB pass — VERIFIED: 863 passed, 3 skipped, 0 failed.
-- No schema change; createForeignKeyConstraints:false semantics preserved — VERIFIED by entity inspection of standalone-page.entity.ts.
+ST18 is a test-only, folded-in deferred-register fix (D9-3). It exercises the
+StandalonePageEntity.currentRevision TypeORM @ManyToOne relation, which existed but had
+never been loaded with relations: ["currentRevision"] in any test or product path.
 
-Test matrix results (tester-run, worktree-local binary):
-- vitest run --root apps/api: 863 passed, 3 skipped, 0 failed (Test Files: 29 passed | 1 skipped (30))
-- pnpm typecheck: 0 errors (apps/api and apps/web)
-- pnpm lint: 0 warnings (apps/api and apps/web, --max-warnings=0)
-- API tsc build (tsc -p tsconfig.json --noEmit): clean
+What shipped: Test 3 added to apps/api/src/pages/pages.service.integration.test.ts inside the
+existing describe.skipIf(!DB_INTEGRATION_ENABLED) block. The test:
+1. Creates a page via service.create().
+2. Loads the page via pageRepo.findOne({ where: { id }, relations: ["currentRevision"] }).
+3. Asserts currentRevision.id === created.currentRevisionId (non-vacuous).
+4. Asserts revisionNumber === 1, pageId === created.id, authorUserId correctness.
 
-DB-gated path:
-- NOT RUN by tester or implementer (no MySQL available). Clean-skip confirmed: 3 skipped tests correspond exactly to the 3 tests inside describe.skipIf(!DB_INTEGRATION_ENABLED). Console output: '[pages.service.integration] SKIP: SFUS_DB_INTEGRATION=1 is not set.'
+No product consumer was added. No schema change. No API surface change. No user-facing behavior
+change. createForeignKeyConstraints: false semantics preserved.
 
-Non-vacuity confirmation:
-- Test 3 asserts currentRevision.id === created.currentRevisionId. A mis-joined or null relation would produce a different id or undefined and fail. Additional field checks (revisionNumber===1, pageId, authorUserId) confirm the relation body is real, not just a non-null sentinel. This is stronger than a non-null-only check.
+## Validation Matrix
 
-Implementation branch / commit:
-- Branch: ms4-st18-tester-20260608
-- Test commit: 066b435 (committed by implementer; no additional tester commits made)
+| Check | Result |
+|---|---|
+| Default no-DB test pass | 863 passed, 3 skipped (clean-skip), 0 failed |
+| DB-gated integration path | Skips cleanly — [pages.service.integration] SKIP: SFUS_DB_INTEGRATION=1 is not set. |
+| Non-vacuity | Confirmed — Test 3 asserts currentRevision.id === created.currentRevisionId; null or mis-joined relation fails this |
+| Additional non-vacuity | revisionNumber===1, pageId, authorUserId checks |
+| Typecheck | 0 errors (api + web) |
+| Lint | 0 warnings (--max-warnings=0) |
+| API tsc build | Clean (no output) |
 
-Files changed:
-- apps/api/src/pages/pages.service.integration.test.ts (Test 3 added, lines 159-198)
+## Implementation and Test Commits
 
-Artifact directory:
-- artifacts/milestone-4-forums/ST18
+- Implementation + test commit: 066b435 (branch ms4-st18-implementer-20260608 / ms4-st18-tester-20260608 — implementer wrote the test; tester verified without adding commits)
+- Documentation commit: none (no-change decision — see below)
 
-Documenter artifacts:
-- artifacts/milestone-4-forums/ST18/documenter_prompt.txt (written by tester)
-- artifacts/milestone-4-forums/ST18/documenter_report.md (to be written by documenter)
-- artifacts/milestone-4-forums/ST18/documenter_result.json (to be written by documenter)
+## Documentation Decision
 
-Startup behavior:
-- Confirm tester artifacts are present and review the test change for correctness and completeness.
-- Verify the test is non-vacuous and correctly exercises the @ManyToOne currentRevision relation.
-- Confirm no product code was modified.
-- Confirm the default no-DB pass is clean and the DB-gated path skips correctly.
-- Continue in the same run when blocking inputs are present.
+No documentation change was made.
 
-Completion gate:
-- Do not report success unless all required artifacts exist and all changes are committed.
+Rationale: The plan's ST18 "Documentation Impact" is explicit: none unless a product consumer
+is introduced. No product consumer was introduced. Additionally, docs/features/pages.md
+already documents the currentRevision relation, createForeignKeyConstraints: false
+semantics, and the relations: ["currentRevision"] eager-load pattern fully in its Revision
+contract section. Adding a test-coverage note would document test infrastructure, not product
+behavior, and is redundant given the existing coverage.
+
+## Files to Inspect
+
+- apps/api/src/pages/pages.service.integration.test.ts — Test 3 added (lines ~160-198)
+- apps/api/src/pages/entities/standalone-page.entity.ts — unchanged; entity already had the @ManyToOne currentRevision decorator
+- docs/features/pages.md — unchanged; already covers the relation in the Revision contract section
+- artifacts/milestone-4-forums/ST18/ — all stage artifacts
+
+## Acceptance Criteria to Verify (from plans/milestone-4-forums-plan.md ST18)
+
+1. A test or product path loads a StandalonePageEntity with currentRevision populated and
+   asserts the joined revision is the current one.
+2. Runs (or skips cleanly) under SFUS_DB_INTEGRATION without breaking the default no-DB test
+   pass.
+3. No schema change; createForeignKeyConstraints: false semantics preserved.
+
+## Validation Command
+
+Re-run the API matrix worktree-locally using the vitest binary directly:
+
+  vitest run --root apps/api
+
+Do NOT use pnpm --filter — run vitest directly from the worktree. Confirm: 863 passed,
+3 skipped (all from DB-gated integration suite), 0 failed.
+
+Also confirm typecheck and lint are clean:
+- pnpm typecheck
+- pnpm lint
+
+## Deferred-Register Note (for planner, not a Verifier action)
+
+The docs/deferred-tasks.md entry for the unexercised currentRevision relation is now
+satisfied by commit 066b435. The documenter did not edit that register (prohibited during a
+coordinator-led development cycle). The planner should close the entry in the next planning
+cycle.
+
+## Security Review
+
+Not required. ST18 is not security-marked (plan ST18: "Security review: not required").
+
+## Startup Behavior
+
+If all required inputs are present, begin verification immediately and continue in the same run.
+Do not stop after scope establishment, convention discovery, or diff inspection when blocking
+inputs are absent.
+
+## Completion Gate
+
+Do not report success unless:
+1. All three acceptance criteria above are confirmed against the diff.
+2. The vitest run --root apps/api command run locally produces 863 passed / 3 skipped / 0 failed.
+3. Typecheck and lint are confirmed clean.
+4. All required artifacts exist in artifacts/milestone-4-forums/ST18/ and are committed on
+   branch ms4-st18-documenter-20260608.
