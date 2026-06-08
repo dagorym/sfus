@@ -1,0 +1,58 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST2 security-remediation pass 2: test-only fix of brittle source-text slice anchors in forums.controller.test.ts. The implementer fixed 3 tests (adminDeleteCategory, adminListCategories, adminCreateBoard) that were anchored on method names instead of stable JSDoc phrases inside each handler's own block. adminDeleteCategory was actively failing — sliced past @ApiNotFoundResponse so '404' was absent. Fixed anchors use 'Category still has boards', 'List all forum categories with their boards', and 'Create a new forum board'. No controller or service code changed; security verdict fully preserved.
+
+Acceptance criteria validated:
+- AC1: 12 admin endpoints enforce 401 (resolveSession) then 403 (assertAdminManagementAccess) before any DB call — PASS (24 gate tests + 2 wiring tests)
+- AC2: Create/update persist scopeType/visibility/projectId; reorder/position deterministic — PASS
+- AC3: Invalid enum values rejected 400 — PASS (service-level validation + controller orderedIds guard)
+- AC4: Swagger/JSDoc status contract matches real handlers — PASS (all 3 fixed slice tests now non-vacuous, anchored on stable unique JSDoc phrases in each handler's own block)
+- TEST-FIX: adminDeleteCategory documents both 400 (boards attached) and 404 — PASS (anchor 'Category still has boards')
+- TEST-FIX: adminListCategories documents 401 and 403 — PASS (anchor 'List all forum categories with their boards')
+- TEST-FIX: adminCreateBoard documents 400/401/403/404 and scopeType/visibility vocabulary — PASS (anchor 'Create a new forum board')
+
+Implementation branch or worktree context:
+- Branch: ms4-st2-tester-20260608 (tester worktree at /home/tstephen/repos/worktrees/ms4-st2-tester-20260608)
+- Implementer commits: 045ad70 (fix: brittle slice anchors in controller test), efcef53 (chore: ST2 pass-2 implementer artifacts)
+- No tester code changes — this pass is validation-only; the implementer owns the test fix
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/forums/forums.controller.test.ts (implementer: 3 brittle-slice anchors fixed)
+
+Test commit:
+- No Changes Made
+
+Commands executed:
+- pnpm --dir <worktree> install --frozen-lockfile
+- pnpm --dir <worktree> typecheck
+- pnpm --dir <worktree> lint
+- vitest run --root <worktree>/apps/api src/forums/forums.controller.test.ts src/forums/forums.service.test.ts
+- vitest run --root <worktree>/apps/api (full suite)
+
+Final test outcomes:
+- forums.controller.test.ts: 51/51 passed
+- forums.service.test.ts: 52/52 passed
+- Full API suite: 639 passed, 2 skipped (integration/env-gated), 0 failed
+- TypeScript typecheck: 0 errors
+- ESLint lint: clean (0 warnings)
+
+Documentation context:
+- docs/features/forums.md — verify ST2 admin management surface section reflects correct status code contract (400/401/403/404 on admin handlers; 400 on deleteCategory when boards remain)
+- docs/README.md — routing table may need forums.md entry or verification that forums feature is indexed
+
+Plan and diff context:
+- Active plan: plans/milestone-4-forums-plan.md, ST2 subtask (admin management API + security-driven remediation)
+- Base branch for diff: ms4 (compare ms4-st2-tester-20260608 against ms4 to see all changes)
+- Security verdict from pass 1 fully preserved — no behavior changes in this pass
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
