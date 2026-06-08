@@ -1,0 +1,65 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST15 self-service set/remove avatar with OWNERSHIP enforcement. PUT /users/me/avatar (400 malformed, 401 no session, 403 ownership enforced via single WHERE clause, persists on success; returns {avatarUrl:"/api/media/<id>"}). DELETE /users/me/avatar (401 gate, clears avatarMediaId; returns {avatarUrl:null}). UsersService.setAvatar uses WHERE {id, resourceType:'avatar', ownerUserId:callerId} so nonexistent/wrong-type/foreign-owner ALL yield a uniform ForbiddenException (oracle parity). removeAvatar clears avatarMediaId to null.
+
+Acceptance criteria validated:
+- AC-SETAVATAR-400: malformed/missing mediaId -> 400; service NOT called
+- AC-SETAVATAR-401: no session -> 401; service NOT called
+- AC-SETAVATAR-403-NONEXISTENT: nonexistent media id -> ForbiddenException; avatarMediaId NOT updated
+- AC-SETAVATAR-403-WRONGTYPE: wrong resourceType -> ForbiddenException; not bound
+- AC-SETAVATAR-403-FOREIGN: foreign-owner media -> ForbiddenException; caller avatarMediaId NOT set
+- AC-SETAVATAR-ORACLE: rejection message IDENTICAL for all three 403 cases (oracle parity)
+- AC-SETAVATAR-SUCCESS: own resourceType=avatar media -> persists; avatarUrl is /api/media/<id>
+- AC-REMOVEAVATAR-401: no session -> 401; removeAvatar service NOT called
+- AC-REMOVEAVATAR-SUCCESS: clears avatarMediaId to null; returns {avatarUrl:null}
+
+Implementation branch or worktree context:
+- Branch: ms4-st15-tester-20260608 (worktree branched from ms4 after ST15 implementer commit)
+- Implementer modified: users.controller.ts, users.service.ts, users.types.ts, users.module.ts
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/users/users.controller.ts
+- apps/api/src/users/users.service.ts
+- apps/api/src/users/users.types.ts
+- apps/api/src/users/users.module.ts
+- apps/api/src/users/users.controller.test.ts
+- apps/api/src/users/users.service.test.ts
+
+Test commit:
+- ece6ee7
+
+Commands executed:
+- pnpm --dir <worktree> install --frozen-lockfile
+- vitest run --root apps/api
+- tsc --noEmit -p apps/api/tsconfig.json
+- pnpm --dir <worktree> lint
+
+Final test outcomes:
+- 863 tests passed, 2 skipped, 0 failed — full suite green
+- users.controller.test.ts: 42 tests (23 original ST14 + 19 new ST15)
+- users.service.test.ts: 28 tests (14 original ST14 + 14 new ST15)
+- All ST15 acceptance criteria validated
+- Oracle parity confirmed: nonexistent/wrong-type/foreign-owner ForbiddenException messages are identical
+- 0 typecheck errors, 0 lint warnings
+
+Documentation context:
+- docs/features/media.md may need avatar endpoint contract details
+- The oracle-parity ForbiddenException design (uniform 403 for nonexistent/wrong-type/foreign) is a security decision worth documenting
+- GET /users/:username public profile already returns avatar field (ST14/ST15 joint feature)
+- Check docs/README.md routing table for any docs covering the users module
+
+Plan and diff context:
+- Plan: plans/milestone-4-forums-plan.md, subtask ST15
+- Base branch: ms4 — diff the tester worktree against ms4 to see all changes
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST15
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
