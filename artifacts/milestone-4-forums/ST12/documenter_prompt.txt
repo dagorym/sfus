@@ -1,0 +1,68 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Security-driven remediation pass 2 for ST12 (avatar upload resource type). Fixes fixture/seed-completeness regression from pass 1: added avatarUploadMaxSizeBytes: 1048576 to every test fixture missing the field (5 test files), and added MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES=1048576 to both tracked env seed files. Resolves 4 typecheck errors and 6 runtime test failures. Avatar feature behavior unchanged.
+
+Acceptance criteria validated:
+- pnpm --dir apps/api run typecheck passes with 0 errors — CONFIRMED
+- pnpm test (full suite) passes with 0 failures — CONFIRMED (829 passed)
+- pnpm lint passes with 0 warnings or errors — CONFIRMED
+- All test fixtures that build a media/environment object include avatarUploadMaxSizeBytes — CONFIRMED (6 files checked, all present)
+- apps/api/.env and apps/api/.env.example contain MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES — CONFIRMED
+- Avatar feature behavior (POST /api/media/upload?resourceType=avatar; 401 no session; oversized->400; polyglot->400; SVG rejected) unchanged — CONFIRMED, pass-1 media tests still pass
+
+Implementation branch or worktree context:
+- Branch: ms4 (worktree: /home/tstephen/repos/worktrees/ms4-st12-tester-20260608)
+- Implementer commit: 5cb22bd — fix(ST12): add avatarUploadMaxSizeBytes to test fixtures and env seed files
+- This is a fixtures/seed-completeness fix only; no implementation code changes
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/database/database.config.test.ts
+- apps/api/src/health/readiness.service.test.ts
+- apps/api/src/common/throttle/throttle-env.test.ts
+- apps/api/.env.example
+- apps/api/.env
+
+Test commit:
+- No Changes Made
+
+Commands executed:
+- pnpm install --frozen-lockfile
+- pnpm --dir apps/api run typecheck
+- pnpm test
+- pnpm --dir apps/api run lint
+- pnpm --dir apps/web run lint
+
+Final test outcomes:
+- PASS: pnpm --dir apps/api run typecheck — 0 errors
+- PASS: pnpm test (full suite) — 829 passed, 0 failed, 2 skipped (integration tests skipped as expected)
+- PASS: pnpm lint (api + web) — 0 warnings or errors
+- PASS: All test fixtures with media: objects include avatarUploadMaxSizeBytes (auth.controller.test.ts, auth.service.test.ts, database.config.test.ts, health/readiness.service.test.ts, media/media.service.test.ts, config/environment.test.ts)
+- PASS: throttle-env.test.ts createValidEnv() includes MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES=1048576
+- PASS: apps/api/.env contains MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES=1048576
+- PASS: apps/api/.env.example contains MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES=1048576
+- PASS: Avatar feature behavior unchanged — media.controller.test.ts (14 tests) and media.service.test.ts (46 tests) all pass including avatar auth (401 no session), oversized -> 400, polyglot -> 400, SVG rejected
+
+Documentation context:
+- docs/features/media.md — likely already updated by pass-1 documenter; confirm avatarUploadMaxSizeBytes env var is documented
+- apps/api/.env.example now includes MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES=1048576 with comment (deploy-boot footgun closed)
+- No feature behavior changes — this was a fixtures/env completeness fix only
+- If media.md already documents MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES, no doc update is needed
+
+Plan and diff context:
+- Plan: plans/milestone-4-forums-plan.md — ST12 subtask (avatar resourceType security remediation pass 2)
+- Base branch: main (assumption — ms4 branch diverged from main)
+- Comparison base: the most recent commit before the ST12 avatar feature was introduced (assumption: main branch HEAD before ms4 work)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST12
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
