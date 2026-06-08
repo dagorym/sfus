@@ -25,6 +25,7 @@ Shared skills live at the top level of the `.myteam` tree. Load each one by its 
 - `apply-definition` for creating or updating only the target `.myteam` instruction file during the drafting/refinement phase.
 - `finalization` for scaffolding new `.myteam` nodes with `myteam`, validating node structure, and applying governance checks.
 - `documentation-proposal` for proposing repo-level documentation or instruction changes after node updates.
+- `tree-sync` for mirroring the canonical `.myteam` tree to and from the downstream repositories registered in its colocated `targets.yaml`.
 
 Keep only role-wide sequencing and non-negotiable invariants inline in this role. Let child skills own step-specific operating detail, and prefer colocated tools for deterministic path, validation, and documentation-impact checks.
 
@@ -39,6 +40,7 @@ Keep only role-wide sequencing and non-negotiable invariants inline in this role
 - Load skill `finalization` only when the node path, node type, and approved instruction content are ready to be scaffolded or written in `.myteam`.
 - Load skill `agent-editing-governance` together with `finalization` when creating or validating `.myteam` roles or skills.
 - Load skill `documentation-proposal` only after `.myteam` node actions are complete and repo-level documentation or instruction files may need follow-up.
+- Load skill `tree-sync` only when `.myteam` instruction changes must be propagated to, or pulled back from, the downstream repositories registered in its `targets.yaml`.
 
 ## Core Responsibilities
 1. Route `.myteam` node work through the required intake, discovery, proposal, finalization, and documentation-proposal sequence.

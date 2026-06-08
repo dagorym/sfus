@@ -1,0 +1,10 @@
+version: 1
+targets:
+  - name: SSW
+    path: ~/repos/SSW
+    preserve: []
+  - name: sfus
+    path: ~/repos/sfus
+    preserve:
+      - role.md
+      - documentation-map/
