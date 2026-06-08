@@ -1,0 +1,66 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST2 security-remediation pass 2: test-only fix of 3 brittle source-text-slice assertions in apps/api/src/forums/forums.controller.test.ts (adminDeleteCategory was actively failing; anchors now use stable unique JSDoc phrases). No controller/service/contract changes. The pass-1 security verdict (admin gate, input validation, injection/IDOR, contract accuracy all SOUND) is preserved. Full suite: forums.controller 51/51, forums.service 52/52, full API 639 passed, typecheck 0 errors, lint clean.
+
+Acceptance criteria to verify:
+- AC1 PASS: 401/403 gate — resolveSession + assertAdminManagementAccess called before every data operation (24 gate tests + 2 wiring tests)
+- AC2 PASS: scopeType, visibility, projectId persisted on board create/update with correct defaults and nullable FK-free projectId
+- AC3 PASS: invalid scopeType/visibility values return 400 before persistence
+- AC4 PASS: Swagger/JSDoc source-text assertions now non-vacuous; all 3 fixed slices anchor on stable unique JSDoc phrases in each handler's own block
+
+Implementation branch or worktree context:
+- Branch: ms4-st2-documenter-20260608 (worktree /home/tstephen/repos/worktrees/ms4-st2-documenter-20260608)
+- Base branch: ms4
+- Pass-2 implementer commit: 045ad70 (fix brittle slice anchors in controller test)
+- Pass-2 tester: validation-only, no tester code changes
+- Pass-2 documenter: no documentation edits needed; docs verified accurate from pass-1
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/forums/forums.controller.ts
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.types.ts
+- apps/api/src/forums/forums.module.ts
+- apps/api/src/forums/forums.controller.test.ts
+- apps/api/src/forums/forums.service.test.ts
+- docs/README.md
+- docs/features/forums.md
+
+Commands executed:
+- pnpm --dir <worktree> install --frozen-lockfile
+- pnpm --dir <worktree> typecheck
+- pnpm --dir <worktree> lint
+- vitest run --root <worktree>/apps/api src/forums/forums.controller.test.ts src/forums/forums.service.test.ts
+- vitest run --root <worktree>/apps/api (full suite)
+
+Final test outcomes:
+- forums.controller.test.ts: 51/51 passed
+- forums.service.test.ts: 52/52 passed
+- Full API suite: 639 passed, 2 skipped (integration/env-gated), 0 failed
+- TypeScript typecheck: 0 errors
+- ESLint lint: clean (0 warnings)
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-plan.md (ST2)
+- Base branch: ms4
+- Branch: ms4-st2-documenter-20260608 contains implementer + tester + documenter changes across both passes
+
+Convention-file guidance:
+- Repository documentation lives under docs/ organized by type (features/, operations/, architecture/).
+- New subsystem gets a new docs/features/<name>.md plus a row in docs/README.md routing table.
+- One fact, one home — no duplication across docs.
+- Do not document planned behavior (ST3-ST6 topics/posts/moderation) in this doc.
+
+Updated documentation files:
+- None
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST2
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
