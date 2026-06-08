@@ -71,7 +71,8 @@ values are host-managed outside the checkout (see [deployment](deployment.md)).
 | `AUTH_RECOVERY_CODE_LENGTH` | `12` | integer 8–16 |
 | `AUTH_GOOGLE_CLIENT_ID` / `_SECRET` / `_CALLBACK_URL` | placeholders | required (placeholders boot; real values needed for working sign-in) |
 | `AUTH_GITHUB_CLIENT_ID` / `_SECRET` / `_CALLBACK_URL` | placeholders | required (same as Google) |
-| `MEDIA_UPLOAD_MAX_SIZE_BYTES` | `5242880` | integer 1024–20971520 |
+| `MEDIA_UPLOAD_MAX_SIZE_BYTES` | `5242880` | integer 1024–20971520; applies to all resource types except `avatar` |
+| `MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES` | `1048576` | integer 1024–2097152; tighter size cap for `avatar` uploads only |
 | `MEDIA_ALLOWED_MIME_TYPES` | `image/jpeg,image/png,image/gif,image/webp` | comma-separated `type/subtype`, ≥ 1 entry |
 | `MEDIA_STORAGE_PATH` | `./storage/uploads` | required; Compose overrides to the named volume (below) |
 | `DB_HOST` | `127.0.0.1` | hybrid-dev value; full-stack Compose overrides to `mysql` |

@@ -12,25 +12,27 @@ write path, and the reusable authoring web components.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/api/media/upload?resourceType=<type>` | session; `admin` role for `blog-post` / `standalone-page`, any session for `blog-comment` | multipart `file` field. Returns `{ id, storageKey, url, mimeType, sizeBytes, originalFilename, createdAt }` where `url` is `/api/media/<id>`. `401` no session, `403` insufficient role, `400` missing file / bad `resourceType` / disallowed MIME / magic-byte mismatch / over size limit. |
+| POST | `/api/media/upload?resourceType=<type>` | session; `admin` role for `blog-post` / `standalone-page`, any active session for `blog-comment` / `avatar` | multipart `file` field. Returns `{ id, storageKey, url, mimeType, sizeBytes, originalFilename, createdAt }` where `url` is `/api/media/<id>`. `401` no session, `403` insufficient role, `400` missing file / bad `resourceType` / disallowed MIME / magic-byte mismatch / over size limit. |
 | GET | `/api/media/:id` | — (public) | Streams the file with `Content-Type`, `Content-Length`, `Content-Disposition: inline; filename="<sanitized>"`, and `Cache-Control: public, max-age=31536000, immutable`. `404` record or file missing; `400` stored MIME no longer in the allow-list or storage-key containment failure. |
 
-`resourceType` must be `blog-post`, `standalone-page`, or `blog-comment`. Write-time
-authorization controls what gets stored; the serve endpoint is intentionally public and does
-not re-authenticate readers.
+`resourceType` must be one of `blog-post`, `standalone-page`, `blog-comment`, or `avatar`.
+Write-time authorization controls what gets stored; the serve endpoint is intentionally
+public and does not re-authenticate readers.
 
 ## Upload pipeline
 
-- Server-side MIME allow-list (`MEDIA_ALLOWED_MIME_TYPES`) and size limit
-  (`MEDIA_UPLOAD_MAX_SIZE_BYTES`) are authoritative; violations → `400` with a readable
-  message. (Multer additionally hard-caps request size at 20 MB before this check.)
+- Server-side MIME allow-list (`MEDIA_ALLOWED_MIME_TYPES`) and size limits are authoritative;
+  violations → `400` with a readable message. (Multer additionally hard-caps request size at
+  20 MB before this check.) Two size limits apply: `MEDIA_UPLOAD_MAX_SIZE_BYTES` for all
+  resource types except `avatar`; `MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES` (range 1024–2097152,
+  recommended 1048576) for `avatar` uploads, which enforces a tighter cap.
 - **Magic-byte (content-sniffing) verification:** after the MIME allow-list check, the
   server reads the file's leading bytes and compares them against the known signatures for
   each allowed image type (JPEG: `FF D8 FF`; PNG: `89 50 4E 47 ...`; GIF87a/GIF89a;
   WebP: `RIFF....WEBP`). If the signature does not match the declared content type the
   upload is rejected with `400` even when the `Content-Type` header names an allowed MIME
   type. This catches polyglot files and mislabelled uploads. The check applies to every
-  image resourceType (`blog-post`, `standalone-page`, `blog-comment`). SVG
+  image resourceType (`blog-post`, `standalone-page`, `blog-comment`, `avatar`). SVG
   (`image/svg+xml`) is excluded from both the MIME allow-list and magic-byte signatures
   because SVG files can embed executable content.
 - Storage key: `<resourceType>/<uuid><ext>` under `MEDIA_STORAGE_PATH`; the extension is
