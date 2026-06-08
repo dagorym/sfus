@@ -1,0 +1,29 @@
+{
+  "status": "success",
+  "subtask_id": "ST3",
+  "branch_name": "ms4-st3-implementer-20260608",
+  "code_commit_hash": "01bb62d",
+  "task_summary": "ST3 — Leak-proof public read API for forum categories and boards. Added GET /forums/categories and GET /forums/boards/:id. All visibility decisions route through AuthorizationService.evaluate() with an anonymous actor. Only scope_type='site' boards with publicly-readable visibility are listed. Hidden/nonexistent boards both return 404 with an identical message (oracle parity).",
+  "changed_files": [
+    "apps/api/src/forums/forums.controller.ts",
+    "apps/api/src/forums/forums.service.ts",
+    "apps/api/src/forums/forums.types.ts"
+  ],
+  "validation_commands": [
+    "pnpm install --frozen-lockfile",
+    "pnpm typecheck",
+    "vitest run (all API tests)",
+    "pnpm lint",
+    "tsc -p tsconfig.json --noEmit"
+  ],
+  "validation_outcome": "All pass: 639 tests passed (2 skipped/expected), 0 typecheck errors, 0 lint warnings, clean tsc build.",
+  "test_location_guidance": "apps/api/src/forums/forums.service.test.ts and apps/api/src/forums/forums.controller.test.ts",
+  "implementation_context": "ForumsService.isBoardPubliclyReadable(board) is the single visibility gate: it checks scopeType==='site' first, then calls authorizationService.evaluate() with an anonymous actor. ForumsService.listPublicCategories() loads all categories+boards and filters through isBoardPubliclyReadable(). ForumsService.getPublicBoard(id) returns 404 for both nonexistent and hidden boards using ForumsService.BOARD_NOT_FOUND_MESSAGE static constant (oracle parity). Public DTO shapes (PublicBoardShape, PublicCategoryShape) strip scopeType, projectId, and categoryId FK.",
+  "acceptance_criteria": [
+    "Listing returns only site, publicly-readable boards; project-scoped or non-readable board absent from output AND counts — SATISFIED.",
+    "Board detail for hidden/nonexistent board returns 404 with message identical to nonexistent case (oracle parity) — SATISFIED via ForumsService.BOARD_NOT_FOUND_MESSAGE constant.",
+    "Every visibility decision calls evaluate()/assertAllowed() — no inline re-derived predicates — SATISFIED."
+  ],
+  "security_notes": "Anonymous actor ({userId:null,globalRole:''}) ensures evaluate() only allows public/unlisted boards for the public listing. scopeType='site' check happens before evaluate() so project boards are excluded even if visibility is public. BOARD_NOT_FOUND_MESSAGE constant ensures byte-identical 404 for hidden vs nonexistent. Public DTOs strip internal scoping fields.",
+  "artifact_dir": "artifacts/milestone-4-forums/ST3"
+}

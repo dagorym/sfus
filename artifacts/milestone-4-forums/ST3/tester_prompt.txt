@@ -1,0 +1,63 @@
+Your role is 'tester'. Your task is as follows:
+
+Test Milestone 4 subtask ST3 — leak-proof public read API for forum categories and boards.
+Source of truth: plans/milestone-4-forums-plan.md (ST3), artifacts/milestone-4-forums/ST3/implementer_result.json.
+Depends on ST2 (admin CRUD already tested). Continue past preflight into testing immediately.
+
+Modified files:
+- apps/api/src/forums/forums.controller.ts
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.types.ts
+
+Implementation context:
+- ForumsService.isBoardPubliclyReadable(board) is the single visibility gate: checks scopeType==='site' first, then calls authorizationService.evaluate() with anonymous actor ({userId:null,globalRole:''}). No inline re-derived predicates.
+- ForumsService.BOARD_NOT_FOUND_MESSAGE is a static constant — the identical message thrown for both nonexistent and hidden boards (oracle parity).
+- ForumsService.listPublicCategories() loads categories with relations:['boards'], filters through isBoardPubliclyReadable(), returns PublicCategoryShape[].
+- ForumsService.getPublicBoard(id) throws NotFoundException(BOARD_NOT_FOUND_MESSAGE) for both null board and board failing isBoardPubliclyReadable().
+- PublicBoardShape and PublicCategoryShape DTOs strip scopeType, projectId, and categoryId FK fields.
+- GET /forums/categories — no auth required, returns {categories: PublicCategoryShape[]}.
+- GET /forums/boards/:id — no auth required, returns {board: PublicBoardShape} or 404.
+
+Acceptance criteria to validate (from Planner):
+1. Listing returns only site, publicly-readable boards; a project-scoped or non-readable board is absent from output AND counts.
+2. Board detail for a hidden/nonexistent board returns 404 with a message IDENTICAL to the nonexistent case (oracle parity).
+3. Every visibility decision calls evaluate()/assertAllowed() — no inline re-derived predicates.
+
+Required test coverage (add to existing test files — do NOT delete existing tests):
+Test files: apps/api/src/forums/forums.service.test.ts and apps/api/src/forums/forums.controller.test.ts
+
+LEAK TESTS (ForumsService.listPublicCategories):
+- A category with a project-scoped board (scopeType='project') returns that board ABSENT from the listing (output and boards array length/count).
+- A category with a non-publicly-readable board (visibility='members') returns that board absent from listing.
+- A category with a non-publicly-readable board (visibility='private') returns that board absent from listing.
+- A category with a non-publicly-readable board (visibility='project-only') returns that board absent from listing.
+- A board with visibility='public' and scopeType='site' appears in the listing.
+- A board with visibility='unlisted' and scopeType='site' appears in the listing (unlisted passes evaluate for read action).
+
+ORACLE PARITY TESTS (ForumsService.getPublicBoard):
+- getPublicBoard(nonexistentId) throws NotFoundException — verify message === ForumsService.BOARD_NOT_FOUND_MESSAGE.
+- getPublicBoard(id) where board exists but has scopeType='project' throws NotFoundException — verify message === ForumsService.BOARD_NOT_FOUND_MESSAGE (identical to nonexistent case).
+- getPublicBoard(id) where board exists but has visibility='members' throws NotFoundException — verify message === ForumsService.BOARD_NOT_FOUND_MESSAGE (identical to nonexistent case).
+- getPublicBoard(id) where board exists and is site/public returns the board shape without scopeType, projectId, or categoryId fields.
+
+PREDICATE TESTS (ForumsService.isBoardPubliclyReadable):
+- isBoardPubliclyReadable({scopeType:'project',...}) returns false without calling evaluate() (short-circuit).
+- isBoardPubliclyReadable({scopeType:'site',visibility:'public',...}) calls authorizationService.evaluate() and returns true.
+- isBoardPubliclyReadable({scopeType:'site',visibility:'private',...}) calls authorizationService.evaluate() and returns false.
+
+CONTROLLER TESTS (ForumsController public routes):
+- listPublicCategories() returns {categories} from forumsService.listPublicCategories() with no auth required.
+- getPublicBoard(id) returns {board} from forumsService.getPublicBoard(id) with no auth required.
+- getPublicBoard(id) propagates NotFoundException from service (no additional re-wrapping or status change).
+
+SHAPE TEST:
+- The public board shape returned from listPublicCategories does NOT include scopeType, projectId, or categoryId fields.
+
+Test command:
+  vitest run --root apps/api
+
+Important — do NOT use brittle source-text-slice assertions. Use behavior/response assertions (exception types, message values, returned object shapes).
+
+Shared artifact directory: artifacts/milestone-4-forums/ST3
+
+Do not report success unless all required artifacts exist and all changes are committed.
