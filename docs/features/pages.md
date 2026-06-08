@@ -71,7 +71,9 @@ The public route filters on `status = "published"` only.
 
 ## Response shapes
 
-- `PageSummary`: `slug, title, updatedAt`. Returned by the public list endpoint only; body and revision data are intentionally omitted.
+- `PageSummary`: `slug, title`. Returned by the public list endpoint only; body, revision
+  data, and `updatedAt` are intentionally omitted (index-needs fields only — the index UI
+  does not display timestamps).
 - `PageDetail`: `id, title, slug, body, status, publishedAt, currentRevisionId,
   createdByUserId, createdAt, updatedAt, summary, featuredMediaId`.
 - `RevisionDetail`: `id, pageId, authorUserId, editorUserId, title, body, summary,

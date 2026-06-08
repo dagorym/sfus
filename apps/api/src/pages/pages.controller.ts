@@ -236,12 +236,12 @@ export class PagesController {
 
 /**
  * Minimal index shape returned by the public list endpoint.
- * Body and revision data are intentionally omitted.
+ * Body and revision data are intentionally omitted; updatedAt is excluded
+ * because the index UI does not display it (index-needs fields only).
  */
 interface PageSummary {
   slug: string;
   title: string;
-  updatedAt: string;
 }
 
 interface PageDetail {
@@ -297,8 +297,7 @@ function toDetail(
 function toSummary(page: StandalonePageEntity): PageSummary {
   return {
     slug: page.slug,
-    title: page.title,
-    updatedAt: page.updatedAt.toISOString()
+    title: page.title
   };
 }
 

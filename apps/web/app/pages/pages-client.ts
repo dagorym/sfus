@@ -10,12 +10,12 @@ const apiBase = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api";
 
 /**
  * Minimal index shape returned by the public list endpoint.
- * Body and revision data are intentionally omitted.
+ * Body and revision data are intentionally omitted; updatedAt is excluded
+ * because the index UI does not display it (index-needs fields only).
  */
 export interface PageSummary {
   slug: string;
   title: string;
-  updatedAt: string;
 }
 
 export interface PageDetail {
