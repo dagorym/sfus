@@ -156,6 +156,8 @@ export interface ProfilePayload {
   username: string;
   email: string;
   displayName: string | null;
+  /** Resolved /api/media/<id> URL or null when no avatar is set. */
+  avatarUrl?: string | null;
 }
 
 export interface SettingsPayload {
@@ -231,4 +233,56 @@ export async function updateSettings(username: string): Promise<SettingsPayload>
     throw new Error(payload?.message || "Failed to update settings.");
   }
   return (await response.json()) as SettingsPayload;
+}
+
+// ---------------------------------------------------------------------------
+// Avatar management (ST15)
+// ---------------------------------------------------------------------------
+
+/**
+ * Set the calling user's avatar by binding an uploaded media reference.
+ *
+ * Calls PUT /api/users/me/avatar with { mediaId }.
+ * The server validates ownership and resourceType='avatar' before persisting.
+ *
+ * @param mediaId The media_references id returned by the avatar upload.
+ * @returns The resolved /api/media/<id> URL for the bound avatar.
+ */
+export async function setAvatar(mediaId: string): Promise<string> {
+  const response = await fetch("/api/users/me/avatar", {
+    method: "PUT",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ mediaId })
+  });
+  if (response.status === 401 || response.status === 403) {
+    throw new AuthorizationError("Not authorized to set avatar.", response.status);
+  }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message || "Failed to set avatar.");
+  }
+  const data = (await response.json()) as { avatarUrl: string };
+  return data.avatarUrl;
+}
+
+/**
+ * Remove the calling user's avatar.
+ *
+ * Calls DELETE /api/users/me/avatar.
+ * Returns null on success (avatar cleared).
+ */
+export async function removeAvatar(): Promise<null> {
+  const response = await fetch("/api/users/me/avatar", {
+    method: "DELETE",
+    credentials: "include"
+  });
+  if (response.status === 401 || response.status === 403) {
+    throw new AuthorizationError("Not authorized to remove avatar.", response.status);
+  }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message || "Failed to remove avatar.");
+  }
+  return null;
 }

@@ -24,6 +24,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { suggestUsers, type UserSuggestItem } from "../app/forums/forums-client";
+import { UserAvatar } from "./user-avatar";
 import styles from "./mention-autocomplete.module.css";
 
 export interface MentionAutocompleteProps {
@@ -214,6 +215,12 @@ export function MentionAutocomplete({
                 insertSuggestion(item);
               }}
             >
+              <UserAvatar
+                avatarSrc={item.avatarUrl}
+                displayName={item.displayName}
+                username={item.username}
+                size={24}
+              />
               <span className={styles.username}>@{item.username}</span>
               {item.displayName ? (
                 <span className={styles.displayName}>{item.displayName}</span>

@@ -8,8 +8,12 @@ import {
   readProfile,
   resolveProtectedSession,
   updateProfile,
+  setAvatar,
+  removeAvatar,
   type ProfilePayload
 } from "../auth-client";
+import { ImageUpload, type ImageUploadResult } from "../../components/image-upload";
+import { UserAvatar } from "../../components/user-avatar";
 import styles from "../auth-shell.module.css";
 
 export default function ProfilePage() {
@@ -18,6 +22,8 @@ export default function ProfilePage() {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "saving">("idle");
+  const [avatarStatus, setAvatarStatus] = useState<"idle" | "removing">("idle");
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -71,6 +77,44 @@ export default function ProfilePage() {
     }
   };
 
+  /**
+   * Called by ImageUpload after a successful avatar upload.
+   * The returned mediaId is sent to PUT /api/users/me/avatar to bind the avatar.
+   * The avatarUrl returned by the server is stored in profile state so the
+   * UserAvatar component updates without a full reload.
+   */
+  const handleAvatarUpload = async (result: ImageUploadResult) => {
+    setAvatarError(null);
+    try {
+      const avatarUrl = await setAvatar(result.id);
+      setProfile((prev) => prev ? { ...prev, avatarUrl } : prev);
+    } catch (avatarUploadError) {
+      setAvatarError(
+        avatarUploadError instanceof Error
+          ? avatarUploadError.message
+          : "Failed to set avatar."
+      );
+    }
+  };
+
+  /**
+   * Remove the current avatar via DELETE /api/users/me/avatar.
+   */
+  const handleRemoveAvatar = async () => {
+    setAvatarStatus("removing");
+    setAvatarError(null);
+    try {
+      await removeAvatar();
+      setProfile((prev) => prev ? { ...prev, avatarUrl: null } : prev);
+    } catch (removeError) {
+      setAvatarError(
+        removeError instanceof Error ? removeError.message : "Failed to remove avatar."
+      );
+    } finally {
+      setAvatarStatus("idle");
+    }
+  };
+
   if (!profile) {
     return (
       <section className={styles.panel}>
@@ -88,6 +132,37 @@ export default function ProfilePage() {
       <p className={styles.description}>
         Username <strong>{profile.username}</strong> · Email <strong>{profile.email}</strong>
       </p>
+
+      {/* Avatar section */}
+      <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
+        <UserAvatar
+          avatarSrc={profile.avatarUrl ?? null}
+          displayName={profile.displayName}
+          username={profile.username}
+          size={56}
+        />
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <ImageUpload
+            resourceType="avatar"
+            onUpload={(result) => { void handleAvatarUpload(result); }}
+            onError={(msg) => setAvatarError(msg)}
+            label="Upload avatar"
+          />
+          {profile.avatarUrl ? (
+            <button
+              type="button"
+              className={styles.action}
+              style={{ minWidth: "auto", padding: "0.4rem 0.8rem", fontSize: "0.85rem" }}
+              disabled={avatarStatus !== "idle"}
+              onClick={() => { void handleRemoveAvatar(); }}
+            >
+              {avatarStatus === "removing" ? "Removing…" : "Remove avatar"}
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {avatarError ? <p className={styles.error}>{avatarError}</p> : null}
+
       <form className={styles.form} onSubmit={saveProfile}>
         <label className={styles.label}>
           <span>Display name</span>
