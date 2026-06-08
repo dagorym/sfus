@@ -1,0 +1,60 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST3: leak-proof public read API for forum categories & boards. New service methods: listPublicCategories(), getPublicBoard(id), isBoardPubliclyReadable(board); new public routes GET /forums/categories and GET /forums/boards/:id (no auth). Visibility decisions route through AuthorizationService.evaluate(); public index filters strictly on scopeType='site' AND publicly-readable visibility; project-scoped or non-readable boards excluded from output AND counts; hidden/nonexistent boards return a uniform 404 (ForumsService.BOARD_NOT_FOUND_MESSAGE) for oracle parity; public shapes strip scopeType/projectId/categoryId. 20 new tests; full suite green (660 pass, typecheck 0 errors, lint clean).
+
+Acceptance criteria to verify:
+- Public index returns only site-scoped, publicly-readable boards (excluded from output AND counts)
+- Hidden and nonexistent boards return an identical 404 (oracle parity via ForumsService.BOARD_NOT_FOUND_MESSAGE)
+- Every visibility decision routes through AuthorizationService.evaluate()
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st3-documenter-20260608 (branch ms4-st3-documenter-20260608)
+- Base branch: ms4
+- Implementer commit: 01bb62d — feat(forums): ST3 — leak-proof public read API for categories & boards
+- Tester commit: 2952886 — test(forums): add ST3 public read API tests
+- Documenter commit: b29d8f58d250afa9452fbb4b6ecd1bf10586b3e4 — docs(forums): document ST3 public read API, response shapes, and leak-prevention contract
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/forums/forums.types.ts
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.controller.ts
+- apps/api/src/forums/forums.service.test.ts
+- apps/api/src/forums/forums.controller.test.ts
+- docs/features/forums.md
+
+Commands executed:
+- git diff ms4 --name-only (diff analysis)
+- python3 .myteam/documenter/diff-review/analyze_doc_impact.py --repo . --base ms4
+- python3 .myteam/documenter/commit-flow/validate_documenter_state.py --repo-root . --phase docs
+- git add docs/features/forums.md && git commit
+
+Final test outcomes:
+- 660 tests pass, 0 failures
+- TypeScript typecheck: 0 errors
+- Lint: clean
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-plan.md ST3
+- ST3 Documentation Impact: EXTEND docs/features/forums.md with the PUBLIC READ routes and LEAK-PREVENTION CONTRACT
+- Consult docs/README.md routing table (forums.md row already exists)
+- Do NOT edit docs/deferred-tasks.md
+
+Convention-file guidance:
+- docs/development/api-conventions.md for the error envelope format
+- docs/features/authorization.md for AuthorizationService.evaluate() contract
+- Verifier should run: pnpm --dir apps/api test (or vitest run --root apps/api) and pnpm --dir apps/api typecheck
+
+Updated documentation files:
+- docs/features/forums.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST3
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
