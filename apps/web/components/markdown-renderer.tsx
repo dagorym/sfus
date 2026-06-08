@@ -218,12 +218,13 @@ function renderInline(text: string): string {
  * without HTML-attribute breakout.
  *
  * Rejects javascript:, vbscript:, data:, and any other non-http(s)/ scheme.
- * Rejects any URL that contains a double-quote, single-quote, `<`, `>`, or `&`
- * as a raw character — these would break out of or corrupt the surrounding
- * HTML attribute even when HTML-entity-encoded (because &quot; is decoded back
- * to " by the HTML parser and terminates the attribute). Legitimate URLs use
- * percent-encoding (%22, %27, etc.) for these characters, so safe real-world
- * URLs are unaffected.
+ * Rejects any URL that contains a double-quote, single-quote, `<`, or `>` as a
+ * raw character — these would break out of the surrounding HTML attribute.
+ * `&` is NOT rejected: it is a legal, common, unencoded query-parameter
+ * delimiter (RFC 3986) and does NOT cause an attribute breakout inside a
+ * double-quoted attribute (only `"` does). Legitimate URLs use percent-encoding
+ * (%22, %27, etc.) for the truly dangerous chars, so rejecting only `"'<>` is
+ * both safe and correct.
  */
 function sanitizeUrl(url: string): string {
   const trimmed = url.trim();
@@ -238,9 +239,10 @@ function sanitizeUrl(url: string): string {
   }
   // Reject any URL containing attribute-breaking characters. A raw " in a URL
   // breaks out of href="..." / src="..." even when encoded as &quot; because the
-  // HTML parser resolves &quot; → " and terminates the attribute. Legitimate
-  // URLs percent-encode these chars, so rejecting them is safe for real URLs.
-  if (/["'<>&]/.test(trimmed)) {
+  // HTML parser resolves &quot; → " and terminates the attribute. `&` is legal
+  // as an unencoded query-parameter delimiter (RFC 3986) and does not break a
+  // double-quoted attribute, so it is intentionally excluded from this set.
+  if (/["'<>]/.test(trimmed)) {
     return "#";
   }
   return trimmed;

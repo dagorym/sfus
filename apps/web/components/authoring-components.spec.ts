@@ -388,4 +388,18 @@ describe("MarkdownRenderer XSS behavioural tests — attribute breakout (ST16 se
     const output = convertMarkdownToHtml("[link](https://example.com/path)");
     expect(output).toContain('href="https://example.com/path"');
   });
+
+  it("multi-param query-string URL with & is preserved (& is a legal RFC 3986 delimiter, not an attr breakout)", () => {
+    // & is NOT an attribute-breakout character inside a double-quoted href="..."
+    // and MUST NOT be rejected. Rejecting it broke real multi-parameter URLs.
+    const output = convertMarkdownToHtml("[x](https://example.com/?a=1&b=2)");
+    expect(output).toContain('href="https://example.com/?a=1&b=2"');
+    expect(output).not.toContain('href="#"');
+  });
+
+  it("relative multi-param query-string URL with & is preserved", () => {
+    const output = convertMarkdownToHtml("[x](/path?a=1&b=2)");
+    expect(output).toContain('href="/path?a=1&b=2"');
+    expect(output).not.toContain('href="#"');
+  });
 });
