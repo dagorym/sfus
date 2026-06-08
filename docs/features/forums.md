@@ -121,8 +121,8 @@ Requires an active session cookie (`sfus_session`). The controller resolves the 
 
 1. `AuthService.resolveSession()` — throws `401` if no active session.
 2. Board lookup + visibility gate — nonexistent or non-publicly-readable board returns `404` with `ForumsService.TOPIC_NOT_FOUND_MESSAGE` (oracle parity, P12).
-3. Title validation — empty or too-long title returns `400`.
-4. `normalizeMarkdownBody(body)` — normalizes whitespace/structure.
+3. Title type guard — missing or non-string `title` returns `400`. Title content validation — empty or too-long title returns `400`.
+4. Body type guard — missing or non-string `body` returns `400`. `normalizeMarkdownBody(body)` — normalizes whitespace/structure.
 5. `validateMarkdownBody(normalizedBody)` — rejects unsafe content (e.g. `<script>`, `javascript:` links) with `400` **before any DB write**.
 
 **Response (201):** `{ topic: PublicTopicShape }`
@@ -131,7 +131,7 @@ Requires an active session cookie (`sfus_session`). The controller resolves the 
 
 | Status | Condition |
 |---|---|
-| 400 | Empty title, title too long, or unsafe Markdown in body |
+| 400 | Missing or non-string title or body, empty title, title too long, or unsafe Markdown in body |
 | 401 | No active session |
 | 404 | Board not found or not publicly readable (identical message in both cases) |
 
