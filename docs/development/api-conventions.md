@@ -101,6 +101,71 @@ The canonical variable-by-variable table (defaults, ranges, ownership) lives in
 [operations/launch](../operations/launch.md). Add new variables there and validate them in
 `environment.ts`.
 
+## Rate limiting and anti-spam
+
+The `ThrottleModule` (wired in `AppModule`) provides a reusable per-request
+rate-limit mechanism and a per-post link-count check. Route enforcement is
+applied by attaching `ThrottleGuard` and/or `exceedsLinkLimit()` to individual
+controllers; the module ships the reusable mechanism only — see ST9 for route
+wiring.
+
+### Identity resolution
+
+`ThrottleService.checkRequest()` resolves the throttle key as follows:
+
+1. **Authenticated request** — uses the session `userId` as the key (most
+   accurate; separate count per user across all IPs).
+2. **Guest request** — falls back to `request.ip`, which Express resolves via
+   `trust proxy = 1` (locked MS1 decision). The guard **never reads
+   `X-Forwarded-For` directly**; it relies on the Express-resolved value.
+
+This means an attacker cannot bypass the IP-based guest limit by spoofing
+`X-Forwarded-For`.
+
+### New-account tier
+
+When a request is authenticated **and** the account was created within the last
+`THROTTLE_NEW_ACCOUNT_WINDOW_MS` milliseconds, a stricter limit
+(`THROTTLE_NEW_ACCOUNT_MAX_HITS`) applies instead of the standard
+`THROTTLE_MAX_HITS`. The `userCreatedAt` timestamp is supplied by the guard from
+the session payload. The tier is inactive for guest requests and for accounts
+older than the window.
+
+### 429 response envelope
+
+When the rate limit is exceeded, the guard throws an `HttpException(429)` shaped
+to match the standard error envelope:
+
+```json
+{
+  "error": "TOO_MANY_REQUESTS",
+  "message": "Rate limit exceeded. Try again in N second(s).",
+  "statusCode": 429,
+  "retryAfter": 30
+}
+```
+
+`retryAfter` is the remaining window time in seconds (minimum 1). Clients should
+read this field to schedule a retry instead of back-off polling.
+
+### Storage seam (`IThrottleStore`)
+
+All throttle state is accessed exclusively through the `IThrottleStore`
+interface via `IThrottleStore.hit(key, windowMs)`. The default wired
+implementation is `InMemoryThrottleStore` (fixed-window counter). To swap to
+Redis, implement `IThrottleStore` and replace the `THROTTLE_STORE` provider in
+`ThrottleModule.register()` — no guard or route change is required.
+
+### Per-post link limit
+
+`countLinks(body)` and `exceedsLinkLimit(body, maxLinks)` (from
+`apps/api/src/common/throttle/link-limit.ts`) count Markdown-syntax links
+(`[text](url)`) and bare `http(s)://` URLs without double-counting. Controllers
+should call `exceedsLinkLimit(body, environment.throttle.maxLinksPerPost)` to
+reject bodies that exceed the configured cap (`THROTTLE_MAX_LINKS_PER_POST`).
+
+---
+
 ## Database & migrations
 
 - TypeORM, MySQL, `utf8mb4`, connection limit 5, `connectTimeout` from

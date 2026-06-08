@@ -79,6 +79,11 @@ values are host-managed outside the checkout (see [deployment](deployment.md)).
 | `DB_NAME` / `DB_USER` / `DB_PASSWORD` | `sfus` / `sfus` / `changeme-app` | must match the root `.env` MySQL values |
 | `DB_CONNECT_TIMEOUT_MS` | `5000` | integer 1000–60000 |
 | `DB_MIGRATIONS_TABLE` | `sfus_migrations` | `[A-Za-z0-9_]+`; readiness checks this table |
+| `THROTTLE_WINDOW_MS` | — | **required**; integer 1000–3600000; rate-limit window duration |
+| `THROTTLE_MAX_HITS` | — | **required**; integer 1–10000; max hits per window for established accounts |
+| `THROTTLE_NEW_ACCOUNT_MAX_HITS` | — | **required**; integer 1–10000; max hits per window for new-account tier; must be ≤ `THROTTLE_MAX_HITS` |
+| `THROTTLE_NEW_ACCOUNT_WINDOW_MS` | — | **required**; integer 60000–2592000000; how long (ms) after account creation the new-account tier applies |
+| `THROTTLE_MAX_LINKS_PER_POST` | — | **required**; integer 0–100; maximum URLs allowed in a single Markdown post body |
 
 Container-only overrides (`DB_HOST=mysql`, `MEDIA_STORAGE_PATH=/app/storage/uploads`,
 `WEB_API_INTERNAL_URL=http://api:3001`) are applied by the Compose files — do not copy them
