@@ -1,0 +1,39 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST11/security_report.md",
+    "artifacts/milestone-4-forums/ST11/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st11-security-20260607",
+  "m2_closed": true,
+  "findings": [
+    {
+      "severity": "NOTE",
+      "category": "residual-risk / mitigated",
+      "file": "apps/api/src/media/image-magic-bytes.ts",
+      "line": "66",
+      "summary": "Leading-byte signature verification does not detect a trailing active payload appended after a genuinely-valid image header (out of ST11 scope, not a defect).",
+      "why_it_matters": "Mitigated by serving posture: validated Content-Type, global helmet X-Content-Type-Options: nosniff, and Content-Disposition: inline. No action required for ST11."
+    }
+  ],
+  "documentation_sufficiency_summary": [
+    "SUFFICIENT. docs/features/media.md documents the magic-byte verification contract: after the MIME allow-list check the server reads leading bytes and compares against JPEG/PNG/GIF/WebP signatures, rejects 400 on mismatch even when the Content-Type names an allowed type, applies to every image resourceType, and keeps SVG excluded from both the allow-list and the signatures because SVG can embed executable content.",
+    "The upload endpoint's 400 reason list in the API table now includes 'magic-byte mismatch'.",
+    "No operational/runbook changes are required; the check is config-independent and adds no new environment variables."
+  ],
+  "note_finding_count": 1,
+  "outcome": "PASS",
+  "pass_label": "security-pass-1",
+  "status": "complete",
+  "task_id": "ST11",
+  "test_sufficiency_summary": [
+    "SUFFICIENT for the security-sensitive behavior. Helper tests cover correct per-format classification (JPEG/PNG/GIF87a/GIF89a/WebP), the WebP wildcard size-field positions (varying bytes 4-7 still classify as WebP), and rejection of unknown formats (PDF, all-zero, SVG-like text).",
+    "Polyglot detection is tested non-vacuously at both layers: helper imageMagicBytesMatch (PNG bytes vs claimed image/jpeg = false, and other cross-type pairs), and the full uploadImage path which additionally asserts fs.writeFileSync is NOT called when a polyglot is rejected.",
+    "SVG exclusion is double-covered: sniffImageMimeType returns null for SVG-like bytes and imageMagicBytesMatch(_, image/svg+xml) returns false; service-level test confirms 400 for an SVG MIME type.",
+    "Short-buffer/bypass boundary covered: empty and 11-byte buffers (one below MIN_SNIFF_BYTES=12) are rejected even with a claimed allow-listed type.",
+    "P7 breadth covered: per-resourceType acceptance (blog-post, standalone-page, blog-comment) plus per-resourceType polyglot rejection (standalone-page, blog-comment) confirm the check applies across every current image resourceType; ST12 avatar will inherit the same single funnel.",
+    "Error-contract covered: a test asserts the BadRequestException message contains the static 'File content does not match the declared content type' string.",
+    "All 66 ST11-relevant tests pass; full API suite of 431 tests passes (2 DB-gated integration tests skipped as designed)."
+  ],
+  "warning_finding_count": 0
+}
