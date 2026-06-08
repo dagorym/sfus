@@ -102,8 +102,8 @@ Allowances beyond `'self'` and their justifications (also documented as inline c
 
 - **`script-src 'unsafe-inline'`** — Next.js 15 injects inline scripts for hydration state
   (`__NEXT_DATA__`, server-action manifest) that cannot be nonce-scoped without a custom
-  server. Accepted as a baseline tradeoff; a nonce/hash migration is a candidate for the
-  deferred-work register in the next planning cycle.
+  server. Accepted as a baseline tradeoff; the nonce/hash migration is tracked in
+  `docs/deferred-tasks.md` (CSP nonce/hash hardening).
 - **`connect-src http://localhost:3001` (development only)** — in hybrid-dev mode the browser
   makes direct fetch calls to the local API origin before the Next.js proxy rewrites are in
   place; omitted in production.

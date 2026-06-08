@@ -22,8 +22,8 @@ const apiProxyTarget = process.env.NODE_ENV === "development" ? developmentApiOr
  * script-src 'unsafe-inline':
  *   Next.js 15 injects inline scripts for hydration state (e.g. __NEXT_DATA__
  *   and server-action manifest). These cannot be nonce-scoped without a custom
- *   server. Accepted as a baseline tradeoff; a nonce/hash migration is a
- *   candidate for the deferred-work register in the next planning cycle.
+ *   server. Accepted as a baseline tradeoff; the nonce/hash migration is
+ *   tracked in docs/deferred-tasks.md (CSP nonce/hash hardening).
  *
  * style-src 'unsafe-inline':
  *   Next.js 15 injects inline styles for CSS module hydration and critical
