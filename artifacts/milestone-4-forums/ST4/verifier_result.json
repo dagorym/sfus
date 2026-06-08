@@ -1,0 +1,24 @@
+{
+  "status": "complete",
+  "task_id": "ST4",
+  "branch_name": "ms4-st4-verifier-20260608",
+  "verdict": "PASS",
+  "pass_label": "PASS (pass 2 / re-review)",
+  "blocking_finding_count": 0,
+  "warning_finding_count": 0,
+  "note_finding_count": 3,
+  "test_sufficiency_summary": [
+    "Validation matrix GREEN (confirmed independently from this worktree after pnpm install --frozen-lockfile): vitest run --root apps/api src/forums/forums.controller.test.ts src/forums/forums.service.test.ts = 146 passed (57 controller, 89 service). Full API suite: 682 passed, 2 skipped (integration tests require DB env). pnpm typecheck = pass (0 errors). pnpm lint = pass (0 warnings).",
+    "TEST A (WARNING-2 regression, non-vacuous): listTopics deletedAt:IsNull() where-clause assertion catches any regression that would leak soft-deleted topics.",
+    "TEST B (WARNING-1 regression, non-vacuous): createTopic malformed-input (undefined/number/object for body or title) throws BadRequestException (400) with save NOT called — catches regression to 500.",
+    "Pre-existing coverage intact: oracle parity (TC1-TC4), evaluate() spy (TC5/TC6), 401-before-data-op (TC14), unsafe Markdown (TC7/TC8), public-shape allowlist (TC10/TC11), pagination (TC12/TC13), pinned order (TC9)."
+  ],
+  "documentation_accuracy_summary": [
+    "docs/features/forums.md accurately documents all ST4 behavior: 401-first ordering, board gate + oracle parity, type guard -> 400, sanitize-before-persist, pageSize clamp, deletedAt IS NULL exclusion, PublicTopicShape/PublicAuthorShape field allowlists, GET/POST route table, and complete error contract tables.",
+    "No inaccuracies, omissions, or contradictions found."
+  ],
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST4/verifier_report.md",
+    "artifacts/milestone-4-forums/ST4/verifier_result.json"
+  ]
+}
