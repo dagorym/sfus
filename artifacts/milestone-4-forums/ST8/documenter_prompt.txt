@@ -1,0 +1,67 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST8 Security Remediation Pass 2: validated three security fixes — (1) linear indexOf-based ReDoS-safe link scanner replacing backtracking regex in link-limit.ts; (2) broadened evasion detection for ftp://, mailto:, tel:, www.-prefixed hosts; (3) THROTTLE_* env vars added to .env.example. All existing 498 API tests unchanged and passing; 35 new link-limit tests and 8 new guard tests added.
+
+Acceptance criteria validated:
+- AC1: Over-limit request -> 429 envelope; under-limit passes; identity prefers session userId, falls back to proxy-resolved IP; new-account-tier limits apply to young accounts
+- AC2: Link-count limiter rejects over-max bodies and accepts compliant ones
+- AC3: Storage accessed only through IThrottleStore; in-memory store wired by default; swapping needs no guard/route change
+- AC4: New env vars validated in environment.ts; startup failure on missing/invalid values
+- AC-Security-ReDoS: countLinks completes 1 MB pathological body in <100 ms; test fails against old backtracking regex
+- AC-Security-Evasion: ftp://, mailto:, tel:, and www.-prefixed bare hosts each count as a link
+- AC-Security-FailClosed: throwing IThrottleStore causes request DENIAL (never silent allow)
+
+Implementation branch or worktree context:
+- Branch: ms4-st8-tester-20260608 (worktree from ms4)
+- Implementer fixed: backtracking /\]\([^)]*\)/g regex replaced with linear indexOf-based scanMarkdownLinks + scanBareUrls functions
+- Implementer fixed: bare-URL detection broadened to include ftp://, mailto:, tel:, www.-prefixed hosts
+- Implementer fixed: all 5 THROTTLE_* env vars added to apps/api/.env.example with sane defaults
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/common/throttle/link-limit.ts (implementer: ReDoS fix + evasion broadening)
+- apps/api/.env.example (implementer: THROTTLE_* vars added)
+- apps/api/src/common/throttle/link-limit.test.ts (tester: ReDoS regression + evasion tests added)
+- apps/api/src/common/throttle/throttle.guard.test.ts (tester: new file, fail-closed + IP-fallback + sweep tests)
+
+Test commit:
+- 2b49393
+
+Commands executed:
+- pnpm install --frozen-lockfile
+- pnpm --filter @sfus/api test --dir /home/tstephen/repos/worktrees/ms4-st8-tester-20260608
+- node .../eslint.js --max-warnings=0 apps/api/src/common/throttle/ (all clean)
+- node .../tsc -p apps/api/tsconfig.json --noEmit (no errors)
+
+Final test outcomes:
+- PASS — 814 tests passed, 2 skipped (integration DB tests, expected), 0 failed
+- PASS AC1 — over-limit throws 429; under-limit passes; identity prefers userId over request.ip; new-account tier applies to young accounts (throttle.service.test.ts: 18 tests)
+- PASS AC2 — link-count limiter rejects over-max bodies and accepts compliant ones; no double-counting (link-limit.test.ts: 35 tests)
+- PASS AC3 — IThrottleStore seam proven via test-double injection; service calls only store.hit() (throttle.service.test.ts + throttle-store.test.ts)
+- PASS AC4 — all 5 THROTTLE_* env vars validated; missing/invalid values cause startup failure; cross-field check enforced (throttle-env.test.ts: 21 tests)
+- PASS AC-Security-ReDoS — 1 MB pathological body (']('.repeat(500000)) completes in <100 ms; 64 KB variant completes in <20 ms (link-limit.test.ts: 2 new timing tests)
+- PASS AC-Security-Evasion — ftp://, mailto:, tel:, and www.-prefixed bare hosts each counted; evasion URLs mix correctly without double-counting (link-limit.test.ts: 12 new tests)
+- PASS AC-Security-FailClosed — throwing IThrottleStore causes ThrottleGuard.canActivate() to propagate the error (rejects), never returns true; session errors are distinguished from store errors (throttle.guard.test.ts: 3 fail-closed tests)
+- DOCUMENTER NOTE (P1): docs/development/api-conventions.md overstates that the throttle guard supplies userCreatedAt. Guard actually passes userCreatedAt: null; ST9 wires real user context. This must be corrected in documentation.
+
+Documentation context:
+- docs/development/api-conventions.md — CORRECTION REQUIRED (P1): overstates that the throttle guard supplies userCreatedAt. Guard passes userCreatedAt: null; ST9 wires real user context. Must be corrected.
+- apps/api/.env.example — now includes THROTTLE_* vars; any env var documentation should reference it
+- link-limit.ts function docs updated inline to describe new scanning approach and security properties
+- No new public API surface; throttle guard/service interfaces unchanged
+
+Plan and diff context:
+- Plan path: plans/milestone-4-forums-plan.md (ST8 section)
+- Comparison base: ms4 branch (main milestone-4 development branch)
+- Upstream completed subtasks: ST1, ST7, ST11, ST13 are already merged into ms4
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST8
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

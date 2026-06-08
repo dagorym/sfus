@@ -1,0 +1,29 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST8/tester_report.md",
+    "artifacts/milestone-4-forums/ST8/tester_result.json",
+    "artifacts/milestone-4-forums/ST8/documenter_prompt.txt"
+  ],
+  "branch_name": "ms4-st8-tester-20260608",
+  "commands_run": [
+    "pnpm install --frozen-lockfile",
+    "pnpm --filter @sfus/api test --dir /home/tstephen/repos/worktrees/ms4-st8-tester-20260608",
+    "node .../eslint.js --max-warnings=0 apps/api/src/common/throttle/ (all clean)",
+    "node .../tsc -p apps/api/tsconfig.json --noEmit (no errors)"
+  ],
+  "pass_fail_totals": {
+    "failed": 0,
+    "passed": 814,
+    "skipped": 2,
+    "total_test_files": 34
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST8",
+  "test_commit_hash": "2b49393",
+  "test_files_changed": [
+    "apps/api/src/common/throttle/link-limit.test.ts",
+    "apps/api/src/common/throttle/throttle.guard.test.ts"
+  ],
+  "unmet_acceptance_criteria": []
+}
