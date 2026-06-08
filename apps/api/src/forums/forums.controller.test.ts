@@ -556,10 +556,12 @@ describe("ForumsController source-contract: Swagger/JSDoc status code documentat
 
   it("adminListCategories JSDoc documents 401 and 403 throws", async () => {
     const source = await readFile(controllerSourcePath, "utf-8");
-    // Verify that both 401 and 403 are documented in the JSDoc for adminListCategories
+    // Anchor on a stable string inside the adminListCategories JSDoc so the slice
+    // includes the handler's own @throws lines rather than relying on the next
+    // method's JSDoc being captured by luck of ordering.
     const listCatSection = source.slice(
-      source.indexOf("adminListCategories"),
-      source.indexOf("adminGetCategory")
+      source.indexOf("List all forum categories with their boards"),
+      source.indexOf("async adminGetCategory")
     );
     expect(listCatSection).toContain("401");
     expect(listCatSection).toContain("403");
@@ -567,9 +569,12 @@ describe("ForumsController source-contract: Swagger/JSDoc status code documentat
 
   it("adminCreateBoard JSDoc documents 400, 401, 403, 404 throws", async () => {
     const source = await readFile(controllerSourcePath, "utf-8");
+    // Anchor on a stable string inside the adminCreateBoard JSDoc so the slice
+    // covers the handler's own @throws lines rather than relying on the next
+    // method's JSDoc being captured by luck of ordering.
     const createBoardSection = source.slice(
-      source.indexOf("adminCreateBoard"),
-      source.indexOf("adminUpdateBoard")
+      source.indexOf("Create a new forum board"),
+      source.indexOf("async adminUpdateBoard")
     );
     expect(createBoardSection).toContain("400");
     expect(createBoardSection).toContain("401");
@@ -579,10 +584,10 @@ describe("ForumsController source-contract: Swagger/JSDoc status code documentat
 
   it("adminCreateBoard JSDoc mentions scopeType and visibility allowed values", async () => {
     const source = await readFile(controllerSourcePath, "utf-8");
-    // The JSDoc for adminCreateBoard must document the enum values
+    // Same stable anchor as the previous test — JSDoc start for adminCreateBoard.
     const createBoardSection = source.slice(
-      source.indexOf("adminCreateBoard"),
-      source.indexOf("adminUpdateBoard")
+      source.indexOf("Create a new forum board"),
+      source.indexOf("async adminUpdateBoard")
     );
     expect(createBoardSection).toMatch(/scopeType/);
     expect(createBoardSection).toMatch(/visibility/);
@@ -590,9 +595,13 @@ describe("ForumsController source-contract: Swagger/JSDoc status code documentat
 
   it("adminDeleteCategory JSDoc documents 400 (boards still attached) and 404", async () => {
     const source = await readFile(controllerSourcePath, "utf-8");
+    // Anchor on a stable string inside the adminDeleteCategory JSDoc/decorator
+    // block so the slice includes the handler's own @throws 400 and @throws 404
+    // lines. Using the method name alone starts AFTER the JSDoc and @ApiNotFoundResponse
+    // decorator, causing a false-negative — this anchor fixes that.
     const deleteCatSection = source.slice(
-      source.indexOf("adminDeleteCategory"),
-      source.indexOf("adminReorderCategories")
+      source.indexOf("Category still has boards"),
+      source.indexOf("async adminReorderCategories")
     );
     expect(deleteCatSection).toContain("400");
     expect(deleteCatSection).toContain("404");
