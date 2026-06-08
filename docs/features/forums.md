@@ -1,6 +1,6 @@
 # Forums
 
-Forum categories, boards, topics, and posts — admin management (ST2), public read (ST3), member topic creation (ST4), member post creation with threaded replies (ST5), and moderator/admin moderation controls (ST6).
+Forum categories, boards, topics, and posts — admin management (ST2), public read (ST3), member topic creation (ST4), member post creation with threaded replies (ST5), moderator/admin moderation controls (ST6), and throttle + link-limit enforcement on member create routes (ST9).
 
 **Code:** `apps/api/src/forums/`
 **Related:** [authorization](authorization.md) for the admin gate · [development/api-conventions](../development/api-conventions.md) for the error envelope
@@ -101,9 +101,9 @@ Stripped from the public shape (internal-only): `scopeType`, `projectId`, `categ
 | GET | `/api/forums/categories` | None | 200 | `{ categories }` ordered by `sortOrder ASC`. Each category includes only site-scoped, publicly-readable boards. |
 | GET | `/api/forums/boards/:id` | None | 200 / 404 | `{ board }` as `PublicBoardShape`. `404` for both nonexistent and non-publicly-accessible boards (identical message). |
 | GET | `/api/forums/boards/:boardId/topics` | None | 200 / 404 | `PaginatedTopicsShape`. `404` for both nonexistent and non-publicly-accessible boards (identical message). |
-| POST | `/api/forums/boards/:boardId/topics` | Session cookie | 201 / 400 / 401 / 404 | `{ topic }` as `PublicTopicShape`. Requires active session (401). Board must be publicly readable (404). Body must pass Markdown safety validation (400). |
+| POST | `/api/forums/boards/:boardId/topics` | Session cookie | 201 / 400 / 401 / 404 / 429 | `{ topic }` as `PublicTopicShape`. Requires active session (401). Board must be publicly readable (404). Body must pass Markdown safety validation (400). Link cap exceeded returns 400. Rate limit exceeded returns 429 (new-account tier active). |
 | GET | `/api/forums/topics/:topicId/posts` | None | 200 / 404 | `PaginatedPostsShape`. `404` when board or topic is nonexistent, hidden, or soft-deleted (identical message). |
-| POST | `/api/forums/topics/:topicId/posts` | Session cookie | 201 / 400 / 401 / 403 / 404 | `{ post }` as `PublicPostShape`. Requires active session (401). Board+topic must be publicly readable and topic non-deleted (404). Locked topic returns 403. Unsafe Markdown or invalid `parentId` returns 400. |
+| POST | `/api/forums/topics/:topicId/posts` | Session cookie | 201 / 400 / 401 / 403 / 404 / 429 | `{ post }` as `PublicPostShape`. Requires active session (401). Board+topic must be publicly readable and topic non-deleted (404). Locked topic returns 403. Unsafe Markdown or invalid `parentId` returns 400. Link cap exceeded returns 400. Rate limit exceeded returns 429 (new-account tier active). |
 
 ## Topic routes (ST4)
 
@@ -122,10 +122,12 @@ Requires an active session cookie (`sfus_session`). The controller resolves the 
 **Validation and security order (all happen before persistence):**
 
 1. `AuthService.resolveSession()` — throws `401` if no active session.
-2. Board lookup + visibility gate — nonexistent or non-publicly-readable board returns `404` with `ForumsService.TOPIC_NOT_FOUND_MESSAGE` (oracle parity, P12).
-3. Title type guard — missing or non-string `title` returns `400`. Title content validation — empty or too-long title returns `400`.
-4. Body type guard — missing or non-string `body` returns `400`. `normalizeMarkdownBody(body)` — normalizes whitespace/structure.
-5. `validateMarkdownBody(normalizedBody)` — rejects unsafe content (e.g. `<script>`, `javascript:` links) with `400` **before any DB write**.
+2. `exceedsLinkLimit(body, maxLinksPerPost)` — rejects bodies containing more links than the configured cap with `400` (see [api-conventions](../development/api-conventions.md#per-post-link-limit)).
+3. `ThrottleService.checkRequest()` — enforces per-user rate limit. Supplies `userCreatedAt` (fetched via `UsersService.findById`) so the new-account tier is active; new accounts are subject to stricter limits during `THROTTLE_NEW_ACCOUNT_WINDOW_MS`. Over-limit requests return `429` (see [api-conventions](../development/api-conventions.md#rate-limiting-and-anti-spam)).
+4. Board lookup + visibility gate — nonexistent or non-publicly-readable board returns `404` with `ForumsService.TOPIC_NOT_FOUND_MESSAGE` (oracle parity, P12).
+5. Title type guard — missing or non-string `title` returns `400`. Title content validation — empty or too-long title returns `400`.
+6. Body type guard — missing or non-string `body` returns `400`. `normalizeMarkdownBody(body)` — normalizes whitespace/structure.
+7. `validateMarkdownBody(normalizedBody)` — rejects unsafe content (e.g. `<script>`, `javascript:` links) with `400` **before any DB write**.
 
 **Response (201):** `{ topic: PublicTopicShape }`
 
@@ -133,9 +135,10 @@ Requires an active session cookie (`sfus_session`). The controller resolves the 
 
 | Status | Condition |
 |---|---|
-| 400 | Missing or non-string title or body, empty title, title too long, or unsafe Markdown in body |
+| 400 | Missing or non-string title or body, empty title, title too long, unsafe Markdown in body, or body exceeds link cap |
 | 401 | No active session |
 | 404 | Board not found or not publicly readable (identical message in both cases) |
+| 429 | Rate limit exceeded (per-user; new-account tier stricter for recently created accounts) |
 
 ### Public paginated topic list
 
@@ -274,13 +277,15 @@ Requires an active session cookie (`sfus_session`). The controller resolves the 
 **Validation and security order (all happen before persistence):**
 
 1. `AuthService.resolveSession()` — throws `401` if no active session.
-2. Board + topic lookup + visibility gate — the topic's board must exist and be publicly readable, and the topic must exist and be non-deleted. All failure cases return `404` with `ForumsService.TOPIC_NOT_FOUND_MESSAGE` (oracle parity, P12): nonexistent board, hidden board, nonexistent topic, soft-deleted topic.
-3. Locked topic gate — if `topic.isLocked` is true, throws `403` with `"This topic is locked. New posts are not allowed."`.
-4. Body type guard — missing or non-string `body` returns `400`.
-5. `normalizeMarkdownBody(body)` — normalizes whitespace/structure.
-6. `validateMarkdownBody(normalizedBody)` — rejects unsafe content (e.g. `<script>`, `javascript:` links) with `400` **before any DB write**.
-7. `parentId` threading validation — if `parentId` is provided, it must reference a **top-level post** (`parentId IS NULL`) on the **same topic** (`topicId` matches), and must not be soft-deleted. Any violation (nonexistent, different topic, reply-to-a-reply) returns a uniform `400 "parentId is invalid."` with **no existence oracle** — callers cannot infer whether the parent exists in another topic.
-8. `quotedPostId` — accepted as a soft-reference (no FK enforcement). Rendering is handled by the web layer (ST16).
+2. `exceedsLinkLimit(body, maxLinksPerPost)` — rejects bodies containing more links than the configured cap with `400` (see [api-conventions](../development/api-conventions.md#per-post-link-limit)).
+3. `ThrottleService.checkRequest()` — enforces per-user rate limit. Supplies `userCreatedAt` (fetched via `UsersService.findById`) so the new-account tier is active; new accounts are subject to stricter limits during `THROTTLE_NEW_ACCOUNT_WINDOW_MS`. Over-limit requests return `429` (see [api-conventions](../development/api-conventions.md#rate-limiting-and-anti-spam)).
+4. Board + topic lookup + visibility gate — the topic's board must exist and be publicly readable, and the topic must exist and be non-deleted. All failure cases return `404` with `ForumsService.TOPIC_NOT_FOUND_MESSAGE` (oracle parity, P12): nonexistent board, hidden board, nonexistent topic, soft-deleted topic.
+5. Locked topic gate — if `topic.isLocked` is true, throws `403` with `"This topic is locked. New posts are not allowed."`.
+6. Body type guard — missing or non-string `body` returns `400`.
+7. `normalizeMarkdownBody(body)` — normalizes whitespace/structure.
+8. `validateMarkdownBody(normalizedBody)` — rejects unsafe content (e.g. `<script>`, `javascript:` links) with `400` **before any DB write**.
+9. `parentId` threading validation — if `parentId` is provided, it must reference a **top-level post** (`parentId IS NULL`) on the **same topic** (`topicId` matches), and must not be soft-deleted. Any violation (nonexistent, different topic, reply-to-a-reply) returns a uniform `400 "parentId is invalid."` with **no existence oracle** — callers cannot infer whether the parent exists in another topic.
+10. `quotedPostId` — accepted as a soft-reference (no FK enforcement). Rendering is handled by the web layer (ST16).
 
 After persistence, the topic's `replyCount` is incremented by 1 and `lastPostAt` is updated to the current time.
 
@@ -290,10 +295,11 @@ After persistence, the topic's `replyCount` is incremented by 1 and `lastPostAt`
 
 | Status | Condition |
 |---|---|
-| 400 | Missing or non-string body, unsafe Markdown in body, or invalid `parentId` (uniform message, no existence oracle) |
+| 400 | Missing or non-string body, unsafe Markdown in body, invalid `parentId` (uniform message, no existence oracle), or body exceeds link cap |
 | 401 | No active session |
 | 403 | Topic is locked (`"This topic is locked. New posts are not allowed."`) |
 | 404 | Board or topic not found, board not publicly readable, or topic soft-deleted (identical message in all cases) |
+| 429 | Rate limit exceeded (per-user; new-account tier stricter for recently created accounts) |
 
 ### Public paginated post list
 

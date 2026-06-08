@@ -35,7 +35,7 @@ moderation routes require `moderator` or `admin` via `assertModerationAccess()`.
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/api/blog/:postId/comments` | Body `{ body, imageId?, parentId? }` → `{ comment: PublicBlogCommentDetail }`. `401` no session; `403` thread locked; `404` post not publicly visible; `400` empty/unsafe body, `parentId is invalid.` (uniform — covers both nonexistent parent and parent belonging to a different post), `imageId is invalid.` (uniform — covers both nonexistent image and wrong `resourceType`), or reply-to-a-reply (max 1 level). Response omits `authorUserId`, `moderatedByUserId`, and `moderatedAt`. |
+| POST | `/api/blog/:postId/comments` | Body `{ body, imageId?, parentId? }` → `{ comment: PublicBlogCommentDetail }`. `401` no session; `403` thread locked; `404` post not publicly visible; `400` empty/unsafe body, body exceeds link cap, `parentId is invalid.` (uniform — covers both nonexistent parent and parent belonging to a different post), `imageId is invalid.` (uniform — covers both nonexistent image and wrong `resourceType`), or reply-to-a-reply (max 1 level); `429` rate limit exceeded (new-account tier active — stricter limits for recently created accounts). Response omits `authorUserId`, `moderatedByUserId`, and `moderatedAt`. See [api-conventions](../development/api-conventions.md#rate-limiting-and-anti-spam) for limit configuration. |
 
 **Admin post management:**
 

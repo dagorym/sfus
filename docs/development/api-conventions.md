@@ -127,11 +127,11 @@ This means an attacker cannot bypass the IP-based guest limit by spoofing
 When a request is authenticated **and** the account was created within the last
 `THROTTLE_NEW_ACCOUNT_WINDOW_MS` milliseconds, a stricter limit
 (`THROTTLE_NEW_ACCOUNT_MAX_HITS`) applies instead of the standard
-`THROTTLE_MAX_HITS`. The mechanism is wired and validated, but the tier only
-becomes effective when the guard supplies a non-null `userCreatedAt` timestamp.
-The ST8 `ThrottleGuard` passes `userCreatedAt: null`; the tier will activate
-once ST9 wires the guard with the authenticated user's account creation time.
-The tier is inactive for guest requests and for accounts older than the window.
+`THROTTLE_MAX_HITS`. The tier is active on all three member create routes wired
+in ST9 (forum topic create, forum post create, blog comment create): each handler
+calls `UsersService.findById(session.user.id)` to fetch the account's `createdAt`
+and passes it as `userCreatedAt` to `ThrottleService.checkRequest()`. The tier
+is inactive for guest requests and for accounts older than the window.
 
 ### 429 response envelope
 
