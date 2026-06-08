@@ -1,0 +1,60 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST11 — Magic-byte (content-sniffing) verification for all image uploads. Added image-magic-bytes.ts with byte-signature checks for JPEG, PNG, GIF87a, GIF89a, and WebP. Wired assertValidMagicBytes into MediaService.uploadImage so every upload (for all 3 current resourceTypes: blog-post, standalone-page, blog-comment) is rejected (400) when the file's leading bytes do not match the declared MIME type, even when the content-type header is in the allow-list. SVG remains excluded from both the MIME allow-list and magic-byte signatures. Closes deferred security finding M2.
+- Testing: Added image-magic-bytes.test.ts (28 tests) covering the helper class for all formats, polyglot rejection, short-buffer edge cases, and SVG exclusion. Extended media.service.test.ts (total 38 tests) with assertValidMagicBytes tests and per-resourceType no-regression upload tests. Full validation matrix passed.
+
+Acceptance criteria validated:
+- Validation rejects (400) a file whose magic bytes do not match an allowed image type even when the content-type header is allowed (polyglot rejected); applies to every image resourceType (blog-post, standalone-page, blog-comment); SVG remains rejected.
+- Compliant real images for each existing resourceType still upload and serve unchanged (no regression).
+- API tsc build + full validation matrix pass (lint, typecheck, full pnpm test, API build).
+
+Implementation branch or worktree context:
+- Branch: ms4-st11-tester-20260607
+- Worktree: /home/tstephen/repos/worktrees/ms4-st11-tester-20260607
+- Base branch for comparison: ms4
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/media/image-magic-bytes.ts (new — dedicated content-sniffing helper)
+- apps/api/src/media/media.service.ts (import + assertValidMagicBytes method + call in uploadImage)
+- apps/api/src/media/media.service.test.ts (existing — updated validFile buffer + added assertValidMagicBytes and no-regression tests)
+- apps/api/src/media/image-magic-bytes.test.ts (new — tester-authored helper class tests)
+
+Test commit:
+- 036886f
+
+Commands executed:
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st11-tester-20260607 install --frozen-lockfile
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st11-tester-20260607 lint
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st11-tester-20260607 typecheck
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st11-tester-20260607 test
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st11-tester-20260607 --filter @sfus/api run build
+
+Final test outcomes:
+- API: 431 tests passed, 0 failed, 2 skipped (DB integration tests require live DB)
+- Web: 293 tests passed, 0 failed
+- Lint: 0 warnings, 0 errors
+- Typecheck: pass
+- API tsc build: pass
+- ST7 http.integration.test.ts: 6 tests passed (no regression confirmed)
+
+Documentation context:
+- docs/features/media.md is the canonical media feature doc (per docs/README.md routing table); it should be updated to document the new magic-byte verification behavior — the security check that rejects polyglot and mis-declared uploads.
+- The deferred security finding M2 is now closed; docs/deferred-tasks.md may need an update to reflect closure.
+- The assertValidMagicBytes method is called for all resourceTypes in the current implementation; any future resourceType additions should be noted as also subject to this check.
+- SVG exclusion is explicitly documented in comments in image-magic-bytes.ts; it may warrant a mention in the media feature doc to set expectations.
+
+Plan and diff context:
+- Plan file: plans/milestone-4-forums-plan.md (subtask ST11)
+- Comparison base: ms4 branch (the milestone-4 development base)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST11
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
