@@ -1,0 +1,72 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST16 verifier-driven remediation. (1) sanitizeUrl over-correction fixed: reject regex changed /["'<>&]/ -> /["'<>]/ so legitimate multi-parameter query-string URLs (?a=1&b=2) are preserved while XSS protection is fully retained. (2) docs/features/forums.md corrected: removed false claim that MarkdownRenderer auto-linkifies inline @username mentions; documented that @username is HTML-escaped plain text in body content, that MentionAutocomplete inserts plain text only, and that author bylines (JSX <Link>) are the real username-to-profile links. docs/features/media.md updated: removed & from sanitizeUrl rejected set and removed the now-resolved pending-verifier-review caveat.
+
+Acceptance criteria to verify:
+- sanitizeUrl rejects URLs containing '"', "'", '<', '>' (attribute-breaking chars) — returns '#'
+- sanitizeUrl allows URLs containing '&' (query-parameter delimiter) — multi-param URLs work
+- docs/features/forums.md accurately states MarkdownRenderer renders @username as HTML-escaped plain text, not auto-linked
+- docs/features/forums.md accurately describes author bylines as the username-to-/users/<username> JSX <Link>
+- docs/features/media.md lists only '"' "'" '<' '>' as rejected chars, does NOT list '&'
+- 379 web tests pass, typecheck 0 errors, lint clean
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st16-documenter-20260608
+- Branch: ms4-st16-documenter-20260608 (includes all prior ST16 passes: implementer, tester, security, verifier remediation)
+- Base branch: ms4
+- Key change: apps/web/components/markdown-renderer.tsx sanitizeUrl regex /["'<>&]/ corrected to /["'<>]/
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/components/markdown-renderer.tsx
+- apps/web/app/forums/[boardSlug]/[topicSlug]/page.tsx
+- apps/web/app/forums/[boardSlug]/new-topic/page.tsx
+- apps/web/app/forums/[boardSlug]/page.tsx
+- apps/web/app/forums/forums-client.ts
+- apps/web/app/forums/forums.spec.ts
+- apps/web/components/mention-autocomplete.tsx
+- apps/web/components/mention-autocomplete.spec.ts
+- apps/web/components/authoring-components.spec.ts
+- docs/features/forums.md
+- docs/features/media.md
+- docs/features/web-shell.md
+- docs/guides/content-management.md
+
+Commands executed:
+- git -C worktree diff ms4 --name-only
+- Read docs/features/forums.md (lines 465-543)
+- Read docs/features/media.md (lines 90-115)
+- Read apps/web/components/markdown-renderer.tsx
+- grep -n @username/mention/byline/profile in forums.md
+- grep -rn @username/MentionAutocomplete/byline//users/ in apps/web/app/forums/
+
+Final test outcomes:
+- 379 web tests pass, 0 fail (tester-validated)
+- typecheck 0 errors
+- lint clean
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-plan.md — ST16 section
+- Documentation impact: correct forums.md @mention rendering description; update media.md sanitizeUrl character set
+- Do NOT edit docs/deferred-tasks.md
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table
+- docs/features/forums.md covers forum web surfaces including sanitized-markdown render contract
+- docs/features/media.md covers MarkdownRenderer component and sanitizeUrl behavior
+- One fact, one home — sanitizeUrl full spec lives in media.md; forums.md carries only the behavior summary relevant to topic/post rendering
+
+Updated documentation files:
+- docs/features/forums.md
+- docs/features/media.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST16
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
