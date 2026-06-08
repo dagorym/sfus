@@ -170,6 +170,82 @@ describe("MediaService.assertValidResourceType", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// MediaService.assertValidMagicBytes tests (ST11 — magic-byte verification)
+// ---------------------------------------------------------------------------
+
+describe("MediaService.assertValidMagicBytes", () => {
+  // Acceptance criterion: upload is rejected (400) when the file's leading bytes
+  // do not match the declared MIME type even when the content-type is in the allow-list.
+
+  const jpegBuf = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]);
+  const pngBuf = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+  const gif87aBuf = Buffer.from([0x47, 0x49, 0x46, 0x38, 0x37, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+  const gif89aBuf = Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+  const webpBuf = Buffer.from([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50]);
+
+  it("accepts a valid JPEG buffer with claimed image/jpeg", () => {
+    const service = makeMediaService();
+    expect(() => service.assertValidMagicBytes(jpegBuf, "image/jpeg")).not.toThrow();
+  });
+
+  it("accepts a valid PNG buffer with claimed image/png", () => {
+    const service = makeMediaService();
+    expect(() => service.assertValidMagicBytes(pngBuf, "image/png")).not.toThrow();
+  });
+
+  it("accepts a valid GIF87a buffer with claimed image/gif", () => {
+    const service = makeMediaService();
+    expect(() => service.assertValidMagicBytes(gif87aBuf, "image/gif")).not.toThrow();
+  });
+
+  it("accepts a valid GIF89a buffer with claimed image/gif", () => {
+    const service = makeMediaService();
+    expect(() => service.assertValidMagicBytes(gif89aBuf, "image/gif")).not.toThrow();
+  });
+
+  it("accepts a valid WebP buffer with claimed image/webp", () => {
+    const service = makeMediaService();
+    expect(() => service.assertValidMagicBytes(webpBuf, "image/webp")).not.toThrow();
+  });
+
+  it("throws BadRequestException when PNG bytes are declared as image/jpeg (polyglot)", () => {
+    // Non-vacuous polyglot: MIME type is in the allow-list but bytes do not match.
+    const service = makeMediaService();
+    expect(() => service.assertValidMagicBytes(pngBuf, "image/jpeg")).toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException when JPEG bytes are declared as image/png (polyglot)", () => {
+    const service = makeMediaService();
+    expect(() => service.assertValidMagicBytes(jpegBuf, "image/png")).toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException for SVG MIME type (not in IMAGE_SIGNATURES)", () => {
+    const svgBytes = Buffer.from("<svg xmlns=".padEnd(12, " "));
+    const service = makeMediaService();
+    expect(() => service.assertValidMagicBytes(svgBytes, "image/svg+xml")).toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException with the expected error message on mismatch", () => {
+    const service = makeMediaService();
+    try {
+      service.assertValidMagicBytes(pngBuf, "image/jpeg");
+      expect.fail("Expected BadRequestException");
+    } catch (err) {
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect((err as BadRequestException).message).toContain(
+        "File content does not match the declared content type"
+      );
+    }
+  });
+
+  it("throws BadRequestException for a short buffer (fewer than 12 bytes)", () => {
+    const shortBuf = Buffer.from([0xff, 0xd8, 0xff]);
+    const service = makeMediaService();
+    expect(() => service.assertValidMagicBytes(shortBuf, "image/jpeg")).toThrow(BadRequestException);
+  });
+});
+
 describe("MediaService.uploadImage", () => {
   // Acceptance criterion: combined upload path enforces all validation and writes a reference.
 
@@ -220,6 +296,74 @@ describe("MediaService.uploadImage", () => {
     expect(result.mimeType).toBe("image/jpeg");
     expect(result.sizeBytes).toBe(1024);
     expect(result.originalFilename).toContain("photo");
+  });
+
+  it("rejects a polyglot (valid MIME type header but non-matching bytes) before touching the filesystem", async () => {
+    // Acceptance criterion: polyglot uploads must be rejected with 400 even
+    // when the content-type header is in the allow-list.
+    const fsMock = await import("node:fs");
+    vi.clearAllMocks();
+    const service = makeMediaService();
+
+    // PNG bytes declared as image/jpeg — non-matching, non-vacuous polyglot.
+    const pngBuf = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+    const polyglotFile = { ...validFile, mimetype: "image/jpeg", buffer: pngBuf };
+
+    await expect(
+      service.uploadImage("user-1", polyglotFile, "blog-post", null)
+    ).rejects.toThrow(BadRequestException);
+
+    expect(fsMock.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  // Acceptance criterion: compliant real images for each existing resourceType
+  // still upload and serve unchanged (no regression from ST11).
+
+  it("accepts a valid JPEG upload for resourceType blog-post (no regression)", async () => {
+    vi.clearAllMocks();
+    const service = makeMediaService();
+    const result = await service.uploadImage("user-1", validFile, "blog-post", null);
+    expect(result.id).toBeDefined();
+    expect(result.mimeType).toBe("image/jpeg");
+    expect(result.storageKey).toContain("blog-post");
+  });
+
+  it("accepts a valid JPEG upload for resourceType standalone-page (no regression)", async () => {
+    vi.clearAllMocks();
+    const service = makeMediaService();
+    const result = await service.uploadImage("user-1", validFile, "standalone-page", null);
+    expect(result.id).toBeDefined();
+    expect(result.mimeType).toBe("image/jpeg");
+    expect(result.storageKey).toContain("standalone-page");
+  });
+
+  it("accepts a valid JPEG upload for resourceType blog-comment (no regression)", async () => {
+    vi.clearAllMocks();
+    const service = makeMediaService();
+    const result = await service.uploadImage("user-1", validFile, "blog-comment", null);
+    expect(result.id).toBeDefined();
+    expect(result.mimeType).toBe("image/jpeg");
+    expect(result.storageKey).toContain("blog-comment");
+  });
+
+  it("rejects a polyglot for resourceType standalone-page (400)", async () => {
+    // Acceptance criterion: polyglot rejection applies to every resourceType.
+    const service = makeMediaService();
+    const pngBuf = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+    const polyglotFile = { ...validFile, mimetype: "image/jpeg", buffer: pngBuf };
+    await expect(
+      service.uploadImage("user-1", polyglotFile, "standalone-page", null)
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a polyglot for resourceType blog-comment (400)", async () => {
+    // Acceptance criterion: polyglot rejection applies to every resourceType.
+    const service = makeMediaService();
+    const pngBuf = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+    const polyglotFile = { ...validFile, mimetype: "image/jpeg", buffer: pngBuf };
+    await expect(
+      service.uploadImage("user-1", polyglotFile, "blog-comment", null)
+    ).rejects.toThrow(BadRequestException);
   });
 });
 
