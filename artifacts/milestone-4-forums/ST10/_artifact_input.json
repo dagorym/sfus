@@ -1,0 +1,26 @@
+{
+  "status": "success",
+  "subtask_id": "ST10",
+  "plan": "milestone-4-forums",
+  "branch_name": "ms4-st10-implementer-20260608",
+  "code_commit_hash": "5375120",
+  "changed_files": [
+    "apps/api/src/blog/blog.service.ts"
+  ],
+  "validation_commands": [
+    "pnpm --filter @sfus/api typecheck",
+    "pnpm --filter @sfus/api lint",
+    "node_modules/.bin/vitest run --root apps/api"
+  ],
+  "validation_outcome": "PASS: 0 typecheck errors, 0 lint warnings, 788/788 tests pass (89 blog.service tests, 39 blog.controller tests).",
+  "task_summary": "ST10 — Map explicit-slug duplicate-key errors to 409. Wrap the explicit-slug create() path and the slug-changing update() path in try/catch using the existing isDuplicateKeyError() helper to throw ConflictException (HTTP 409) instead of letting raw DB errors propagate as 500. Auto-derived slug retry path is unchanged.",
+  "acceptance_criteria": [
+    "Explicit-slug create() with a colliding slug returns 409 ConflictException, not 500.",
+    "Slug-changing update() with a colliding slug returns 409 ConflictException, not 500.",
+    "Auto-derived slug retry path behavior unchanged.",
+    "All existing blog tests pass (89 service + 39 controller)."
+  ],
+  "test_location_guidance": "apps/api/src/blog/blog.service.test.ts — add new test cases for explicit-slug collision in create() and slug-changing collision in update(). Run with: node_modules/.bin/vitest run --root apps/api from the worktree root.",
+  "implementation_context": "The fix adds two localized try/catch blocks. In create(), the explicit-slug branch wraps blogPostRepository.save(post) and catches duplicate-key errors via BlogService.isDuplicateKeyError() (checks ER_DUP_ENTRY/errno 1062 for MySQL, 'UNIQUE constraint failed' for SQLite used in unit tests). In update(), the save wraps its catch with the same helper, and only throws ConflictException when input.slug !== undefined (i.e., slug was being changed). The 409 message is: 'A post with this slug already exists.' The auto-derived path (saveWithDerivedSlugRetry) is untouched.",
+  "artifact_dir": "artifacts/milestone-4-forums/ST10"
+}

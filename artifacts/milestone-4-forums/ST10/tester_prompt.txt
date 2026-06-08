@@ -1,0 +1,53 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+ST10 — Map explicit-slug duplicate-key errors to 409. Wrap the explicit-slug create() path and
+the slug-changing update() path in try/catch using the existing isDuplicateKeyError() helper to
+throw ConflictException (HTTP 409) instead of letting raw DB errors propagate as 500.
+Auto-derived slug retry path is unchanged.
+
+Modified files:
+- apps/api/src/blog/blog.service.ts
+
+Acceptance criteria to validate (from Planner):
+- Explicit-slug create() with a colliding slug returns 409 ConflictException, not 500.
+- Slug-changing update() with a colliding slug returns 409 ConflictException, not 500.
+- Auto-derived slug retry path behavior unchanged.
+- All existing blog tests pass (89 service + 39 controller).
+
+Test file location:
+apps/api/src/blog/blog.service.test.ts — add new test cases for:
+1. create() with explicit slug that collides -> ConflictException (409)
+2. update() changing slug to a colliding value -> ConflictException (409)
+3. create() with explicit non-colliding slug -> succeeds (no regression)
+4. Auto-derived path behavior unchanged (existing tests already cover this)
+
+Assert the 409 envelope shape matches the existing auto-derived path exhaustion 409
+(NestJS ConflictException with message "A post with this slug already exists.").
+
+Implementation context for testing:
+The fix adds two localized try/catch blocks:
+- In create(), the explicit-slug branch wraps blogPostRepository.save(post) and catches
+  duplicate-key errors via BlogService.isDuplicateKeyError() (checks ER_DUP_ENTRY / errno 1062
+  for MySQL, "UNIQUE constraint failed" for SQLite used in unit tests). Throws ConflictException
+  with message "A post with this slug already exists.".
+- In update(), the save is wrapped with the same helper, and only throws ConflictException when
+  input.slug !== undefined (i.e., slug was being changed). Same message.
+- The auto-derived path (saveWithDerivedSlugRetry) is untouched.
+- In unit tests, simulate a duplicate-key error by making blogPostRepository.save throw
+  { message: "UNIQUE constraint failed: blog_post.slug" }.
+
+Suggested test commands (run from worktree root):
+  pnpm --dir <worktree-root> install --frozen-lockfile  (if not already installed)
+  pnpm --filter @sfus/api typecheck
+  pnpm --filter @sfus/api lint
+  node_modules/.bin/vitest run --root apps/api
+
+Existing validations expected to fail only because approved behavior changed:
+None
+
+Shared artifact directory:
+artifacts/milestone-4-forums/ST10
+
+Completion gate:
+Do not report success unless all required artifacts exist and all changes are committed.
