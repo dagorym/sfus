@@ -1,0 +1,60 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- ST14 — username suggest endpoint + minimal public profile API. (a) GET /users/suggest?q= — session-gated (401), throttled (429), prefix-match on active users, caps at 10, returns only {username,displayName,avatarUrl}; never leaks email/role/status/id. (b) GET /users/:username — minimal public profile with exactly five fields {username,displayName,avatar,bio,joinDate}; uniform 404 for nonexistent and inactive users (no enumeration oracle, P12); avatar resolved to /api/media/<id> URL or null.
+
+Modified files:
+- apps/api/src/app.module.ts
+- apps/api/src/users/users.controller.ts
+- apps/api/src/users/users.module.ts
+- apps/api/src/users/users.service.ts
+- apps/api/src/users/users.types.ts
+
+Acceptance criteria to validate (from Planner):
+- Suggest requires an active session (401) — resolveSession throws before any DB work
+- Suggest is throttled — throttleService.checkRequest with userId+createdAt for new-account tier
+- Suggest returns only username/displayName/avatarUrl — explicit allowlist in UsersService.suggestByPrefix
+- Suggest caps result count at 10 (SUGGEST_RESULT_CAP constant)
+- Suggest matches by prefix on active users only — status='active' WHERE + LIKE prefix with escapeLikePrefix
+- Suggest never includes email/role/status — field allowlist enforced in service, no passthrough
+- Public profile returns exactly five fields (username, displayName, avatar, bio, joinDate) — explicit allowlist in UsersService.findPublicProfile
+- Public profile returns 404 for nonexistent users — findPublicProfile returns null; controller throws NotFoundException('User not found.')
+- Public profile returns uniform 404 for inactive users — same WHERE status='active' condition; same NotFoundException message (P12)
+- Avatar is /api/media/<id> URL or null — resolved in service from avatarMediaId
+
+Create test files in:
+- apps/api/src/users/users.controller.test.ts — primary test file for controller-level behavior (401, 429, field exposure, enumeration parity, 400 guards)
+- apps/api/src/users/users.service.test.ts — unit tests for UsersService.suggestByPrefix and findPublicProfile (prefix match, active-only, count cap, allowlist)
+
+Implementation context for testing:
+- UsersController at apps/api/src/users/users.controller.ts — new file, two GET endpoints
+- GET /users/suggest?q= — order: 400 guard (q must be string) -> 401 resolveSession -> throttle checkRequest -> DB
+- GET /users/:username — 400 guard (non-empty string) -> findPublicProfile (returns null for nonexistent+inactive) -> uniform 404
+- UsersService.suggestByPrefix uses TypeORM Like() with escapeLikePrefix() to prevent LIKE injection; take:10; where:{status:'active'}
+- UsersService.findPublicProfile queries {username, status:'active'} — returns null for BOTH nonexistent and inactive users
+- avatarUrl/avatar resolved as '/api/media/' + avatarMediaId, or null when avatarMediaId is null
+- joinDate is user.createdAt.toISOString()
+- UsersModule now has static form (for AuthModule backward compat) and UsersModule.register(env) dynamic form (for AppModule) that imports AuthModule.register(env) and ThrottleModule.register(env)
+- app.module.ts changed from UsersModule to UsersModule.register(environment) — 1-line change
+- Security review required per plan (username enumeration surface + public PII exposure)
+- SUGGEST_RESULT_CAP = 10, ACTIVE_STATUS = 'active', MEDIA_URL_PREFIX = '/api/media/'
+- Tester MUST verify: suggest 401 without session; suggest 429 over limit; suggest ONLY 3 allowlisted fields (assert email/globalRole/status absent); suggest prefix+active+cap; profile exactly 5 fields (no email/role/status/id); enumeration parity (nonexistent 404 message === inactive 404 message); avatar URL resolution; malformed q/username 400
+
+Suggested test command(s):
+- pnpm --dir apps/api lint
+- pnpm --dir apps/api typecheck
+- pnpm --dir apps/api exec vitest run
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST14
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
