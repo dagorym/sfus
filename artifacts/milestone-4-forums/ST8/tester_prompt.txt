@@ -1,0 +1,61 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- ST8 — Throttle module (storage seam, new-account tier, link-limit)
+
+Modified files:
+- apps/api/src/common/throttle/throttle.types.ts
+- apps/api/src/common/throttle/throttle-store.ts
+- apps/api/src/common/throttle/link-limit.ts
+- apps/api/src/common/throttle/throttle.service.ts
+- apps/api/src/common/throttle/throttle.guard.ts
+- apps/api/src/common/throttle/throttle.module.ts
+- apps/api/src/config/environment.ts
+- apps/api/src/app.module.ts
+- apps/api/src/config/environment.test.ts (throttle field added to existing fixture)
+- apps/api/src/auth/auth.controller.test.ts (throttle field added to existing fixture)
+- apps/api/src/auth/auth.service.test.ts (throttle field added to existing fixture)
+- apps/api/src/database/database.config.test.ts (throttle field added to existing fixture)
+- apps/api/src/health/readiness.service.test.ts (throttle field added to existing fixture)
+- apps/api/src/media/media.service.test.ts (throttle field added to existing fixture)
+
+Acceptance criteria to validate (from Planner):
+1. Over-limit request -> 429 envelope; under-limit passes through; identity prefers session user id, falls back to proxy-resolved IP (request.ip under trust proxy=1); new-account-tier limits apply to accounts younger than newAccountWindowMs.
+2. Link-count limiter rejects over-max bodies and accepts compliant ones.
+3. Storage accessed only through IThrottleStore; in-memory store wired by default; swapping the implementation needs no guard/route change (proven by a test double).
+4. New env vars validated in environment.ts (missing/invalid -> startup failure consistent with existing handling); API tsc build passes.
+
+Create test files in:
+- apps/api/src/common/throttle/*.test.ts
+
+Implementation context for testing:
+- ThrottleService.checkRequest({routeLabel, request, userId?, userCreatedAt?}) is the enforcement entry point. It calls store.hit(key, windowMs) and throws HttpException(429) with {error, message, statusCode, retryAfter} when count > maxHits.
+- Identity key: userId ?? request.ip ?? "unknown". When userId is provided, it is preferred; guests fall back to request.ip (never parse X-Forwarded-For directly).
+- New-account tier: active only when userId is truthy AND userCreatedAt is within newAccountWindowMs of now. Uses newAccountMaxHits (must be <= maxHits per validation rule).
+- InMemoryThrottleStore uses fixed-window semantics (not sliding): a new window opens on first hit after expiry; a running window increments until it expires.
+- Storage seam test: inject a test-double IThrottleStore via THROTTLE_STORE token; verify the guard/service calls only store.hit() — no direct reference to InMemoryThrottleStore in guard or service.
+- link-limit.ts exports countLinks(body: string): number and exceedsLinkLimit(body: string, maxLinks: number): boolean. countLinks counts Markdown [text](url) links plus bare http/https:// URLs that are NOT inside Markdown syntax (no double-counting).
+- ThrottleGuard implements CanActivate. It resolves session best-effort (try/catch) and passes userId and null for userCreatedAt to ThrottleService. It uses @ThrottleLabel("label") decorator (via SetMetadata(THROTTLE_ROUTE_LABEL, label)) to set a custom route label; falls back to controller class name.
+- For HTTP-level tests, reuse createTestApp() from apps/api/src/test-harness.ts to get a real Express app with trust proxy=1. Mount a test router to simulate a throttled endpoint.
+- Env var ranges: THROTTLE_WINDOW_MS 1000-3600000, THROTTLE_MAX_HITS 1-10000, THROTTLE_NEW_ACCOUNT_MAX_HITS 1-10000 (must be <= THROTTLE_MAX_HITS), THROTTLE_NEW_ACCOUNT_WINDOW_MS 60000-2592000000, THROTTLE_MAX_LINKS_PER_POST 0-100. All required.
+- Default test fixture values: THROTTLE_WINDOW_MS=60000, THROTTLE_MAX_HITS=60, THROTTLE_NEW_ACCOUNT_MAX_HITS=10, THROTTLE_NEW_ACCOUNT_WINDOW_MS=604800000, THROTTLE_MAX_LINKS_PER_POST=5.
+
+Suggested test commands:
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st8-implementer-20260608 lint
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st8-implementer-20260608 typecheck
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st8-implementer-20260608 test
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st8-implementer-20260608 --filter api build
+
+Existing validations expected to fail only because approved behavior changed:
+- None (all 431 tests + 2 DB-gated-skips pass on the implementation commit)
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST8
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
