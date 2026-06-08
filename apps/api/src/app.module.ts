@@ -23,7 +23,7 @@ export class AppModule implements NestModule {
       module: AppModule,
       imports: [
         DatabaseModule.register(environment),
-        UsersModule,
+        UsersModule.register(environment),
         AuthModule.register(environment),
         AuthorizationModule,
         ThrottleModule.register(environment),
