@@ -8,6 +8,7 @@ import { JsonLogger } from "./common/logger/json-logger.service";
 import { CorrelationIdMiddleware } from "./common/middleware/correlation-id.middleware";
 import { RequestLoggingMiddleware } from "./common/middleware/request-logging.middleware";
 import { DatabaseModule } from "./database/database.module";
+import { ForumsModule } from "./forums/forums.module";
 import { HealthModule } from "./health/health.module";
 import { MediaModule } from "./media/media.module";
 import { NavigationModule } from "./navigation/navigation.module";
@@ -28,7 +29,8 @@ export class AppModule implements NestModule {
         MediaModule.register(environment),
         BlogModule.register(environment),
         PagesModule.register(environment),
-        NavigationModule.register(environment)
+        NavigationModule.register(environment),
+        ForumsModule.register(environment)
       ],
       providers: [JsonLogger, CorrelationIdMiddleware, RequestLoggingMiddleware]
     };

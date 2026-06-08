@@ -16,15 +16,21 @@ import { MediaReferenceEntity } from "../media/entities/media-reference.entity";
 import { NavigationItemEntity } from "../navigation/entities/navigation-item.entity";
 import { PageRevisionEntity } from "../pages/entities/page-revision.entity";
 import { StandalonePageEntity } from "../pages/entities/standalone-page.entity";
+import { ForumCategoryEntity } from "../forums/entities/forum-category.entity";
+import { ForumBoardEntity } from "../forums/entities/forum-board.entity";
+import { ForumTopicEntity } from "../forums/entities/forum-topic.entity";
+import { ForumPostEntity } from "../forums/entities/forum-post.entity";
 import { FoundationBaseline1711843200000 } from "./migrations/1711843200000-foundation-baseline";
 import { IdentityAuthorizationFoundation1714435200000 } from "./migrations/1714435200000-identity-authorization-foundation";
 import { MilestoneThreeContentFoundation1748736000000 } from "./migrations/1748736000000-milestone-three-content-foundation";
+import { MilestoneFourForumsFoundation1780890123767 } from "./migrations/1780890123767-milestone-four-forums-foundation";
 import { UserEntity } from "../users/entities/user.entity";
 
 const reviewedMigrationClasses = [
   FoundationBaseline1711843200000,
   IdentityAuthorizationFoundation1714435200000,
-  MilestoneThreeContentFoundation1748736000000
+  MilestoneThreeContentFoundation1748736000000,
+  MilestoneFourForumsFoundation1780890123767
 ];
 
 const reviewedEntityClasses = [
@@ -42,7 +48,11 @@ const reviewedEntityClasses = [
   BlogCommentEntity,
   StandalonePageEntity,
   PageRevisionEntity,
-  NavigationItemEntity
+  NavigationItemEntity,
+  ForumCategoryEntity,
+  ForumBoardEntity,
+  ForumTopicEntity,
+  ForumPostEntity
 ];
 
 export const reviewedMigrationNames = reviewedMigrationClasses.map((MigrationClass) => {
