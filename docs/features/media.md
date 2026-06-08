@@ -97,12 +97,11 @@ that fails. Do not add a write path that skips this.
   image attributes (rejected URLs become `#`). Links open with
   `rel="noopener noreferrer" target="_blank"`; images are lazy-loaded. No external Markdown
   library. **XSS hardening (ST16 security remediation):** `sanitizeUrl` additionally rejects
-  any URL containing HTML-attribute-breaking characters (`"`, `'`, `<`, `>`, `&`) by returning
+  any URL containing HTML-attribute-breaking characters (`"`, `'`, `<`, `>`) by returning
   `"#"` — a raw `"` in a link/image destination would otherwise break out of the surrounding
-  `href`/`src` attribute and inject a live event handler. **Known caveat (pending verifier
-  review):** the current `&`-check also rejects legitimate multi-parameter query-string URLs
-  (e.g. `https://example.com/?a=1&b=2`); this is a functional regression to be adjudicated
-  before the fix is considered final.
+  `href`/`src` attribute and inject a live event handler. `&` is intentionally allowed as a
+  legal, unencoded query-parameter delimiter (RFC 3986); it does not break a double-quoted
+  HTML attribute.
 - **`ImageUpload`** — shared upload widget (`resourceType`, `onUpload`, `onError`,
   `apiBasePath`, `disabled`, `label`). Posts multipart to the upload route with
   `credentials: "include"`; surfaces `401` as an authentication-required message; performs an

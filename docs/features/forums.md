@@ -474,11 +474,12 @@ All user-authored content (topic bodies and post bodies) renders exclusively thr
 
 - strips all raw HTML tags (`<...>`),
 - rejects `javascript:`, `data:`, and any non-http(s)/relative URL scheme (sanitizeUrl),
-- renders `@username` handles as plain links (see below).
+- rejects URLs containing `"`, `'`, `<`, or `>` to prevent HTML attribute breakout (sanitizeUrl XSS hardening — `&` is allowed as a legal query-parameter delimiter),
+- renders `@username` text as HTML-escaped plain text — it does **not** auto-linkify inline `@mentions` (inline mention auto-linking is deferred to M10).
 
 The API also validates body content server-side before persistence (`validateMarkdownBody`), providing defense in depth. The web layer's `MarkdownRenderer` is an additional client-side safety layer applied on display.
 
-### @mention autocomplete and rendered links
+### @mention autocomplete and author bylines
 
 The `MentionAutocomplete` component (`apps/web/components/mention-autocomplete.tsx`) wraps a textarea and watches for `@` followed by a valid username prefix (`[a-zA-Z0-9_-]{0,30}`). When triggered:
 
@@ -487,7 +488,9 @@ The `MentionAutocomplete` component (`apps/web/components/mention-autocomplete.t
 3. Selecting a suggestion inserts `@username ` (plain text, not HTML) at the cursor.
 4. Arrow keys, Enter/Tab, and Escape provide keyboard accessibility.
 
-`@username` handles in rendered Markdown are rendered as links pointing to `/users/<encodeURIComponent(username)>` by `MarkdownRenderer`. No server-side mention resolution is performed; the `/users/<username>` profile page is owned by ST17.
+`@username` text inserted into a post or topic body is stored as plain Markdown and rendered by `MarkdownRenderer` as HTML-escaped plain text. `MarkdownRenderer` does **not** auto-linkify inline `@username` mentions — inline mention linking is deferred to M10.
+
+**Author bylines** (below each post and in the topic header) link the author's username to `/users/<encodeURIComponent(username)>` using a JSX `<Link>` component. This is the only place where a username appears as a clickable link to the public profile page. No server-side mention resolution is performed; the `/users/<username>` profile page is owned by ST17.
 
 Autocomplete calls the suggest endpoint only; it never performs a full user listing or leaks fields beyond `username`, `displayName`, and `avatarUrl`. If the session is missing or the endpoint is unavailable, the dropdown degrades gracefully (no suggestions shown, typing continues normally).
 
@@ -536,4 +539,4 @@ See [Moderation (ST6)](#moderation-st6) for the full server-side contract and `M
 
 ### @username mention and autocomplete
 
-See the subsection above ("@mention autocomplete and rendered links") for the full contract. The suggest endpoint is documented in [auth.md § User discovery API](auth.md#user-discovery-api-st14).
+See the subsection above ("@mention autocomplete and author bylines") for the full contract. The suggest endpoint is documented in [auth.md § User discovery API](auth.md#user-discovery-api-st14).
