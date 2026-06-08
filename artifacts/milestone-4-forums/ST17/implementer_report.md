@@ -1,46 +1,52 @@
-# Implementer Report
+# Implementer Report — ST17 Tester-Driven Remediation
 
-Status:
-- success
+**Status:** PASS
 
-Task summary:
-- ST17 — Web: public profile page + avatar upload & display. Added /users/[username] public profile page (five-field allowlist enforced via profileProjection()), UserAvatar component with initials fallback, avatar upload/remove in /profile using ImageUpload(resourceType='avatar') wired to ST15 API, and avatar display in mention-autocomplete results.
+**Task summary:**
+TESTER-DRIVEN REMEDIATION (one allowed): Add `// eslint-disable-next-line @next/next/no-img-element`
+on the line immediately above the native `<img>` in `user-avatar.tsx` to fix the
+`@next/next/no-img-element` lint warning reported by the Tester. Minimal fix matching established
+repo convention.
 
-Changed files:
-- apps/web/app/auth-client.ts
-- apps/web/app/profile/page.tsx
-- apps/web/app/users/[username]/page.tsx
-- apps/web/app/users/users-profile.spec.ts
-- apps/web/components/image-upload.tsx
-- apps/web/components/mention-autocomplete.tsx
-- apps/web/components/user-avatar.module.css
-- apps/web/components/user-avatar.spec.ts
-- apps/web/components/user-avatar.tsx
+## Changed files
 
-Validation commands run:
-- pnpm --dir <worktree> install --frozen-lockfile
-- <worktree>/node_modules/.bin/vitest run --root apps/web
-- pnpm typecheck
-- pnpm lint
+- `apps/web/components/user-avatar.tsx`
 
-Validation outcome:
-- pass
+## Implementation/code commit hash
 
-Implementation/code commit hash:
-- cecfa16
+`d385adfb6ba1d3346f3ed0f8839a46c5fa17dfe0`
 
-Artifacts written:
-- artifacts/milestone-4-forums/ST17/implementer_report.md
-- artifacts/milestone-4-forums/ST17/tester_prompt.txt
-- artifacts/milestone-4-forums/ST17/implementer_result.json
+## Fix applied
 
-Implementation context:
-- UserAvatar component (user-avatar.tsx) renders avatar from /api/media/<id> gated URL, falls back to uppercase initials on null or image-load error — never shows broken image.
-- profileProjection() in users/[username]/page.tsx enforces strict five-field allowlist — any extra fields in the API response are silently dropped.
-- Avatar upload in /profile uses ImageUpload(resourceType='avatar') then calls setAvatar(mediaId) → PUT /api/users/me/avatar; remove avatar calls DELETE /api/users/me/avatar.
-- mention-autocomplete.tsx now renders UserAvatar (24px) for each suggestion item (avatar display in autocomplete results).
-- ImageUploadResourceType union in image-upload.tsx extended with 'avatar' type.
-- setAvatar() and removeAvatar() helpers added to auth-client.ts; ProfilePayload extended with optional avatarUrl field.
+Added `// eslint-disable-next-line @next/next/no-img-element` on the line immediately above the
+`<img>` element in `user-avatar.tsx` (~line 102). The avatar component uses a dynamic user-supplied
+image from the gated `/api/media/<id>` path with an `onError`->initials fallback; raw `<img>` is
+the repo-consistent choice for this use case. Convention matches:
+- `apps/web/app/[slug]/page.tsx:118-119`
+- `apps/web/app/pages/[slug]/page.tsx:67-68`
 
-Expected validation failures carried forward:
-- None
+No behavior change — purely suppresses the lint warning.
+
+## Validation commands run
+
+1. `pnpm --dir <worktree> install --frozen-lockfile`
+2. `<worktree>/node_modules/.bin/vitest run --root apps/web`
+3. `pnpm --dir <worktree> typecheck`
+4. `pnpm --dir <worktree> lint`
+
+## Validation outcomes
+
+- **Tests:** 407 pass, 0 fail (12 test files; user-avatar.spec.ts 16 tests, users-profile.spec.ts 12 tests — all ST17 specs pass)
+- **Typecheck:** 0 errors
+- **Lint:** exit 0, 0 warnings (DEFECT REPAIRED — was exit 1 with 1 warning before fix)
+
+## Artifacts written
+
+- `artifacts/milestone-4-forums/ST17/implementer_report.md`
+- `artifacts/milestone-4-forums/ST17/tester_prompt.txt`
+- `artifacts/milestone-4-forums/ST17/implementer_result.json`
+
+## History preserved
+
+Prior tester FAIL artifacts archived at:
+`artifacts/milestone-4-forums/ST17/history/tester-1-fail/`

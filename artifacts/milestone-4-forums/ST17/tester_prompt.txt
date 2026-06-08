@@ -1,53 +1,65 @@
 Your role is 'tester'. Your task is as follows:
 
-Task summary:
-- ST17 — Web: public profile page + avatar upload & display. Added /users/[username] public profile page (five-field allowlist enforced via profileProjection()), UserAvatar component with initials fallback, avatar upload/remove in /profile using ImageUpload(resourceType='avatar') wired to ST15 API, and avatar display in mention-autocomplete results.
+## Context
 
-Modified files:
-- apps/web/app/auth-client.ts
-- apps/web/app/profile/page.tsx
-- apps/web/app/users/[username]/page.tsx
-- apps/web/app/users/users-profile.spec.ts
-- apps/web/components/image-upload.tsx
-- apps/web/components/mention-autocomplete.tsx
-- apps/web/components/user-avatar.module.css
-- apps/web/components/user-avatar.spec.ts
-- apps/web/components/user-avatar.tsx
+This is the TESTER-DRIVEN REMEDIATION pass for ST17. The prior Tester run returned FAIL on a single
+defect: `pnpm lint` failed (exit 1) because `apps/web/components/user-avatar.tsx` (~line 102)
+rendered a native `<img>` element without an eslint-disable comment, tripping the
+`@next/next/no-img-element` rule under `--max-warnings=0`. Everything else was GREEN.
 
-Acceptance criteria to validate (from Planner):
-- Public profile page renders ONLY the five permitted fields (username, displayName, avatar, bio, joinDate) — profileProjection() guard drops unknown keys at runtime.
-- Member can upload/replace and remove their avatar from /profile; new avatar appears on their profile, forum bylines, and autocomplete results; users without an avatar get the initials fallback (no broken image).
-- Web lint and typecheck pass; 28 new non-vacuous behavioral tests execute with no failures.
+The implementer has applied the one allowed fix: added `// eslint-disable-next-line @next/next/no-img-element`
+on the line immediately above the `<img>` in user-avatar.tsx, matching the established repo convention
+used in `apps/web/app/[slug]/page.tsx:118-119` and `apps/web/app/pages/[slug]/page.tsx:67-68`.
 
-Create test files in:
-- apps/web/components/user-avatar.spec.ts — 16 behavioral tests for deriveInitials() and resolveAvatarSrc() pure functions
-- apps/web/app/users/users-profile.spec.ts — 12 behavioral tests for profileProjection() output guard
-- Run WORKTREE-LOCALLY: <worktree>/node_modules/.bin/vitest run --root apps/web (NOT pnpm --filter @sfus/web test)
+## Modified files
 
-Implementation context for testing:
-- UserAvatar component (user-avatar.tsx) renders avatar from /api/media/<id> gated URL, falls back to uppercase initials on null or image-load error — never shows broken image.
-- profileProjection() in users/[username]/page.tsx enforces strict five-field allowlist — any extra fields in the API response are silently dropped.
-- Avatar upload in /profile uses ImageUpload(resourceType='avatar') then calls setAvatar(mediaId) → PUT /api/users/me/avatar; remove avatar calls DELETE /api/users/me/avatar.
-- mention-autocomplete.tsx now renders UserAvatar (24px) for each suggestion item (avatar display in autocomplete results).
-- ImageUploadResourceType union in image-upload.tsx extended with 'avatar' type.
-- setAvatar() and removeAvatar() helpers added to auth-client.ts; ProfilePayload extended with optional avatarUrl field.
+- `apps/web/components/user-avatar.tsx`
 
-Suggested test command(s):
-- pnpm --dir <worktree> install --frozen-lockfile
-- <worktree>/node_modules/.bin/vitest run --root apps/web
-- pnpm typecheck
-- pnpm lint
+## Acceptance criteria to validate (from Planner)
 
-Existing validations expected to fail only because approved behavior changed:
-- None
+1. `pnpm lint` exits 0, 0 warnings — THIS IS THE SPECIFIC FIX UNDER REPAIR. Confirm explicitly with pasted output.
+2. 407 web tests pass, 0 fail (28 new ST17 specs — `components/user-avatar.spec.ts` 16 tests, `app/users/users-profile.spec.ts` 12 tests — must still execute and pass, non-vacuous).
+3. `pnpm typecheck` exits 0, 0 errors.
+4. No ST14 five-field allowlist regression.
+5. No ST16 regression.
 
-Startup behavior:
-- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
-- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
-- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+## Validation commands
 
-Shared artifact directory:
-- artifacts/milestone-4-forums/ST17
+Run from the worktree root:
 
-Completion gate:
-- Do not report success unless all required artifacts exist and all changes are committed.
+1. `pnpm --dir <worktree> install --frozen-lockfile`
+2. `<worktree>/node_modules/.bin/vitest run --root apps/web` — expect 407 pass, 0 fail
+3. `pnpm --dir <worktree> typecheck` — expect 0 errors
+4. `pnpm --dir <worktree> lint` — expect exit 0, 0 warnings (THE FIX BEING VERIFIED)
+
+## Implementation context
+
+The fix is a one-line comment insertion: `// eslint-disable-next-line @next/next/no-img-element`
+added immediately above the `<img>` element in `apps/web/components/user-avatar.tsx`. The avatar
+component uses a dynamic user-supplied image from the gated `/api/media/<id>` path with an
+`onError`->initials fallback; raw `<img>` is the repo-consistent choice for this use case.
+No behavior change — purely suppresses the lint warning using the same pattern as the rest of the codebase.
+
+Prior tester FAIL artifacts preserved in `artifacts/milestone-4-forums/ST17/history/tester-1-fail/`.
+
+## Test file locations
+
+- `apps/web/components/user-avatar.spec.ts` (16 tests — ST17 new)
+- `apps/web/app/users/users-profile.spec.ts` (12 tests — ST17 new)
+
+## Existing validations expected to fail only because approved behavior changed
+
+None.
+
+## Shared artifact directory
+
+`artifacts/milestone-4-forums/ST17`
+
+## Startup behavior
+
+If acceptance criteria and implementation context are present, begin testing work immediately
+and continue in the same run. Do not stop after activation or role acknowledgment.
+
+## Completion gate
+
+Do not report success unless all required artifacts exist and all changes are committed.
