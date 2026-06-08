@@ -1,0 +1,49 @@
+{
+  "status": "success",
+  "subtask": "ST6",
+  "branch": "ms4-st6-tester-20260608",
+  "test_commit_hash": "b4a3ef6",
+  "test_files_modified": [
+    "apps/api/src/forums/forums.service.test.ts",
+    "apps/api/src/forums/forums.controller.test.ts"
+  ],
+  "commands_run": [
+    "pnpm --dir /home/tstephen/repos/worktrees/ms4-st6-tester-20260608 install --frozen-lockfile",
+    "npx --prefix /home/tstephen/repos/worktrees/ms4-st6-tester-20260608 vitest run --root /home/tstephen/repos/worktrees/ms4-st6-tester-20260608/apps/api",
+    "pnpm --dir /home/tstephen/repos/worktrees/ms4-st6-tester-20260608 typecheck",
+    "pnpm --dir /home/tstephen/repos/worktrees/ms4-st6-tester-20260608 lint"
+  ],
+  "test_totals": {
+    "test_files_passed": 27,
+    "test_files_skipped": 1,
+    "tests_passed": 765,
+    "tests_failed": 0,
+    "tests_skipped": 2
+  },
+  "typecheck_errors": 0,
+  "lint_errors": 0,
+  "forums_tests_executed": {
+    "forums.controller.test.ts": 96,
+    "forums.service.test.ts": 133,
+    "forums-entities.test.ts": 9,
+    "forums.module.test.ts": 3
+  },
+  "st6_tests_added": {
+    "forums.service.test.ts": 33,
+    "forums.controller.test.ts": 35
+  },
+  "acceptance_criteria": {
+    "AC1_gate_401_403_all_endpoints": "pass",
+    "AC2_persist_and_audit_columns": "pass",
+    "AC3_lock_integration_createPost_403": "pass",
+    "AC4_cross_scope_leak_prevention": "pass",
+    "AC5_input_guard_malformed_destinationBoardId": "pass",
+    "AC6_swagger_decorator_metadata": "pass"
+  },
+  "unmet_acceptance_criteria": [],
+  "artifact_files_written": [
+    "artifacts/milestone-4-forums/ST6/tester_report.md",
+    "artifacts/milestone-4-forums/ST6/tester_result.json",
+    "artifacts/milestone-4-forums/ST6/documenter_prompt.txt"
+  ]
+}

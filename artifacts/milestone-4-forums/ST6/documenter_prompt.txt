@@ -1,0 +1,64 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST6 implemented forum moderation controls: six PATCH endpoints (pin/unpin/lock/unlock/move) on `/forums/moderation/topics/:topicId/{pin,unpin,lock,unlock,move}`. The service adds `assertModerationAccess` (moderator+admin via `hasGlobalRole`), `setPinned`, `setLocked` (with `lockedByUserId`/`lockedAt` audit columns), and `moveTopic` (with destination board re-validation via `isBoardPubliclyReadable`/`evaluate()` to prevent cross-scope leaks, plus `movedByUserId`/`movedAt` audit columns). The `ModeratedTopicShape` and `MoveTopicInput` types were added to `forums.types.ts`.
+- All four ST6 acceptance criteria verified: gate ordering (401/403 before data ops), persist+audit columns, lock integration (createPost→403 on locked topic), cross-scope leak prevention for moveTopic.
+
+Acceptance criteria validated:
+- AC1: 401/403 gate fires before any data operation on all six moderation endpoints.
+- AC2: setPinned/setLocked persist changes; lockedByUserId/lockedAt (and movedByUserId/movedAt for move) audit columns recorded with acting moderator id and timestamp.
+- AC3: After setLocked(true), createPost on that topic returns ForbiddenException (thread-locked) for a non-privileged user; save not called.
+- AC4: moveTopic into project-scoped or non-publicly-readable destination board is rejected (404/NotFoundException); isBoardPubliclyReadable/evaluate() is called on destination for site-scoped boards. Move to nonexistent destination → 404. Valid move to readable site board succeeds and persists new boardId.
+- AC5 (Input Guard): malformed destinationBoardId (missing, empty string, 42, {}) → BadRequestException 400, NOT TypeError/500.
+- AC6 (Contract): All six endpoints carry correct Swagger response decorators (@ApiUnauthorizedResponse/401, @ApiForbiddenResponse/403, @ApiNotFoundResponse/404, and @ApiBadRequestResponse/400 for move), verified via Reflect.getMetadata decorator metadata assertions.
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st6-tester-20260608
+- Branch: ms4-st6-tester-20260608 (tester branch from implementer branch ms4-st6-implementer-20260608, implementation commit 026fbbd)
+- Comparison base: main branch (or ms4 coordination branch)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/forums/forums.controller.ts (six new PATCH moderation endpoints)
+- apps/api/src/forums/forums.service.ts (assertModerationAccess, setPinned, setLocked, moveTopic, toModeratedTopicShape)
+- apps/api/src/forums/forums.types.ts (ModeratedTopicShape, MoveTopicInput interfaces)
+- apps/api/src/forums/forums.service.test.ts (ST6 service tests added)
+- apps/api/src/forums/forums.controller.test.ts (ST6 controller tests added, reflect-metadata import added)
+
+Test commit:
+- b4a3ef6
+
+Commands executed:
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st6-tester-20260608 install --frozen-lockfile
+- npx --prefix /home/tstephen/repos/worktrees/ms4-st6-tester-20260608 vitest run --root /home/tstephen/repos/worktrees/ms4-st6-tester-20260608/apps/api
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st6-tester-20260608 typecheck
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st6-tester-20260608 lint
+
+Final test outcomes:
+- Test Files: 27 passed, 1 skipped (28 total)
+- Tests: 765 passed, 0 failed, 2 skipped (767 total)
+- forums.controller.test.ts: 96 tests (35 new ST6 tests added)
+- forums.service.test.ts: 133 tests (33 new ST6 tests added)
+- Typecheck: 0 errors
+- Lint: 0 errors
+
+Documentation context:
+- docs/features/forums.md should document the six moderation endpoints, their access requirements (global moderator or admin role), the error contract (401/403/404, 400 for move), the cross-scope leak prevention behavior for moveTopic, and the audit columns (lockedByUserId/lockedAt, movedByUserId/movedAt).
+- The ModeratedTopicShape DTO returned by moderation endpoints should be documented as distinct from the public PublicTopicShape (adds isLocked, boardId, lockedByUserId, lockedAt, movedByUserId, movedAt; omits author details).
+- Lock semantics: a locked topic blocks new posts for non-privileged users (ForbiddenException 403 with "thread-locked" message from createPost).
+- Cross-scope move prevention: moveTopic validates the destination board via isBoardPubliclyReadable (routes through AuthorizationService.evaluate()), rejecting project-scoped or non-publicly-readable destinations with oracle-parity 404.
+
+Plan and diff context:
+- Plan path: plans/milestone-4-forums-plan.md (infer from repository if exact section is unclear)
+- Comparison base: main branch or ms4 coordination branch; the implementer worked on ms4-st6-implementer-20260608 from the ms4 branch.
+- The ST6 changes are self-contained in the forums subsystem; no other subsystems were touched.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
