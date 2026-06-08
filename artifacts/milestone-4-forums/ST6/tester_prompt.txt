@@ -1,0 +1,136 @@
+Your role is 'tester'. Your task is as follows:
+
+Test Milestone 4 subtask ST6 — Forum moderation controls (pin/lock/move).
+
+## Source of truth
+
+- `plans/milestone-4-forums-plan.md` (ST6)
+- `docs/features/authorization.md` (`assertModerationAccess`)
+- Implementation commit: `026fbbd` on branch `ms4-st6-implementer-20260608`
+
+## Changed files
+
+- `apps/api/src/forums/forums.controller.ts`
+- `apps/api/src/forums/forums.service.ts`
+- `apps/api/src/forums/forums.types.ts`
+
+## Test file location
+
+`apps/api/src/forums/forums.service.test.ts` and `apps/api/src/forums/forums.controller.test.ts`
+(add ST6 test cases to these existing files — they already contain ST1–ST5 tests).
+
+## Acceptance criteria to verify
+
+1. **Pin/lock/move return 401 no session / 403 non-moderator BEFORE any data op.**
+   - Per-endpoint: assert the relevant repository/service method is NOT called when the gate fires.
+   - 401 check: `resolveSession` throws before the access check.
+   - 403 check: `assertModerationAccess` fires before any repo call.
+   - Must be verified for all six endpoints: pin, unpin, lock, unlock, move, and move with valid session but non-moderator role.
+
+2. **Success persists and shows in subsequent reads.**
+   - After `setPinned(true)`, the topic's `isPinned` is saved as `true`.
+   - After `setLocked(true)`, the topic's `isLocked` is `true`, `lockedByUserId` and `lockedAt` are set.
+   - After `setLocked(false)`, the topic's `isLocked` is `false`, audit fields are cleared.
+   - After `moveTopic`, the topic's `boardId` equals the destination board id, `movedByUserId` and `movedAt` are set.
+   - The moderated shape returned reflects the persisted state.
+
+3. **Lock blocks new posts for non-privileged users.**
+   - Integrate with ST5 `createPost`: after locking a topic, call `createPost` on that topic and
+     verify it returns `403 thread-locked` (topic.isLocked is true — ST5 already checks this).
+   - This confirms `setLocked(true)` makes `topic.isLocked = true` visible to `createPost`.
+
+4. **Move cross-scope-leak rejection.**
+   - Moving into a non-readable / project-scoped / hidden board → 404 (or 400/403 per the
+     returned status code contract). `isBoardPubliclyReadable` is called on the destination board;
+     a board that fails this predicate returns `BOARD_NOT_FOUND_MESSAGE` 404.
+   - `evaluate()` must be called (verify via `isBoardPubliclyReadable` mock or destination board stub).
+   - Moving into a genuinely non-existent board → same 404 message (oracle parity).
+
+5. **Malformed `destinationBoardId` → 400 (not 500).**
+   - Send `{}` body (no `destinationBoardId`): expect 400, no 500 TypeError.
+   - Send `{ destinationBoardId: "" }`: expect 400.
+   - Send `{ destinationBoardId: 123 }`: expect 400.
+
+6. **Swagger/JSDoc contract.**
+   - Verify Swagger decorator metadata: each endpoint carries `@ApiUnauthorizedResponse`,
+     `@ApiForbiddenResponse`, `@ApiNotFoundResponse` (and `@ApiBadRequestResponse` for move).
+     Check decorator presence, not a source slice.
+
+## Implementation context
+
+### New service methods
+
+- `assertModerationAccess(actorGlobalRole: string): void`
+  — mirrors `BlogService.assertModerationAccess`; calls `authorizationService.hasGlobalRole(role, "moderator")`
+  — throws `ForbiddenException` if not moderator/admin
+
+- `setPinned(actorUserId, topicId, pin: boolean): Promise<ModeratedTopicShape>`
+  — loads topic with board relation; oracle-parity 404 if not found or board not publicly readable
+  — sets `isPinned`, saves, returns `ModeratedTopicShape`
+
+- `setLocked(actorUserId, topicId, lock: boolean): Promise<ModeratedTopicShape>`
+  — same 404 gate; sets `isLocked`, records/clears `lockedByUserId`/`lockedAt`
+
+- `moveTopic(actorUserId, topicId, destinationBoardId: string): Promise<ModeratedTopicShape>`
+  — input guard: `BadRequestException` if `destinationBoardId` not a non-empty string
+  — source topic gate (oracle-parity 404)
+  — destination board gate: `isBoardPubliclyReadable(destBoard)` → 404 if non-readable/nonexistent
+  — persists `boardId`, `movedByUserId`, `movedAt`
+
+### New controller endpoints (all PATCH)
+
+```
+PATCH /forums/moderation/topics/:topicId/pin
+PATCH /forums/moderation/topics/:topicId/unpin
+PATCH /forums/moderation/topics/:topicId/lock
+PATCH /forums/moderation/topics/:topicId/unlock
+PATCH /forums/moderation/topics/:topicId/move   (body: { destinationBoardId: string })
+```
+
+All follow the same guard sequence: `resolveSession` (401) → `assertModerationAccess` (403) → service call.
+
+### New types
+
+- `ModeratedTopicShape` — includes `isLocked`, `boardId`, `lockedByUserId`, `lockedAt`,
+  `movedByUserId`, `movedAt`, `isPinned`, `replyCount`, `lastPostAt`, `createdAt`, `updatedAt`.
+- `MoveTopicInput` — `{ destinationBoardId: string }`.
+
+### Lock + createPost integration
+
+ST5's `createPost` in `ForumsService` already contains:
+```typescript
+if (topic.isLocked) {
+  throw new ForbiddenException("This topic is locked. New posts are not allowed.");
+}
+```
+The lock test should confirm `setLocked(true)` persists `isLocked=true` so `createPost` returns 403.
+
+### Cross-scope move gate
+
+`moveTopic` re-validates the destination via `isBoardPubliclyReadable(destBoard)` which calls
+`authorizationService.evaluate({ actor: anonymousActor, resource: { resourceType: "forum_board", ... } })`.
+A project-scoped board (`scopeType='project'`) or a board with non-public visibility (e.g. `private`)
+fails this check and returns `404 BOARD_NOT_FOUND_MESSAGE`.
+
+## Validation command
+
+```
+vitest run --root apps/api
+```
+
+Run from the worktree directory. Confirm `forums.service.test.ts` and `forums.controller.test.ts`
+are included and all new tests pass.
+
+Also run:
+```
+pnpm --dir <worktree> typecheck
+pnpm --dir <worktree> lint
+```
+
+Report the actual pass/fail counts; do not report green unless forums tests actually ran with 0 failures and 0 typecheck errors.
+
+## Artifact directory
+
+`artifacts/milestone-4-forums/ST6/`
+
+Do not report success unless all required artifacts exist and all changes are committed.
