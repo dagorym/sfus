@@ -1,0 +1,23 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST16/security_report.md",
+    "artifacts/milestone-4-forums/ST16/security_result.json"
+  ],
+  "blocking_finding_count": 1,
+  "branch_name": "ms4-st16-security-20260608",
+  "documentation_sufficiency_summary": [
+    "docs/features/forums.md accurately documents the moderation server-enforcement boundary (401/403 before data op), the client-gate-is-UX-only stance, the ?next= open-redirect guard, mention link encoding, and quote same-page resolution.",
+    "DOC GAP tied to the BLOCKING finding: docs/features/forums.md (~lines 473-479) asserts MarkdownRenderer makes 'no script can execute' and 'rejects javascript:, data:, and any non-http(s)/relative URL scheme', but overlooks the attribute-injection-via-unescaped-quote in a Markdown link/image destination. Once the renderer is fixed, this claim should be re-validated; until then the documented XSS guarantee is contradicted by the PoC."
+  ],
+  "note_finding_count": 5,
+  "outcome": "FAIL",
+  "pass_label": "FAIL",
+  "status": "complete",
+  "task_id": "milestone-4-forums/ST16",
+  "test_sufficiency_summary": [
+    "Validation matrix ran GREEN worktree-locally: vitest --root apps/web = 10 files / 368 tests passed (incl. ST16's forums.spec.ts 51 tests + mention-autocomplete.spec.ts 24 tests); typecheck (api+web) Done; lint (api+web, --max-warnings=0) Done. The differing test count vs a main-repo run confirms the worktree-local run actually exercised the ST16 specs.",
+    "Source-audit spec convention is ACCEPTABLE for the structural ACs (no jsdom/Testing-Library harness exists in this repo; standing one up is out of right-sized scope). The moderator gate is proven in both directions.",
+    "INSUFFICIENT for the XSS-safe-render security AC (P3): no test executes the sanitizer against an XSS payload, which is why the BLOCKING attribute-injection vector passed green. Recommended right-sized fix: a behavioral unit test of the markdown-renderer converter (pure functions, no DOM needed) feeding malicious payloads and asserting the output carries no live handler/scheme. This does NOT require a jsdom harness."
+  ],
+  "warning_finding_count": 1
+}
