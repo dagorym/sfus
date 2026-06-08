@@ -36,6 +36,7 @@ error surface (`error.tsx`) are part of the shell.
 | `/forums/[boardSlug]` | public | board view (paginated topics); see [forums](forums.md#web-surfaces-st16) |
 | `/forums/[boardSlug]/[topicSlug]` | public | topic view (paginated posts, reply form, moderation controls); see [forums](forums.md#web-surfaces-st16) |
 | `/forums/[boardSlug]/new-topic` | session | create-topic form; guests redirected to `/login?next=<path>`; see [forums](forums.md#web-surfaces-st16) |
+| `/users/<username>` | public | minimal public profile (five fields only: username, displayName, avatar, bio, joinDate); fetches `GET /api/users/:username`; 404 renders a "not found" message; avatar via `UserAvatar` (see below) |
 | `/admin/blog[...]`, `/admin/pages[...]`, `/admin/navigation` | admin | client-gated admin management; the API role checks are the enforcement boundary |
 | `/health/live`, `/health/ready` | public | static JSON `{ status: "ok", service: "web", check: "live" \| "ready" }` — **no dependency checks**; web readiness says nothing about API/DB health |
 
@@ -120,6 +121,36 @@ rejects `data:` URIs outright, so no `data:` allowance exists.
 
 Frontend code always targets the shared `/api` path contract
 (`NEXT_PUBLIC_API_BASE_PATH`, default `/api`). `next.config.mjs` decides the rewrite target:
+
+## Profile page — avatar upload/replace/remove (ST17)
+
+`/profile` is an authenticated page that now includes an avatar control alongside the
+existing display-name form. The control reuses the shared `ImageUpload` component
+(`resourceType="avatar"`) to call `POST /api/media/upload?resourceType=avatar` (see
+[media.md](media.md)). After a successful upload the page calls `PUT /api/users/me/avatar`
+(the ST15 API) to bind the returned media id to the user's account. A "Remove avatar" button
+calls `DELETE /api/users/me/avatar` and is shown only when an avatar is already set.
+
+The avatar binding is enforced server-side by the ST15 API: the client control is UX only.
+See [auth.md](auth.md#avatar-self-service-api-st15) for the enforcement contract.
+
+## UserAvatar display component (ST17)
+
+`apps/web/components/user-avatar.tsx` is the shared avatar display component used on:
+
+- `/users/<username>` — the public profile header
+- Forum topic/post author bylines (`/forums/[boardSlug]/[topicSlug]`) — ST16
+- Mention-autocomplete results — ST16
+
+**Fallback behavior:** when `avatarSrc` is `null` (no avatar set) or when the image fails
+to load (`onError`), the component renders an uppercase-initials placeholder derived from
+`displayName` (preferred) or `username`. A broken image is never displayed.
+
+**Security:** `avatarSrc` must always be the gated `/api/media/<id>` serve path. Callers
+must never pass raw or un-gated storage URLs.
+
+Usernames in `/users/<username>` links are always `encodeURIComponent`-encoded, consistent
+with the ST16 byline convention.
 
 - `NODE_ENV === "development"` → rewrites `/api/:path*` to `WEB_API_ORIGIN`
   (default `http://localhost:3001`) — the hybrid-dev path.

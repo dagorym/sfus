@@ -256,6 +256,39 @@ No ownership check is required for removal because the endpoint only clears the 
 |---|---|
 | 401 | No active session |
 
+## Profile and avatar web surface (ST17)
+
+### Public profile page — /users/\<username\>
+
+`apps/web/app/users/[username]/page.tsx` is a public client component that fetches
+`GET /api/users/:username` and renders **only** the five permitted fields returned by the
+ST14 endpoint: `username`, `displayName`, `avatar`, `bio`, `joinDate`.
+
+A `profileProjection()` helper enforces the five-field allowlist at runtime — any additional
+keys returned by the API are dropped before rendering. The avatar is displayed via the shared
+`UserAvatar` component (see [web-shell.md](web-shell.md#useravatar-display-component-st17)).
+No user-supplied HTML is rendered; all fields are rendered as React text nodes.
+
+A `404` from the API (user not found or inactive) renders a "Profile not found" message;
+error states render a generic "Unable to load this profile." message.
+
+### Avatar upload/replace/remove — /profile
+
+`/profile` surfaces an avatar control (ST17) in addition to the existing display-name form:
+
+- **Upload/replace:** the `ImageUpload` component (`resourceType="avatar"`) uploads to
+  `POST /api/media/upload?resourceType=avatar`, then the page calls
+  `PUT /api/users/me/avatar` with the returned media id to bind the avatar.
+- **Remove:** calls `DELETE /api/users/me/avatar`; the remove button is shown only when an
+  avatar is currently set.
+
+The client control is UX only. The ST15 API enforces ownership: only a `media_references`
+row with `resourceType='avatar'` owned by the calling user can be bound. See
+[Avatar self-service API (ST15)](#avatar-self-service-api-st15) for the enforcement contract.
+
+The updated avatar is immediately reflected in the public profile (`GET /api/users/:username`)
+and in forum bylines/autocomplete results (both read from the suggest endpoint).
+
 ## Security invariants
 
 - Two peppers, two jobs: `AUTH_PASSWORD_PEPPER` is used only for password hashing;
