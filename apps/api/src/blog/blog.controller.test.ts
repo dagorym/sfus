@@ -613,3 +613,304 @@ describe("BlogController public comment handlers — executed payload trim (subt
     expect(serialized.createdAt).toBe("2026-05-30T00:00:00.000Z");
   });
 });
+
+// ===========================================================================
+// ST9: Throttle + link-limit enforcement on blog-comment-create
+//       (ST8 ThrottleService reuse, new-account tier wired via usersService)
+// ===========================================================================
+
+import { HttpException, BadRequestException } from "@nestjs/common";
+import { InMemoryThrottleStore } from "../common/throttle/throttle-store";
+import { ThrottleService } from "../common/throttle/throttle.service";
+
+// ---------------------------------------------------------------------------
+// Helpers for ST9 blog controller tests
+// ---------------------------------------------------------------------------
+
+const makeST9Request = () =>
+  ({ headers: { cookie: "sfus_session=tok" } } as unknown as import("express").Request);
+
+const makePublishedPost = () => ({ id: "post-1", commentsLocked: false });
+
+const makeCreatedComment = () => ({
+  id: "comment-99",
+  postId: "post-1",
+  parentId: null,
+  authorUserId: "user-7",
+  body: "A comment",
+  status: "visible",
+  mediaReferenceId: null,
+  moderatedByUserId: null,
+  moderatedAt: null,
+  createdAt: new Date(),
+  updatedAt: new Date()
+});
+
+/** Build a BlogController with a throttleService that throws 429. */
+const makeBlogControllerThrottleOver = (serviceOverrides: Record<string, unknown> = {}) => {
+  const blogService = {
+    findPublishedBySlug: vi.fn().mockResolvedValue(makePublishedPost()),
+    findPublishedById: vi.fn().mockResolvedValue(null),
+    createComment: vi.fn().mockResolvedValue(makeCreatedComment()),
+    ...serviceOverrides
+  } as unknown as BlogService;
+  const authService = {
+    resolveSession: vi.fn().mockResolvedValue({ user: { id: "user-7" } })
+  } as unknown as import("../auth/auth.service").AuthService;
+  const throttleServiceOver = {
+    checkRequest: vi.fn().mockImplementation(() => {
+      throw new HttpException({ error: "TOO_MANY_REQUESTS", statusCode: 429 }, 429);
+    })
+  } as never;
+  const usersService = { findById: vi.fn().mockResolvedValue({ id: "user-7", createdAt: new Date(0) }) } as never;
+  const throttleConfig = {
+    windowMs: 60_000,
+    maxHits: 1000,
+    newAccountMaxHits: 100,
+    newAccountWindowMs: 604800000,
+    maxLinksPerPost: 10
+  } as never;
+  return new BlogController(blogService, authService, throttleServiceOver, usersService, throttleConfig);
+};
+
+/** Build a BlogController with a real ThrottleService. */
+const makeBlogControllerWithRealThrottle = (
+  config: { windowMs: number; maxHits: number; newAccountMaxHits: number; newAccountWindowMs: number; maxLinksPerPost: number },
+  serviceOverrides: Record<string, unknown> = {},
+  usersServiceOverride?: { findById: ReturnType<typeof vi.fn> },
+  authServiceOverride?: { resolveSession: ReturnType<typeof vi.fn> }
+) => {
+  const store = new InMemoryThrottleStore();
+  const realThrottleService = new ThrottleService(store, config as never);
+  const blogService = {
+    findPublishedBySlug: vi.fn().mockResolvedValue(makePublishedPost()),
+    findPublishedById: vi.fn().mockResolvedValue(null),
+    createComment: vi.fn().mockResolvedValue(makeCreatedComment()),
+    ...serviceOverrides
+  } as unknown as BlogService;
+  const authService = (authServiceOverride ?? {
+    resolveSession: vi.fn().mockResolvedValue({ user: { id: "user-7" } })
+  }) as unknown as import("../auth/auth.service").AuthService;
+  const usersService = (usersServiceOverride ?? {
+    findById: vi.fn().mockResolvedValue({ id: "user-7", createdAt: new Date(0) })
+  }) as never;
+  return new BlogController(blogService, authService, realThrottleService as never, usersService, config as never);
+};
+
+// ---------------------------------------------------------------------------
+// ST9: createComment — over-limit: 429 and createComment NOT called
+// ---------------------------------------------------------------------------
+
+describe("BlogController ST9: createComment — over-limit throttle -> 429, persist NOT called", () => {
+  it("throws HttpException(429) when ThrottleService.checkRequest is over-limit", async () => {
+    const createCommentSpy = vi.fn();
+    const controller = makeBlogControllerThrottleOver({ createComment: createCommentSpy });
+    await expect(
+      controller.createComment(makeST9Request(), "post-1", { body: "A comment" })
+    ).rejects.toThrow(HttpException);
+    expect(createCommentSpy).not.toHaveBeenCalled();
+  });
+
+  it("thrown error has status 429", async () => {
+    const controller = makeBlogControllerThrottleOver();
+    let caught: HttpException | undefined;
+    try {
+      await controller.createComment(makeST9Request(), "post-1", { body: "A comment" });
+    } catch (e) {
+      caught = e as HttpException;
+    }
+    expect(caught).toBeInstanceOf(HttpException);
+    expect(caught!.getStatus()).toBe(429);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: createComment — under-limit: normal request passes through
+// ---------------------------------------------------------------------------
+
+describe("BlogController ST9: createComment — under-limit passes through (normal flow)", () => {
+  it("createComment completes normally when throttleService does NOT throw", async () => {
+    const normalConfig = {
+      windowMs: 60_000,
+      maxHits: 1000,
+      newAccountMaxHits: 100,
+      newAccountWindowMs: 604800000,
+      maxLinksPerPost: 10
+    };
+    const createCommentSpy = vi.fn().mockResolvedValue(makeCreatedComment());
+    const controller = makeBlogControllerWithRealThrottle(normalConfig, { createComment: createCommentSpy });
+    const result = await controller.createComment(makeST9Request(), "post-1", { body: "Normal comment" });
+    expect(result.comment).toBeDefined();
+    expect(createCommentSpy).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: createComment — auth gate fires BEFORE throttle
+// ---------------------------------------------------------------------------
+
+describe("BlogController ST9: createComment — auth gate fires BEFORE throttle check", () => {
+  it("throws 401 before throttle check is ever reached when session is missing", async () => {
+    const checkRequestSpy = vi.fn();
+    const blogService = {
+      findPublishedBySlug: vi.fn().mockResolvedValue(makePublishedPost()),
+      findPublishedById: vi.fn().mockResolvedValue(null),
+      createComment: vi.fn()
+    } as unknown as BlogService;
+    const authServiceNoSession = {
+      resolveSession: vi.fn().mockRejectedValue(new (await import("@nestjs/common")).UnauthorizedException("No active session."))
+    } as unknown as import("../auth/auth.service").AuthService;
+    const throttleServiceSpy = { checkRequest: checkRequestSpy } as never;
+    const usersService = { findById: vi.fn() } as never;
+    const config = { windowMs: 60_000, maxHits: 1000, newAccountMaxHits: 100, newAccountWindowMs: 604800000, maxLinksPerPost: 10 } as never;
+    const controller = new BlogController(blogService, authServiceNoSession, throttleServiceSpy, usersService, config);
+    const { UnauthorizedException: UnauthExc } = await import("@nestjs/common");
+    await expect(
+      controller.createComment(makeST9Request(), "post-1", { body: "A comment" })
+    ).rejects.toThrow(UnauthExc);
+    expect(checkRequestSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: createComment — throttleService.checkRequest called with userId AND
+//       userCreatedAt from usersService.findById (non-null, new-account tier active)
+// ---------------------------------------------------------------------------
+
+describe("BlogController ST9: createComment — checkRequest receives userId and userCreatedAt (non-null)", () => {
+  it("calls throttleService.checkRequest with userId and userCreatedAt from usersService", async () => {
+    const userCreatedAt = new Date("2026-05-20T00:00:00Z");
+    const usersService = { findById: vi.fn().mockResolvedValue({ id: "user-7", createdAt: userCreatedAt }) };
+    const checkRequestSpy = vi.fn();
+    const throttleService = { checkRequest: checkRequestSpy } as never;
+    const blogService = {
+      findPublishedBySlug: vi.fn().mockResolvedValue(makePublishedPost()),
+      findPublishedById: vi.fn().mockResolvedValue(null),
+      createComment: vi.fn().mockResolvedValue(makeCreatedComment())
+    } as unknown as BlogService;
+    const authService = {
+      resolveSession: vi.fn().mockResolvedValue({ user: { id: "user-7" } })
+    } as unknown as import("../auth/auth.service").AuthService;
+    const config = { windowMs: 60_000, maxHits: 1000, newAccountMaxHits: 100, newAccountWindowMs: 604800000, maxLinksPerPost: 10 } as never;
+    const controller = new BlogController(blogService, authService, throttleService, usersService as never, config);
+    await controller.createComment(makeST9Request(), "post-1", { body: "A comment" });
+    expect(checkRequestSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-7",
+        userCreatedAt: userCreatedAt
+      })
+    );
+    const callArg = checkRequestSpy.mock.calls[0][0] as { userCreatedAt: Date | null };
+    expect(callArg.userCreatedAt).not.toBeNull();
+    expect(callArg.userCreatedAt).toBeInstanceOf(Date);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: createComment — link limit: body with too many links -> 400, createComment NOT called
+// ---------------------------------------------------------------------------
+
+describe("BlogController ST9: createComment — link limit: too many links -> 400, persist NOT called", () => {
+  it("throws BadRequestException(400) when body exceeds maxLinksPerPost", async () => {
+    const createCommentSpy = vi.fn();
+    const tightConfig = {
+      windowMs: 60_000,
+      maxHits: 1000,
+      newAccountMaxHits: 100,
+      newAccountWindowMs: 604800000,
+      maxLinksPerPost: 1
+    };
+    const controller = makeBlogControllerWithRealThrottle(tightConfig, { createComment: createCommentSpy });
+    const bodyWithLinks = "See https://example.com and https://example.org";
+    await expect(
+      controller.createComment(makeST9Request(), "post-1", { body: bodyWithLinks })
+    ).rejects.toThrow(BadRequestException);
+    expect(createCommentSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: NEW-ACCOUNT TIER — driven through real ThrottleService + InMemoryThrottleStore.
+// Young accounts are rate-limited sooner (blog-comment-create).
+// This is the 3rd protected site enumerated for the coordinator.
+// ---------------------------------------------------------------------------
+
+describe("BlogController ST9: new-account tier differentiates by createdAt (real ThrottleService, blog-comment-create)", () => {
+  const tierConfig = {
+    windowMs: 60_000,
+    maxHits: 10,
+    newAccountMaxHits: 2,
+    newAccountWindowMs: 7 * 24 * 60 * 60 * 1000,
+    maxLinksPerPost: 5
+  };
+
+  it("young account is rate-limited at newAccountMaxHits (3 > 2), old account is NOT (3 <= 10)", async () => {
+    const youngCreatedAt = new Date(Date.now() - 3_600_000); // 1 hour ago
+    const oldCreatedAt = new Date(Date.now() - 10 * 24 * 3600 * 1000); // 10 days ago
+
+    const youngUsersService = { findById: vi.fn().mockResolvedValue({ id: "young-user", createdAt: youngCreatedAt }) };
+    const oldUsersService = { findById: vi.fn().mockResolvedValue({ id: "old-user", createdAt: oldCreatedAt }) };
+
+    const youngAuthService = { resolveSession: vi.fn().mockResolvedValue({ user: { id: "young-user" } }) };
+    const oldAuthService = { resolveSession: vi.fn().mockResolvedValue({ user: { id: "old-user" } }) };
+
+    const youngController = makeBlogControllerWithRealThrottle(
+      tierConfig,
+      {},
+      youngUsersService as never,
+      youngAuthService as never
+    );
+    const oldController = makeBlogControllerWithRealThrottle(
+      tierConfig,
+      {},
+      oldUsersService as never,
+      oldAuthService as never
+    );
+
+    // Young account: 2 allowed, 3rd is over limit
+    await youngController.createComment(makeST9Request(), "post-1", { body: "C1" });
+    await youngController.createComment(makeST9Request(), "post-1", { body: "C2" });
+    await expect(
+      youngController.createComment(makeST9Request(), "post-1", { body: "C3" })
+    ).rejects.toThrow(HttpException);
+
+    // Old account: 3 requests pass (limit=10)
+    await oldController.createComment(makeST9Request(), "post-1", { body: "C1" });
+    await oldController.createComment(makeST9Request(), "post-1", { body: "C2" });
+    await expect(
+      oldController.createComment(makeST9Request(), "post-1", { body: "C3" })
+    ).resolves.toBeDefined();
+  });
+
+  it("new-account tier is vacuous if userCreatedAt is null — proves createdAt wiring is required", async () => {
+    // With null createdAt, tier is inactive → maxHits=10 → 3 requests pass
+    const nullUsersService = { findById: vi.fn().mockResolvedValue({ id: "user-null", createdAt: null }) };
+    const authService = { resolveSession: vi.fn().mockResolvedValue({ user: { id: "user-null" } }) };
+    const controllerNullCreatedAt = makeBlogControllerWithRealThrottle(
+      tierConfig,
+      {},
+      nullUsersService as never,
+      authService as never
+    );
+    await controllerNullCreatedAt.createComment(makeST9Request(), "post-1", { body: "C1" });
+    await controllerNullCreatedAt.createComment(makeST9Request(), "post-1", { body: "C2" });
+    await expect(
+      controllerNullCreatedAt.createComment(makeST9Request(), "post-1", { body: "C3" })
+    ).resolves.toBeDefined();
+
+    // With real (young) createdAt, same hit counts → throttled (proves the wiring matters)
+    const youngUsersService = { findById: vi.fn().mockResolvedValue({ id: "user-young", createdAt: new Date(Date.now() - 3_600_000) }) };
+    const authService2 = { resolveSession: vi.fn().mockResolvedValue({ user: { id: "user-young" } }) };
+    const controllerYoung = makeBlogControllerWithRealThrottle(
+      tierConfig,
+      {},
+      youngUsersService as never,
+      authService2 as never
+    );
+    await controllerYoung.createComment(makeST9Request(), "post-1", { body: "C1" });
+    await controllerYoung.createComment(makeST9Request(), "post-1", { body: "C2" });
+    await expect(
+      controllerYoung.createComment(makeST9Request(), "post-1", { body: "C3" })
+    ).rejects.toThrow(HttpException);
+  });
+});

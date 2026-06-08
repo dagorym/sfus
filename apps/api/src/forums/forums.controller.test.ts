@@ -1245,3 +1245,459 @@ describe("ForumsController: createPost (ST5: happy path delegation)", () => {
     expect(createPostSpy).toHaveBeenCalledWith("user-regular", { topicId: "topic-1", body: "Reply text" });
   });
 });
+
+// ===========================================================================
+// ST9: Throttle + link-limit enforcement on forum-topic-create and
+//       forum-post-create (ST8 ThrottleService reuse, new-account tier wired)
+// ===========================================================================
+
+import { HttpException } from "@nestjs/common";
+import { InMemoryThrottleStore } from "../common/throttle/throttle-store";
+import { ThrottleService } from "../common/throttle/throttle.service";
+
+// ---------------------------------------------------------------------------
+// Helpers for ST9 controller construction with real or mock throttle services
+// ---------------------------------------------------------------------------
+
+/** Build a controller whose throttleService stub throws a 429 HttpException. */
+const makeControllerWithThrottleOver = (
+  forumsService?: ReturnType<typeof makeForumsService>,
+  authService?: ReturnType<typeof makeAuthService>
+) => {
+  const throttleServiceOver = {
+    checkRequest: vi.fn().mockImplementation(() => {
+      throw new HttpException({ error: "TOO_MANY_REQUESTS", statusCode: 429 }, 429);
+    })
+  };
+  return new ForumsController(
+    (forumsService ?? makeForumsService()) as never,
+    (authService ?? makeAuthService()) as never,
+    throttleServiceOver as never,
+    makeUsersService() as never,
+    makeThrottleConfig() as never
+  );
+};
+
+/** Build a controller whose ThrottleService uses the real InMemoryThrottleStore. */
+const makeControllerWithRealThrottle = (
+  config: ReturnType<typeof makeThrottleConfig>,
+  forumsService?: ReturnType<typeof makeForumsService>,
+  authService?: ReturnType<typeof makeAuthService>,
+  usersServiceOverride?: { findById: ReturnType<typeof vi.fn> }
+) => {
+  const store = new InMemoryThrottleStore();
+  const realThrottleService = new ThrottleService(store, config as never);
+  return new ForumsController(
+    (forumsService ?? makeForumsService()) as never,
+    (authService ?? makeAuthService()) as never,
+    realThrottleService as never,
+    (usersServiceOverride ?? makeUsersService()) as never,
+    config as never
+  );
+};
+
+// ---------------------------------------------------------------------------
+// ST9: createTopic — over-limit: 429 and createTopic NOT called
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST9: createTopic — over-limit throttle -> 429, persist NOT called", () => {
+  it("throws HttpException(429) when ThrottleService.checkRequest is over-limit", async () => {
+    const createTopicSpy = vi.fn();
+    const forumsService = makeForumsService({ createTopic: createTopicSpy });
+    const controller = makeControllerWithThrottleOver(forumsService);
+    await expect(
+      controller.createTopic(makeRequest() as never, "board-1", { title: "Test", body: "Hello" })
+    ).rejects.toThrow(HttpException);
+    expect(createTopicSpy).not.toHaveBeenCalled();
+  });
+
+  it("thrown error has status 429", async () => {
+    const controller = makeControllerWithThrottleOver();
+    let caught: HttpException | undefined;
+    try {
+      await controller.createTopic(makeRequest() as never, "board-1", { title: "T", body: "B" });
+    } catch (e) {
+      caught = e as HttpException;
+    }
+    expect(caught).toBeInstanceOf(HttpException);
+    expect(caught!.getStatus()).toBe(429);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: createTopic — under-limit: request passes through, normal happy path
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST9: createTopic — under-limit passes through (normal flow)", () => {
+  it("createTopic completes normally when throttleService does NOT throw", async () => {
+    const now = new Date("2026-01-01T00:00:00Z");
+    const createdTopic = {
+      id: "topic-new",
+      title: "Test",
+      slug: "test",
+      body: "Body",
+      isPinned: false,
+      replyCount: 0,
+      lastPostAt: null,
+      author: { username: "u", displayName: null },
+      createdAt: now,
+      updatedAt: now
+    };
+    const createTopicSpy = vi.fn().mockResolvedValue(createdTopic);
+    const forumsService = makeForumsService({ createTopic: createTopicSpy });
+    const controller = makeController(forumsService);
+    const result = await controller.createTopic(makeRequest() as never, "board-1", { title: "Test", body: "Body" });
+    expect(result).toEqual({ topic: createdTopic });
+    expect(createTopicSpy).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: createTopic — auth gate fires BEFORE throttle (401 stops before throttle)
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST9: createTopic — auth gate fires BEFORE throttle check", () => {
+  it("throws 401 before throttle check is ever reached when session is missing", async () => {
+    const checkRequestSpy = vi.fn();
+    const throttleServiceSpy = { checkRequest: checkRequestSpy };
+    const authService = makeAuthServiceNoSession();
+    const controller = new ForumsController(
+      makeForumsService() as never,
+      authService as never,
+      throttleServiceSpy as never,
+      makeUsersService() as never,
+      makeThrottleConfig() as never
+    );
+    await expect(
+      controller.createTopic(makeRequest() as never, "board-1", { title: "T", body: "B" })
+    ).rejects.toThrow(UnauthorizedException);
+    expect(checkRequestSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: createTopic — throttleService.checkRequest is called with userId AND
+//       userCreatedAt from usersService.findById (non-null, so new-account tier active)
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST9: createTopic — checkRequest receives userId and userCreatedAt (non-null)", () => {
+  it("calls throttleService.checkRequest with userId and userCreatedAt from usersService", async () => {
+    const userCreatedAt = new Date("2026-05-01T00:00:00Z");
+    const usersService = { findById: vi.fn().mockResolvedValue({ id: "user-regular", createdAt: userCreatedAt }) };
+    const checkRequestSpy = vi.fn();
+    const throttleService = { checkRequest: checkRequestSpy };
+    const authService = makeAuthService(makeUserSession());
+    const controller = new ForumsController(
+      makeForumsService() as never,
+      authService as never,
+      throttleService as never,
+      usersService as never,
+      makeThrottleConfig() as never
+    );
+    await controller.createTopic(makeRequest() as never, "board-1", { title: "T", body: "B" });
+    expect(checkRequestSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-regular",
+        userCreatedAt: userCreatedAt
+      })
+    );
+    // userCreatedAt must NOT be null — ensures new-account tier is wired
+    const callArg = checkRequestSpy.mock.calls[0][0] as { userCreatedAt: Date | null };
+    expect(callArg.userCreatedAt).not.toBeNull();
+    expect(callArg.userCreatedAt).toBeInstanceOf(Date);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: createTopic — link limit: body with too many links -> 400, createTopic NOT called
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST9: createTopic — link limit: too many links -> 400, persist NOT called", () => {
+  it("throws BadRequestException(400) when body exceeds maxLinksPerPost", async () => {
+    const createTopicSpy = vi.fn();
+    const forumsService = makeForumsService({ createTopic: createTopicSpy });
+    // maxLinksPerPost=1 in config; body has 2 links -> over limit
+    const tightConfig = { ...makeThrottleConfig(), maxLinksPerPost: 1 };
+    const store = new InMemoryThrottleStore();
+    const realThrottleService = new ThrottleService(store, tightConfig as never);
+    const controller = new ForumsController(
+      forumsService as never,
+      makeAuthService() as never,
+      realThrottleService as never,
+      makeUsersService() as never,
+      tightConfig as never
+    );
+    const bodyWithLinks = "See https://example.com and https://example.org";
+    await expect(
+      controller.createTopic(makeRequest() as never, "board-1", { title: "T", body: bodyWithLinks })
+    ).rejects.toThrow(BadRequestException);
+    expect(createTopicSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: createPost — over-limit: 429 and createPost NOT called
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST9: createPost — over-limit throttle -> 429, persist NOT called", () => {
+  it("throws HttpException(429) when ThrottleService.checkRequest is over-limit", async () => {
+    const createPostSpy = vi.fn();
+    const forumsService = makeForumsService({ createPost: createPostSpy });
+    const controller = makeControllerWithThrottleOver(forumsService);
+    await expect(
+      controller.createPost(makeRequest() as never, "topic-1", { body: "Reply" })
+    ).rejects.toThrow(HttpException);
+    expect(createPostSpy).not.toHaveBeenCalled();
+  });
+
+  it("thrown error has status 429", async () => {
+    const controller = makeControllerWithThrottleOver();
+    let caught: HttpException | undefined;
+    try {
+      await controller.createPost(makeRequest() as never, "topic-1", { body: "Reply" });
+    } catch (e) {
+      caught = e as HttpException;
+    }
+    expect(caught).toBeInstanceOf(HttpException);
+    expect(caught!.getStatus()).toBe(429);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: createPost — under-limit: normal request passes through
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST9: createPost — under-limit passes through (normal flow)", () => {
+  it("createPost completes normally when throttleService does NOT throw", async () => {
+    const now = new Date("2026-01-01T00:00:00Z");
+    const createdPost = {
+      id: "post-new",
+      body: "Reply text",
+      parentId: null,
+      quotedPostId: null,
+      author: { username: "u", displayName: null },
+      createdAt: now,
+      updatedAt: now
+    };
+    const createPostSpy = vi.fn().mockResolvedValue(createdPost);
+    const forumsService = makeForumsService({ createPost: createPostSpy });
+    const controller = makeController(forumsService);
+    const result = await controller.createPost(makeRequest() as never, "topic-1", { body: "Reply text" });
+    expect(result).toEqual({ post: createdPost });
+    expect(createPostSpy).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: createPost — auth gate fires BEFORE throttle
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST9: createPost — auth gate fires BEFORE throttle check", () => {
+  it("throws 401 before throttle check is ever reached when session is missing", async () => {
+    const checkRequestSpy = vi.fn();
+    const throttleServiceSpy = { checkRequest: checkRequestSpy };
+    const authService = makeAuthServiceNoSession();
+    const controller = new ForumsController(
+      makeForumsService() as never,
+      authService as never,
+      throttleServiceSpy as never,
+      makeUsersService() as never,
+      makeThrottleConfig() as never
+    );
+    await expect(
+      controller.createPost(makeRequest() as never, "topic-1", { body: "Reply" })
+    ).rejects.toThrow(UnauthorizedException);
+    expect(checkRequestSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: createPost — throttleService.checkRequest called with userId AND userCreatedAt
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST9: createPost — checkRequest receives userId and userCreatedAt (non-null)", () => {
+  it("calls throttleService.checkRequest with userId and userCreatedAt from usersService", async () => {
+    const userCreatedAt = new Date("2026-05-15T00:00:00Z");
+    const usersService = { findById: vi.fn().mockResolvedValue({ id: "user-regular", createdAt: userCreatedAt }) };
+    const checkRequestSpy = vi.fn();
+    const throttleService = { checkRequest: checkRequestSpy };
+    const authService = makeAuthService(makeUserSession());
+    const controller = new ForumsController(
+      makeForumsService() as never,
+      authService as never,
+      throttleService as never,
+      usersService as never,
+      makeThrottleConfig() as never
+    );
+    await controller.createPost(makeRequest() as never, "topic-1", { body: "Reply" });
+    expect(checkRequestSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-regular",
+        userCreatedAt: userCreatedAt
+      })
+    );
+    const callArg = checkRequestSpy.mock.calls[0][0] as { userCreatedAt: Date | null };
+    expect(callArg.userCreatedAt).not.toBeNull();
+    expect(callArg.userCreatedAt).toBeInstanceOf(Date);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: createPost — link limit: body with too many links -> 400, createPost NOT called
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST9: createPost — link limit: too many links -> 400, persist NOT called", () => {
+  it("throws BadRequestException(400) when body exceeds maxLinksPerPost", async () => {
+    const createPostSpy = vi.fn();
+    const forumsService = makeForumsService({ createPost: createPostSpy });
+    const tightConfig = { ...makeThrottleConfig(), maxLinksPerPost: 1 };
+    const store = new InMemoryThrottleStore();
+    const realThrottleService = new ThrottleService(store, tightConfig as never);
+    const controller = new ForumsController(
+      forumsService as never,
+      makeAuthService() as never,
+      realThrottleService as never,
+      makeUsersService() as never,
+      tightConfig as never
+    );
+    const bodyWithLinks = "Check https://example.com and https://example.org";
+    await expect(
+      controller.createPost(makeRequest() as never, "topic-1", { body: bodyWithLinks })
+    ).rejects.toThrow(BadRequestException);
+    expect(createPostSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST9: NEW-ACCOUNT TIER — driven through real ThrottleService + InMemoryThrottleStore.
+// Young accounts are rate-limited sooner than established accounts.
+// Tests both forum-topic-create and forum-post-create to enumerate all 3 protected sites.
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST9: new-account tier differentiates by createdAt (real ThrottleService)", () => {
+  /**
+   * Config: maxHits=10 (established), newAccountMaxHits=2 (new accounts),
+   * newAccountWindowMs=7 days. Young account = created within 7 days.
+   */
+  const tierConfig = {
+    windowMs: 60_000,
+    maxHits: 10,
+    newAccountMaxHits: 2,
+    newAccountWindowMs: 7 * 24 * 60 * 60 * 1000,
+    maxLinksPerPost: 5
+  };
+
+  it("forum-topic-create: young account is rate-limited at newAccountMaxHits (3 > 2), old account is NOT (3 <= 10)", async () => {
+    // Young account: created 1 hour ago → within newAccountWindowMs → limit = 2
+    const youngCreatedAt = new Date(Date.now() - 3_600_000);
+    // Old account: created 10 days ago → outside newAccountWindowMs → limit = 10
+    const oldCreatedAt = new Date(Date.now() - 10 * 24 * 3600 * 1000);
+
+    const youngUsersService = { findById: vi.fn().mockResolvedValue({ id: "young-user", createdAt: youngCreatedAt }) };
+    const oldUsersService = { findById: vi.fn().mockResolvedValue({ id: "old-user", createdAt: oldCreatedAt }) };
+
+    const youngAuthService = makeAuthService({ user: { id: "young-user", globalRole: "user" }, id: "s1" });
+    const oldAuthService = makeAuthService({ user: { id: "old-user", globalRole: "user" }, id: "s2" });
+
+    // Use separate stores so hit counts are independent
+    const youngController = makeControllerWithRealThrottle(
+      tierConfig as never,
+      makeForumsService(),
+      youngAuthService,
+      youngUsersService as never
+    );
+    const oldController = makeControllerWithRealThrottle(
+      tierConfig as never,
+      makeForumsService(),
+      oldAuthService,
+      oldUsersService as never
+    );
+
+    // Exhaust the young account's newAccountMaxHits=2 limit (3 requests → third should be blocked)
+    await youngController.createTopic(makeRequest() as never, "b", { title: "T1", body: "B1" });
+    await youngController.createTopic(makeRequest() as never, "b", { title: "T2", body: "B2" });
+    // 3rd request: young account over limit (2 allowed, 3rd > 2)
+    await expect(
+      youngController.createTopic(makeRequest() as never, "b", { title: "T3", body: "B3" })
+    ).rejects.toThrow(HttpException);
+
+    // Old account can make 3 requests without hitting limit (maxHits=10)
+    await oldController.createTopic(makeRequest() as never, "b", { title: "T1", body: "B1" });
+    await oldController.createTopic(makeRequest() as never, "b", { title: "T2", body: "B2" });
+    await expect(
+      oldController.createTopic(makeRequest() as never, "b", { title: "T3", body: "B3" })
+    ).resolves.toBeDefined();
+  });
+
+  it("forum-post-create: young account is rate-limited at newAccountMaxHits (3 > 2), old account is NOT", async () => {
+    const youngCreatedAt = new Date(Date.now() - 3_600_000); // 1 hour ago
+    const oldCreatedAt = new Date(Date.now() - 10 * 24 * 3600 * 1000); // 10 days ago
+
+    const youngUsersService = { findById: vi.fn().mockResolvedValue({ id: "young-user2", createdAt: youngCreatedAt }) };
+    const oldUsersService = { findById: vi.fn().mockResolvedValue({ id: "old-user2", createdAt: oldCreatedAt }) };
+
+    const youngAuthService = makeAuthService({ user: { id: "young-user2", globalRole: "user" }, id: "s3" });
+    const oldAuthService = makeAuthService({ user: { id: "old-user2", globalRole: "user" }, id: "s4" });
+
+    const youngController = makeControllerWithRealThrottle(
+      tierConfig as never,
+      makeForumsService(),
+      youngAuthService,
+      youngUsersService as never
+    );
+    const oldController = makeControllerWithRealThrottle(
+      tierConfig as never,
+      makeForumsService(),
+      oldAuthService,
+      oldUsersService as never
+    );
+
+    // Young account: 2 allowed, 3rd is over limit
+    await youngController.createPost(makeRequest() as never, "topic-x", { body: "Reply 1" });
+    await youngController.createPost(makeRequest() as never, "topic-x", { body: "Reply 2" });
+    await expect(
+      youngController.createPost(makeRequest() as never, "topic-x", { body: "Reply 3" })
+    ).rejects.toThrow(HttpException);
+
+    // Old account: 3 requests pass (limit=10)
+    await oldController.createPost(makeRequest() as never, "topic-x", { body: "Reply 1" });
+    await oldController.createPost(makeRequest() as never, "topic-x", { body: "Reply 2" });
+    await expect(
+      oldController.createPost(makeRequest() as never, "topic-x", { body: "Reply 3" })
+    ).resolves.toBeDefined();
+  });
+
+  it("new-account tier is VACUOUS if userCreatedAt is null — old maxHits applies (proves createdAt wiring is required)", async () => {
+    // If userCreatedAt were null/not wired, the new-account tier would NOT activate,
+    // and the young account would only be subject to maxHits=10 (not newAccountMaxHits=2).
+    // This test proves that createdAt must be non-null for the stricter tier to engage.
+    const usersServiceNullCreatedAt = { findById: vi.fn().mockResolvedValue({ id: "user-null", createdAt: null }) };
+    const authService = makeAuthService({ user: { id: "user-null", globalRole: "user" }, id: "s5" });
+    const controller = makeControllerWithRealThrottle(
+      tierConfig as never,
+      makeForumsService(),
+      authService,
+      usersServiceNullCreatedAt as never
+    );
+    // 3 requests with null createdAt — should pass because maxHits=10 applies (tier inactive)
+    await controller.createTopic(makeRequest() as never, "b", { title: "T1", body: "B1" });
+    await controller.createTopic(makeRequest() as never, "b", { title: "T2", body: "B2" });
+    await expect(
+      controller.createTopic(makeRequest() as never, "b", { title: "T3", body: "B3" })
+    ).resolves.toBeDefined();
+    // Now with real createdAt (young) and same hit counts, it WOULD fail — proves the wiring difference
+    const youngUsersService = { findById: vi.fn().mockResolvedValue({ id: "user-null-young", createdAt: new Date(Date.now() - 3600000) }) };
+    const authService2 = makeAuthService({ user: { id: "user-null-young", globalRole: "user" }, id: "s6" });
+    const youngController = makeControllerWithRealThrottle(
+      tierConfig as never,
+      makeForumsService(),
+      authService2,
+      youngUsersService as never
+    );
+    await youngController.createTopic(makeRequest() as never, "b", { title: "T1", body: "B1" });
+    await youngController.createTopic(makeRequest() as never, "b", { title: "T2", body: "B2" });
+    await expect(
+      youngController.createTopic(makeRequest() as never, "b", { title: "T3", body: "B3" })
+    ).rejects.toThrow(HttpException);
+  });
+});
