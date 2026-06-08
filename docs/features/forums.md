@@ -1,6 +1,6 @@
 # Forums
 
-Forum categories and boards — admin management API. Public read, topics, posts, and moderation are covered in later subtasks (ST3–ST6).
+Forum categories and boards — admin management and public read API. Topics, posts, and moderation are covered in later subtasks (ST4–ST6).
 
 **Code:** `apps/api/src/forums/`
 **Related:** [authorization](authorization.md) for the admin gate · [development/api-conventions](../development/api-conventions.md) for the error envelope
@@ -51,6 +51,54 @@ Both `scopeType` and `visibility` are validated on create and update; any value 
 ### projectId
 
 `projectId` is a nullable string stored without a foreign-key constraint. This is intentional forward-scaffolding: the projects table does not exist in M4. When projects land (M7/M8), add `FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE` to the board table. Until then, `projectId` is stored as-is and has no referential integrity.
+
+## Public read API routes
+
+Two unauthenticated endpoints expose forum structure to anonymous visitors. No session or auth header is required.
+
+### Leak-prevention contract
+
+- The index returns **only** boards with `scopeType='site'` **and** a visibility that passes `AuthorizationService.evaluate()` for an anonymous actor (no userId, empty role string).
+- Project-scoped boards and boards whose visibility is not publicly readable are excluded from both the board list **and** any board counts — they are invisible to the index.
+- `GET /forums/boards/:id` returns `404` for both nonexistent boards and boards that exist but are hidden (wrong scope or non-public visibility). **The error message is identical in both cases** (`ForumsService.BOARD_NOT_FOUND_MESSAGE`) so callers cannot infer existence (oracle parity, P12).
+- Every visibility decision is routed through `AuthorizationService.evaluate()` — no inline re-derived predicates.
+
+### Response shapes (public)
+
+`PublicBoardShape` — fields returned per board from both public routes:
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string (UUID) | |
+| `name` | string | |
+| `slug` | string | |
+| `description` | `string \| null` | |
+| `sortOrder` | number | |
+| `visibility` | `ForumBoardVisibility` | |
+| `createdAt` | Date | |
+| `updatedAt` | Date | |
+
+Stripped from the public shape (internal-only): `scopeType`, `projectId`, `categoryId`.
+
+`PublicCategoryShape` — fields returned per category from `GET /forums/categories`:
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string (UUID) | |
+| `name` | string | |
+| `slug` | string | |
+| `description` | `string \| null` | |
+| `sortOrder` | number | |
+| `boards` | `PublicBoardShape[]` | Publicly-readable site boards only. |
+| `createdAt` | Date | |
+| `updatedAt` | Date | |
+
+### Routes
+
+| Method | Path | Auth | Status | Notes |
+|---|---|---|---|---|
+| GET | `/api/forums/categories` | None | 200 | `{ categories }` ordered by `sortOrder ASC`. Each category includes only site-scoped, publicly-readable boards. |
+| GET | `/api/forums/boards/:id` | None | 200 / 404 | `{ board }` as `PublicBoardShape`. `404` for both nonexistent and non-publicly-accessible boards (identical message). |
 
 ## Admin API routes
 
@@ -103,5 +151,4 @@ All 11 admin endpoints are annotated with `@ApiOperation`, `@Api*Response` decor
 
 The following surfaces are not yet implemented and are not documented here:
 
-- **ST3** — Public read endpoints for categories and boards (no auth required for public/unlisted visibility).
 - **ST4–ST6** — Topics, posts, and moderation.
