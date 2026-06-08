@@ -1,0 +1,67 @@
+Your role is 'tester'. Your task is as follows:
+
+Test ST7 (remediation pass 2 of 2): Supertest-class HTTP harness + proxy-hop and helmet integration tests for the SFUS API, with the addition of a spoof-rejection assertion that closes an over-trust detection gap flagged by the security stage.
+
+## Modified files
+
+- `apps/api/src/http.integration.test.ts` — 6 executed tests (was 5 after remediation): 3 in proxy-hop group, 3 in helmet group.
+- `apps/api/src/test-harness.ts` — unchanged from first pass; exported harness for ST8/ST9.
+
+## Acceptance criteria
+
+1. Executed proxy-hop test asserts `request.ip` equals the injected X-Forwarded-For client address (not a mocked setter call).
+2. Executed helmet test asserts three header conditions on a real HTTP response.
+3. Harness is a reusable exported helper and CommonJS-safe (no `import.meta`); API tsc build passes.
+4. NEW (remediation): A two-hop X-Forwarded-For spoof-rejection test exists and executes. It sends `X-Forwarded-For: "1.1.1.1, 203.0.113.42"` and asserts:
+   - `request.ip === "203.0.113.42"` (rightmost real entry — the immediate hop from the trusted proxy)
+   - `request.ip !== "1.1.1.1"` (forged leftmost entry is rejected, not trusted)
+   This test proves trust proxy=1 rejects attacker-controlled XFF entries. Under a trust proxy>=2 regression it would FAIL, detecting the over-trust.
+
+## Test file location
+
+- `apps/api/src/http.integration.test.ts`
+- `apps/api/src/test-harness.ts`
+
+## Validation commands
+
+Run these from the repository root (worktree):
+
+```
+pnpm --dir apps/api lint
+pnpm --dir apps/api typecheck
+pnpm --dir apps/api test
+pnpm --dir apps/api build
+```
+
+Note: `pnpm lint` (root) fails with a pre-existing web node_modules missing error in this worktree — this is expected and not a regression. Run the API-scoped commands above. Confirmed pre-existing.
+
+## Implementation context
+
+- The harness (`test-harness.ts`) builds a minimal bare Express app with `trust proxy=1` and `helmet({ strictTransportSecurity: false, contentSecurityPolicy: false })` — identical to production `index.ts`. It exposes GET `/api/test/echo-ip` which returns `{ ip: req.ip }` as JSON.
+- The proxy-hop group now has 3 tests:
+  1. Single-entry XFF: `X-Forwarded-For: "203.0.113.42"` → `request.ip === "203.0.113.42"`
+  2. **NEW — Spoof rejection (two-hop)**: `X-Forwarded-For: "1.1.1.1, 203.0.113.42"` → `request.ip === "203.0.113.42"` AND `request.ip !== "1.1.1.1"`. Under trust proxy=1, Express resolves the rightmost entry; under trust proxy>=2 it would return "1.1.1.1" and this test would fail.
+  3. No-XFF fallback: loopback address (127.0.0.1 or ::1)
+- The helmet group has 3 tests: X-Content-Type-Options nosniff present, Strict-Transport-Security absent, Content-Security-Policy absent.
+- All 6 tests use real HTTP via supertest — no mocking.
+- Security relevance: ST8/ST9 rate-limiting keys off `request.ip`. The spoof-rejection test ensures an attacker cannot evade throttles by prepending a forged entry to X-Forwarded-For. A trust proxy>=2 regression would make this test fail visibly.
+
+## Key validation to perform non-vacuously
+
+Verify that the new spoof-rejection test (it "rejects a spoofed leftmost entry in a two-hop X-Forwarded-For header") is actually executed (not skipped) and asserts BOTH:
+- `expect(res.body).toHaveProperty("ip", "203.0.113.42")` — rightmost is resolved
+- `expect(res.body.ip).not.toBe("1.1.1.1")` — leftmost is rejected
+
+Both assertions must evaluate against a real HTTP response from the harness.
+
+## Expected validation failures
+
+None. All 387 tests should pass (2 skipped — DB integration, expected).
+
+## Shared artifact directory
+
+`artifacts/milestone-4-forums/ST7/`
+
+## Implementation commit hash
+
+6f40cfa
