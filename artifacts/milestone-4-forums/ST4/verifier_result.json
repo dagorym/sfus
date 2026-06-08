@@ -1,0 +1,23 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST4/verifier_report.md",
+    "artifacts/milestone-4-forums/ST4/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st4-verifier-20260608",
+  "documentation_accuracy_summary": [
+    "docs/features/forums.md accurately documents the full ST4 contract: TOPIC_NOT_FOUND_MESSAGE identical for nonexistent vs hidden boards (oracle parity, P12), 401-first ordering, the normalizeMarkdownBody -> validateMarkdownBody before-persist sequence with example rejection patterns (<script>, javascript:), pageSize clamping 1-100, soft-delete (deletedAt IS NULL) exclusion, and PublicTopicShape/PublicAuthorShape allowlist with the complete list of stripped internal fields.",
+    "Documentation is accurate and consistent with the implementation and tests. No missing or inaccurate statements found. The undefined-body TypeError edge case is not documented, which is appropriate since it is a robustness gap and not documented behavior."
+  ],
+  "note_finding_count": 1,
+  "pass_label": "PASS",
+  "status": "complete",
+  "task_id": "ST4",
+  "test_sufficiency_summary": [
+    "Validation matrix confirmed GREEN (run from this worktree): vitest run forums.controller.test.ts + forums.service.test.ts = 140 tests passed (57 controller + 83 service); pnpm typecheck = pass (apps/api + apps/web); pnpm lint = pass (--max-warnings=0).",
+    "16 new ST4 tests cover all acceptance criteria: TC1-TC4 assert oracle parity (TOPIC_NOT_FOUND_MESSAGE via toBe) for nonexistent and gated boards on both create and list; TC5/TC6 spy on AuthorizationService.evaluate() to confirm invocation on readable boards; TC7/TC8 assert unsafe Markdown (<script> and javascript: link) throws BadRequestException with topicRepository.save NOT called (before-persist assertion); TC9 asserts correct order object {isPinned:'DESC', lastPostAt:'DESC', createdAt:'DESC'}; TC10/TC11 assert internal field stripping (authorUserId, boardId, isLocked, movedByUserId, lockedByUserId, deletedAt absent) and author.username/displayName present; TC12 confirms skip=5, take=5 for page=2, pageSize=5; TC13 confirms pageSize=999 clamped to take=100; TC14 confirms UnauthorizedException is thrown and forumsService.createTopic is NOT called when session is missing.",
+    "Coverage gap: no test directly asserts that findAndCount where clause contains deletedAt: IsNull() (see WARNING). A regression silently dropping the soft-delete filter would not be caught by the unit suite."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 2
+}
