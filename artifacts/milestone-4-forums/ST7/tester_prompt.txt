@@ -1,0 +1,46 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- ST7: CommonJS-safe supertest harness + two executed HTTP integration test groups (proxy-hop request.ip assertion and helmet baseline header assertions) for the SFUS API.
+
+Modified files:
+- apps/api/src/test-harness.ts
+- apps/api/src/http.integration.test.ts
+- apps/api/package.json
+- pnpm-lock.yaml
+
+Acceptance criteria to validate (from Planner):
+- PASS: Executed proxy-hop test asserts request.ip equals the injected X-Forwarded-For client address (not a mocked setter call) — test 'resolves request.ip to the injected X-Forwarded-For client address' in http.integration.test.ts passes against a real Express HTTP response
+- PASS: Executed helmet test asserts the three header conditions on a real HTTP response — three tests in http.integration.test.ts assert X-Content-Type-Options:nosniff present, Strict-Transport-Security absent, Content-Security-Policy absent
+- PASS: Harness (test-harness.ts) is a reusable exported helper (createTestApp) and CommonJS-safe (no import.meta); API tsc build passes
+
+Create test files in:
+- apps/api/src/http.integration.test.ts — the ST7 executed tests (proxy-hop and helmet groups)
+- apps/api/src/test-harness.ts — the shared harness helper exported for ST8/ST9 reuse
+
+Implementation context for testing:
+- test-harness.ts exports createTestApp(extraRouter?) which builds a minimal Express app with trust proxy=1 and helmet(strictTransportSecurity:false, contentSecurityPolicy:false) — identical to production index.ts config. It adds GET /api/test/echo-ip that returns {ip: req.ip} as JSON. No DB connection required.
+- http.integration.test.ts has two describe groups: 'Proxy-hop: request.ip under trust proxy=1' (2 tests) and 'Helmet baseline: security headers on API responses' (3 tests). All 5 tests use real HTTP requests via supertest — no mocking.
+- supertest ^7.2.2, @types/supertest ^7.2.0, and express ^5.2.1 added as API devDependencies (express was only a transitive dep before; pnpm strict isolation required explicit declaration for test-harness.ts to import it).
+- Security review required: verify each proxy-hop test exercises actual trust proxy behavior and cannot pass via mocking; verify helmet header assertions cannot pass vacuously.
+- A multi-hop XFF test was drafted and removed after failing validation — with trust proxy=1, Express resolves req.ip to the rightmost XFF entry (not leftmost); the remaining 2 proxy-hop tests correctly cover the required AC.
+
+Suggested test command(s):
+- pnpm --dir apps/api test
+- pnpm --dir apps/api lint
+- pnpm --dir apps/api typecheck
+- pnpm --dir apps/api build
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST7
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
