@@ -14,6 +14,21 @@ export interface ApplicationEnvironment {
     allowedMimeTypes: string[];
     storagePath: string;
   };
+  throttle: {
+    /** Rate-limit window in milliseconds (THROTTLE_WINDOW_MS). */
+    windowMs: number;
+    /** Max hits per window for established accounts (THROTTLE_MAX_HITS). */
+    maxHits: number;
+    /** Max hits per window for new-account tier (THROTTLE_NEW_ACCOUNT_MAX_HITS). */
+    newAccountMaxHits: number;
+    /**
+     * How long (ms) after account creation a user is in the new-account tier
+     * (THROTTLE_NEW_ACCOUNT_WINDOW_MS).
+     */
+    newAccountWindowMs: number;
+    /** Maximum number of URLs allowed in a Markdown post body (THROTTLE_MAX_LINKS_PER_POST). */
+    maxLinksPerPost: number;
+  };
   auth: {
     passwordPepper: string;
     sessionTokenPepper: string;
@@ -190,6 +205,45 @@ export const loadEnvironment = (
   );
   const mediaStoragePath = readRequiredString(source.MEDIA_STORAGE_PATH, "MEDIA_STORAGE_PATH", errors);
 
+  // ---------------------------------------------------------------------------
+  // Throttle / rate-limit configuration
+  // ---------------------------------------------------------------------------
+
+  const throttleWindowMs = parseInteger(
+    source.THROTTLE_WINDOW_MS,
+    "THROTTLE_WINDOW_MS",
+    { min: 1000, max: 3600000 },
+    errors
+  );
+  const throttleMaxHits = parseInteger(
+    source.THROTTLE_MAX_HITS,
+    "THROTTLE_MAX_HITS",
+    { min: 1, max: 10000 },
+    errors
+  );
+  const throttleNewAccountMaxHits = parseInteger(
+    source.THROTTLE_NEW_ACCOUNT_MAX_HITS,
+    "THROTTLE_NEW_ACCOUNT_MAX_HITS",
+    { min: 1, max: 10000 },
+    errors
+  );
+  const throttleNewAccountWindowMs = parseInteger(
+    source.THROTTLE_NEW_ACCOUNT_WINDOW_MS,
+    "THROTTLE_NEW_ACCOUNT_WINDOW_MS",
+    { min: 60000, max: 2592000000 },
+    errors
+  );
+  const throttleMaxLinksPerPost = parseInteger(
+    source.THROTTLE_MAX_LINKS_PER_POST,
+    "THROTTLE_MAX_LINKS_PER_POST",
+    { min: 0, max: 100 },
+    errors
+  );
+
+  if (throttleNewAccountMaxHits > throttleMaxHits) {
+    errors.push("THROTTLE_NEW_ACCOUNT_MAX_HITS must be less than or equal to THROTTLE_MAX_HITS.");
+  }
+
   if (errors.length > 0) {
     throw new Error(`Invalid API environment configuration:\n- ${errors.join("\n- ")}`);
   }
@@ -202,6 +256,13 @@ export const loadEnvironment = (
       uploadMaxSizeBytes: mediaUploadMaxSizeBytes,
       allowedMimeTypes: mediaAllowedMimeTypes,
       storagePath: mediaStoragePath
+    },
+    throttle: {
+      windowMs: throttleWindowMs,
+      maxHits: throttleMaxHits,
+      newAccountMaxHits: throttleNewAccountMaxHits,
+      newAccountWindowMs: throttleNewAccountWindowMs,
+      maxLinksPerPost: throttleMaxLinksPerPost
     },
     auth: {
       passwordPepper: authPasswordPepper,

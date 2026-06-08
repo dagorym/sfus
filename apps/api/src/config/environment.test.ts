@@ -23,6 +23,11 @@ const createValidEnvironment = (): NodeJS.ProcessEnv => ({
   MEDIA_UPLOAD_MAX_SIZE_BYTES: "5242880",
   MEDIA_ALLOWED_MIME_TYPES: "image/jpeg,image/png,image/gif,image/webp",
   MEDIA_STORAGE_PATH: "./storage/uploads",
+  THROTTLE_WINDOW_MS: "60000",
+  THROTTLE_MAX_HITS: "60",
+  THROTTLE_NEW_ACCOUNT_MAX_HITS: "10",
+  THROTTLE_NEW_ACCOUNT_WINDOW_MS: "604800000",
+  THROTTLE_MAX_LINKS_PER_POST: "5",
   DB_HOST: "mysql",
   DB_PORT: "3306",
   DB_NAME: "sfus",
@@ -44,6 +49,13 @@ describe("loadEnvironment", () => {
         uploadMaxSizeBytes: 5242880,
         allowedMimeTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
         storagePath: "./storage/uploads"
+      },
+      throttle: {
+        windowMs: 60000,
+        maxHits: 60,
+        newAccountMaxHits: 10,
+        newAccountWindowMs: 604800000,
+        maxLinksPerPost: 5
       },
       auth: {
         passwordPepper: "development-pepper-value",

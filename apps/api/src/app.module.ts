@@ -4,6 +4,7 @@ import { AuthModule } from "./auth/auth.module";
 import { AuthorizationModule } from "./authorization/authorization.module";
 import { BlogModule } from "./blog/blog.module";
 import type { ApplicationEnvironment } from "./config/environment";
+import { ThrottleModule } from "./common/throttle/throttle.module";
 import { JsonLogger } from "./common/logger/json-logger.service";
 import { CorrelationIdMiddleware } from "./common/middleware/correlation-id.middleware";
 import { RequestLoggingMiddleware } from "./common/middleware/request-logging.middleware";
@@ -25,6 +26,7 @@ export class AppModule implements NestModule {
         UsersModule,
         AuthModule.register(environment),
         AuthorizationModule,
+        ThrottleModule.register(environment),
         HealthModule.register(environment),
         MediaModule.register(environment),
         BlogModule.register(environment),

@@ -17,6 +17,13 @@ const environment: ApplicationEnvironment = {
     allowedMimeTypes: ["image/jpeg", "image/png"],
     storagePath: "./storage/uploads"
   },
+  throttle: {
+    windowMs: 60000,
+    maxHits: 60,
+    newAccountMaxHits: 10,
+    newAccountWindowMs: 604800000,
+    maxLinksPerPost: 5
+  },
   auth: {
     passwordPepper: "development-pepper-value",
     sessionTokenPepper: "development-session-token-pepper",

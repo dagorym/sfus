@@ -44,6 +44,13 @@ const makeTestEnvironment = (overrides: Partial<ApplicationEnvironment["media"]>
     storagePath: "/tmp/sfus-test-uploads",
     ...overrides
   },
+  throttle: {
+    windowMs: 60000,
+    maxHits: 60,
+    newAccountMaxHits: 10,
+    newAccountWindowMs: 604800000,
+    maxLinksPerPost: 5
+  },
   auth: {
     passwordPepper: "test-pepper-16chars",
     sessionTokenPepper: "test-session-pepper-16chars",
