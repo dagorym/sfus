@@ -99,11 +99,21 @@ Code that passes the dev runner but fails the real build or another environment:
 `import.meta.url` under the CJS build (twice); `process.cwd()`-based test fixture paths
 that double the path under a different cwd (6 phantom test failures eroded suite signal
 for an entire plan, training every role to hand-wave failures); pnpm resolving vitest
-from the parent worktree and skewing test counts.
+from the parent worktree and skewing test counts. The web side has the same disease: a
+value export from a Next.js App Router `page.tsx` (`profileProjection`) passed `next dev`
+and vitest but failed `next build`'s type-check — App Router route files allow only a
+`default` export plus a fixed field allowlist (`metadata`, `generateMetadata`, `dynamic`,
+…); it escaped ST17's full QA chain and the MS4 reviewer, surfacing only at `docker
+build`.
 
 - **Implementer / Tester:** the API builds as CommonJS (NodeNext) — no `import.meta` in
   API code or tests; resolve fixture paths with `__dirname`, never `process.cwd()`.
   After env-dependent failures, run `pnpm install` in the worktree before debugging.
+- **Implementer / Tester (web):** validate web changes with the production `next build`,
+  not just `next dev` + vitest + lint — `next build` is the only place App Router export
+  constraints and production type-checking are enforced. Keep route files
+  (`page.tsx`/`layout.tsx`) free of non-allowlisted named exports; put shared helpers in a
+  sibling module and import them.
 - **Everyone:** "N pre-existing failures, unrelated" is a debt that hides regressions.
   If the suite is not fully green, flag it loudly instead of normalizing it.
 
