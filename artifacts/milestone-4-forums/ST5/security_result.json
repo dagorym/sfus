@@ -1,0 +1,29 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST5/security_report.md",
+    "artifacts/milestone-4-forums/ST5/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st5-security-20260608",
+  "documentation_sufficiency_summary": [
+    "SUFFICIENT. docs/features/forums.md documents the ST5 post create/list routes, the full board+topic visibility gate, uniform 404 oracle-parity message, locked-topic 403, the uniform parentId 400 with explicit 'no existence oracle' language, the quotedPostId soft-reference (render deferred to web/ST16), the PublicPostShape stripped-field allowlist, and the deterministic createdAt-ASC/id-ASC oldest-first pagination + clamp + soft-delete exclusion.",
+    "Controller JSDoc and @Api* decorators document the 201/400/401/403/404 contract. Only the inline PublicPostShape type comment (NOTE-2) is stale; user-facing docs are accurate."
+  ],
+  "note_finding_count": 2,
+  "outcome": "PASS",
+  "pass_label": "PASS",
+  "status": "completed",
+  "task_id": "ST5",
+  "test_sufficiency_summary": [
+    "SUFFICIENT for all eight security concerns. Validation matrix run in THIS worktree (not the main checkout): pnpm exec vitest run --root apps/api src/forums/forums.controller.test.ts src/forums/forums.service.test.ts -> 173/173 passed (service 112, controller 61); pnpm typecheck -> pass; pnpm lint -> pass (eslint --max-warnings=0). pnpm install --frozen-lockfile succeeded.",
+    "VISIBILITY: createPost+listPosts both gate via isBoardPubliclyReadable(topic.board) (shared evaluate()-based helper, no inline predicate); spy tests assert AuthorizationService.evaluate() is invoked on both paths.",
+    "ORACLE PARITY: tests assert gated==nonexistent==soft-deleted topic all return identical TOPIC_NOT_FOUND_MESSAGE for both createPost and listPosts.",
+    "THREADING NO-ORACLE: invalid-b (parentId in different topic) and invalid-c (reply-to-a-reply) each assert msgA===msgB against the nonexistent-parent case \u2014 proving a uniform 'parentId is invalid.' 400 with no cross-topic existence oracle; save asserted not-called.",
+    "LOCKED TOPIC: isLocked -> ForbiddenException(403) and postSave asserted not-called.",
+    "AUTH ORDERING: controller test asserts forumsService.createPost is NOT called when resolveSession rejects (401 before any data op); listPosts test asserts resolveSession is never touched (public route).",
+    "INPUT GUARD: body=undefined/42/{} each -> BadRequestException(400), not a 500 TypeError, save not-called; unsafe <script> and javascript: bodies -> 400 before persistence.",
+    "SHAPE: createPost and listPosts shape tests assert authorUserId/topicId/deletedAt absent and only author.username/displayName + quotedPostId(+parentId) present.",
+    "PAGINATION: order {createdAt:ASC,id:ASC} asserted; pageSize 999->100 and 0->1 clamps asserted; deletedAt IsNull() exclusion asserted as a regression guard."
+  ],
+  "warning_finding_count": 0
+}
