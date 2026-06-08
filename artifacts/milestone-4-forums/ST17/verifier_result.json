@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST17/verifier_report.md",
+    "artifacts/milestone-4-forums/ST17/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st17-verifier-20260608",
+  "documentation_accuracy_summary": [
+    "ACCURATE. docs/features/web-shell.md: route map /users/<username> entry correctly lists the 5 permitted fields, references UserAvatar, and documents the profile avatar upload/replace/remove flow, initials fallback, security contract (gated path only), and encodeURIComponent convention \u2014 all verified against the implementation. docs/features/auth.md: ST17 section documents the public profile page (profileProjection, 5 fields), avatar upload/replace/remove, client-UX-only control, and cross-references the ST15 enforcement contract. Auth.md API table for /api/users/:username and PUT/DELETE /api/users/me/avatar matches the server implementation. All 5 allowlist fields (username, displayName, avatar, bio, joinDate) match both users.types.ts PublicProfileShape and profileProjection. No inaccurate field listed, no duplication or contradiction between the two doc files for ST17 content."
+  ],
+  "note_finding_count": 2,
+  "pass_label": "PASS",
+  "status": "complete",
+  "task_id": "ST17",
+  "test_sufficiency_summary": [
+    "SUFFICIENT. vitest run --root apps/web -> 12 files, 407 tests PASS (user-avatar.spec.ts 16, users-profile.spec.ts 12, mention-autocomplete.spec.ts 24). All 52 ST17-related specs are non-vacuous: profileProjection tests confirm the 5-key allowlist and regression on extra keys; resolveAvatarSrc tests confirm null/error degradation invariant; deriveInitials tests cover multi-word, single-token, fallback, and empty-input edge cases. Source-contract tests for the JSX layer are consistent with the established repo pattern (authoring-components.spec.ts, blog.spec.ts). No ST16 regression: forums.spec.ts 51 tests PASS."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
