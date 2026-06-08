@@ -1,0 +1,60 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Added bio (TEXT NULL) and avatar_media_id (CHAR(36) NULL, FK -> media_references ON DELETE SET NULL) columns to the users table via a single reversible migration (1780892561355-user-bio-and-avatar.ts). UserEntity updated with bio, avatarMediaId column mappings and avatarMedia ManyToOne relation following the BlogPostEntity pattern. Migration registered in database.config.ts reviewedMigrationClasses. Existing test fixtures in auth.service.test.ts and database.config.test.ts updated as mechanical consequence of entity shape change. All 381 tests pass; workspace typecheck and lint clean.
+
+Acceptance criteria validated:
+- Migration applies cleanly on MySQL 5.7.44 and is reversible; entity updated and registered.
+- pnpm typecheck and the API tsc build pass.
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st13-tester-20260607 (branch ms4-st13-tester-20260607).
+- Implementation commit: cd53ba6 (feat(users): add bio and avatar_media_id columns (ST13)).
+- Implementer branch: ms4-st13-implementer-20260607.
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/database/migrations/1780892561355-user-bio-and-avatar.ts
+- apps/api/src/database/database.config.ts
+- apps/api/src/users/entities/user.entity.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/database/database.config.test.ts
+
+Test commit:
+- No Changes Made
+
+Commands executed:
+- pnpm --filter @sfus/api run typecheck
+- pnpm typecheck
+- pnpm lint
+- pnpm --filter @sfus/api run test
+
+Final test outcomes:
+- 381 tests passed, 2 skipped (SFUS_DB_INTEGRATION gated), 0 failed.
+- pnpm --filter @sfus/api run typecheck: clean (no errors).
+- pnpm typecheck (workspace-wide): clean (no errors).
+- pnpm lint: clean (0 warnings, 0 errors).
+- database.config.test.ts asserts UserBioAndAvatar1780892561355 in reviewedMigrationNames — PASS.
+- auth.service.test.ts fixture includes bio/avatarMediaId/avatarMedia fields matching updated UserEntity — PASS.
+- DB-gated integration tests skipped as expected (SFUS_DB_INTEGRATION=1 not set; requires live MySQL 5.7.44).
+
+Documentation context:
+- No public API endpoints added. Schema change only (bio and avatar_media_id columns on users table).
+- Documentation impact limited to docs describing the UserEntity shape or user profile feature behavior.
+- docs/features/auth.md may reference UserEntity and may need an update noting the new columns.
+- bio and avatar_media_id columns are schema-only additions in this subtask; no endpoint exposes them yet.
+- avatar_media_id FK is ON DELETE SET NULL — deleting a media_reference does not cascade-delete the user row.
+
+Plan and diff context:
+- Plan path: plans/milestone-4-forums-plan.md (ST13 subtask).
+- Comparison base: ms4 branch or main — infer from repository context if needed.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST13
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
