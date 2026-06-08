@@ -1,0 +1,46 @@
+Your role is 'verifier'. Your task is as follows:
+
+Task summary:
+- ST18: Exercise StandalonePageEntity.currentRevision relation. Added DB-gated integration Test 3 in apps/api/src/pages/pages.service.integration.test.ts that loads a StandalonePageEntity with relations:["currentRevision"] and asserts the joined revision is the correct current one. Closes the deferred-register note that the @ManyToOne decorator existed but was never exercised. Test-only change; no product consumer modified; no schema change; no API surface changed.
+
+Acceptance criteria verified by Tester:
+- A test/product path loads a StandalonePageEntity with currentRevision populated and asserts the joined revision is the current one — VERIFIED by Test 3 (lines 160-197): pageRepo.findOne with relations:["currentRevision"], asserts currentRevision.id === created.currentRevisionId, revisionNumber===1, pageId, authorUserId.
+- Runs (or skips cleanly) under SFUS_DB_INTEGRATION WITHOUT breaking the default no-DB pass — VERIFIED: 863 passed, 3 skipped, 0 failed.
+- No schema change; createForeignKeyConstraints:false semantics preserved — VERIFIED by entity inspection of standalone-page.entity.ts.
+
+Test matrix results (tester-run, worktree-local binary):
+- vitest run --root apps/api: 863 passed, 3 skipped, 0 failed (Test Files: 29 passed | 1 skipped (30))
+- pnpm typecheck: 0 errors (apps/api and apps/web)
+- pnpm lint: 0 warnings (apps/api and apps/web, --max-warnings=0)
+- API tsc build (tsc -p tsconfig.json --noEmit): clean
+
+DB-gated path:
+- NOT RUN by tester or implementer (no MySQL available). Clean-skip confirmed: 3 skipped tests correspond exactly to the 3 tests inside describe.skipIf(!DB_INTEGRATION_ENABLED). Console output: '[pages.service.integration] SKIP: SFUS_DB_INTEGRATION=1 is not set.'
+
+Non-vacuity confirmation:
+- Test 3 asserts currentRevision.id === created.currentRevisionId. A mis-joined or null relation would produce a different id or undefined and fail. Additional field checks (revisionNumber===1, pageId, authorUserId) confirm the relation body is real, not just a non-null sentinel. This is stronger than a non-null-only check.
+
+Implementation branch / commit:
+- Branch: ms4-st18-tester-20260608
+- Test commit: 066b435 (committed by implementer; no additional tester commits made)
+
+Files changed:
+- apps/api/src/pages/pages.service.integration.test.ts (Test 3 added, lines 159-198)
+
+Artifact directory:
+- artifacts/milestone-4-forums/ST18
+
+Documenter artifacts:
+- artifacts/milestone-4-forums/ST18/documenter_prompt.txt (written by tester)
+- artifacts/milestone-4-forums/ST18/documenter_report.md (to be written by documenter)
+- artifacts/milestone-4-forums/ST18/documenter_result.json (to be written by documenter)
+
+Startup behavior:
+- Confirm tester artifacts are present and review the test change for correctness and completeness.
+- Verify the test is non-vacuous and correctly exercises the @ManyToOne currentRevision relation.
+- Confirm no product code was modified.
+- Confirm the default no-DB pass is clean and the DB-gated path skips correctly.
+- Continue in the same run when blocking inputs are present.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
