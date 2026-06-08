@@ -2109,6 +2109,241 @@ describe("BlogService.create slug TOCTOU hardening (subtask-4)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// ST10: Explicit-slug duplicate-key errors map to 409 ConflictException
+// create() with explicit slug + duplicate-key → 409 (not raw 500)
+// update() with slug change + duplicate-key → 409 (not raw 500)
+// ---------------------------------------------------------------------------
+
+import { ConflictException } from "@nestjs/common";
+
+describe("BlogService ST10: explicit-slug duplicate-key 409 mapping", () => {
+  // SC1: create() with an explicit slug whose save() throws a duplicate-key error
+  // → ConflictException (409), message "A post with this slug already exists."
+  it("create() with explicit slug throws ConflictException (409) when save throws SQLite UNIQUE constraint error", async () => {
+    const authorizationService = new AuthorizationService();
+    const dupError = new Error("UNIQUE constraint failed: blog_post.slug");
+    const savedPost = {
+      id: "post-explicit-dup",
+      title: "My Post",
+      slug: "my-post",
+      body: "body",
+      status: "draft",
+      postTags: []
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      create: vi.fn().mockReturnValue(savedPost),
+      save: vi.fn().mockRejectedValue(dupError),
+      findOne: vi.fn().mockResolvedValue(null)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.create("user-1", { title: "My Post", slug: "my-post", body: "Safe body" })
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it("create() with explicit slug throws ConflictException (409) when save throws MySQL ER_DUP_ENTRY error", async () => {
+    const authorizationService = new AuthorizationService();
+    const dupError = Object.assign(new Error("Duplicate entry"), { code: "ER_DUP_ENTRY", errno: 1062 });
+    const savedPost = {
+      id: "post-mysql-dup",
+      title: "Another Post",
+      slug: "another-post",
+      body: "body",
+      status: "draft",
+      postTags: []
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      create: vi.fn().mockReturnValue(savedPost),
+      save: vi.fn().mockRejectedValue(dupError),
+      findOne: vi.fn().mockResolvedValue(null)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const err = await service.create("user-1", { title: "Another Post", slug: "another-post", body: "Safe body" })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect((err as ConflictException).message).toBe("A post with this slug already exists.");
+  });
+
+  // SC3: create() with explicit non-colliding slug → succeeds (no regression)
+  it("create() with explicit non-colliding slug succeeds without throwing (SC3 regression)", async () => {
+    const authorizationService = new AuthorizationService();
+    const savedPost = {
+      id: "post-no-collision",
+      title: "Good Post",
+      slug: "good-post",
+      body: "body",
+      status: "draft",
+      postTags: []
+    };
+    const postRepo = {
+      ...createMinimalRepository(),
+      create: vi.fn().mockReturnValue(savedPost),
+      save: vi.fn().mockResolvedValue(savedPost),
+      findOne: vi.fn().mockResolvedValue({ ...savedPost, postTags: [] })
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.create("user-1", { title: "Good Post", slug: "good-post", body: "Safe body" })
+    ).resolves.toBeDefined();
+  });
+
+  // SC2: update() that changes the slug to a colliding value → ConflictException (409)
+  it("update() with slug change throws ConflictException (409) when save throws duplicate-key error (SC2)", async () => {
+    const authorizationService = new AuthorizationService();
+    const existingPost = {
+      id: "post-update",
+      title: "Existing",
+      slug: "existing-slug",
+      body: "original",
+      status: "draft",
+      summary: null,
+      featuredImageId: null,
+      isFeatured: false,
+      postTags: []
+    };
+    const dupError = new Error("UNIQUE constraint failed: blog_post.slug");
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValueOnce(existingPost),
+      save: vi.fn().mockRejectedValue(dupError)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const err = await service.update("post-update", { slug: "colliding-slug" })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect((err as ConflictException).message).toBe("A post with this slug already exists.");
+  });
+
+  it("update() with slug change (MySQL ER_DUP_ENTRY) throws ConflictException (409)", async () => {
+    const authorizationService = new AuthorizationService();
+    const existingPost = {
+      id: "post-update-mysql",
+      title: "Some Post",
+      slug: "some-post",
+      body: "body",
+      status: "draft",
+      summary: null,
+      featuredImageId: null,
+      isFeatured: false,
+      postTags: []
+    };
+    const dupError = Object.assign(new Error("Duplicate entry"), { code: "ER_DUP_ENTRY", errno: 1062 });
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValueOnce(existingPost),
+      save: vi.fn().mockRejectedValue(dupError)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.update("post-update-mysql", { slug: "another-existing-slug" })
+    ).rejects.toThrow(ConflictException);
+  });
+
+  // SC4: update() that does NOT change the slug but save() throws a duplicate-key error
+  // → the 409 mapping is scoped to slug-changing updates; error propagates as-is (not 409)
+  it("update() without slug change does NOT map duplicate-key error to 409 (SC4 scoping)", async () => {
+    const authorizationService = new AuthorizationService();
+    const existingPost = {
+      id: "post-no-slug-change",
+      title: "No Slug Change",
+      slug: "no-slug-change",
+      body: "original",
+      status: "draft",
+      summary: null,
+      featuredImageId: null,
+      isFeatured: false,
+      postTags: []
+    };
+    // Duplicate-key error when input.slug is undefined → should NOT be caught as 409
+    const dupError = new Error("UNIQUE constraint failed: blog_post.slug");
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValueOnce(existingPost),
+      save: vi.fn().mockRejectedValue(dupError)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    // input.slug is undefined — slug not being changed
+    const err = await service.update("post-no-slug-change", { title: "Updated Title" })
+      .catch((e: unknown) => e);
+    // Must NOT be a ConflictException — the 409 guard only applies when slug is changing
+    expect(err).not.toBeInstanceOf(ConflictException);
+    // Must be the original error that propagated through
+    expect((err as Error).message).toContain("UNIQUE constraint failed");
+  });
+
+  // SC4 (non-duplicate error propagation): update() without slug change + non-duplicate-key error
+  // → error propagates unchanged (not a 409, not swallowed)
+  it("update() without slug change propagates non-duplicate-key errors unchanged (SC4 propagation)", async () => {
+    const authorizationService = new AuthorizationService();
+    const existingPost = {
+      id: "post-other-err",
+      title: "Other Error",
+      slug: "other-error",
+      body: "body",
+      status: "draft",
+      summary: null,
+      featuredImageId: null,
+      isFeatured: false,
+      postTags: []
+    };
+    const dbError = new Error("Connection timeout");
+    const postRepo = {
+      ...createMinimalRepository(),
+      findOne: vi.fn().mockResolvedValueOnce(existingPost),
+      save: vi.fn().mockRejectedValue(dbError)
+    };
+    const service = new BlogService(
+      postRepo as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    await expect(
+      service.update("post-other-err", { title: "New Title" })
+    ).rejects.toThrow("Connection timeout");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC2 / AC7: BlogPostStatus type normalization — no scheduled value
 // ---------------------------------------------------------------------------
 
