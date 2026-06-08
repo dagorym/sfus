@@ -69,3 +69,55 @@ Artifacts written:
 
 Final outcome:
 - CONDITIONAL PASS
+
+---
+
+Addendum — post-review remediation (same session, user-directed)
+
+At the user's direction, the findings that were safe to fix without a full
+implementer→verifier cycle were remediated directly and validated by re-running
+lint, typecheck, the full test suites (369 API passed / 2 DB-gated skipped,
+293 web passed), and the API build. The full-stack smoke validation was not
+re-run: none of the remediation changes affect boot, migrations, or the
+health/homepage contracts it checks.
+
+Resolved:
+- WARNING 1 (false img-src data: justification) — RESOLVED in a26394e:
+  allowance removed; comment, web-shell.md, and pinning test corrected.
+- WARNING 2 (navigation linkType-switch validation hole) — RESOLVED in
+  cf55d42: stored URL revalidated on linkType-only updates; four bypass/
+  acceptance regression tests added; navigation.md updated.
+- WARNING 3, part (c) (executed serializer proof) — RESOLVED in e8fe1ac:
+  executed BlogController handler tests now assert the public list/create
+  payload objects (and nested replies) contain none of the trimmed fields.
+- NOTE 1 (false 'tracked in register' claim) — RESOLVED in a26394e: wording
+  now says the nonce/hash migration is a candidate for the next planning
+  cycle; the planner-owned register entry itself remains a follow-up.
+- NOTE (web reserved-slug cardinality) — RESOLVED in e8fe1ac: declaration now
+  pinned to exactly the eleven entries (set equality + cardinality).
+- NOTE (PageSummary.updatedAt unused) — RESOLVED in 579ec84: field dropped
+  from the API serializer/interface, web mirror type, and pages.md contract.
+- Tooling: validate_reviewer_state.py first-line path corruption — RESOLVED
+  in 2ff9f0c.
+
+Still open (deliberately NOT fixed without a proper cycle):
+- WARNING 3, parts (a) and (b): executed proxy-hop test for request.ip and
+  API response-header emission assertions — likely require a supertest-class
+  harness/dependency decision; tester-cycle work.
+- NOTE: API helmet CSP-disabled deviation — documented decision; no action.
+- NOTE: currentRevision relation unexercised by any enabled test — needs a
+  DB-gated integration assertion or a product consumer.
+- NOTE: explicit-slug duplicate-key 500 parity — product behavior change,
+  out of plan scope; register candidate.
+- NOTE: sanitizer residual regex bypass classes — security-review-required
+  surface; layered defense holds at render time.
+- Planner-owned register edits (next planning cycle): add CSP nonce/hash
+  hardening entry; carry over media security M2 (magic-byte MIME validation);
+  record the explicit-slug 409-parity candidate; remove entries closed by
+  this plan.
+
+Post-remediation standing: 0 blocking, 1 warning (W3 a+b residual), 4 notes.
+
+Final outcome (unchanged):
+- CONDITIONAL PASS — conditional scope narrowed to the W3(a)/(b) executed-test
+  residual and the planner-owned register follow-ups.

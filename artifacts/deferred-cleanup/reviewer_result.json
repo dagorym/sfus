@@ -7,13 +7,22 @@
   "branch_name": "cleanup",
   "final_outcome": "CONDITIONAL PASS",
   "follow_up_feature_requests": [
-    "Small follow-up subtask: remove the unjustified `img-src data:` CSP allowance from apps/web/next.config.mjs (or supply a real consumer-based justification), and correct the three places that assert the false claim together: the in-code comment, docs/features/web-shell.md's CSP allowance list, and the pinning test next.config.spec.ts:165.",
-    "Small follow-up subtask: close the navigation linkType-switch validation hole \u2014 in NavigationService.update(), revalidate the effective URL whenever the effective linkType becomes 'internal' (i.e. also when input.linkType is supplied without input.url); add the bypass test (PATCH linkType-only onto an item with an external/protocol-relative URL).",
-    "Tester follow-up subtask: deliver the executed behavioral tests the plan mandated but did not receive \u2014 (a) a supertest-style proxy-hop test proving request.ip resolves from X-Forwarded-For under trust proxy=1; (b) API response-header emission assertions for the helmet baseline (nosniff present, Strict-Transport-Security absent, no CSP header); (c) an executed public-serializer test asserting the created/listed comment payload object contains no authorUserId/moderatedByUserId/moderatedAt keys.",
-    "Next planning cycle (register edits, planner-owned): add the 'CSP nonce/hash hardening' entry that next.config.mjs and web-shell.md already reference; carry over the subtask-8 security report's M2 (header-only MIME validation \u2014 add magic-byte verification, keep SVG excluded); optionally record the explicit-slug duplicate-key 500 parity gap and the web reserved-slug cardinality pinning gap; remove the register entries closed by this plan."
+    "Tester follow-up subtask: deliver the remaining executed behavioral tests the plan mandated — (a) a supertest-style proxy-hop test proving request.ip resolves from X-Forwarded-For under trust proxy=1; (b) API response-header emission assertions for the helmet baseline (nosniff present, Strict-Transport-Security absent, no CSP header). Part (c), the executed public-serializer test, was remediated in-session (commit e8fe1ac).",
+    "Next planning cycle (register edits, planner-owned): add the 'CSP nonce/hash hardening' entry that next.config.mjs and web-shell.md reference as a candidate; carry over the subtask-8 security report's M2 (header-only MIME validation — add magic-byte verification, keep SVG excluded); record the explicit-slug duplicate-key 500 parity candidate; consider a DB-gated relation-loading assertion for StandalonePageEntity.currentRevision; remove the register entries closed by this plan."
   ],
-  "note_finding_count": 7,
+  "note_finding_count": 4,
+  "remediation": {
+    "commits": [
+      "a26394e fix(web): remove unjustified img-src data: CSP allowance (reviewer W1, N1)",
+      "cf55d42 fix(navigation): revalidate URL on linkType-only updates (reviewer W2)",
+      "e8fe1ac test: executed comment-serializer trim proof and reserved-slug cardinality pin (reviewer W3c, N4)",
+      "579ec84 fix(pages): drop unused updatedAt from PageSummary (reviewer N5)",
+      "2ff9f0c fix(myteam): validate_reviewer_state.py corrupted the first git-status path"
+    ],
+    "resolved": ["W1", "W2", "W3(c)", "N1 (claim wording)", "N4 (web reserved-slug cardinality)", "N5 (PageSummary.updatedAt)"],
+    "validated_by": "lint, typecheck, full test suites (369 API passed / 2 DB-gated skipped, 293 web passed), API build"
+  },
   "status": "success",
-  "task_id": "deferred-cleanup (final feature-level review, all 10 subtasks \u2014 independent code-driven re-review)",
-  "warning_finding_count": 3
+  "task_id": "deferred-cleanup (final feature-level review, all 10 subtasks — independent code-driven re-review; post-review remediation applied)",
+  "warning_finding_count": 1
 }
