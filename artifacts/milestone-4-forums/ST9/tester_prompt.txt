@@ -1,0 +1,55 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Enforce the ST8 throttle + link-limit at all 3 protected create sites: forum topic create (POST /forums/boards/:boardId/topics), forum post create (POST /forums/topics/:topicId/posts), and blog comment create (POST /blog/:postId/comments). Wire the real user createdAt for the new-account tier. Protected sites: 3.
+
+Modified files:
+- apps/api/src/forums/forums.controller.ts
+- apps/api/src/forums/forums.module.ts
+- apps/api/src/forums/forums.controller.test.ts
+- apps/api/src/forums/forums.module.test.ts
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.module.ts
+- apps/api/src/blog/blog.controller.test.ts
+- apps/api/src/common/throttle/throttle.module.ts
+
+Acceptance criteria to validate (from Planner):
+- Forum topic/post creation and blog comment creation are rate-limited (over-limit -> 429); normal usage unaffected; new-account tier demonstrably stricter.
+- Link-over-limit bodies on the protected routes are rejected per the ST8 contract (400).
+- No throttle logic duplicated — enforcement reuses the ST8 ThrottleModule at every protected site.
+- Protected site count = 3: forum-topic-create, forum-post-create, blog-comment-create.
+
+Create test files in:
+- apps/api/src/forums/forums.controller.test.ts — add ST9 throttle + link-limit tests (over-limit/under-limit, new-account tier, link-limit)
+- apps/api/src/blog/blog.controller.test.ts — add ST9 throttle + link-limit tests for createComment (over-limit/under-limit, new-account tier, link-limit)
+- Use the existing stub pattern in those test files (makeController + vi.fn() stubs for ThrottleService/UsersService)
+
+Implementation context for testing:
+- ThrottleService.checkRequest() is called inline in createTopic, createPost, and createComment after resolveSession() succeeds (auth gate is first).
+- UsersService.findById(session.user.id) is called after resolveSession() to get the UserEntity with createdAt; this is passed as userCreatedAt to checkRequest() — activating the new-account tier in ThrottleService.
+- Route labels injected: THROTTLE_LABEL_TOPIC_CREATE='forum-topic-create', THROTTLE_LABEL_POST_CREATE='forum-post-create', THROTTLE_LABEL_BLOG_COMMENT='blog-comment-create'.
+- THROTTLE_CONFIG is injected as a constructor param (@Inject(THROTTLE_CONFIG)) in both ForumsController and BlogController.
+- exceedsLinkLimit(body, throttleConfig.maxLinksPerPost) is called on the Markdown body string before persistence; violation throws BadRequestException(400).
+- ThrottleModule.register(environment) and UsersModule are now imported in ForumsModule and BlogModule.
+- ThrottleModule now exports THROTTLE_CONFIG so controllers can inject it.
+- Existing test fixtures updated (P7 breadth): forums.controller.test.ts makeController() now passes ThrottleService, UsersService, ThrottleConfig stubs; forums.module.test.ts fake environments now include throttle property; blog.controller.test.ts makeController() now passes the three new params.
+- Security: auth gate (resolveSession 401) runs before link-limit and throttle checks. 401/403/404 semantics are unchanged.
+
+Suggested test command(s):
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st9-implementer-20260608 lint
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st9-implementer-20260608/apps/api run typecheck
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st9-implementer-20260608 exec vitest run --root /home/tstephen/repos/worktrees/ms4-st9-implementer-20260608/apps/api
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST9
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
