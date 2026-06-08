@@ -1,0 +1,77 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST8 — Throttle module (storage seam, new-account tier, link-limit): implementation and testing complete.
+- Implemented: ThrottleService, ThrottleGuard, InMemoryThrottleStore (IThrottleStore seam), link-limit helpers, ThrottleModule dynamic registration, env var validation for all throttle config fields.
+- Tested: 67 new tests covering all four acceptance criteria (over/under-limit 429 envelope, identity resolution, new-account tier, storage seam swap, link counting with no double-counting, env validation with cross-field check). All 498 tests pass (431 baseline + 67 new).
+
+Acceptance criteria validated:
+- AC1: Over-limit request -> 429 envelope with {error, message, statusCode, retryAfter}; under-limit passes; identity prefers session userId, falls back to proxy-resolved request.ip (never XFF directly); new-account tier applies when account is younger than newAccountWindowMs.
+- AC2: Link-count limiter (countLinks/exceedsLinkLimit) correctly counts Markdown links and bare URLs without double-counting; rejects over-max bodies and accepts compliant ones.
+- AC3: Storage accessed only through IThrottleStore.hit(); in-memory store wired by default; test-double IThrottleStore injected without guard or route changes — seam proven non-vacuously.
+- AC4: All five throttle env vars required (THROTTLE_WINDOW_MS 1000-3600000, THROTTLE_MAX_HITS 1-10000, THROTTLE_NEW_ACCOUNT_MAX_HITS 1-10000, THROTTLE_NEW_ACCOUNT_WINDOW_MS 60000-2592000000, THROTTLE_MAX_LINKS_PER_POST 0-100); missing/invalid -> startup failure; cross-field newAccountMaxHits <= maxHits enforced; API tsc build passes.
+
+Implementation branch or worktree context:
+- Implementer branch: ms4-st8-implementer-20260608
+- Tester branch: ms4-st8-tester-20260608 (worktree at /home/tstephen/repos/worktrees/ms4-st8-tester-20260608)
+- Base: ms4
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/common/throttle/throttle.types.ts (IThrottleStore, ThrottleConfig, THROTTLE_STORE, THROTTLE_CONFIG)
+- apps/api/src/common/throttle/throttle-store.ts (InMemoryThrottleStore)
+- apps/api/src/common/throttle/link-limit.ts (countLinks, exceedsLinkLimit)
+- apps/api/src/common/throttle/throttle.service.ts (ThrottleService.checkRequest)
+- apps/api/src/common/throttle/throttle.guard.ts (ThrottleGuard, ThrottleLabel, THROTTLE_ROUTE_LABEL)
+- apps/api/src/common/throttle/throttle.module.ts (ThrottleModule.register)
+- apps/api/src/config/environment.ts (throttle section added)
+- apps/api/src/app.module.ts (ThrottleModule wired)
+- apps/api/src/config/environment.test.ts (throttle field added to fixture)
+- apps/api/src/auth/auth.controller.test.ts (throttle field added to fixture)
+- apps/api/src/auth/auth.service.test.ts (throttle field added to fixture)
+- apps/api/src/database/database.config.test.ts (throttle field added to fixture)
+- apps/api/src/health/readiness.service.test.ts (throttle field added to fixture)
+- apps/api/src/media/media.service.test.ts (throttle field added to fixture)
+- apps/api/src/common/throttle/link-limit.test.ts (added by Tester)
+- apps/api/src/common/throttle/throttle-env.test.ts (added by Tester)
+- apps/api/src/common/throttle/throttle-store.test.ts (added by Tester)
+- apps/api/src/common/throttle/throttle.service.test.ts (added by Tester)
+
+Test commit:
+- 6d51eb2 (branch: ms4-st8-tester-20260608)
+
+Commands executed:
+- pnpm install --frozen-lockfile --dir <worktree>
+- pnpm --dir <worktree> --filter @sfus/api run test (baseline: 431 pass)
+- pnpm --dir <worktree> --filter @sfus/api run test (after authoring: 498 pass)
+- pnpm --dir <worktree> --filter @sfus/api run typecheck (clean)
+- pnpm --dir <worktree> --filter @sfus/api run lint (clean)
+- pnpm --dir <worktree> --filter @sfus/api run build (clean)
+
+Final test outcomes:
+- 498 tests passed, 0 failed, 2 DB-gated skips (same as baseline)
+- 67 new tests added covering all 4 acceptance criteria
+- No implementation defects found
+- XFF direct-parsing regression confirmed absent (AC1 security note)
+
+Documentation context:
+- New throttle module is a cross-cutting concern; docs/features/ may need a new throttle.md or an addition to docs/development/api-conventions.md
+- Environment variable contract expanded: 5 new required env vars documented in environment.ts; deployment.md / launch.md may need updating
+- ThrottleGuard usage (@UseGuards, @ThrottleLabel) is a new authoring pattern for controllers
+- IThrottleStore storage seam documented — Redis swap path should be mentioned if not already covered
+- Check docs/README.md routing table for whether a new doc is warranted under docs/features/
+
+Plan and diff context:
+- Plan: plans/milestone-4-forums-plan.md (ST8 subtask)
+- Base branch for diff: ms4 (the coordination branch)
+- Compare ms4-st8-tester-20260608 against ms4 to see the full set of changes
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST8
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

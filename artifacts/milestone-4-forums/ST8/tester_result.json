@@ -1,0 +1,46 @@
+{
+  "status": "pass",
+  "subtask": "ST8",
+  "branch": "ms4-st8-tester-20260608",
+  "test_commit_hash": "6d51eb2",
+  "test_files_added": [
+    "apps/api/src/common/throttle/link-limit.test.ts",
+    "apps/api/src/common/throttle/throttle-env.test.ts",
+    "apps/api/src/common/throttle/throttle-store.test.ts",
+    "apps/api/src/common/throttle/throttle.service.test.ts"
+  ],
+  "test_files_modified": [],
+  "commands_run": [
+    "pnpm install --frozen-lockfile --dir <worktree>",
+    "pnpm --dir <worktree> --filter @sfus/api run test",
+    "pnpm --dir <worktree> --filter @sfus/api run typecheck",
+    "pnpm --dir <worktree> --filter @sfus/api run lint",
+    "pnpm --dir <worktree> --filter @sfus/api run build"
+  ],
+  "test_totals": {
+    "passed": 498,
+    "failed": 0,
+    "skipped": 2,
+    "total": 500
+  },
+  "baseline_totals": {
+    "passed": 431,
+    "failed": 0,
+    "skipped": 2,
+    "total": 433
+  },
+  "new_tests": 67,
+  "acceptance_criteria": {
+    "AC1_rate_limiting_and_identity": "pass",
+    "AC2_link_count_limiter": "pass",
+    "AC3_storage_seam": "pass",
+    "AC4_env_validation": "pass"
+  },
+  "unmet_acceptance_criteria": [],
+  "implementation_defects": [],
+  "artifact_files_written": [
+    "artifacts/milestone-4-forums/ST8/tester_report.md",
+    "artifacts/milestone-4-forums/ST8/tester_result.json",
+    "artifacts/milestone-4-forums/ST8/documenter_prompt.txt"
+  ]
+}
