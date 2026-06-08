@@ -1,0 +1,59 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST16 verifier-driven remediation tester pass. Implementer fixed sanitizeUrl reject regex from /["'<>&]/ to /["'<>]/ (dropping &). Two new behavioural tests added by implementer asserting multi-param URLs preserved. Tester verified: all 379 web tests pass; XSS still inert; & URLs preserved non-vacuously; typecheck 0 errors; lint 0 warnings.
+
+Acceptance criteria validated:
+- AC-XSS: sanitizeUrl rejects URLs containing double-quote; proven XSS payload still produces href="#"; 9 XSS tests pass
+- AC-AMP: sanitizeUrl does NOT reject & -- multi-param URLs ?a=1&b=2 render with full href intact; 2 new tests pass
+- AC-NON-VAC: non-vacuous confirmed -- re-adding & to reject set causes exactly those 2 tests to fail
+- AC-REGR: no regression -- 379 web tests pass, 0 typecheck errors, 0 lint warnings
+
+Implementation branch or worktree context:
+- Branch: ms4-st16-tester-20260608 (tester worktree)
+- Implementer fix commit: fbec0c20ee7f4c574cb6d17718a8c359e91673ea
+- Fix and 2 new tests committed together by implementer in fbec0c2
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/components/markdown-renderer.tsx -- sanitizeUrl reject set changed /["'<>&]/ to /["'<>]/; RFC 3986 rationale comment added
+- apps/web/components/authoring-components.spec.ts -- 2 new multi-param-URL behavioural tests added
+- docs/features/forums.md ~line 490 -- REQUIRES CORRECTION: wrongly claims MarkdownRenderer converts @username to profile links. Accurate: @-autocomplete inserts plain @username text; author bylines link to /users/<username> via JSX Link; renderer renders @username as escaped plain text (no auto-linkify; inline-mention linking is M10)
+
+Test commit:
+- No Changes Made
+
+Commands executed:
+- pnpm install --frozen-lockfile
+- vitest run --root apps/web -> 379 passed (379), 0 failures
+- pnpm typecheck -> 0 errors
+- pnpm lint -> 0 warnings
+- Temporarily applied /["'<>&]/ to sanitizeUrl: 2 new multi-param tests FAIL, 9 XSS tests PASS; restored fix /["'<>]/ afterward
+
+Final test outcomes:
+- PASS: 379 tests, 0 failures (10 test files)
+- PASS XSS still inert: 9 XSS behavioural tests pass; proven payload [click](/a" onpointerover=alert`1`) renders href="#" because " is still in reject set
+- PASS & URL preserved (non-vacuous): ?a=1&b=2 URLs render intact; re-adding & to reject set causes exactly the 2 new tests to FAIL confirming non-vacuousness
+- PASS typecheck: 0 errors
+- PASS lint: 0 warnings
+- PASS no regression: blog/pages/forums/navigation/auth/authoring specs all pass
+
+Documentation context:
+- markdown-renderer.tsx: sanitizeUrl comment documents that & is intentionally excluded from reject set per RFC 3986
+- docs/features/forums.md ~line 490: MUST correct false claim that MarkdownRenderer converts @username to profile links -- actual behavior is plain text rendering; @-mention auto-linking is deferred to M10
+- No new public API surface; fix is behavior correction only
+
+Plan and diff context:
+- Plan: docs/plans/milestone-4-forums.md (infer from repo if path differs)
+- Comparison base: ms4 branch; worktree branched off implementer fix commit fbec0c2
+- Subtask: ST16 -- MarkdownRenderer sanitizeUrl & regression remediation
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST16
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
