@@ -1,0 +1,53 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- ST17 — Web: public profile page + avatar upload & display. Added /users/[username] public profile page (five-field allowlist enforced via profileProjection()), UserAvatar component with initials fallback, avatar upload/remove in /profile using ImageUpload(resourceType='avatar') wired to ST15 API, and avatar display in mention-autocomplete results.
+
+Modified files:
+- apps/web/app/auth-client.ts
+- apps/web/app/profile/page.tsx
+- apps/web/app/users/[username]/page.tsx
+- apps/web/app/users/users-profile.spec.ts
+- apps/web/components/image-upload.tsx
+- apps/web/components/mention-autocomplete.tsx
+- apps/web/components/user-avatar.module.css
+- apps/web/components/user-avatar.spec.ts
+- apps/web/components/user-avatar.tsx
+
+Acceptance criteria to validate (from Planner):
+- Public profile page renders ONLY the five permitted fields (username, displayName, avatar, bio, joinDate) — profileProjection() guard drops unknown keys at runtime.
+- Member can upload/replace and remove their avatar from /profile; new avatar appears on their profile, forum bylines, and autocomplete results; users without an avatar get the initials fallback (no broken image).
+- Web lint and typecheck pass; 28 new non-vacuous behavioral tests execute with no failures.
+
+Create test files in:
+- apps/web/components/user-avatar.spec.ts — 16 behavioral tests for deriveInitials() and resolveAvatarSrc() pure functions
+- apps/web/app/users/users-profile.spec.ts — 12 behavioral tests for profileProjection() output guard
+- Run WORKTREE-LOCALLY: <worktree>/node_modules/.bin/vitest run --root apps/web (NOT pnpm --filter @sfus/web test)
+
+Implementation context for testing:
+- UserAvatar component (user-avatar.tsx) renders avatar from /api/media/<id> gated URL, falls back to uppercase initials on null or image-load error — never shows broken image.
+- profileProjection() in users/[username]/page.tsx enforces strict five-field allowlist — any extra fields in the API response are silently dropped.
+- Avatar upload in /profile uses ImageUpload(resourceType='avatar') then calls setAvatar(mediaId) → PUT /api/users/me/avatar; remove avatar calls DELETE /api/users/me/avatar.
+- mention-autocomplete.tsx now renders UserAvatar (24px) for each suggestion item (avatar display in autocomplete results).
+- ImageUploadResourceType union in image-upload.tsx extended with 'avatar' type.
+- setAvatar() and removeAvatar() helpers added to auth-client.ts; ProfilePayload extended with optional avatarUrl field.
+
+Suggested test command(s):
+- pnpm --dir <worktree> install --frozen-lockfile
+- <worktree>/node_modules/.bin/vitest run --root apps/web
+- pnpm typecheck
+- pnpm lint
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST17
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
