@@ -1,0 +1,27 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST9/verifier_report.md",
+    "artifacts/milestone-4-forums/ST9/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st9-verifier-20260608",
+  "documentation_accuracy_summary": [
+    "Accurate and complete. docs/features/forums.md: documents 429 in topic-create and post-create route tables, lists auth->link-limit->throttle->persistence ordering, documents new-account tier, links to api-conventions.md.",
+    "docs/features/blog.md: documents 429 in comment-create route table, notes new-account tier active.",
+    "docs/development/api-conventions.md: new-account tier section documents tier as ACTIVE on all three ST9 routes, correct identity resolution, 429 envelope, storage seam, and per-post link limit. No dormant-tier language remains.",
+    "Controller JSDoc accurately documents 400/401/404/429 contract and auth-before-throttle ordering at all three sites."
+  ],
+  "note_finding_count": 2,
+  "pass_label": "PASS",
+  "status": "completed",
+  "task_id": "milestone-4-forums/ST9",
+  "test_sufficiency_summary": [
+    "STRONG and non-vacuous. Independently validated from this worktree: vitest run --root apps/api forums.controller.test.ts blog.controller.test.ts => 150/150 passed (111 forums + 39 blog). pnpm typecheck => clean. pnpm lint => clean.",
+    "All three protected create sites have dedicated ST9 specs: over-limit -> 429 with persistence spy asserted not.toHaveBeenCalled() (fail-closed proven); under-limit pass-through; link-over-limit -> 400 with persistence not called.",
+    "Auth-before-throttle ordering proven at all three sites: resolveSession rejects => checkRequest not.toHaveBeenCalled().",
+    "Identity/tier wiring proven: checkRequest receives userId AND non-null userCreatedAt from usersService.findById; VACUOUS test proves null createdAt leaves tier inactive (3 requests pass under maxHits=10) while young real createdAt throttles at newAccountMaxHits=2.",
+    "New-account-tier tests driven through real ThrottleService + InMemoryThrottleStore \u2014 confirms reuse of ST8 module, no reimplemented throttle logic."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
