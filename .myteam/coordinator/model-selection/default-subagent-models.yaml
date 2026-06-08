@@ -18,6 +18,9 @@ roles:
   verifier:
     model: gpt-5.4
     reasoning_effort: medium
+  security:
+    model: gpt-5.4
+    reasoning_effort: high
   reviewer:
     model: gpt-5.4
     reasoning_effort: high

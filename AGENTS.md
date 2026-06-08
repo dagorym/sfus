@@ -77,8 +77,8 @@ Skill names are paths under `.myteam/`, resolved by `myteam get skill <name>`:
 
 ## Workflow Notes
 
-- The Coordinator role orchestrates Implementer → Tester → Documenter → Verifier chains.
-- Do not substitute coordinator, implementer, tester, documenter, verifier, or reviewer work across roles.
+- The Coordinator role orchestrates Implementer → Tester → Documenter → Verifier chains, inserting a specialist Security stage between Documenter and Verifier when the plan marks a subtask as requiring security review.
+- Do not substitute coordinator, implementer, tester, documenter, security, verifier, or reviewer work across roles.
 - Artifacts are stored in `artifacts/` with plan-level and subtask-level organization.
 - The final Reviewer pass happens only after all subtasks complete and merge back.
 - Use dedicated per-plan coordination branches (never `main` or `master` as base).

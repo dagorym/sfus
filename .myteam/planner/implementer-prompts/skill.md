@@ -21,6 +21,7 @@ Each Implementer prompt must:
 - include relevant validation guidance
 - include Tester test-file location guidance
 - include repository-root-relative artifact guidance
+- include the exact marker line `Security review: required` when the subtask requires specialist security review
 - instruct the Implementer to continue past preflight when blockers are absent
 - avoid asking the Implementer to choose among unresolved design or UX options
 - include the explicit completion gate:

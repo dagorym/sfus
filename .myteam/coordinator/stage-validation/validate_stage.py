@@ -11,6 +11,7 @@ REQUIRED_FILES = {
     "implementer": ["implementer_report.md", "implementer_result.json", "tester_prompt.txt"],
     "tester": ["tester_report.md", "tester_result.json"],
     "documenter": ["documenter_report.md", "documenter_result.json", "verifier_prompt.txt"],
+    "security": ["security_report.md", "security_result.json"],
     "verifier": ["verifier_report.md", "verifier_result.json"],
     "reviewer": ["reviewer_report.md", "reviewer_result.json"],
 }
@@ -19,6 +20,7 @@ RESULT_FILES = {
     "implementer": "implementer_result.json",
     "tester": "tester_result.json",
     "documenter": "documenter_result.json",
+    "security": "security_result.json",
     "verifier": "verifier_result.json",
 }
 

@@ -18,6 +18,9 @@ roles:
   verifier:
     model: claude-sonnet-4-6
     reasoning_effort: high
+  security:
+    model: claude-opus-4-8
+    reasoning_effort: high
   reviewer:
     model: claude-opus-4-8
     reasoning_effort: medium

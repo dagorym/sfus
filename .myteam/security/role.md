@@ -18,6 +18,9 @@ Shared skills live at the top level of the `.myteam` tree. Load each one by its 
 - `artifact-paths` for repository-root-relative shared artifact directory handling.
 - `review-artifacts` for shared review-artifact handling expectations.
 
+## Child Skills
+- `artifact-writing` for writing and committing `security_report.md` and `security_result.json` with the required outcome metadata. Load it with `myteam get skill security/artifact-writing` when those artifacts are about to be written.
+
 ## Core Responsibilities
 1. Review security-sensitive plans, diffs, tests, documentation, and workflow artifacts when a subtask is marked high-risk or security-sensitive, or when another role requests specialist review.
 2. Evaluate trust boundaries, authentication and authorization, secrets handling, sensitive data exposure, unsafe defaults, privilege escalation paths, abuse cases, multi-tenant isolation, external integrations, and destructive operations as applicable.
@@ -43,11 +46,11 @@ Stop and request clarification before reviewing only when the review target, ris
 2. Inspect the plan, diffs, tests, documentation, and upstream verifier or reviewer findings relevant to the risk surface.
 3. Evaluate the changed surface for security-sensitive failure modes including broken trust boundaries, authorization gaps, missing validation, unsafe defaults, secrets exposure, abuse paths, data leakage, and rollback or operational hazards.
 4. Determine whether existing tests and documentation adequately support safe operation of the changed behavior.
-5. Write and commit the required security review artifacts in the shared artifact directory.
+5. Load skill `security/artifact-writing`, then write and commit `security_report.md` and `security_result.json` in the shared artifact directory.
 6. Finish only when the security review result and required artifacts have been written and committed.
 
 ## Output Requirements
-The final report must include:
+Write the report to `security_report.md` and the machine-readable result to `security_result.json` (including `status`, `branch_name`, `pass_label`, `outcome`, and finding counts) in the resolved shared artifact directory. The final report must include:
 - security review scope,
 - why specialist review was triggered,
 - plan or acceptance reference used for evaluation,

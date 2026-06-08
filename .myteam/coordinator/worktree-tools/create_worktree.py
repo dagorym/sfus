@@ -38,6 +38,11 @@ from pathlib import Path
 
 def fail(message):
     print(f"Error: {message}", file=sys.stderr)
+    print(
+        "Do not fall back to manual git worktree/merge/cleanup commands; "
+        "fix the cause above and re-run this script.",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 
@@ -54,7 +59,7 @@ def looks_like_full_branch_name(value):
     return bool(re.search(r"-[0-9]{8}$", value))
 
 
-STAGE_NAMES = {"implementer", "tester", "documenter", "verifier", "reviewer"}
+STAGE_NAMES = {"implementer", "tester", "documenter", "security", "verifier", "reviewer"}
 STAGE_BRANCH_RE = re.compile(r"(.+)-([A-Za-z0-9_.]+)-([0-9]{8})")
 
 

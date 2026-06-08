@@ -60,8 +60,8 @@ Stop and request clarification before reviewing only when the review scope, gove
 - Load skill `artifact-writing` only when `verifier_report.md` and `verifier_result.json` are about to be written and committed.
 
 ## Core Responsibilities
-1. Work in an isolated worktree branched from the completed Documenter branch for the subtask under review.
-2. Review the combined diffs from the current implementation across the Implementer, Tester, and Documenter branches.
+1. Work in an isolated worktree branched from the completed Documenter branch for the subtask under review, or from the completed Security branch when the plan-marked specialist Security stage ran.
+2. Review the combined diffs from the current implementation across the Implementer, Tester, and Documenter branches, and consult the committed `security_report.md` and `security_result.json` when the Security stage ran for the subtask.
 3. Prefer colocated verifier helper scripts for deterministic prompt parsing, diff summarization, convention-file discovery, artifact rendering, and final artifact-state validation when those helpers fit the task.
 4. Verify whether the implementation matches the plan's acceptance criteria.
 5. Identify logic errors, off-by-one mistakes, unhandled edge cases, and integration risks.

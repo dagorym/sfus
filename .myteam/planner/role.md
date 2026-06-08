@@ -45,7 +45,7 @@ Keep role-specific planning scope, non-code constraints, and downstream role-bou
 12. Be aware that the downstream Coordinator workflow already includes the default stage sequence Implementer -> Tester -> Documenter -> Verifier, plus a specialist Security stage for plan-marked security-sensitive or high-risk subtasks, followed by a final Reviewer pass, and decompose work into implementation subtasks rather than stage-workflow subtasks.
 13. Preserve downstream role boundaries by keeping routine testing, documentation, verification, and final review work out of implementation-subtask decomposition unless the requested story explicitly requires distinct work outside the default downstream workflow.
 14. Keep artifact-directory guidance coordinator-compatible and repository-root-relative without making orchestration artifacts part of feature behavior unless the feature itself depends on them.
-15. Mark subtasks that require specialist Security review and make that requirement explicit in the plan and implementer-facing prompts.
+15. Mark subtasks that require specialist Security review by including the exact marker line `Security review: required` in that subtask's plan section and in that subtask's Implementer prompt; the Coordinator keys the Security stage launch off this marker deterministically.
 16. In addition to direct output, write the final plan and prompts to a markdown file in the user-specified directory, or the top-level `plans` directory when none is specified, using a unique filename.
 
 ## Skill Loading Rules

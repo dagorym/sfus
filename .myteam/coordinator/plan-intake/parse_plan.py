@@ -9,6 +9,7 @@ from pathlib import Path
 
 PROMPT_PREFIX = "Your role is 'implementer'. Your task is as follows:"
 STABLE_ID_PATTERN = re.compile(r"\b[A-Za-z]+-\d+\b")
+SECURITY_MARKER = re.compile(r"(?im)^\s*security review:\s*required\b")
 
 
 def read_text(path: Path) -> str:
@@ -90,6 +91,11 @@ def build_result(plan_path: Path) -> dict[str, object]:
     dependency_lines = extract_dependency_lines(text)
     prompt_blocks = split_prompt_blocks(text)
     prompts_by_subtask = associate_prompts(subtask_ids, prompt_blocks)
+    security_required = [
+        subtask_id
+        for subtask_id, block in prompts_by_subtask.items()
+        if SECURITY_MARKER.search(block)
+    ]
 
     return {
         "plan_path": plan_path.as_posix(),
@@ -97,6 +103,7 @@ def build_result(plan_path: Path) -> dict[str, object]:
         "subtask_ids": subtask_ids,
         "dependency_lines": dependency_lines,
         "parallelizable_subtask_ids": extract_parallelizable_ids(text, subtask_ids),
+        "security_required_subtask_ids": security_required,
         "implementer_prompt_count": len(prompt_blocks),
         "implementer_prompts_by_subtask": prompts_by_subtask,
     }

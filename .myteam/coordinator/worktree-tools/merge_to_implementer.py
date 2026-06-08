@@ -8,16 +8,17 @@ BRANCH_PREFIX is the subtask's implementer branch name without its
 <base>-<subtask>-<stage>-<date> naming convention.
 
 Finds local branches named <branch-prefix>-<stage>-<YYYYMMDD> where <stage>
-is one of: implementer, tester, documenter, verifier. Branches with any
-other trailing segment are ignored, including plan-level reviewer branches.
+is one of: implementer, tester, documenter, security, verifier. Branches with
+any other trailing segment are ignored, including plan-level reviewer branches.
 All matched branches must share the same date (later stages inherit the
 Implementer's start date); mixed dates indicate stale branches from an
 earlier pass and abort the merge.
 
-Merge order:
-  1. verifier -> documenter
-  2. documenter -> tester
-  3. tester -> implementer
+Merge order (the security stage is optional; when absent its link is skipped):
+  1. verifier -> security (when present, otherwise documenter)
+  2. security -> documenter (when present)
+  3. documenter -> tester
+  4. tester -> implementer
 
 After all merges succeed, the script removes the worktrees for the
 downstream agent branches and deletes those branches; the implementer
@@ -34,6 +35,11 @@ import sys
 
 def fail(message):
     print(f"Error: {message}", file=sys.stderr)
+    print(
+        "Do not fall back to manual git worktree/merge/cleanup commands; "
+        "fix the cause above and re-run this script.",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 
@@ -50,7 +56,9 @@ def require_clean_prefix(value):
         fail("branch prefix may only contain letters, numbers, dot, underscore, and hyphen")
 
 
-CHAIN_STAGES = {"implementer", "tester", "documenter", "verifier"}
+CHAIN_ORDER = ["implementer", "tester", "documenter", "security", "verifier"]
+CHAIN_STAGES = set(CHAIN_ORDER)
+OPTIONAL_STAGES = {"security"}
 
 
 def parse_agent_branch(branch, prefix):
@@ -103,7 +111,18 @@ def merge_into_branch(source, target, target_path):
     ensure_checked_out_branch(target_path, target)
     ensure_clean_worktree(target_path, target)
     note(f"Merging {source} into {target}")
-    subprocess.run(["git", "-C", target_path, "merge", "--no-edit", source], check=True)
+    result = subprocess.run(
+        ["git", "-C", target_path, "merge", "--no-edit", source],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        # Leave no half-merged state behind; a re-run starts untouched.
+        subprocess.run(["git", "-C", target_path, "merge", "--abort"], capture_output=True)
+        fail(
+            f"merge of {source} into {target} failed and was aborted:\n"
+            f"{(result.stdout + result.stderr).strip()}\n"
+            "Surface this failure to the user; do not resolve conflicts or merge manually."
+        )
 
 
 def parse_worktrees():
@@ -161,35 +180,30 @@ def main():
 
     worktree_by_branch = parse_worktrees()
 
-    tester_branch = branch_by_agent.get("tester")
+    present_stages = [stage for stage in CHAIN_ORDER if stage in branch_by_agent]
     implementer_branch = branch_by_agent.get("implementer")
-    verifier_branch = branch_by_agent.get("verifier")
-    documenter_branch = branch_by_agent.get("documenter")
 
     if not implementer_branch:
         fail(f"no implementer branch found for prefix '{branch_prefix}'")
-    if not tester_branch and not documenter_branch and not verifier_branch:
-        fail(f"no downstream tester/documenter/verifier branches found for prefix '{branch_prefix}'")
+    downstream_stages = [stage for stage in present_stages if stage != "implementer"]
+    if not downstream_stages:
+        fail(f"no downstream stage branches found for prefix '{branch_prefix}'")
 
-    if documenter_branch and not tester_branch:
-        fail("found a documenter branch but no tester branch to merge it into")
+    # Every present stage must have all earlier required stages present;
+    # only optional stages (security) may be absent mid-chain.
+    for stage in present_stages:
+        for earlier in CHAIN_ORDER[: CHAIN_ORDER.index(stage)]:
+            if earlier in OPTIONAL_STAGES:
+                continue
+            if earlier not in branch_by_agent:
+                fail(f"found a {stage} branch but no {earlier} branch to merge through")
 
-    if verifier_branch and not documenter_branch:
-        fail("found a verifier branch but no documenter branch to merge it into")
+    for stage in present_stages:
+        branch = branch_by_agent[stage]
+        if branch not in worktree_by_branch:
+            fail(f"{stage} branch does not have an attached worktree: {branch}")
 
-    if implementer_branch not in worktree_by_branch:
-        fail(f"implementer branch does not have an attached worktree: {implementer_branch}")
-
-    if tester_branch and tester_branch not in worktree_by_branch:
-        fail(f"tester branch does not have an attached worktree: {tester_branch}")
-
-    if documenter_branch and documenter_branch not in worktree_by_branch:
-        fail(f"documenter branch does not have an attached worktree: {documenter_branch}")
-
-    if verifier_branch and verifier_branch not in worktree_by_branch:
-        fail(f"verifier branch does not have an attached worktree: {verifier_branch}")
-
-    removable_branches = [b for b in [verifier_branch, documenter_branch, tester_branch] if b]
+    removable_branches = [branch_by_agent[stage] for stage in reversed(downstream_stages)]
 
     for branch in removable_branches:
         if current_branch == branch:
@@ -212,14 +226,10 @@ def main():
                 "Inspect it, commit or clean anything that matters, then re-run this script."
             )
 
-    if verifier_branch:
-        merge_into_branch(verifier_branch, documenter_branch, worktree_by_branch[documenter_branch])
-
-    if documenter_branch:
-        merge_into_branch(documenter_branch, tester_branch, worktree_by_branch[tester_branch])
-
-    if tester_branch:
-        merge_into_branch(tester_branch, implementer_branch, implementer_worktree)
+    for index in range(len(present_stages) - 1, 0, -1):
+        source = branch_by_agent[present_stages[index]]
+        target = branch_by_agent[present_stages[index - 1]]
+        merge_into_branch(source, target, worktree_by_branch[target])
 
     # Verify every downstream branch is fully merged into the implementer branch
     # before any cleanup. `git branch -d` can't be used here because it checks

@@ -24,7 +24,7 @@ These principles are non-negotiable and must be re-reinforced when context compa
 
 ### Isolated Subagent Contexts
 
-1. **Each subagent (Implementer, Tester, Documenter, Verifier, Reviewer) runs in isolated context.** They are launched as separate agents with their own role loads. The Coordinator does not inherit their context, and they do not inherit the Coordinator's context.
+1. **Each subagent (Implementer, Tester, Documenter, Security, Verifier, Reviewer) runs in isolated context.** They are launched as separate agents with their own role loads. The Coordinator does not inherit their context, and they do not inherit the Coordinator's context.
 
 2. **Each subagent loads its own role automatically.** When you launch an Implementer, it will run `myteam get role implementer` (or equivalent) as part of its startup. Trust that load — do not try to embed role instructions in the handoff prompt.
 
@@ -40,6 +40,14 @@ These principles are non-negotiable and must be re-reinforced when context compa
    - Hard constraints and limitations (Constraints section)
 
 3. **The role definition evolves.** Always refer to the current `.myteam/coordinator/role.md` when composing major prompts (especially the final Reviewer prompt), not to memory of what the role said in a prior session.
+
+### Tool-Only Git Worktree and Merge Operations
+
+1. **Stage worktree creation, stage-chain merging, and stage cleanup are tool-only operations.** `create_worktree.py`, `merge_worktrees.py`, and `merge_to_implementer.py` from `coordinator/worktree-tools` are the ONLY permitted paths.
+
+2. **Never run manual git equivalents for stage branches.** `git worktree add`, `git worktree remove`, `git merge`, and `git branch -d`/`-D` break lineage naming, skip cleanliness checks, and leave stale worktrees and branches behind.
+
+3. **A tool failure is a stop signal, not permission to improvise.** Surface the error, fix the stated precondition or follow the permitted remediation flow, and re-run the same tool — never complete the operation manually.
 
 ## When to Load This Skill
 

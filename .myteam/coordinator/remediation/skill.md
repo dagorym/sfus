@@ -20,7 +20,10 @@ Load this skill only when a Tester or Verifier outcome triggers a permitted reme
 
 - For Tester-driven remediation, first run `archive_stage_artifacts.py` in the Tester worktree so the history additions and live-root removals are committed on the Tester branch, then merge the Tester branch back into the Implementer branch, preserve the Implementer worktree, and relaunch the Implementer exactly once with a focused remediation preamble.
 - For Verifier-driven remediation, first run `archive_stage_artifacts.py` in the Verifier worktree so the history additions and live-root removals are committed on the Verifier branch, then merge the Verifier, Documenter, and Tester branches back through their parent chain into the Implementer branch, preserve the Implementer worktree, and restart the downstream chain exactly once.
+- For Security-driven remediation (a `FAIL` security outcome), first run `archive_stage_artifacts.py` in the Security worktree so the history additions and live-root removals are committed on the Security branch, then merge the Security, Documenter, and Tester branches back through their parent chain into the Implementer branch, preserve the Implementer worktree, and restart the downstream chain exactly once with a focused security-findings remediation preamble.
+- Treat a `CONDITIONAL PASS` security outcome as non-blocking: do not trigger remediation; proceed to the Verifier, forward the security findings, and surface them in completion reporting.
 - After archival completes, confirm the failing stage worktree is clean (`git status`) before invoking `merge_to_implementer.py`; an uncommitted archive aborts the merge.
+- If `merge_to_implementer.py` aborts, resolve the exact cause it reports and re-run it; never perform the remediation merge-back manually.
 - After archival, rely on the downstream-to-Implementer merge to carry both the `history/<pass-label>/` files and the live-root removals back to the Implementer branch.
 - After that merge, treat the subtask artifact directory root as empty for regenerated stage outputs so the remediation pass must recreate the canonical live artifacts for every rerun stage.
 - Preserve the original planner-written Implementer prompt and add only the remediation preamble.
@@ -29,3 +32,4 @@ Load this skill only when a Tester or Verifier outcome triggers a permitted reme
 
 - At most one Tester-driven remediation cycle per subtask.
 - At most one Verifier-driven remediation cycle per subtask.
+- At most one Security-driven remediation cycle per subtask; a `FAIL` outcome on the second Security pass stops the subtask and requires a user decision.
