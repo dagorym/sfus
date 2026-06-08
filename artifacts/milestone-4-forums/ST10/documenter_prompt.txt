@@ -1,0 +1,59 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST10: Map blog explicit-slug duplicate-key errors to 409. The implementer wrapped the explicit-slug create() path and the slug-changing update() path in try/catch using BlogService.isDuplicateKeyError() to throw ConflictException (HTTP 409) instead of letting raw DB errors propagate as 500. The auto-derived slug retry path (saveWithDerivedSlugRetry) is unchanged. The tester added 7 new test cases in blog.service.test.ts validating all required scenarios.
+
+Acceptance criteria validated:
+- SC1: create() with explicit slug + SQLite UNIQUE constraint error -> ConflictException (409), message 'A post with this slug already exists.'
+- SC1: create() with explicit slug + MySQL ER_DUP_ENTRY error -> ConflictException (409), message 'A post with this slug already exists.'
+- SC2: update() changing slug + SQLite UNIQUE constraint error -> ConflictException (409), message 'A post with this slug already exists.'
+- SC2: update() changing slug + MySQL ER_DUP_ENTRY error -> ConflictException (409)
+- SC3: create() with explicit non-colliding slug succeeds without error (regression confirmed)
+- SC4: update() without slug change (input.slug undefined) + duplicate-key error NOT mapped to 409 (scoping confirmed)
+- SC4: update() without slug change + non-duplicate-key error propagates unchanged
+- SC5: Auto-derived slug retry path unchanged - all 4 existing TOCTOU tests still pass
+
+Implementation branch or worktree context:
+- Branch: ms4-st10-tester-20260608 (worktree of ms4 branch)
+- Implementer modified: apps/api/src/blog/blog.service.ts
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/blog/blog.service.ts (implementer: try/catch for duplicate-key in explicit-slug create() and slug-changing update())
+- apps/api/src/blog/blog.service.test.ts (tester: 7 new ST10 tests added in 'BlogService ST10: explicit-slug duplicate-key 409 mapping' describe block)
+
+Test commit:
+- a83c2016376d7186a2df1be502b35490cbb522f4
+
+Commands executed:
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st10-tester-20260608 install --frozen-lockfile
+- vitest run --root apps/api (795 passed, 2 skipped, 0 failed; blog.service.test.ts: 96 tests)
+- pnpm typecheck (0 errors)
+- pnpm lint (0 warnings)
+
+Final test outcomes:
+- 795 tests passed, 2 skipped (DB integration requires SFUS_DB_INTEGRATION=1), 0 failed
+- blog.service.test.ts: 96 tests all passed including 7 new ST10 cases
+- Typecheck: 0 errors across apps/api and apps/web
+- Lint: 0 warnings across apps/api and apps/web
+
+Documentation context:
+- docs/features/blog.md covers the blog service API behavior and error responses
+- New observable behavior: explicit-slug collision on create() now returns HTTP 409 ConflictException (was raw 500 DB error)
+- New observable behavior: slug-changing update() collision now returns HTTP 409 ConflictException (was raw 500 DB error)
+- Auto-derived slug collision still returns HTTP 409 (unchanged from prior TOCTOU hardening in subtask-4)
+- Error message on 409: 'A post with this slug already exists.' for both create() and update() paths
+
+Plan and diff context:
+- Plan: plans/milestone-4-forums-plan.md, subtask ST10
+- Base branch: ms4 (coordination branch for milestone 4)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST10
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
