@@ -1,12 +1,16 @@
 import { DynamicModule, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
+import { AuthModule } from "../auth/auth.module";
+import { AuthorizationModule } from "../authorization/authorization.module";
 import { API_ENVIRONMENT } from "../config/config.constants";
 import type { ApplicationEnvironment } from "../config/environment";
 import { ForumCategoryEntity } from "./entities/forum-category.entity";
 import { ForumBoardEntity } from "./entities/forum-board.entity";
 import { ForumTopicEntity } from "./entities/forum-topic.entity";
 import { ForumPostEntity } from "./entities/forum-post.entity";
+import { ForumsController } from "./forums.controller";
+import { ForumsService } from "./forums.service";
 
 @Module({})
 export class ForumsModule {
@@ -19,16 +23,19 @@ export class ForumsModule {
           ForumBoardEntity,
           ForumTopicEntity,
           ForumPostEntity
-        ])
+        ]),
+        AuthorizationModule,
+        AuthModule.register(environment)
       ],
-      controllers: [],
+      controllers: [ForumsController],
       providers: [
+        ForumsService,
         {
           provide: API_ENVIRONMENT,
           useValue: environment
         }
       ],
-      exports: [API_ENVIRONMENT]
+      exports: [ForumsService, API_ENVIRONMENT]
     };
   }
 }

@@ -1,0 +1,62 @@
+import { forumBoardScopeTypes, forumBoardVisibilities } from "./entities/forum-board.entity";
+import type { ForumBoardScopeType, ForumBoardVisibility } from "./entities/forum-board.entity";
+
+// Re-export the vocabularies so controller and service don't reach into the entity.
+export { forumBoardScopeTypes, forumBoardVisibilities };
+export type { ForumBoardScopeType, ForumBoardVisibility };
+
+// ---------------------------------------------------------------------------
+// Category DTOs
+// ---------------------------------------------------------------------------
+
+export interface CreateCategoryInput {
+  name: string;
+  slug: string;
+  description?: string | null;
+  sortOrder?: number;
+}
+
+export interface UpdateCategoryInput {
+  name?: string;
+  slug?: string;
+  description?: string | null;
+  sortOrder?: number;
+}
+
+export interface ReorderCategoryInput {
+  /** Ordered list of category ids; all existing ids must be present. */
+  orderedIds: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Board DTOs
+// ---------------------------------------------------------------------------
+
+export interface CreateBoardInput {
+  categoryId: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  sortOrder?: number;
+  /** Defaults to 'site' when omitted. */
+  scopeType?: ForumBoardScopeType;
+  visibility?: ForumBoardVisibility;
+  /** Forward-scaffolding for project-scoped boards (M7/M8). Nullable. */
+  projectId?: string | null;
+}
+
+export interface UpdateBoardInput {
+  categoryId?: string;
+  name?: string;
+  slug?: string;
+  description?: string | null;
+  sortOrder?: number;
+  scopeType?: ForumBoardScopeType;
+  visibility?: ForumBoardVisibility;
+  projectId?: string | null;
+}
+
+export interface ReorderBoardInput {
+  /** Ordered list of board ids within the category; all board ids in the category must be present. */
+  orderedIds: string[];
+}
