@@ -1,6 +1,6 @@
 # Forums
 
-Forum categories, boards, topics, and posts — admin management, public read, member topic creation (ST4), and member post creation with threaded replies (ST5). Moderation is covered in ST6.
+Forum categories, boards, topics, and posts — admin management (ST2), public read (ST3), member topic creation (ST4), member post creation with threaded replies (ST5), and moderator/admin moderation controls (ST6).
 
 **Code:** `apps/api/src/forums/`
 **Related:** [authorization](authorization.md) for the admin gate · [development/api-conventions](../development/api-conventions.md) for the error envelope
@@ -358,8 +358,81 @@ All `404` responses on post routes use `ForumsService.TOPIC_NOT_FOUND_MESSAGE` (
 
 Violations of any of these conditions produce the same `400 "parentId is invalid."` response. There is **no existence oracle**: callers cannot determine whether a given `parentId` exists in another topic by observing the error.
 
-## Planned extensions
+## Moderation (ST6)
 
-The following surfaces are not yet implemented and are not documented here:
+Moderators and admins can pin, lock, and move topics through six `PATCH` endpoints under `/api/forums/moderation/topics/:topicId/...`. All endpoints enforce the same two-step gate, then perform the data operation.
 
-- **ST6** — Moderation (pin, lock, delete, move topics and posts).
+### Authorization gate
+
+Every moderation endpoint calls, in order:
+
+1. `AuthService.resolveSession()` — resolves the `sfus_session` cookie. Throws `401` when no valid session exists.
+2. `ForumsService.assertModerationAccess(actorGlobalRole)` — calls `AuthorizationService.hasGlobalRole(role, "moderator")`. Accepts both `moderator` and `admin` (the authorization service's `hasGlobalRole` check is hierarchy-aware). Throws `403` when the session role is insufficient.
+
+Both checks happen before any data operation. An unauthenticated caller gets `401`; an authenticated non-moderator gets `403`.
+
+This gate mirrors `BlogService.assertModerationAccess` — same semantics, no weaker check.
+
+### Moderation endpoint routes
+
+| Method | Path | Status | Notes |
+|---|---|---|---|
+| PATCH | `/api/forums/moderation/topics/:topicId/pin` | 200 / 401 / 403 / 404 | Pin the topic. Returns `{ topic: ModeratedTopicShape }` with `isPinned=true`. |
+| PATCH | `/api/forums/moderation/topics/:topicId/unpin` | 200 / 401 / 403 / 404 | Unpin the topic. Returns `{ topic: ModeratedTopicShape }` with `isPinned=false`. |
+| PATCH | `/api/forums/moderation/topics/:topicId/lock` | 200 / 401 / 403 / 404 | Lock the topic. Records `lockedByUserId` and `lockedAt`. Returns `{ topic: ModeratedTopicShape }`. |
+| PATCH | `/api/forums/moderation/topics/:topicId/unlock` | 200 / 401 / 403 / 404 | Unlock the topic. Clears `lockedByUserId` and `lockedAt`. Returns `{ topic: ModeratedTopicShape }`. |
+| PATCH | `/api/forums/moderation/topics/:topicId/move` | 200 / 400 / 401 / 403 / 404 | Move topic to a different board. Body: `{ destinationBoardId }`. Returns `{ topic: ModeratedTopicShape }`. |
+
+All moderation routes return `404` with `ForumsService.TOPIC_NOT_FOUND_MESSAGE` for nonexistent or non-publicly-accessible topics (oracle parity, P12).
+
+### Pin semantics
+
+Pinning/unpinning persists `topic.isPinned`. The public topic list sort order (`isPinned DESC, lastPostAt DESC, createdAt DESC`) means pinned topics always appear first in `GET /api/forums/boards/:boardId/topics`. There are no `pinnedByUserId` or `pinnedAt` audit columns — only the final state is stored.
+
+### Lock semantics
+
+Locking persists `topic.isLocked`, `topic.lockedByUserId`, and `topic.lockedAt`. Unlocking sets `isLocked=false` and clears both audit columns to `null`.
+
+A locked topic blocks new posts for non-privileged users. The existing `POST /api/forums/topics/:topicId/posts` endpoint (ST5 `createPost`) enforces this: it checks `topic.isLocked` before persistence and throws `403 "This topic is locked. New posts are not allowed."` for any non-privileged caller. Moderators and admins (who have already passed `assertModerationAccess`) are not blocked by this check in the sense that the moderation endpoints themselves do not go through `createPost`.
+
+### Move contract and cross-scope leak prevention
+
+`PATCH .../move` accepts `{ destinationBoardId: string }` in the request body.
+
+The destination board is **re-validated through `AuthorizationService.evaluate()`** (via `isBoardPubliclyReadable`) before the move is persisted. This ensures:
+
+- A move into a **project-scoped board** is rejected with `404`.
+- A move into a **non-publicly-readable board** (e.g. `members`, `private`, `unlisted`) is rejected with `404`.
+- A move into a **nonexistent board** returns `404` (oracle parity: indistinguishable from non-readable).
+- A **malformed `destinationBoardId`** (missing, non-string, or empty string) returns `400 "destinationBoardId must be a non-empty string."` — never a 500.
+
+The `404` message on a rejected destination uses `ForumsService.BOARD_NOT_FOUND_MESSAGE` — the same message as a truly nonexistent board — so callers cannot infer whether a given board id exists but is restricted.
+
+After a successful move, `movedByUserId` and `movedAt` are recorded on the topic. If the topic is already on the requested destination board, the operation is a no-op (returns the current state, no audit update).
+
+### `ModeratedTopicShape` response shape
+
+All six moderation endpoints return `{ topic: ModeratedTopicShape }`. This shape is a moderation-enriched view of the topic, including state and audit columns not present in `PublicTopicShape`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string (UUID) | |
+| `title` | string | |
+| `slug` | string | |
+| `isPinned` | boolean | |
+| `isLocked` | boolean | |
+| `boardId` | string (UUID) | Current board (updated after a move) |
+| `lockedByUserId` | `string \| null` | Moderator who locked; null when unlocked |
+| `lockedAt` | `Date \| null` | Lock timestamp; null when unlocked |
+| `movedByUserId` | `string \| null` | Moderator who last moved the topic; null if never moved |
+| `movedAt` | `Date \| null` | Move timestamp; null if never moved |
+| `replyCount` | number | |
+| `lastPostAt` | `Date \| null` | |
+| `createdAt` | Date | |
+| `updatedAt` | Date | |
+
+Author details are not included in `ModeratedTopicShape` (moderation responses do not need them). This shape is returned only to callers who have passed `assertModerationAccess`.
+
+### Swagger / JSDoc
+
+All six moderation endpoints have `@ApiOperation`, `@Api*Response` decorators documenting the full `400`/`401`/`403`/`404` contract. Controller JSDoc blocks on each handler document the security contract inline.

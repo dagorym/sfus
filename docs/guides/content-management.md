@@ -67,6 +67,36 @@ revisions with author and timestamp; **Preview** renders a revision inline, **Re
 creates a new revision from a prior one (history is never overwritten). An optional Change
 Note can be recorded with each save.
 
+## Forums
+
+The forums subsystem supports moderator/admin controls for pinning, locking, and moving topics. Full API contract details live in [features/forums.md](../features/forums.md#moderation-st6).
+
+### Pinning and unpinning topics (moderator/admin)
+
+Pinned topics sort before all others in the board's topic list.
+
+- **Pin:** `PATCH /api/forums/moderation/topics/:topicId/pin`
+- **Unpin:** `PATCH /api/forums/moderation/topics/:topicId/unpin`
+
+Both require an active session with the `moderator` or `admin` global role. Returns the updated `ModeratedTopicShape`.
+
+### Locking and unlocking topics (moderator/admin)
+
+A locked topic blocks new posts from non-privileged users (they receive `403`).
+
+- **Lock:** `PATCH /api/forums/moderation/topics/:topicId/lock` — records `lockedByUserId` and `lockedAt`.
+- **Unlock:** `PATCH /api/forums/moderation/topics/:topicId/unlock` — clears the lock audit fields.
+
+Both require an active session with the `moderator` or `admin` global role.
+
+### Moving topics (moderator/admin)
+
+`PATCH /api/forums/moderation/topics/:topicId/move`
+
+Body: `{ "destinationBoardId": "<uuid>" }`
+
+Requires an active session with the `moderator` or `admin` global role. The destination board must be a publicly-readable site board; moves into project-scoped or restricted-visibility boards are rejected with `404`. A malformed `destinationBoardId` returns `400`. Records `movedByUserId` and `movedAt` on the topic.
+
 ## Navigation
 
 Site navigation is database-driven; changes appear on the next page load without a deploy.
