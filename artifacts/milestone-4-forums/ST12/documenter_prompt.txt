@@ -1,0 +1,64 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST12 added 'avatar' to ALLOWED_RESOURCE_TYPES with self-service authorization (any authenticated user, not admin-gated). A new MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES env var applies a tighter per-avatar size cap (range 1024–2097152 bytes). Magic-byte verification from ST11 applies automatically through the shared uploadImage path. SVG is rejected via the existing MIME allow-list. Tests cover the avatar/ storageKey prefix, avatar size cap enforcement, polyglot/SVG rejection, 401 with no session, 200 for non-admin self-service, and env var range validation.
+
+Acceptance criteria validated:
+- POST /api/media/upload?resourceType=avatar succeeds for any active session (avatar not in ADMIN_ONLY_RESOURCE_TYPES)
+- 401 returned when no session
+- Stores under avatar/ prefix (storageKey = resourceType + '/' + uuid + ext)
+- Rejects oversized avatars with 400 at the avatar cap (assertValidFileSize checks avatarUploadMaxSizeBytes)
+- Magic-byte verification (ST11) applies to avatar uploads via shared uploadImage path
+- SVG rejected — image/svg+xml not in allowedMimeTypes allow-list
+- New MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES env var validated in environment.ts with range 1024–2097152
+
+Implementation branch or worktree context:
+- Branch: ms4-st12-tester-20260608 (worktree at /home/tstephen/repos/worktrees/ms4-st12-tester-20260608)
+- Compare against ms4 base branch for implementer diff
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/config/environment.ts — added avatarUploadMaxSizeBytes field and MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES parsing (range 1024–2097152)
+- apps/api/src/config/environment.test.ts — updated happy-path env, added avatar env var range validation tests
+- apps/api/src/media/media.service.ts — added 'avatar' to ALLOWED_RESOURCE_TYPES; assertValidFileSize picks avatarUploadMaxSizeBytes when resourceType==='avatar'
+- apps/api/src/media/media.controller.ts — ADMIN_ONLY_RESOURCE_TYPES does NOT include 'avatar'; comment documents self-service authorization
+- apps/api/src/media/media.service.test.ts — added avatar service tests (storageKey prefix, size cap, polyglot, SVG)
+- apps/api/src/media/media.controller.test.ts — added avatar controller tests (401, 200 non-admin, 200 admin)
+
+Test commit:
+- fbb6d7caa2173737fd309c25d7d0a6c65e02ae83
+
+Commands executed:
+- pnpm install --frozen-lockfile
+- pnpm lint
+- pnpm typecheck
+- pnpm test
+- pnpm --filter @sfus/api run build
+
+Final test outcomes:
+- 814 tests passed, 2 skipped (DB integration tests gated by SFUS_DB_INTEGRATION=1), 0 failed
+- Lint: clean; Typecheck: clean; Build: clean
+- All ST12 acceptance criteria validated by new and existing tests
+
+Documentation context:
+- docs/features/media.md is the primary doc to update — it documents resource types, authorization rules, and env vars
+- The avatar resourceType is new and self-service (unlike blog-post/standalone-page which require admin)
+- MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES is a new required env var with the range 1024–2097152; must be documented alongside MEDIA_UPLOAD_MAX_SIZE_BYTES
+- The avatar/ storage prefix follows the same pattern as other resource types
+- The ST11 magic-byte verification note in the media doc should confirm it covers avatar
+- docs/operations/deployment.md or launch.md may need the new env var added to the env contract section
+
+Plan and diff context:
+- Plan: plans/milestone-4-forums-plan.md (ST12 section)
+- Compare branch ms4-st12-tester-20260608 against ms4 base to see the full implementer + tester diff
+- Implementer artifacts at artifacts/milestone-4-forums/ST12/implementer_report.md and implementer_result.json
+
+Startup behavior:
+- If branch/worktree context and story context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST12
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
