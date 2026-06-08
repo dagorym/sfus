@@ -1,0 +1,65 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+ST12 — self-service avatar media upload resourceType + size cap. Added 'avatar' to ALLOWED_RESOURCE_TYPES with self-service authorization (like blog-comment, not admin-gated). Added MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES env var for a tighter per-avatar size cap. ST11 magic-byte verification applies automatically through the shared uploadImage path.
+
+Modified files:
+- apps/api/src/config/environment.ts
+- apps/api/src/config/environment.test.ts
+- apps/api/src/media/media.service.ts
+- apps/api/src/media/media.controller.ts
+- apps/api/src/media/media.service.test.ts
+
+Acceptance criteria to validate (from Planner):
+- POST /api/media/upload?resourceType=avatar succeeds for any active session (avatar not in ADMIN_ONLY_RESOURCE_TYPES)
+- 401 returned when no session
+- Stores under avatar/ prefix (storageKey = resourceType + '/' + uuid + ext)
+- Rejects oversized avatars with 400 at the avatar cap (assertValidFileSize checks avatarUploadMaxSizeBytes for avatar uploads)
+- Magic-byte verification (ST11) applies to avatar uploads via shared uploadImage path
+- SVG rejected — image/svg+xml not in allowedMimeTypes allow-list
+- New MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES env var validated in environment.ts with range 1024–2097152
+
+Test file location guidance:
+- apps/api/src/media/media.service.test.ts — add avatar resourceType + size cap tests here
+- apps/api/src/media/media.controller.test.ts — add avatar auth tests here (401 no session, 200 any active session, non-admin succeeds)
+
+Implementation context for testing:
+- ALLOWED_RESOURCE_TYPES in media.service.ts now includes 'avatar'.
+- ADMIN_ONLY_RESOURCE_TYPES in media.controller.ts does NOT include avatar — so avatar falls through to the self-service path (no admin check, just active session required).
+- assertValidFileSize(sizeBytes, resourceType?) picks avatarUploadMaxSizeBytes when resourceType==='avatar', uploadMaxSizeBytes otherwise.
+- uploadImage calls assertValidFileSize(file.size, resourceType) passing the resourceType.
+- MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES env var added to ApplicationEnvironment.media.avatarUploadMaxSizeBytes with range 1024–2097152 bytes. Recommended default: 1048576 (1 MB).
+- The magic-byte check and SVG exclusion are shared — no duplication needed; assertValidMagicBytes is called before assertValidFileSize in uploadImage.
+- storageKey is 'avatar/' + uuid + ext via the existing resourceType prefix pattern in uploadImage.
+- makeTestEnvironment() in media.service.test.ts already includes avatarUploadMaxSizeBytes: 1 * 1024 * 1024 (1 MB) — use or override for oversized avatar tests.
+
+Key test scenarios to cover:
+- avatar resourceType accepted by assertValidResourceType
+- avatar upload succeeds for any authenticated user (non-admin user role) — controller test
+- avatar upload rejected with 401 when no session — controller test
+- avatar upload stores under avatar/ prefix in storageKey
+- oversized avatar rejected (> avatarUploadMaxSizeBytes but <= uploadMaxSizeBytes) with 400
+- file within avatarUploadMaxSizeBytes accepted for avatar
+- magic-byte mismatch rejected for avatar resourceType (polyglot check applies)
+- SVG MIME rejected for avatar (not in allow-list)
+- existing resourceTypes (blog-post, standalone-page, blog-comment) unaffected — no regression
+
+Suggested test commands:
+- pnpm lint
+- pnpm typecheck
+- pnpm test
+- pnpm --filter @sfus/api run typecheck
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST12
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
