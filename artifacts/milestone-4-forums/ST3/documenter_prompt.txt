@@ -1,0 +1,62 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST3: leak-proof public read API for forum categories & boards. New service methods: listPublicCategories(), getPublicBoard(id), isBoardPubliclyReadable(board); new public routes GET /forums/categories and GET /forums/boards/:id (no auth). Visibility decisions route through AuthorizationService.evaluate(); public index filters strictly on scopeType='site' AND publicly-readable visibility; hidden/nonexistent boards return a uniform 404 (ForumsService.BOARD_NOT_FOUND_MESSAGE) for oracle parity; public shapes strip scopeType/projectId/categoryId. All acceptance criteria validated by tests.
+
+Acceptance criteria validated:
+- Listing returns only site, publicly-readable boards; project-scoped or non-readable absent from output AND counts.
+- Board detail for hidden/nonexistent board returns 404 with a message identical to the nonexistent case (oracle parity).
+- Every visibility decision calls evaluate()/assertAllowed() — no inline re-derived predicates.
+
+Implementation branch or worktree context:
+- Branch: ms4-st3-tester-20260608 (worktree at /home/tstephen/repos/worktrees/ms4-st3-tester-20260608)
+- Implementer commit: 01bb62d (feat(forums): ST3 — leak-proof public read API for categories & boards)
+- Tester commit: 2952886 (test(forums): add ST3 public read API tests)
+- Compare against: ms4 branch (main development branch for milestone-4-forums)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/forums/forums.types.ts (PublicBoardShape, PublicCategoryShape interfaces added)
+- apps/api/src/forums/forums.service.ts (BOARD_NOT_FOUND_MESSAGE constant, isBoardPubliclyReadable, listPublicCategories, getPublicBoard methods added)
+- apps/api/src/forums/forums.controller.ts (2 new public routes: GET /forums/categories, GET /forums/boards/:id)
+- apps/api/src/forums/forums.service.test.ts (ST3 tests added)
+- apps/api/src/forums/forums.controller.test.ts (ST3 tests added)
+
+Test commit:
+- 2952886
+
+Commands executed:
+- pnpm --dir <worktree> install --frozen-lockfile
+- vitest run --root <worktree>/apps/api
+- pnpm --dir <worktree> typecheck
+- pnpm --dir <worktree> lint
+
+Final test outcomes:
+- 660 tests passed, 0 failed, 2 skipped (integration tests skipped by design)
+- forums.service.test.ts: 70 tests (16 new ST3 tests)
+- forums.controller.test.ts: 54 tests (4 new ST3 tests)
+- typecheck: 0 errors
+- lint: 0 warnings
+
+Documentation context:
+- docs/features/forums.md is the canonical forum feature doc; it should be updated to document the new public read endpoints (GET /forums/categories, GET /forums/boards/:id)
+- Document: no authentication required for these routes
+- Document: public board shape (PublicBoardShape) omits scopeType, projectId, categoryId
+- Document: oracle parity — hidden/nonexistent boards both return 404 with identical message
+- Document: BOARD_NOT_FOUND_MESSAGE constant used for uniform error responses
+- Document: unlisted boards appear in public listing (passes evaluate() for read)
+
+Plan and diff context:
+- Plan path: plans/milestone-4-forums-plan.md
+- This is subtask ST3 of the milestone-4-forums plan
+- Compare base: ms4 branch or the commit before 01bb62d
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
