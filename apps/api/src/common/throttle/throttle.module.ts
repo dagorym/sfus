@@ -51,7 +51,7 @@ export class ThrottleModule {
         ThrottleGuard,
         Reflector
       ],
-      exports: [ThrottleService, ThrottleGuard, THROTTLE_STORE]
+      exports: [ThrottleService, ThrottleGuard, THROTTLE_STORE, THROTTLE_CONFIG]
     };
   }
 }

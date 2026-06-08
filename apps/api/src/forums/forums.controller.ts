@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   NotFoundException,
   Param,
   Patch,
@@ -23,11 +24,17 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse
 } from "@nestjs/swagger";
 import type { Request } from "express";
 
 import { AuthService } from "../auth/auth.service";
+import { exceedsLinkLimit } from "../common/throttle/link-limit";
+import { ThrottleService } from "../common/throttle/throttle.service";
+import type { ThrottleConfig } from "../common/throttle/throttle.types";
+import { THROTTLE_CONFIG } from "../common/throttle/throttle.types";
+import { UsersService } from "../users/users.service";
 import { ForumsService } from "./forums.service";
 import type { ForumCategoryEntity } from "./entities/forum-category.entity";
 import type { ForumBoardEntity } from "./entities/forum-board.entity";
@@ -60,16 +67,18 @@ import type {
  *    All routes route every visibility decision through `AuthorizationService.evaluate()`.
  *    Hidden/nonexistent boards and topics return a uniform `404` (no existence oracle).
  *
- * 2. **Member-authenticated topic creation (ST4)**:
+ * 2. **Member-authenticated topic creation (ST4, throttled in ST9)**:
  *    - `POST /forums/boards/:boardId/topics` — create a topic within a readable board.
  *    Requires an active session (401). Board must be publicly readable (404 if not).
  *    Body is normalized (normalizeMarkdownBody) then validated (validateMarkdownBody)
- *    before persistence; unsafe Markdown returns 400.
+ *    before persistence; unsafe Markdown returns 400. Rate-limited (429) with per-user
+ *    new-account tier; bodies exceeding the link cap are rejected (400/422).
  *
- * 3. **Posts — member create and public paginated read (ST5)**:
+ * 3. **Posts — member create and public paginated read (ST5, throttled in ST9)**:
  *    - `POST /forums/topics/:topicId/posts` — create a post (reply) within an unlocked readable topic.
  *    Requires an active session (401). Board+topic must be publicly readable (404 if not).
  *    Locked topic returns 403. Invalid parentId (nonexistent, different topic, reply-to-reply) → 400.
+ *    Rate-limited (429) with per-user new-account tier; bodies exceeding the link cap are rejected (400/422).
  *    - `GET /forums/topics/:topicId/posts` — paginated post list (oldest-first, deletedAt excluded).
  *
  * 4. **Moderation routes (ST6)** — require active session + global "moderator" or "admin" role:
@@ -91,12 +100,20 @@ import type {
  * - 403 Caller's role is insufficient (thrown by assertAdminManagementAccess).
  * Both checks happen before any data operation.
  */
+/** Route label for forum topic creation throttle key. */
+const THROTTLE_LABEL_TOPIC_CREATE = "forum-topic-create";
+/** Route label for forum post creation throttle key. */
+const THROTTLE_LABEL_POST_CREATE = "forum-post-create";
+
 @ApiTags("forums")
 @Controller("forums")
 export class ForumsController {
   constructor(
     private readonly forumsService: ForumsService,
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
+    private readonly throttleService: ThrottleService,
+    private readonly usersService: UsersService,
+    @Inject(THROTTLE_CONFIG) private readonly throttleConfig: ThrottleConfig
   ) {}
 
   // ===========================================================================
@@ -222,7 +239,7 @@ export class ForumsController {
     description: "Topic created. Author shape exposes only username/displayName."
   })
   @ApiBadRequestResponse({
-    description: "Empty or too-long title, or unsafe Markdown content in body (rejected before persistence)."
+    description: "Empty or too-long title, unsafe Markdown content in body, or too many links (rejected before persistence)."
   })
   @ApiUnauthorizedResponse({ description: "No active session." })
   @ApiNotFoundResponse({
@@ -230,13 +247,30 @@ export class ForumsController {
       "Board not found, or is not publicly accessible. " +
       "The error message is identical for nonexistent and hidden boards (oracle parity)."
   })
+  @ApiTooManyRequestsResponse({ description: "Rate limit exceeded. Retry after the indicated delay." })
   async createTopic(
     @Req() request: Request,
     @Param("boardId") boardId: string,
     @Body() body: Omit<CreateTopicInput, "boardId">
   ): Promise<{ topic: PublicTopicShape }> {
-    // 401 check must happen before any data operation.
+    // 401 check must happen before any data operation (auth gate first).
     const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    // Link-limit check before persistence (ST8 contract).
+    if (typeof body?.body === "string") {
+      if (exceedsLinkLimit(body.body, this.throttleConfig.maxLinksPerPost)) {
+        throw new BadRequestException(
+          `Post body may not contain more than ${this.throttleConfig.maxLinksPerPost} link${this.throttleConfig.maxLinksPerPost === 1 ? "" : "s"}.`
+        );
+      }
+    }
+    // Throttle check — supply createdAt for new-account tier (ST9 wiring).
+    const userEntity = await this.usersService.findById(session.user.id);
+    this.throttleService.checkRequest({
+      routeLabel: THROTTLE_LABEL_TOPIC_CREATE,
+      request,
+      userId: session.user.id,
+      userCreatedAt: userEntity?.createdAt ?? null
+    });
     const topic = await this.forumsService.createTopic(session.user.id, { boardId, ...body });
     return { topic };
   }
@@ -311,7 +345,7 @@ export class ForumsController {
     description: "Post created. Author shape exposes only username/displayName."
   })
   @ApiBadRequestResponse({
-    description: "Non-string body, unsafe Markdown, or invalid parentId (uniform 400, no existence oracle)."
+    description: "Non-string body, unsafe Markdown, invalid parentId, or too many links (uniform 400, no existence oracle)."
   })
   @ApiUnauthorizedResponse({ description: "No active session." })
   @ApiForbiddenResponse({ description: "Topic is locked." })
@@ -320,13 +354,30 @@ export class ForumsController {
       "Topic or board not found, or not publicly accessible. " +
       "The error message is identical for nonexistent and hidden cases (oracle parity)."
   })
+  @ApiTooManyRequestsResponse({ description: "Rate limit exceeded. Retry after the indicated delay." })
   async createPost(
     @Req() request: Request,
     @Param("topicId") topicId: string,
     @Body() body: Omit<CreatePostInput, "topicId">
   ): Promise<{ post: PublicPostShape }> {
-    // 401 check must happen before any data operation.
+    // 401 check must happen before any data operation (auth gate first).
     const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    // Link-limit check before persistence (ST8 contract).
+    if (typeof body?.body === "string") {
+      if (exceedsLinkLimit(body.body, this.throttleConfig.maxLinksPerPost)) {
+        throw new BadRequestException(
+          `Post body may not contain more than ${this.throttleConfig.maxLinksPerPost} link${this.throttleConfig.maxLinksPerPost === 1 ? "" : "s"}.`
+        );
+      }
+    }
+    // Throttle check — supply createdAt for new-account tier (ST9 wiring).
+    const userEntity = await this.usersService.findById(session.user.id);
+    this.throttleService.checkRequest({
+      routeLabel: THROTTLE_LABEL_POST_CREATE,
+      request,
+      userId: session.user.id,
+      userCreatedAt: userEntity?.createdAt ?? null
+    });
     const post = await this.forumsService.createPost(session.user.id, { topicId, ...body });
     return { post };
   }

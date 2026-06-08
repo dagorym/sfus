@@ -564,7 +564,11 @@ describe("BlogController public comment handlers — executed payload trim (subt
       resolveSession: vi.fn().mockResolvedValue({ user: { id: "user-7" } }),
       ...authOverrides
     } as unknown as import("../auth/auth.service").AuthService;
-    return new BlogController(blogService, authService);
+    // Stub throttle service (never throttles in these tests) and users service.
+    const throttleService = { checkRequest: vi.fn() } as never;
+    const usersService = { findById: vi.fn().mockResolvedValue({ id: "user-7", createdAt: new Date(0) }) } as never;
+    const throttleConfig = { windowMs: 60_000, maxHits: 1000, newAccountMaxHits: 100, newAccountWindowMs: 604800000, maxLinksPerPost: 10 } as never;
+    return new BlogController(blogService, authService, throttleService, usersService, throttleConfig);
   };
 
   it("listComments returns comment objects (and nested replies) without authorUserId, moderatedByUserId, or moderatedAt", async () => {

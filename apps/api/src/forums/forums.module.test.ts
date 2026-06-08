@@ -11,7 +11,10 @@ describe("ForumsModule", () => {
   it("exposes a static register() method that returns a DynamicModule", () => {
     // Acceptance criterion: ForumsModule.register(environment) follows the dynamic-module pattern.
     // The method must exist and return an object with the required NestJS DynamicModule shape.
-    const fakeEnvironment = {} as never;
+    // ST9: throttle property required because ThrottleModule.register(environment) is now imported.
+    const fakeEnvironment = {
+      throttle: { windowMs: 60000, maxHits: 100, newAccountMaxHits: 10, newAccountWindowMs: 604800000, maxLinksPerPost: 10 }
+    } as never;
     const result = ForumsModule.register(fakeEnvironment);
 
     expect(result).toBeDefined();
@@ -26,7 +29,9 @@ describe("ForumsModule", () => {
     // Acceptance criterion: Entities compile and are registered in ForumsModule.
     // The dynamic module imports array must include a TypeORM feature registration
     // (identified by the presence of at least one import).
-    const fakeEnvironment = {} as never;
+    const fakeEnvironment = {
+      throttle: { windowMs: 60000, maxHits: 100, newAccountMaxHits: 10, newAccountWindowMs: 604800000, maxLinksPerPost: 10 }
+    } as never;
     const result = ForumsModule.register(fakeEnvironment);
 
     // TypeOrmModule.forFeature returns a DynamicModule; at least one import must be present
@@ -36,7 +41,10 @@ describe("ForumsModule", () => {
   it("provides API_ENVIRONMENT token so downstream consumers can inject the environment", () => {
     // Acceptance criterion: ForumsModule.register(environment) follows the HealthModule pattern
     // where the environment is consumed via the API_ENVIRONMENT token (remediation pass 2).
-    const fakeEnvironment = { db: { host: "localhost" } } as never;
+    const fakeEnvironment = {
+      db: { host: "localhost" },
+      throttle: { windowMs: 60000, maxHits: 100, newAccountMaxHits: 10, newAccountWindowMs: 604800000, maxLinksPerPost: 10 }
+    } as never;
     const result = ForumsModule.register(fakeEnvironment);
 
     const apiEnvProvider = result.providers!.find(

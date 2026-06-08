@@ -85,13 +85,35 @@ const makeForumsService = (overrides?: Record<string, unknown>) => ({
   ...overrides
 });
 
+/** Stub ThrottleService that never throttles. */
+const makeThrottleService = () => ({
+  checkRequest: vi.fn() // no-op — does not throw
+});
+
+/** Stub UsersService returning a user with createdAt far in the past (old account). */
+const makeUsersService = () => ({
+  findById: vi.fn().mockResolvedValue({ id: "user-1", createdAt: new Date(0) })
+});
+
+/** Stub ThrottleConfig with generous limits for non-throttle tests. */
+const makeThrottleConfig = () => ({
+  windowMs: 60_000,
+  maxHits: 1000,
+  newAccountMaxHits: 100,
+  newAccountWindowMs: 7 * 24 * 60 * 60 * 1000,
+  maxLinksPerPost: 10
+});
+
 const makeController = (
   forumsService?: ReturnType<typeof makeForumsService>,
   authService?: ReturnType<typeof makeAuthService>
 ) =>
   new ForumsController(
     (forumsService ?? makeForumsService()) as never,
-    (authService ?? makeAuthService()) as never
+    (authService ?? makeAuthService()) as never,
+    makeThrottleService() as never,
+    makeUsersService() as never,
+    makeThrottleConfig() as never
   );
 
 // ---------------------------------------------------------------------------

@@ -3,8 +3,10 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 
 import { AuthModule } from "../auth/auth.module";
 import { AuthorizationModule } from "../authorization/authorization.module";
+import { ThrottleModule } from "../common/throttle/throttle.module";
 import { API_ENVIRONMENT } from "../config/config.constants";
 import type { ApplicationEnvironment } from "../config/environment";
+import { UsersModule } from "../users/users.module";
 import { ForumCategoryEntity } from "./entities/forum-category.entity";
 import { ForumBoardEntity } from "./entities/forum-board.entity";
 import { ForumTopicEntity } from "./entities/forum-topic.entity";
@@ -25,7 +27,9 @@ export class ForumsModule {
           ForumPostEntity
         ]),
         AuthorizationModule,
-        AuthModule.register(environment)
+        AuthModule.register(environment),
+        ThrottleModule.register(environment),
+        UsersModule
       ],
       controllers: [ForumsController],
       providers: [

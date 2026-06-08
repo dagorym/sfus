@@ -4,13 +4,14 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
   NotFoundException,
   Param,
   Patch,
   Post,
-  Req,
-  HttpCode,
-  HttpStatus
+  Req
 } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
@@ -19,16 +20,25 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse
 } from "@nestjs/swagger";
 import type { Request } from "express";
 
 import { AuthService } from "../auth/auth.service";
+import { exceedsLinkLimit } from "../common/throttle/link-limit";
+import { ThrottleService } from "../common/throttle/throttle.service";
+import type { ThrottleConfig } from "../common/throttle/throttle.types";
+import { THROTTLE_CONFIG } from "../common/throttle/throttle.types";
+import { UsersService } from "../users/users.service";
 import type { CreateBlogPostInput, UpdateBlogPostInput, CreateCommentInput } from "./blog.service";
 import { BlogService } from "./blog.service";
 import type { BlogPostEntity } from "./entities/blog-post.entity";
 import type { BlogCommentEntity, BlogCommentStatus } from "./entities/blog-comment.entity";
 import { blogCommentStatuses } from "./entities/blog-comment.entity";
+
+/** Route label for blog comment creation throttle key. */
+const THROTTLE_LABEL_BLOG_COMMENT = "blog-comment-create";
 
 /**
  * BlogController exposes two access surfaces:
@@ -40,13 +50,20 @@ import { blogCommentStatuses } from "./entities/blog-comment.entity";
  *    active session AND the global "admin" role enforced by BlogService.
  *    Authorization is delegated to BlogService.assertAdminManagementAccess() to
  *    keep gating in a single reusable location rather than duplicated inline.
+ *
+ * 3. Comment creation (POST /blog/:postId/comments) — requires an authenticated
+ *    session; rate-limited (ST9) using the ST8 ThrottleService with the new-account
+ *    tier active. Bodies exceeding the link cap are rejected (400).
  */
 @ApiTags("blog")
 @Controller("blog")
 export class BlogController {
   constructor(
     private readonly blogService: BlogService,
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
+    private readonly throttleService: ThrottleService,
+    private readonly usersService: UsersService,
+    @Inject(THROTTLE_CONFIG) private readonly throttleConfig: ThrottleConfig
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -266,17 +283,33 @@ export class BlogController {
   @ApiOperation({ summary: "Create a comment on a published post (authenticated member)." })
   @ApiUnauthorizedResponse({ description: "No active session." })
   @ApiForbiddenResponse({ description: "Comments are locked on this post." })
-  @ApiBadRequestResponse({ description: "Invalid or unsafe comment body, or invalid parentId/imageId reference." })
+  @ApiBadRequestResponse({ description: "Invalid or unsafe comment body, too many links, or invalid parentId/imageId reference." })
   @ApiNotFoundResponse({ description: "Post not found or not published." })
+  @ApiTooManyRequestsResponse({ description: "Rate limit exceeded. Retry after the indicated delay." })
   async createComment(
     @Req() request: Request,
     @Param("postId") postId: string,
     @Body() body: unknown
   ): Promise<{ comment: PublicBlogCommentDetail }> {
+    // 401 check must happen before any data operation (auth gate first).
     const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    const input = parseCreateCommentInput(body);
+    // Link-limit check before persistence (ST8 contract).
+    if (exceedsLinkLimit(input.body, this.throttleConfig.maxLinksPerPost)) {
+      throw new BadRequestException(
+        `Comment body may not contain more than ${this.throttleConfig.maxLinksPerPost} link${this.throttleConfig.maxLinksPerPost === 1 ? "" : "s"}.`
+      );
+    }
+    // Throttle check — supply createdAt for new-account tier (ST9 wiring).
+    const userEntity = await this.usersService.findById(session.user.id);
+    this.throttleService.checkRequest({
+      routeLabel: THROTTLE_LABEL_BLOG_COMMENT,
+      request,
+      userId: session.user.id,
+      userCreatedAt: userEntity?.createdAt ?? null
+    });
     // Resolve the post id from either slug or id path param.
     const resolvedPostId = await this.resolvePostId(postId);
-    const input = parseCreateCommentInput(body);
     const comment = await this.blogService.createComment(resolvedPostId, session.user.id, input);
     return { comment: toPublicCommentDetail(comment) };
   }
