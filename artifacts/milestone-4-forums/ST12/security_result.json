@@ -1,0 +1,23 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST12/security_report.md",
+    "artifacts/milestone-4-forums/ST12/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st12-security-20260608",
+  "documentation_sufficiency_summary": [
+    "docs/features/media.md correctly documents the avatar resourceType, self-service auth (any active session for blog-comment/avatar; admin for blog-post/standalone-page), dual size limits including MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES (range 1024-2097152, recommended 1048576), and that magic-byte verification + SVG exclusion apply to avatar.",
+    "docs/operations/launch.md correctly documents MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES.",
+    "Pass-1 documentation gap is now closed: the git-tracked seed env files (apps/api/.env, apps/api/.env.example) declare the new required var, so operators following the env contract no longer hit a fail-closed startup crash."
+  ],
+  "note_finding_count": 6,
+  "outcome": "PASS",
+  "pass_label": "security-2",
+  "status": "completed",
+  "task_id": "ST12",
+  "test_sufficiency_summary": [
+    "Avatar-surface security behavior remains well covered and now passes: media.controller.test.ts adds avatar 401-no-session, non-admin self-service success, and admin success, alongside the intact non-admin blog-post/standalone-page 403 cases; media.service.test.ts adds avatar/ prefix, oversized-avatar 400, polyglot-avatar 400, SVG-avatar 400, and a test confirming the GENERAL cap (not the avatar cap) applies to non-avatar types; environment.test.ts adds missing/below-min/above-max/boundary validation for MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES.",
+    "The pass-1 regression is fully resolved: from this worktree apps/api typecheck reports 0 errors and the full suite reports 829 pass (536 API + 2 skipped, 293 web) with 0 failures. The 6 previously failing tests now pass. The suite is green, so the role's 'absence of green tests is a real gap' constraint is satisfied."
+  ],
+  "warning_finding_count": 0
+}
