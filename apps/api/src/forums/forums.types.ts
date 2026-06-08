@@ -6,6 +6,40 @@ export { forumBoardScopeTypes, forumBoardVisibilities };
 export type { ForumBoardScopeType, ForumBoardVisibility };
 
 // ---------------------------------------------------------------------------
+// Public read shapes (ST3) — safe, server-mapped DTOs exposed to unauthenticated callers.
+// ---------------------------------------------------------------------------
+
+/**
+ * Public-safe board shape returned from the main forum listing and board detail.
+ * Internal-only fields (projectId, categoryId raw FK, etc.) are omitted.
+ */
+export interface PublicBoardShape {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  sortOrder: number;
+  visibility: ForumBoardVisibility;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Public-safe category shape returned from the main forum listing.
+ * Only includes site-scoped, publicly-readable boards.
+ */
+export interface PublicCategoryShape {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  sortOrder: number;
+  boards: PublicBoardShape[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ---------------------------------------------------------------------------
 // Category DTOs
 // ---------------------------------------------------------------------------
 

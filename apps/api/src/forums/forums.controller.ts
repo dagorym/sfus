@@ -36,17 +36,25 @@ import type {
   ReorderCategoryInput,
   CreateBoardInput,
   UpdateBoardInput,
-  ReorderBoardInput
+  ReorderBoardInput,
+  PublicBoardShape,
+  PublicCategoryShape
 } from "./forums.types";
 
 /**
- * ForumsController exposes the admin management surface for forum categories
- * and boards (ST2). All routes require an active session with the global "admin"
- * role enforced by ForumsService.assertAdminManagementAccess().
+ * ForumsController exposes:
  *
- * Public read routes for categories and boards are in ST3.
+ * 1. **Public read routes (ST3)** — no authentication required:
+ *    - `GET /forums/categories` — list categories with publicly-readable site boards only.
+ *    - `GET /forums/boards/:id` — fetch a single publicly-readable site board.
+ *    Both routes route every visibility decision through `AuthorizationService.evaluate()`.
+ *    Hidden/nonexistent boards return a uniform `404` (no existence oracle).
  *
- * Error contract (uniform across all admin handlers):
+ * 2. **Admin management routes (ST2)** — require active session + global "admin" role:
+ *    Full CRUD for categories and boards, enforced by
+ *    `ForumsService.assertAdminManagementAccess()`.
+ *
+ * Admin error contract (uniform across all admin handlers):
  * - 401 No active session (thrown by AuthService.resolveSession).
  * - 403 Caller's role is insufficient (thrown by assertAdminManagementAccess).
  * Both checks happen before any data operation.
@@ -58,6 +66,61 @@ export class ForumsController {
     private readonly forumsService: ForumsService,
     private readonly authService: AuthService
   ) {}
+
+  // ===========================================================================
+  // Public read — Categories and boards (ST3)
+  // ===========================================================================
+
+  /**
+   * List all forum categories with their publicly-readable site boards.
+   *
+   * Only `scope_type='site'` boards whose visibility is publicly readable (as
+   * determined by `AuthorizationService.evaluate()` for an anonymous actor) are
+   * included. Project-scoped or non-readable boards are excluded from output
+   * **and** their counts are not reflected in the response.
+   *
+   * No authentication required.
+   *
+   * @returns 200 with `{ categories }` ordered by sortOrder ASC.
+   */
+  @Get("categories")
+  @ApiOperation({ summary: "List all forum categories with their publicly-readable site boards." })
+  @ApiOkResponse({
+    description:
+      "Categories returned. Only site-scoped, publicly-readable boards are included. " +
+      "Project-scoped or non-readable boards are absent from output and counts."
+  })
+  async listPublicCategories(): Promise<{ categories: PublicCategoryShape[] }> {
+    const categories = await this.forumsService.listPublicCategories();
+    return { categories };
+  }
+
+  /**
+   * Fetch a single publicly-readable site board by id.
+   *
+   * Returns `404` for both nonexistent boards and boards that exist but are
+   * hidden (project-scoped or non-publicly-readable), using an **identical**
+   * error message in both cases so callers cannot infer existence (oracle
+   * parity; P12).
+   *
+   * No authentication required.
+   *
+   * @param id Board UUID.
+   * @returns 200 with `{ board }`.
+   * @throws 404 Board not found or not publicly accessible.
+   */
+  @Get("boards/:id")
+  @ApiOperation({ summary: "Fetch a single publicly-readable site forum board by id." })
+  @ApiOkResponse({ description: "Board returned." })
+  @ApiNotFoundResponse({
+    description:
+      "Board not found, or is not publicly accessible. " +
+      "The error message is identical for nonexistent and hidden boards (oracle parity)."
+  })
+  async getPublicBoard(@Param("id") id: string): Promise<{ board: PublicBoardShape }> {
+    const board = await this.forumsService.getPublicBoard(id);
+    return { board };
+  }
 
   // ===========================================================================
   // Admin — Category management

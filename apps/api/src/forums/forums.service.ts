@@ -14,7 +14,9 @@ import type {
   ReorderCategoryInput,
   CreateBoardInput,
   UpdateBoardInput,
-  ReorderBoardInput
+  ReorderBoardInput,
+  PublicBoardShape,
+  PublicCategoryShape
 } from "./forums.types";
 
 /**
@@ -319,6 +321,117 @@ export class ForumsService {
     await this.boardRepository.save(updates);
 
     return this.boardRepository.find({ where: { categoryId }, order: { sortOrder: "ASC", createdAt: "ASC" } });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Public read — categories and boards (ST3)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * The uniform "not found" message used for both nonexistent and hidden boards.
+   * Using a constant guarantees oracle parity (hidden == nonexistent in error shape).
+   */
+  static readonly BOARD_NOT_FOUND_MESSAGE = "Forum board not found.";
+
+  /**
+   * Anonymous actor used for public (unauthenticated) visibility evaluation.
+   * Passing no userId and an empty-string role means only open-visibility
+   * resources (public / unlisted) will be allowed by evaluate().
+   */
+  private readonly anonymousActor = { userId: null as null, globalRole: "" };
+
+  /**
+   * Returns true when the given board is readable by an unauthenticated guest
+   * **and** has scopeType='site'. Both conditions must hold for the board to
+   * appear in the public forum index.
+   *
+   * All visibility decisions are routed through AuthorizationService.evaluate()
+   * — no inline re-derived predicates.
+   */
+  isBoardPubliclyReadable(board: ForumBoardEntity): boolean {
+    if (board.scopeType !== "site") {
+      return false;
+    }
+    const decision = this.authorizationService.evaluate({
+      actor: this.anonymousActor,
+      resource: {
+        resourceType: "forum_board",
+        resourceId: board.id,
+        visibility: board.visibility,
+        projectId: board.projectId
+      },
+      action: "read"
+    });
+    return decision.allowed;
+  }
+
+  /**
+   * Maps a ForumBoardEntity to the public-safe PublicBoardShape DTO.
+   * Strips internal-only fields (scopeType, projectId, categoryId FK).
+   */
+  private toBoardShape(board: ForumBoardEntity): PublicBoardShape {
+    return {
+      id: board.id,
+      name: board.name,
+      slug: board.slug,
+      description: board.description,
+      sortOrder: board.sortOrder,
+      visibility: board.visibility,
+      createdAt: board.createdAt,
+      updatedAt: board.updatedAt
+    };
+  }
+
+  /**
+   * Returns all forum categories with their publicly-readable site boards,
+   * ordered by category sortOrder ASC. Only site-scoped boards whose visibility
+   * passes AuthorizationService.evaluate() for an anonymous actor are included.
+   *
+   * Project-scoped boards and boards whose visibility is not publicly readable
+   * are excluded from both the board list and the board count.
+   */
+  async listPublicCategories(): Promise<PublicCategoryShape[]> {
+    const categories = await this.categoryRepository.find({
+      order: { sortOrder: "ASC", createdAt: "ASC" },
+      relations: ["boards"]
+    });
+
+    return categories.map((category) => {
+      const visibleBoards = (category.boards ?? [])
+        .filter((board) => this.isBoardPubliclyReadable(board))
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.getTime() - b.createdAt.getTime());
+
+      return {
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        description: category.description,
+        sortOrder: category.sortOrder,
+        boards: visibleBoards.map((b) => this.toBoardShape(b)),
+        createdAt: category.createdAt,
+        updatedAt: category.updatedAt
+      };
+    });
+  }
+
+  /**
+   * Returns a single publicly-readable site board by id.
+   *
+   * Returns NotFoundException (404) in two cases:
+   * 1. No board with the given id exists.
+   * 2. The board exists but is not publicly readable (hidden by scope or visibility).
+   *
+   * Both cases return the same message — BOARD_NOT_FOUND_MESSAGE — so callers
+   * cannot distinguish existence from access (oracle parity, P12).
+   *
+   * Visibility is evaluated via AuthorizationService.evaluate() — no inline predicate.
+   */
+  async getPublicBoard(id: string): Promise<PublicBoardShape> {
+    const board = await this.boardRepository.findOne({ where: { id } });
+    if (!board || !this.isBoardPubliclyReadable(board)) {
+      throw new NotFoundException(ForumsService.BOARD_NOT_FOUND_MESSAGE);
+    }
+    return this.toBoardShape(board);
   }
 
   // ---------------------------------------------------------------------------
