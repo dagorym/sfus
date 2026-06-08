@@ -43,8 +43,8 @@ moderation routes require `moderator` or `admin` via `assertModerationAccess()`.
 |---|---|---|
 | GET | `/api/blog/admin/posts` | all posts, all statuses, `createdAt DESC` |
 | GET | `/api/blog/admin/posts/:id` | by UUID; `404` unknown |
-| POST | `/api/blog/admin/posts` | create as `draft`. Body `{ title, slug?, body, summary?, featuredImageId?, isFeatured?, tags? }` |
-| PATCH | `/api/blog/admin/posts/:id` | partial update; same validation as create for supplied fields |
+| POST | `/api/blog/admin/posts` | create as `draft`. Body `{ title, slug?, body, summary?, featuredImageId?, isFeatured?, tags? }`. When `slug` is supplied and already in use → `409 Conflict`. |
+| PATCH | `/api/blog/admin/posts/:id` | partial update; same validation as create for supplied fields. When `slug` is supplied and already in use → `409 Conflict`. |
 | POST | `/api/blog/admin/posts/:id/publish` | `status = published`, `publishedAt = now` |
 | POST | `/api/blog/admin/posts/:id/publish-at` | Body `{ publishedAt }` (ISO 8601; `400` otherwise). `status = published` with the supplied (possibly future) time. |
 | POST | `/api/blog/admin/posts/:id/unpublish` | back to `draft`, `publishedAt` cleared |
@@ -76,13 +76,17 @@ The admin UI labels future-dated published posts as scheduled with their go-live
 
 - **Slug:** optional on create. When supplied it must match `^[a-z0-9]+(?:-[a-z0-9]+)*$`
   (`400` otherwise). When omitted/blank the server slugifies the title and appends `-2`,
-  `-3`, … on collision. Unique at the DB level (`uq_blog_posts_slug`). When the slug is
-  auto-derived (no explicit slug supplied), a duplicate-key error on save (MySQL
-  `ER_DUP_ENTRY` or SQLite `UNIQUE constraint failed`) signals a concurrent insert that
-  claimed the same slug; `BlogService` retries `deriveUniqueSlug` and the save up to 3
-  times. If all attempts are exhausted a `409 Conflict` is returned instead of propagating
-  an unhandled database error. Explicit slugs supplied by the caller are saved once with no
-  retry (the caller owns uniqueness for that path).
+  `-3`, … on collision. Unique at the DB level (`uq_blog_posts_slug`).
+  - **Explicit slug (create or update):** when the caller supplies a slug value, the post
+    is saved once without retry. If a duplicate-key DB error is detected (`ER_DUP_ENTRY` /
+    `UNIQUE constraint failed`), `BlogService` maps it to `409 Conflict`
+    ("A post with this slug already exists.") rather than letting the database error
+    propagate as a 500. This covers both creating a post with an explicit slug and updating
+    an existing post to change its slug to a colliding value.
+  - **Auto-derived slug (create only):** a duplicate-key error on save signals a concurrent
+    insert that claimed the same slug; `BlogService` retries `deriveUniqueSlug` and the save
+    up to 3 times. If all retry attempts are exhausted a `409 Conflict` is returned
+    ("Could not generate a unique slug after several attempts…").
 - **Body:** `normalizeMarkdownBody` → `validateMarkdownBody` before persistence; unsafe → `400`.
   Applies to posts (create + update) and comments. See [media](media.md).
 - **featuredImageId:** must reference an existing `media_references` row (`400` otherwise);
