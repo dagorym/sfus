@@ -1,0 +1,28 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST6/security_report.md",
+    "artifacts/milestone-4-forums/ST6/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st6-security-20260608",
+  "documentation_sufficiency_summary": [
+    "ADEQUATE for safe operation; two non-blocking documenter fixes recommended.",
+    "docs/features/forums.md Moderation (ST6) section documents the two-step gate, the cross-scope move re-validation, oracle parity, and the audit columns, and the route table lists the correct five endpoints with correct status codes.",
+    "WARNING: forums.md:405 wrongly lists 'unlisted' as a rejected move destination (it is permitted; harmless but inaccurate). NOTE: forums.md:363 says 'six' endpoints where the contract has five. Both are documenter-owned and do not affect the security posture.",
+    "Validation commands run from this worktree: pnpm --dir <worktree> install --frozen-lockfile (OK); vitest run --root apps/api src/forums/forums.controller.test.ts src/forums/forums.service.test.ts (229/229 passed); pnpm typecheck (api+web Done); pnpm lint (api+web Done, --max-warnings=0)."
+  ],
+  "note_finding_count": 7,
+  "outcome": "PASS",
+  "pass_label": "PASS",
+  "status": "complete",
+  "task_id": "milestone-4-forums/ST6",
+  "test_sufficiency_summary": [
+    "SUFFICIENT for the ST6 security surface. forums.controller.test.ts (96) + forums.service.test.ts (133) = 229 tests, all green via vitest run --root apps/api.",
+    "Privilege gate: 401-before-data and 403-before-data helpers cover all five moderation handlers and assert the data op spy is not called; assertModerationAccess accepts moderator/admin and rejects user/'' .",
+    "Cross-scope move: dedicated tests for project-scoped dest rejection (save not called), members-visibility dest rejection (evaluate invoked, save not called), nonexistent dest (BOARD_NOT_FOUND_MESSAGE), nonexistent source (TOPIC_NOT_FOUND_MESSAGE), no-op same-board.",
+    "Lock: lock/unlock audit-column persistence + clearing; lock\u2192createPost 403 integration.",
+    "Input guard: undefined/empty/whitespace/numeric/object destinationBoardId all 400 with moveTopic not called.",
+    "Contract: per-handler @ApiUnauthorizedResponse/@ApiForbiddenResponse/@ApiNotFoundResponse (and @ApiBadRequestResponse on move) presence asserted."
+  ],
+  "warning_finding_count": 1
+}
