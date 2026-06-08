@@ -1,0 +1,66 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST5: Forum posts create (reply) and paginated read with threading, quoting, locked-topic, visibility. New service createPost/listPosts; routes POST and GET /forums/topics/:topicId/posts. createPost requires an active session (401 first), enforces the full board+topic visibility predicate (reusing the shared evaluate()-based predicate; 404 oracle parity via shared NOT_FOUND constants), rejects a locked topic with 403 thread-locked, runs the body through normalizeMarkdownBody+validateMarkdownBody (400 unsafe BEFORE persistence), guards missing/non-string body with a clean 400, and enforces ONE-LEVEL threading (a parentId must be a top-level post on the same topic; nonexistent/different-topic/reply-to-reply uniform 400 with no existence oracle). Quoting accepts a quotedPostId soft-reference (rendering is the web subtask ST16). listPosts paginates oldest-first (createdAt ASC, id ASC), excludes soft-deleted (deletedAt: IsNull()), pageSize clamp 1-100. Public post shape (toPostShape) exposes author.username/displayName + quotedPostId and strips authorUserId/topicId/deletedAt/internal flags. 27 new tests; full suite green (709 pass, typecheck 0 errors, lint clean).
+
+Acceptance criteria to verify:
+- POST /forums/topics/:topicId/posts requires active session (401 first — resolveSession called before any service call)
+- Enforces full board+topic visibility predicate with 404 oracle parity via ForumsService.TOPIC_NOT_FOUND_MESSAGE (nonexistent board, hidden board, nonexistent topic, soft-deleted topic all return identical 404)
+- Rejects locked topic with 403 thread-locked ("This topic is locked. New posts are not allowed.")
+- Runs body through normalizeMarkdownBody+validateMarkdownBody (400 unsafe BEFORE persistence — no DB write on unsafe content)
+- Guards missing/non-string body with clean 400 ("Post body must be a string.")
+- ONE-LEVEL threading: parentId must be a top-level post (parentId IS NULL) on the same topic (topicId matches); nonexistent/different-topic/reply-to-reply all return uniform 400 "parentId is invalid." with no existence oracle
+- quotedPostId accepted as a soft-reference (no FK enforcement; rendering deferred to ST16)
+- listPosts paginates oldest-first (createdAt ASC, id ASC tie-break), excludes soft-deleted posts (deletedAt IS NULL), pageSize clamp 1-100 with default 20
+- PublicPostShape exposes id, body, parentId, quotedPostId, author (username/displayName), createdAt, updatedAt and strips authorUserId, topicId, deletedAt
+- 27 new tests; full suite green (709 pass, typecheck 0 errors, lint clean)
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st5-documenter-20260608 (branch ms4-st5-documenter-20260608)
+- Base: ms4
+- Diff your branch against ms4 for the full change set
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.controller.ts
+- apps/api/src/forums/forums.types.ts
+- apps/api/src/forums/forums.service.test.ts
+- apps/api/src/forums/forums.controller.test.ts
+- docs/features/forums.md
+
+Commands executed:
+- git diff ms4...HEAD --name-only
+- Read docs/features/forums.md
+- Read apps/api/src/forums/forums.service.ts
+- Read apps/api/src/forums/forums.types.ts
+- Read apps/api/src/forums/forums.controller.ts
+
+Final test outcomes:
+- Full API suite: 709 passed, 2 skipped, 0 failed
+- TypeScript typecheck: 0 errors
+- ESLint lint: clean (0 warnings)
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-plan.md (ST5)
+- Base branch: ms4
+- Branch ms4-st5-documenter-20260608 contains implementer, tester, and documenter changes
+
+Convention-file guidance:
+- Repository documentation lives under docs/ organized by type (features/, operations/, architecture/).
+- One fact, one home — no duplication across docs.
+- Do not document planned behavior not present in the implemented diff.
+- Existing docs/features/forums.md covers ST2/ST3/ST4; ST5 extends it with post routes.
+
+Updated documentation files:
+- docs/features/forums.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST5
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
