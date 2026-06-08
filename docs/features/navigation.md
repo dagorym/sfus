@@ -27,7 +27,9 @@ Field rules: `label` ≤ 128 chars; `url` non-empty string ≤ 512 chars; for
 `//` prefixes are rejected with `400`; external items are validated only for presence and
 length; `linkType` `internal | external`; `visibility` `public | authenticated | admin`.
 This URL constraint is enforced prospectively on create and update; existing rows are
-unaffected (same posture as reserved-slug enforcement).
+unaffected (same posture as reserved-slug enforcement). On update the stored URL is
+re-validated whenever the effective `linkType` changes, so a linkType-only switch to
+`internal` cannot leave a non-`/` URL in place.
 
 ## Publication-leak filtering
 

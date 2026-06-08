@@ -189,7 +189,9 @@ export class NavigationService {
 
   /**
    * Updates a navigation item. Validates parent-child depth constraint when
-   * parentId changes.
+   * parentId changes. The URL is validated against the effective link type
+   * whenever either changes — including a linkType-only change, so switching
+   * an item to `internal` cannot leave a non-'/' URL in place.
    */
   async update(id: string, input: UpdateNavigationItemInput): Promise<NavigationItemEntity> {
     const item = await this.findByIdOrThrow(id);
@@ -205,6 +207,13 @@ export class NavigationService {
     }
     if (input.linkType !== undefined) {
       this.validateLinkType(input.linkType);
+      // Re-validate the stored URL when linkType changes without a URL change:
+      // switching an item to `internal` must not leave a non-'/' (e.g. external
+      // or protocol-relative) URL in place. When input.url was supplied it has
+      // already been validated above against the effective link type.
+      if (input.url === undefined) {
+        this.validateUrl(item.url, input.linkType);
+      }
       item.linkType = input.linkType;
     }
     if (input.visibility !== undefined) {

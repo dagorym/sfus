@@ -396,6 +396,51 @@ describe("NavigationService.update — hardened internal URL validation (subtask
     expect(result.url).toBe("http://example.com");
     expect(result.linkType).toBe("external");
   });
+
+  it("rejects a linkType-only switch to internal when the stored URL is external (bypass regression)", async () => {
+    // Reviewer follow-up: PATCH { linkType: "internal" } without a url change must
+    // re-validate the stored URL — an external URL must not survive the switch.
+    const externalItem = { ...baseItem, url: "https://example.com", linkType: "external" as const };
+    const service = makeNavigationService({
+      findOne: vi.fn().mockResolvedValue({ ...externalItem })
+    });
+    await expect(service.update("item-1", { linkType: "internal" })).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a linkType-only switch to internal when the stored URL is protocol-relative (bypass regression)", async () => {
+    // Reviewer follow-up: '//evil.example' stored on an external item must be rejected
+    // when the item is switched to internal without a simultaneous url change.
+    const externalItem = { ...baseItem, url: "//evil.example", linkType: "external" as const };
+    const service = makeNavigationService({
+      findOne: vi.fn().mockResolvedValue({ ...externalItem })
+    });
+    await expect(service.update("item-1", { linkType: "internal" })).rejects.toThrow(BadRequestException);
+  });
+
+  it("accepts a linkType-only switch to internal when the stored URL already starts with '/'", async () => {
+    // The stored URL satisfies the internal rule — a linkType-only change is allowed.
+    const externalItem = { ...baseItem, url: "/about", linkType: "external" as const };
+    const updated = { ...externalItem, linkType: "internal" as const };
+    const service = makeNavigationService({
+      findOne: vi.fn().mockResolvedValue({ ...externalItem }),
+      save: vi.fn().mockResolvedValue(updated)
+    });
+    const result = await service.update("item-1", { linkType: "internal" });
+    expect(result.linkType).toBe("internal");
+  });
+
+  it("accepts a linkType-only switch to external regardless of stored URL shape", async () => {
+    // External validation is presence+length only; switching internal→external never
+    // tightens the URL rule.
+    const internalItem = { ...baseItem, url: "/about", linkType: "internal" as const };
+    const updated = { ...internalItem, linkType: "external" as const };
+    const service = makeNavigationService({
+      findOne: vi.fn().mockResolvedValue({ ...internalItem }),
+      save: vi.fn().mockResolvedValue(updated)
+    });
+    const result = await service.update("item-1", { linkType: "external" });
+    expect(result.linkType).toBe("external");
+  });
 });
 
 // ---------------------------------------------------------------------------
