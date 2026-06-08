@@ -1,0 +1,25 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST3/security_report.md",
+    "artifacts/milestone-4-forums/ST3/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st3-security-20260608",
+  "documentation_sufficiency_summary": [
+    "SUFFICIENT. docs/features/forums.md was extended with a 'Public read API routes' section documenting the leak-prevention contract, oracle-parity guarantee, PublicBoardShape/PublicCategoryShape field tables, the explicit stripped-field list (scopeType, projectId, categoryId), and the route table.",
+    "No P1 drift: every doc claim (8 PublicBoardShape fields, stripped internal fields, evaluate() routing, identical-message 404) matches the code and JSDoc/Swagger decorators on the controller handlers."
+  ],
+  "note_finding_count": 0,
+  "outcome": "PASS",
+  "pass_label": "security-1-pass",
+  "status": "completed",
+  "task_id": "milestone-4-forums/ST3",
+  "test_sufficiency_summary": [
+    "SUFFICIENT. Validation matrix run from this worktree is fully green: vitest run of src/forums/forums.controller.test.ts + src/forums/forums.service.test.ts = 124 tests passed (2 files); pnpm typecheck clean (apps/api + apps/web); pnpm lint clean (eslint --max-warnings=0).",
+    "Leak coverage: listPublicCategories excludes scopeType='project' boards and visibility in {members, private, project-only}; includes site/public and site/unlisted. Exclusion asserted on BOTH the boards array and its length (no count leak \u2014 there is no separate count field to leak).",
+    "Oracle parity: getPublicBoard asserts NotFoundException with message === ForumsService.BOARD_NOT_FOUND_MESSAGE for nonexistent, project-scoped, and members-visibility boards \u2014 proving identical class + message (no existence oracle). Controller test confirms the 404 propagates unchanged.",
+    "evaluate() discipline: a spy asserts evaluate() is called for site boards and short-circuited (NOT called) for project-scoped boards; per-visibility outcomes pinned.",
+    "Shape leakage: tests assert the public board shape has no scopeType, projectId, or categoryId property from both listPublicCategories and getPublicBoard."
+  ],
+  "warning_finding_count": 0
+}
