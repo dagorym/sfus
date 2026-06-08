@@ -79,7 +79,7 @@ def cmd_show(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Track planner decision-resolution state.")
+    parser = argparse.ArgumentParser(description="Track open-decision queue state for sequential resolution loops.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     init_parser = subparsers.add_parser("init", help="Initialize decision tracker state.")
