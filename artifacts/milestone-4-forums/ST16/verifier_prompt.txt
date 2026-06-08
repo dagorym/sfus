@@ -1,0 +1,106 @@
+Your role is 'verifier'. Your task is as follows:
+
+## Task Summary
+
+ST16 security-driven remediation pass 2 (web forums — shared Markdown renderer XSS fix).
+
+A stored XSS vulnerability in the shared `MarkdownRenderer` component was fixed. The
+`sanitizeUrl()` function in `apps/web/components/markdown-renderer.tsx` was updated to
+reject any URL containing HTML-attribute-breaking characters (`"`, `'`, `<`, `>`, `&`) by
+returning `"#"` — previously, a raw `"` in a Markdown link or image destination broke out
+of the surrounding `href`/`src` attribute and injected a live event handler (e.g.
+`[click](/a" onpointerover=alert\`1\`)` produced `<a href="/a" onpointerover=alert\`1\`" ...>`).
+
+Nine behavioral XSS tests were added to confirm the fix is non-vacuous. Pass-1 ST16 web
+surface documentation was confirmed accurate and left unchanged. A single documentation
+update was made to `docs/features/media.md` to document the sanitizeUrl hardening.
+
+## KNOWN ISSUE — BLOCKING FOR VERIFIER ADJUDICATION
+
+The `&`-character check in `sanitizeUrl` rejects ALL URLs containing `&`, which breaks
+**legitimate** multi-parameter query-string URLs such as `https://example.com/?a=1&b=2`
+(rendered as `href="#"` instead of the real URL). This is a **functional regression**. The
+verifier must adjudicate:
+
+- Whether to accept the current fix as-is (with the `&`-regression documented),
+- Or require a revised fix (e.g. replace `&` with `%26` rather than rejecting, or check
+  for `&` only when not followed by a valid entity-like pattern).
+
+Do NOT pass this subtask without explicitly ruling on this regression. If the fix is
+accepted as-is, document that ruling in the verifier report. If a code change is required,
+return to the implementer with a clear specification.
+
+## Acceptance Criteria to Verify
+
+1. **XSS blocked:** A Markdown link/image whose URL contains a `"` must NOT produce a live
+   event handler in the rendered HTML. The URL must be rejected to `href="#"` / `src="#"`.
+2. **Behavioral tests non-vacuous:** The 9 XSS behavioral tests in
+   `apps/web/components/authoring-components.spec.ts` (describe block
+   "MarkdownRenderer XSS behavioural tests — attribute breakout (ST16 security)") must PASS
+   against the fixed renderer and FAIL against the old renderer (the tester confirmed this
+   by reverting `&` rejection and observing 4 failures).
+3. **Safe URLs unaffected:** Clean URLs without special chars (e.g. `/path?a=1`,
+   `https://example.com/path`) must pass through sanitizeUrl unchanged.
+4. **& regression acknowledged:** The known issue with `&`-containing URLs is explicitly
+   acknowledged and ruled on in the verifier report.
+5. **Full suite passes:** All 377 web tests pass with no regressions.
+6. **Pass-1 docs confirmed:** `docs/features/forums.md` web section, `docs/features/web-shell.md`
+   route map, and `docs/guides/content-management.md` forums section remain present and accurate.
+7. **media.md note accurate:** The new note in `docs/features/media.md` accurately describes
+   the fix without overstating security guarantees or understating the `&`-regression.
+
+## Implementation Branch / Worktree Context
+
+- Worktree: `/home/tstephen/repos/worktrees/ms4-st16-documenter-20260608`
+- Branch: `ms4-st16-documenter-20260608`
+- Base: `ms4`
+
+## Files Modified (full review surface)
+
+**Implementer (security fix commit 5560ecd):**
+- `apps/web/components/markdown-renderer.tsx` — `sanitizeUrl()` XSS fix; `convertMarkdownToHtml` exported for tests
+- `apps/web/components/authoring-components.spec.ts` — 9 behavioral XSS tests added
+- `apps/web/app/forums/forums.spec.ts` — 2 existing source-contract assertions updated
+
+**Tester:** no new files changed (confirmed existing tests pass; no test commit needed)
+
+**Documenter (documentation commit 43f54dc0dc4e787e4df16c69a6b3b3b9ec923a74):**
+- `docs/features/media.md` — added note to MarkdownRenderer entry documenting attribute-breakout hardening and `&`-regression
+
+**Pass-1 docs (confirmed unchanged, no edits needed):**
+- `docs/features/forums.md`
+- `docs/features/web-shell.md`
+- `docs/guides/content-management.md`
+
+## Commands to Run
+
+```
+# From worktree root or with --root/--dir targeting apps/web:
+pnpm --dir <worktree> install --frozen-lockfile
+vitest run --root apps/web
+pnpm typecheck
+pnpm lint
+```
+
+Expected: 377/377 pass, 0 typecheck errors, 0 lint warnings.
+
+## Shared Artifact Directory
+
+`artifacts/milestone-4-forums/ST16`
+
+## Prior-Pass History
+
+Prior pass 1 artifacts (security review FAIL) are preserved under:
+`artifacts/milestone-4-forums/ST16/history/security-1-fail/`
+
+## Startup Behavior
+
+Begin verification immediately. Infer missing plan-source, convention-file, or artifact-path
+details from repository context when safe. Do not stop after activation, scope confirmation,
+diff review, or convention discovery when blocking inputs are present.
+
+## Completion Gate
+
+Do not report success unless all required artifacts exist and all changes are committed.
+The verifier report MUST explicitly address the `&`-regression ruling before a PASS verdict
+can be issued.
