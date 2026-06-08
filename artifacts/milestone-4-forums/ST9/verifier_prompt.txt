@@ -1,0 +1,70 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST9: Enforce the ST8 throttle + link-limit at 3 protected create sites — forum topic create (POST /forums/boards/:boardId/topics), forum post create (POST /forums/topics/:topicId/posts), and blog comment create (POST /blog/:postId/comments). Each handler, after the auth/visibility gate, runs exceedsLinkLimit (400 on over-limit) and ThrottleService.checkRequest (429 on over-limit), supplying the session userId AND the user's createdAt (via UsersService.findById) so the new-account tier (stricter limits for young accounts) is now ACTIVE. ThrottleModule + UsersModule imported into ForumsModule and BlogModule; THROTTLE_CONFIG exported. 23 new tests; full suite green (788 pass, typecheck 0 errors, lint clean). Existing 401/403/404 semantics/ordering unchanged.
+
+Acceptance criteria to verify:
+- over-limit 429 at each of 3 create sites (forum topic create, forum post create, blog comment create)
+- under-limit passes
+- new-account tier demonstrably stricter via createdAt wiring proven non-vacuous
+- link-over-limit 400
+- no throttle logic duplicated — reuses ST8 module
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st9-documenter-20260608 (branch ms4-st9-documenter-20260608, contains implementer + tester + documenter changes). Base: ms4.
+- Implementer commit: 9575004d2b57b31df6682ad477f167876ba51f80
+- Tester commit: dd2afcd744eff9338babe18f9959e4d59c3a6c26
+- Documenter commit: 2a48ce4664ad0df44468e86f34c649c2fbf70e23
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/forums/forums.controller.ts
+- apps/api/src/forums/forums.module.ts
+- apps/api/src/forums/forums.controller.test.ts
+- apps/api/src/forums/forums.module.test.ts
+- apps/api/src/blog/blog.controller.ts
+- apps/api/src/blog/blog.module.ts
+- apps/api/src/blog/blog.controller.test.ts
+- apps/api/src/common/throttle/throttle.module.ts
+- docs/development/api-conventions.md
+- docs/features/blog.md
+- docs/features/forums.md
+
+Commands executed:
+- git log --oneline -15
+- git status
+- python3 .myteam/documenter/preflight/resolve_preflight.py
+- python3 .myteam/documenter/diff-review/analyze_doc_impact.py
+- python3 .myteam/documenter/commit-flow/validate_documenter_state.py --phase docs --repo-root <worktree>
+- git add docs/development/api-conventions.md docs/features/blog.md docs/features/forums.md
+- git commit -m 'docs(ST9): document throttle + link-limit enforcement on forum and blog create routes'
+
+Final test outcomes:
+- 788 tests passed, 2 skipped, 0 failed (vitest run --root apps/api)
+- typecheck: 0 errors
+- lint: clean
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-plan.md (ST9)
+- ST9 Documentation Impact: UPDATE docs/features/blog.md (comment-create is now rate-limited/link-limited); UPDATE docs/features/forums.md (topic create and post create rate-limited/link-limited with new-account tier active); REFERENCE docs/development/api-conventions.md and update if new-account tier paragraph still says ST9 needed (now done)
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table — per-subsystem contracts in docs/features/, cross-cutting engineering contracts in docs/development/
+- docs/development/api-conventions.md owns the rate-limiting/anti-spam cross-cutting contract
+- docs/features/forums.md owns per-route contracts for the forums subsystem
+- docs/features/blog.md owns per-route contracts for the blog subsystem
+
+Updated documentation files:
+- docs/development/api-conventions.md
+- docs/features/blog.md
+- docs/features/forums.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST9
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
