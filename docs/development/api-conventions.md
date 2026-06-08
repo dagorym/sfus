@@ -112,6 +112,7 @@ The canonical variable-by-variable table (defaults, ranges, ownership) lives in
   registered as the reviewed baseline that readiness checks against. Current set:
   `FoundationBaseline1711843200000`, `IdentityAuthorizationFoundation1714435200000`,
   `MilestoneThreeContentFoundation1748736000000`,
-  `MilestoneFourForumsFoundation1780890123767`.
+  `MilestoneFourForumsFoundation1780890123767`,
+  `UserBioAndAvatar1780892561355`.
 - Schema rollback policy is forward-fix only — see
   [deployment](../operations/deployment.md).
