@@ -442,3 +442,7 @@ Author details are not included in `ModeratedTopicShape` (moderation responses d
 ### Swagger / JSDoc
 
 All six moderation endpoints have `@ApiOperation`, `@Api*Response` decorators documenting the full `400`/`401`/`403`/`404` contract. Controller JSDoc blocks on each handler document the security contract inline.
+
+## @username mention and autocomplete (ST16)
+
+Forum post authoring in ST16 will support `@username` mentions that link to `/users/<username>`. Autocomplete for these mentions uses the session-gated `GET /api/users/suggest?q=` endpoint. See [auth.md § User discovery API](auth.md#user-discovery-api-st14) for the full contract (field allowlist, throttle, and active-user-only restriction).

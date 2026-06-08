@@ -13,11 +13,13 @@ protected-route behavior · [launch](../operations/launch.md) for the `AUTH_*` e
 
 `UserEntity` (`users` table): `id` (UUID), `username` (unique, varchar 32), `email` (unique,
 varchar 320), `displayName` (nullable, varchar 80), `globalRole` (`user` | `moderator` | `admin`,
-default `user`), `status` (`active` | `onboarding_required`), `emailVerifiedAt` (nullable).
+default `user`), `status` (`active` | `onboarding_required`), `emailVerifiedAt` (nullable),
+`bio` (nullable, TEXT), `avatarMediaId` (nullable CHAR(36), FK → `media_references` ON DELETE SET NULL, added ST13).
 
 - `user.onboardingRequired` in API payloads is derived: `status === "onboarding_required"`.
 - Username rule: `^[A-Za-z0-9_.-]{3,32}$`. Password rule: minimum 12 characters.
 - Email is normalized (trim + lowercase) and must match a basic `local@domain.tld` shape.
+- `bio` and `avatarMediaId` are stored server-side but not yet editable via the authenticated profile/settings API. They are exposed read-only via the public profile endpoint (see below).
 
 ## API routes
 
@@ -42,6 +44,8 @@ All routes below sit under the global `/api` prefix.
 | GET | `/api/auth/external/:provider/start` | — | `302` to the provider consent URL; `?next=<path>` preserved through state; `400` unsupported provider |
 | GET | `/api/auth/external/:provider/callback` | — | `302` to `/app`, `/onboarding/username`, or the MFA challenge route; `400` invalid/expired state; `502` provider exchange failure |
 | POST | `/api/auth/onboarding/username` | session | `{ user, session }`; `400` invalid/duplicate username; `401` no session or onboarding not required |
+| GET | `/api/users/suggest?q=` | session | `{ users: [{ username, displayName, avatarUrl }] }` — up to 10 active users whose username starts with `q`; `400` missing/non-string `q`; `401` no session; `429` throttle exceeded. |
+| GET | `/api/users/:username` | — | `{ profile: { username, displayName, avatar, bio, joinDate } }` — public profile; `400` empty/non-string param; `404` nonexistent or inactive (identical message). |
 
 MFA proof = `totpCode` **or** `recoveryCode` in the request body; at least one required.
 
@@ -119,6 +123,84 @@ rather than the proxy's address. In direct (un-proxied) local development no
 which is correct for direct connections. See `apps/api/src/index.ts` for the bootstrap
 configuration and `docs/architecture/milestone-1-foundation-decisions.md` for the locked
 proxy-topology decision.
+
+## User discovery API (ST14)
+
+Two endpoints in `UsersModule` expose limited, public-safe user information. Both enforce
+explicit field allowlist mapping — the entity is never passed through directly.
+
+### GET /api/users/suggest?q= — username prefix-suggest
+
+Session-gated, throttled endpoint for prefix-based username autocomplete.
+
+**Security order (400 → 401 → throttle → DB):**
+
+1. `q` parameter must be a string — missing or non-string returns `400`.
+2. Active session required (`sfus_session` cookie) — `401` before any DB work.
+3. `ThrottleService.checkRequest()` — per-user rate limit with `userId` + `userCreatedAt`
+   (new-account tier active, same pattern as forums post creation). Returns `429` when
+   the limit is exceeded.
+4. `UsersService.suggestByPrefix(q)` — prefix-match on ACTIVE users only (status
+   `"active"`), escaped for LIKE injection (`%`, `_`, `\` are escaped), capped at 10
+   results, ordered alphabetically.
+
+**Response (200):** `{ users: UserSuggestItem[] }` where each item contains ONLY:
+
+| Field | Type |
+|---|---|
+| `username` | string |
+| `displayName` | `string \| null` |
+| `avatarUrl` | `string \| null` — `/api/media/<id>` or `null` |
+
+The response **never** includes `email`, `globalRole`, `status`, `id`, or any other field.
+
+**Error contract:**
+
+| Status | Condition |
+|---|---|
+| 400 | Missing or non-string `q` |
+| 401 | No active session |
+| 429 | Throttle limit exceeded |
+
+### GET /api/users/:username — minimal public profile
+
+Unauthenticated endpoint returning the five-field public profile of an active user.
+
+**Security (enumeration parity, P12):** Both nonexistent users and users that exist but are
+not active return `404 "User not found."` — the message is **identical in both cases** so
+callers cannot determine whether an inactive username exists.
+
+**Response (200):** `{ profile: PublicProfileShape }` containing EXACTLY:
+
+| Field | Type | Notes |
+|---|---|---|
+| `username` | string | |
+| `displayName` | `string \| null` | |
+| `avatar` | `string \| null` | `/api/media/<id>` URL or `null` when no avatar is set |
+| `bio` | `string \| null` | |
+| `joinDate` | string (ISO-8601) | Account creation date |
+
+The response **never** includes `email`, `globalRole`, `status`, `id`, or any other field.
+
+**Error contract:**
+
+| Status | Condition |
+|---|---|
+| 400 | Missing or non-string (including empty) `:username` param |
+| 404 | User not found or not active — **identical message in both cases** (P12) |
+
+### UsersModule wiring
+
+`UsersModule` has two forms to avoid a circular-dependency between `AuthModule` and
+`UsersModule`:
+
+- **Static form** (`UsersModule` decorated with `@Module`) — imports only `TypeOrmModule`
+  and exports `UsersService`. `AuthModule` imports this form.
+- **Dynamic form** (`UsersModule.register(environment)`) — adds `AuthModule` and
+  `ThrottleModule` imports plus `UsersController`. `AppModule` calls this form.
+
+The split is required because a naive `UsersModule` importing `AuthModule` would create the
+cycle `AuthModule → UsersModule → AuthModule`.
 
 ## Security invariants
 
