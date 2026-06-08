@@ -155,6 +155,39 @@ describe("MediaService.assertValidFileSize", () => {
       expect((err as BadRequestException).message).toContain("too large");
     }
   });
+
+  // ST12: avatar-specific size cap
+  it("accepts an avatar within the avatar cap (1 MB)", () => {
+    // avatarUploadMaxSizeBytes is 1 MB in makeTestEnvironment()
+    const service = makeMediaService();
+    expect(() => service.assertValidFileSize(1 * 1024 * 1024, "avatar")).not.toThrow();
+  });
+
+  it("rejects an avatar that is one byte over the avatar cap", () => {
+    // AC: oversized avatar (just over avatar cap but under general cap) → 400
+    const service = makeMediaService();
+    expect(() => service.assertValidFileSize(1 * 1024 * 1024 + 1, "avatar")).toThrow(BadRequestException);
+  });
+
+  it("rejects an oversized avatar with a meaningful error message", () => {
+    const service = makeMediaService();
+    try {
+      service.assertValidFileSize(2 * 1024 * 1024, "avatar");
+      expect.fail("Expected BadRequestException");
+    } catch (err) {
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect((err as BadRequestException).message).toContain("too large");
+    }
+  });
+
+  it("applies the general cap (not the avatar cap) for non-avatar resource types", () => {
+    // A file larger than the avatar cap but under the general cap should pass for blog-post.
+    const service = makeMediaService();
+    // 1.5 MB: over avatar cap (1 MB) but under general cap (5 MB)
+    expect(() => service.assertValidFileSize(1.5 * 1024 * 1024, "blog-post")).not.toThrow();
+    // Same size must fail for avatar
+    expect(() => service.assertValidFileSize(1.5 * 1024 * 1024, "avatar")).toThrow(BadRequestException);
+  });
 });
 
 describe("MediaService.assertValidResourceType", () => {
@@ -371,6 +404,51 @@ describe("MediaService.uploadImage", () => {
     const polyglotFile = { ...validFile, mimetype: "image/jpeg", buffer: pngBuf };
     await expect(
       service.uploadImage("user-1", polyglotFile, "blog-comment", null)
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  // ST12: avatar resourceType tests
+
+  it("accepts a valid JPEG upload for resourceType avatar and stores under avatar/ prefix", async () => {
+    // AC: Stores under avatar/ prefix (storageKey = resourceType + '/' + uuid + ext)
+    vi.clearAllMocks();
+    const service = makeMediaService();
+    const result = await service.uploadImage("user-1", validFile, "avatar", null);
+    expect(result.id).toBeDefined();
+    expect(result.mimeType).toBe("image/jpeg");
+    expect(result.storageKey).toMatch(/^avatar\//);
+  });
+
+  it("rejects an avatar that exceeds the avatar size cap with 400 (oversized avatar)", async () => {
+    // AC: Rejects oversized avatars with 400 at the avatar cap
+    // avatarUploadMaxSizeBytes is 1 MB; use a file just over the cap but under the 5 MB general cap.
+    vi.clearAllMocks();
+    const service = makeMediaService();
+    const oversizedAvatarFile = { ...validFile, size: 1 * 1024 * 1024 + 1 };
+    await expect(
+      service.uploadImage("user-1", oversizedAvatarFile, "avatar", null)
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects a polyglot avatar (valid MIME header, non-matching magic bytes) with 400", async () => {
+    // AC: Magic-byte verification (ST11) applies to avatar uploads via shared uploadImage path
+    vi.clearAllMocks();
+    const service = makeMediaService();
+    // PNG bytes declared as image/jpeg
+    const pngBuf = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+    const polyglotAvatar = { ...validFile, mimetype: "image/jpeg", buffer: pngBuf };
+    await expect(
+      service.uploadImage("user-1", polyglotAvatar, "avatar", null)
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects an SVG avatar upload (image/svg+xml not in allow-list)", async () => {
+    // AC: SVG rejected — image/svg+xml not in allowedMimeTypes allow-list
+    vi.clearAllMocks();
+    const service = makeMediaService();
+    const svgFile = { ...validFile, mimetype: "image/svg+xml", buffer: Buffer.from("<svg xmlns=".padEnd(12, " ")) };
+    await expect(
+      service.uploadImage("user-1", svgFile, "avatar", null)
     ).rejects.toThrow(BadRequestException);
   });
 });

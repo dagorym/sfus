@@ -178,6 +178,44 @@ describe("MediaController.uploadImage authorization", () => {
 
     expect(result).toMatchObject({ id: "media-id" });
   });
+
+  // ST12: avatar resourceType authorization tests
+
+  it("throws UnauthorizedException (401) when uploading avatar with no session", async () => {
+    // AC: 401 returned when no session, for avatar resourceType
+    const authService = makeMockAuthService(null);
+    const mediaService = makeMockMediaService();
+    const controller = new MediaController(mediaService, authService);
+
+    await expect(
+      controller.uploadImage(makeRequest("") as never, makeValidFile(), "avatar")
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("succeeds (200) when a non-admin user uploads for avatar (self-service)", async () => {
+    // AC: POST /api/media/upload?resourceType=avatar succeeds for any active session
+    // (avatar not in ADMIN_ONLY_RESOURCE_TYPES — contrast with blog-post/standalone-page)
+    const session = makeAuthenticatedSession("user");
+    const authService = makeMockAuthService(session);
+    const mediaService = makeMockMediaService();
+    const controller = new MediaController(mediaService, authService);
+
+    const result = await controller.uploadImage(makeRequest() as never, makeValidFile(), "avatar");
+
+    expect(result).toMatchObject({ id: "media-id" });
+  });
+
+  it("succeeds (200) when an admin uploads for avatar", async () => {
+    // AC: admin may also upload avatar
+    const session = makeAuthenticatedSession("admin");
+    const authService = makeMockAuthService(session);
+    const mediaService = makeMockMediaService();
+    const controller = new MediaController(mediaService, authService);
+
+    const result = await controller.uploadImage(makeRequest() as never, makeValidFile(), "avatar");
+
+    expect(result).toMatchObject({ id: "media-id" });
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -147,6 +147,50 @@ describe("loadEnvironment", () => {
     ).toThrowError("MEDIA_UPLOAD_MAX_SIZE_BYTES must be an integer between 1024 and 20971520.");
   });
 
+  // ST12: MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES validation (range: 1024–2097152)
+  it("throws when MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES is missing", () => {
+    expect(() =>
+      loadEnvironment(process.cwd(), {
+        ...createValidEnvironment(),
+        MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES: ""
+      })
+    ).toThrowError("MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES is required.");
+  });
+
+  it("throws when MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES is below the minimum (1024)", () => {
+    expect(() =>
+      loadEnvironment(process.cwd(), {
+        ...createValidEnvironment(),
+        MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES: "1023"
+      })
+    ).toThrowError("MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES must be an integer between 1024 and 2097152.");
+  });
+
+  it("throws when MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES exceeds the maximum (2097152)", () => {
+    expect(() =>
+      loadEnvironment(process.cwd(), {
+        ...createValidEnvironment(),
+        MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES: "2097153"
+      })
+    ).toThrowError("MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES must be an integer between 1024 and 2097152.");
+  });
+
+  it("accepts MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES at the boundary values", () => {
+    // Lower bound
+    const envAtMin = loadEnvironment(process.cwd(), {
+      ...createValidEnvironment(),
+      MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES: "1024"
+    });
+    expect(envAtMin.media.avatarUploadMaxSizeBytes).toBe(1024);
+
+    // Upper bound
+    const envAtMax = loadEnvironment(process.cwd(), {
+      ...createValidEnvironment(),
+      MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES: "2097152"
+    });
+    expect(envAtMax.media.avatarUploadMaxSizeBytes).toBe(2097152);
+  });
+
   it("throws when MEDIA_ALLOWED_MIME_TYPES is missing or contains an invalid type", () => {
     expect(() =>
       loadEnvironment(process.cwd(), {
