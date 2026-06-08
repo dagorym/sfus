@@ -55,6 +55,9 @@ export class MediaService {
   /**
    * Validates and stores an uploaded image file. The upload is rejected when:
    * - the MIME type is not in the configured allow-list,
+   * - the file's leading bytes do not match the declared MIME type (magic-byte
+   *   verification — catches polyglot and mislabelled files even when the
+   *   Content-Type header names an allowed type),
    * - the file size exceeds the configured maximum,
    * - the resource type is not one of the milestone-scoped allowed values.
    *
