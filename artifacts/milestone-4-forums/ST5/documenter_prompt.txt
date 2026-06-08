@@ -1,0 +1,63 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST5 — Forum Posts: create, threading, quoting, locked-topic, paginated read. ForumsService gained createPost() and listPosts(). ForumsController gained POST/GET /forums/topics/:topicId/posts. New types: PublicPostShape, PaginatedPostsShape, CreatePostInput, PostListQuery. POST_NOT_FOUND_MESSAGE for oracle-parity. 27 ST5 tests added to service and controller test files.
+
+Acceptance criteria validated:
+- AC1: Create post requires active session (401); non-readable/nonexistent board or topic returns 404 with TOPIC_NOT_FOUND_MESSAGE (oracle parity); posting to locked topic returns 403 ForbiddenException.
+- AC2: Invalid parentId (nonexistent, different topic, reply-to-a-reply) returns uniform 400 with identical message; no existence oracle; save NOT called.
+- AC3: listPosts paginates deterministically oldest-first (createdAt ASC, id ASC); deletedAt:IsNull() guard asserted; pageSize clamped 1-100; skip/take translation verified.
+- AC4: Unsafe Markdown rejected 400 before persistence; public post shape exposes author.username/displayName and quotedPostId; strips authorUserId, topicId, deletedAt.
+
+Implementation branch or worktree context:
+- Implementation branch: ms4-st5-implementer-20260608 (commit c5b28fa)
+- Tester branch: ms4-st5-tester-20260608 (test commit f17f0b2)
+- Worktree: /home/tstephen/repos/worktrees/ms4-st5-tester-20260608
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/forums/forums.service.ts (createPost, listPosts, POST_NOT_FOUND_MESSAGE, toPostShape; 4th postRepo constructor arg)
+- apps/api/src/forums/forums.controller.ts (GET/POST /forums/topics/:topicId/posts)
+- apps/api/src/forums/forums.types.ts (PublicPostShape, PaginatedPostsShape, CreatePostInput, PostListQuery)
+- apps/api/src/forums/forums.service.test.ts (ST5 test suites added; makeForumsService factory already had 4th postRepo arg from implementer)
+- apps/api/src/forums/forums.controller.test.ts (ST5 test suites added; makeForumsService stub extended with createPost/listPosts)
+
+Test commit:
+- f17f0b2
+
+Commands executed:
+- pnpm --dir <worktree> install --frozen-lockfile
+- vitest run --root apps/api
+- pnpm typecheck
+- pnpm lint
+
+Final test outcomes:
+- 709 passed, 0 failed, 2 skipped (integration tests require SFUS_DB_INTEGRATION=1)
+- forums.service.test.ts: 112 tests — all pass (27 new ST5 tests included)
+- forums.controller.test.ts: 61 tests — all pass (4 new ST5 tests included)
+- typecheck: 0 errors
+- lint: 0 errors
+
+Documentation context:
+- docs/features/forums.md — canonical ST5 documentation target; add POST/GET /forums/topics/:topicId/posts endpoints.
+- New public API surface: POST /forums/topics/:topicId/posts (session-required, 401/403/404/400), GET /forums/topics/:topicId/posts (public, 404/200).
+- PublicPostShape fields: id, body, parentId, quotedPostId, author {username, displayName}, createdAt, updatedAt.
+- PaginatedPostsShape: posts, total, page, pageSize.
+- Locked topic 403 behavior; one-level threading constraint; oracle-parity 404 on nonexistent/gated topic.
+- Markdown sanitization contract (normalizeMarkdownBody + validateMarkdownBody before persistence).
+- listPosts: oldest-first (createdAt ASC, id ASC), deletedAt exclusion, page/pageSize with 1-100 clamp.
+
+Plan and diff context:
+- Plan: plans/milestone-4-forums-plan.md — ST5 subtask.
+- Base branch: ms4.
+- Compare ms4-st5-implementer-20260608 or ms4-st5-tester-20260608 against ms4 for diff.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
