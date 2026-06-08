@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/reviewer_report.md",
+    "artifacts/milestone-4-forums/reviewer_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-reviewer-20260608",
+  "final_outcome": "CONDITIONAL PASS",
+  "follow_up_feature_requests": [
+    "Forums docs accuracy fix (from ST6 verifier WARNING): in docs/features/forums.md Moderation section, correct 'six' -> 'five' moderation endpoints and remove the statement that 'unlisted' is a rejected move destination (site-scoped unlisted boards are publicly readable and are valid move targets). Doc-only; no code change. Trace: plan ST6 doc-impact + ST6 verifier WARNING.",
+    "Link-limiter word-boundary guard (from ST8 security WARNING / ST8->ST9 forward): add a leading word-boundary guard for the non-'//' schemes (mailto:, tel:) in apps/api/src/common/throttle/link-limit.ts mirroring the existing www. guard, and add a regression test asserting 'hotel:'/'motel:'/embedded 'mailto:' substrings are not counted as links. Reduces fail-safe false rejections; no security regression. Trace: plan R2/R6, ST8 AC (link-count limiter), ST8 security WARNING.",
+    "Optional avatar-src hardening (from ST17 security NOTE N1): make apps/web/components/user-avatar.tsx resolveAvatarSrc assert an expected /api/media/ prefix (or scheme allowlist) before rendering, as defense-in-depth even though the value is server-supplied. Low priority. Trace: plan ST17 security marker, ST17 NOTE N1.",
+    "Planning-cycle register closure (from ST18 / section-9 register delta): in the next planning cycle, edit docs/deferred-tasks.md to close the D9-3/ST18 currentRevision entry (now satisfied by 066b435), the magic-byte M2 finding (delivered in ST11), the D9-1 proxy/helmet executed tests (ST7), and the D9-2 blog explicit-slug 409 (ST10); and to record the planned M4 deferrals (Redis storage swap owner, captcha/bad-word -> M11, restricted/project boards -> M7/M8, per-board moderators, polls, topic split/merge, WYSIWYG + media-library picker -> M5, server-side avatar image processing). Register-only; per policy not done during this development cycle. Trace: plan section 9.",
+    "Optional test-coverage top-ups (from ST14/ST16/ST17 NOTEs): add a focused escapeLikePrefix unit test (assert q='a%b' yields the escaped LIKE operand) and, if the team later adopts a jsdom web harness, convert the ST17 source-audit avatar/render assertions to rendered-DOM assertions. Non-blocking quality items. Trace: ST14 NOTE, ST17 NOTE N2."
+  ],
+  "note_finding_count": 5,
+  "status": "complete",
+  "task_id": "milestone-4-forums/final-review",
+  "warning_finding_count": 2
+}
