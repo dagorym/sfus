@@ -25,6 +25,7 @@ import { ForumsService } from "./forums.service";
 interface MinimalRepo {
   find: ReturnType<typeof vi.fn>;
   findOne: ReturnType<typeof vi.fn>;
+  findAndCount: ReturnType<typeof vi.fn>;
   save: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
@@ -33,6 +34,7 @@ interface MinimalRepo {
 const createMinimalRepository = (): MinimalRepo => ({
   find: vi.fn().mockResolvedValue([]),
   findOne: vi.fn().mockResolvedValue(null),
+  findAndCount: vi.fn().mockResolvedValue([[], 0]),
   save: vi.fn().mockImplementation(async (e: unknown) => e),
   remove: vi.fn().mockResolvedValue(undefined),
   create: vi.fn().mockImplementation((partial?: unknown) => ({ ...(partial as object) }))
@@ -969,5 +971,337 @@ describe("ForumsService.reorderBoards (AC2: deterministic ordering)", () => {
 
     // Result is the final ordered list (deterministic)
     expect(result).toBe(reordered);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST4: createTopic — board visibility gate, Markdown validation, public shape
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.createTopic (ST4: board gate)", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+
+  const makePublicBoard = () => ({
+    id: "board-pub",
+    name: "Public Board",
+    slug: "public-board",
+    description: null,
+    sortOrder: 0,
+    scopeType: "site",
+    visibility: "public",
+    projectId: null,
+    categoryId: "cat-1",
+    createdAt: now,
+    updatedAt: now
+  });
+
+  // TC1: nonexistent board → TOPIC_NOT_FOUND_MESSAGE
+  it("throws NotFoundException with TOPIC_NOT_FOUND_MESSAGE for nonexistent board (TC1)", async () => {
+    const boardFindOneSpy = vi.fn().mockResolvedValue(null);
+    const service = makeForumsService(undefined, { findOne: boardFindOneSpy });
+    await expect(
+      service.createTopic("user-1", { boardId: "board-nonexistent", title: "Hello", body: "World" })
+    ).rejects.toThrow(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+  });
+
+  // TC2: gated board (members visibility) → IDENTICAL TOPIC_NOT_FOUND_MESSAGE
+  it("throws NotFoundException with IDENTICAL TOPIC_NOT_FOUND_MESSAGE for members-visibility board (TC2: oracle parity)", async () => {
+    const gatedBoard = {
+      ...makePublicBoard(),
+      visibility: "members"
+    };
+    const boardFindOneSpy = vi.fn().mockResolvedValue(gatedBoard);
+    const service = makeForumsService(undefined, { findOne: boardFindOneSpy });
+
+    // Nonexistent board throws the same message as gated board (oracle parity)
+    const nonexistentService = makeForumsService(undefined, { findOne: vi.fn().mockResolvedValue(null) });
+    await expect(
+      service.createTopic("user-1", { boardId: "board-gated", title: "Hello", body: "World" })
+    ).rejects.toThrow(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+    await expect(
+      nonexistentService.createTopic("user-1", { boardId: "board-missing", title: "Hello", body: "World" })
+    ).rejects.toThrow(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+    // Confirm both produce the exact same message
+    let gatedMsg = "";
+    let nonexistentMsg = "";
+    try { await service.createTopic("user-1", { boardId: "board-gated", title: "H", body: "B" }); } catch (e: unknown) { gatedMsg = (e as Error).message; }
+    try { await nonexistentService.createTopic("user-1", { boardId: "board-missing", title: "H", body: "B" }); } catch (e: unknown) { nonexistentMsg = (e as Error).message; }
+    expect(gatedMsg).toBe(nonexistentMsg);
+  });
+
+  // TC5: createTopic on readable board calls AuthorizationService.evaluate()
+  it("calls AuthorizationService.evaluate() when board is readable (TC5: spy asserted)", async () => {
+    const authorizationService = new AuthorizationService();
+    const evaluateSpy = vi.spyOn(authorizationService, "evaluate");
+
+    const savedTopic = {
+      id: "topic-1",
+      boardId: "board-pub",
+      authorUserId: "user-1",
+      title: "Hello",
+      slug: "hello",
+      body: "World",
+      isPinned: false,
+      isLocked: false,
+      replyCount: 0,
+      lastPostAt: null,
+      movedByUserId: null,
+      movedAt: null,
+      lockedByUserId: null,
+      lockedAt: null,
+      deletedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      author: { username: "testuser", displayName: "Test User" }
+    };
+
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicCreateSpy = vi.fn().mockReturnValue(savedTopic);
+    const topicSaveSpy = vi.fn().mockResolvedValue(savedTopic);
+    const topicFindOneSpy = vi.fn().mockResolvedValue(savedTopic);
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      { ...createMinimalRepository(), findOne: boardFindOneSpy } as never,
+      { ...createMinimalRepository(), create: topicCreateSpy, save: topicSaveSpy, findOne: topicFindOneSpy } as never,
+      authorizationService
+    );
+    await service.createTopic("user-1", { boardId: "board-pub", title: "Hello", body: "World" });
+    expect(evaluateSpy).toHaveBeenCalled();
+  });
+
+  // TC7: Unsafe Markdown (<script>) → BadRequestException, save NOT called
+  it("rejects <script> body with BadRequestException before persistence (TC7: unsafe Markdown)", async () => {
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { save: topicSaveSpy }
+    );
+    await expect(
+      service.createTopic("user-1", {
+        boardId: "board-pub",
+        title: "Test topic",
+        body: "<script>alert('xss')</script>"
+      })
+    ).rejects.toThrow(BadRequestException);
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // TC8: Unsafe Markdown (javascript: link) → 400 before persistence
+  it("rejects javascript: link body with BadRequestException before persistence (TC8: unsafe Markdown)", async () => {
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { save: topicSaveSpy }
+    );
+    await expect(
+      service.createTopic("user-1", {
+        boardId: "board-pub",
+        title: "Test topic",
+        body: "[click me](javascript:alert(1))"
+      })
+    ).rejects.toThrow(BadRequestException);
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // TC10: Public shape lacks authorUserId, boardId, isLocked, movedByUserId, lockedByUserId, deletedAt
+  //       and has author.username, author.displayName
+  it("response shape lacks internal fields and includes author.username/displayName (TC10: public shape)", async () => {
+    const savedTopic = {
+      id: "topic-shape",
+      boardId: "board-pub",
+      authorUserId: "user-secret",
+      title: "Shape Test",
+      slug: "shape-test",
+      body: "Hello world",
+      isPinned: false,
+      isLocked: true,
+      replyCount: 5,
+      lastPostAt: now,
+      movedByUserId: "mover-id",
+      movedAt: now,
+      lockedByUserId: "locker-id",
+      lockedAt: now,
+      deletedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      author: { username: "testuser", displayName: "Test User" }
+    };
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicCreateSpy = vi.fn().mockReturnValue(savedTopic);
+    const topicSaveSpy = vi.fn().mockResolvedValue(savedTopic);
+    const topicFindOneSpy = vi.fn().mockResolvedValue(savedTopic);
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { create: topicCreateSpy, save: topicSaveSpy, findOne: topicFindOneSpy }
+    );
+    const result = await service.createTopic("user-1", { boardId: "board-pub", title: "Shape Test", body: "Hello world" });
+
+    // Internal fields must be absent
+    expect(result).not.toHaveProperty("authorUserId");
+    expect(result).not.toHaveProperty("boardId");
+    expect(result).not.toHaveProperty("isLocked");
+    expect(result).not.toHaveProperty("movedByUserId");
+    expect(result).not.toHaveProperty("lockedByUserId");
+    expect(result).not.toHaveProperty("deletedAt");
+
+    // Public author sub-object present with correct fields
+    expect(result.author).toBeDefined();
+    expect(result.author.username).toBe("testuser");
+    expect(result.author.displayName).toBe("Test User");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST4: listTopics — board gate, pinned ordering, pagination, public shape
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.listTopics (ST4: board gate + pagination)", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+
+  const makePublicBoard = () => ({
+    id: "board-pub",
+    name: "Public Board",
+    slug: "public-board",
+    description: null,
+    sortOrder: 0,
+    scopeType: "site",
+    visibility: "public",
+    projectId: null,
+    categoryId: "cat-1",
+    createdAt: now,
+    updatedAt: now
+  });
+
+  // TC3: listTopics nonexistent board → TOPIC_NOT_FOUND_MESSAGE
+  it("throws NotFoundException with TOPIC_NOT_FOUND_MESSAGE for nonexistent board (TC3)", async () => {
+    const service = makeForumsService(undefined, { findOne: vi.fn().mockResolvedValue(null) });
+    await expect(service.listTopics("board-missing", {})).rejects.toThrow(
+      ForumsService.TOPIC_NOT_FOUND_MESSAGE
+    );
+  });
+
+  // TC4: listTopics gated board → IDENTICAL TOPIC_NOT_FOUND_MESSAGE
+  it("throws IDENTICAL TOPIC_NOT_FOUND_MESSAGE for gated board as for nonexistent board (TC4: oracle parity)", async () => {
+    const gatedBoard = { ...makePublicBoard(), visibility: "project-only" };
+    const gatedService = makeForumsService(undefined, { findOne: vi.fn().mockResolvedValue(gatedBoard) });
+    const missingService = makeForumsService(undefined, { findOne: vi.fn().mockResolvedValue(null) });
+
+    let gatedMsg = "";
+    let missingMsg = "";
+    try { await gatedService.listTopics("board-gated", {}); } catch (e: unknown) { gatedMsg = (e as Error).message; }
+    try { await missingService.listTopics("board-missing", {}); } catch (e: unknown) { missingMsg = (e as Error).message; }
+    expect(gatedMsg).toBe(missingMsg);
+    expect(gatedMsg).toBe(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+  });
+
+  // TC6: listTopics on readable board calls evaluate()
+  it("calls AuthorizationService.evaluate() when board is readable (TC6: spy asserted)", async () => {
+    const authorizationService = new AuthorizationService();
+    const evaluateSpy = vi.spyOn(authorizationService, "evaluate");
+
+    const topics: unknown[] = [];
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicFindAndCountSpy = vi.fn().mockResolvedValue([topics, 0]);
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      { ...createMinimalRepository(), findOne: boardFindOneSpy } as never,
+      { ...createMinimalRepository(), findAndCount: topicFindAndCountSpy } as never,
+      authorizationService
+    );
+    await service.listTopics("board-pub", {});
+    expect(evaluateSpy).toHaveBeenCalled();
+  });
+
+  // TC9: findAndCount called with order {isPinned:'DESC', lastPostAt:'DESC', createdAt:'DESC'}
+  it("passes correct pinned+activity order to findAndCount (TC9: pinned ordering)", async () => {
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicFindAndCountSpy = vi.fn().mockResolvedValue([[], 0]);
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { findAndCount: topicFindAndCountSpy }
+    );
+    await service.listTopics("board-pub", {});
+    expect(topicFindAndCountSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order: { isPinned: "DESC", lastPostAt: "DESC", createdAt: "DESC" }
+      })
+    );
+  });
+
+  // TC11: listTopics public shape: same field-stripping as createTopic (TC11)
+  it("returned topic shapes lack internal fields and include author.username/displayName (TC11: shape)", async () => {
+    const topicEntity = {
+      id: "topic-list",
+      boardId: "board-pub",
+      authorUserId: "user-secret",
+      title: "List Topic",
+      slug: "list-topic",
+      body: "Content here",
+      isPinned: false,
+      isLocked: false,
+      replyCount: 2,
+      lastPostAt: now,
+      movedByUserId: null,
+      movedAt: null,
+      lockedByUserId: null,
+      lockedAt: null,
+      deletedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      author: { username: "listuser", displayName: "List User" }
+    };
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicFindAndCountSpy = vi.fn().mockResolvedValue([[topicEntity], 1]);
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { findAndCount: topicFindAndCountSpy }
+    );
+    const result = await service.listTopics("board-pub", {});
+    expect(result.topics).toHaveLength(1);
+    const topic = result.topics[0];
+    expect(topic).not.toHaveProperty("authorUserId");
+    expect(topic).not.toHaveProperty("boardId");
+    expect(topic).not.toHaveProperty("isLocked");
+    expect(topic).not.toHaveProperty("movedByUserId");
+    expect(topic).not.toHaveProperty("lockedByUserId");
+    expect(topic).not.toHaveProperty("deletedAt");
+    expect(topic.author.username).toBe("listuser");
+    expect(topic.author.displayName).toBe("List User");
+  });
+
+  // TC12: Pagination: page=2, pageSize=5 → skip=5, take=5
+  it("translates page=2, pageSize=5 into skip=5, take=5 (TC12: pagination offset)", async () => {
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicFindAndCountSpy = vi.fn().mockResolvedValue([[], 0]);
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { findAndCount: topicFindAndCountSpy }
+    );
+    await service.listTopics("board-pub", { page: 2, pageSize: 5 });
+    expect(topicFindAndCountSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 5, take: 5 })
+    );
+  });
+
+  // TC13: Pagination clamping: pageSize=999 → clamped to 100
+  it("clamps pageSize=999 to 100 (TC13: pagination clamping)", async () => {
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicFindAndCountSpy = vi.fn().mockResolvedValue([[], 0]);
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { findAndCount: topicFindAndCountSpy }
+    );
+    await service.listTopics("board-pub", { page: 1, pageSize: 999 });
+    const callArgs = topicFindAndCountSpy.mock.calls[0][0] as { take: number };
+    expect(callArgs.take).toBe(100);
   });
 });

@@ -68,6 +68,9 @@ const makeForumsService = (overrides?: Record<string, unknown>) => ({
   // ST3: public read routes
   listPublicCategories: vi.fn().mockResolvedValue([]),
   getPublicBoard: vi.fn().mockResolvedValue(null),
+  // ST4: topic routes
+  createTopic: vi.fn().mockResolvedValue({ id: "topic-new", title: "Test", slug: "test", body: "Body", isPinned: false, replyCount: 0, lastPostAt: null, author: { username: "u", displayName: null }, createdAt: new Date(), updatedAt: new Date() }),
+  listTopics: vi.fn().mockResolvedValue({ topics: [], total: 0, page: 1, pageSize: 20 }),
   ...overrides
 });
 
@@ -701,5 +704,80 @@ describe("ForumsController source-contract: Swagger/JSDoc status code documentat
   it("Swagger decorators use ApiBadRequestResponse (400) on handlers with invalid input", async () => {
     const source = await readFile(controllerSourcePath, "utf-8");
     expect(source).toContain("ApiBadRequestResponse");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST4: createTopic controller — 401 gate fires before any service call (TC14)
+// ---------------------------------------------------------------------------
+
+describe("ForumsController: createTopic — 401 gate fires before any service call (TC14)", () => {
+  // TC14: resolveSession rejection → UnauthorizedException BEFORE any service call
+  it("throws UnauthorizedException and does NOT call forumsService when session is missing (TC14)", async () => {
+    const createTopicSpy = vi.fn();
+    const listTopicsSpy = vi.fn();
+    const forumsService = makeForumsService({
+      createTopic: createTopicSpy,
+      listTopics: listTopicsSpy
+    });
+    const authService = makeAuthServiceNoSession();
+    const controller = makeController(forumsService as never, authService as never);
+
+    await expect(
+      controller.createTopic(
+        makeRequest() as never,
+        "board-1",
+        { title: "Test", body: "Test body" }
+      )
+    ).rejects.toThrow(UnauthorizedException);
+
+    // Service methods must not have been called
+    expect(createTopicSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST4: listTopics and createTopic — happy-path controller delegation
+// ---------------------------------------------------------------------------
+
+describe("ForumsController: listTopics (ST4: public route, no auth)", () => {
+  it("delegates to forumsService.listTopics and returns paginated result", async () => {
+    const now = new Date("2026-01-01T00:00:00Z");
+    const paginatedResult = {
+      topics: [
+        {
+          id: "topic-1",
+          title: "Test Topic",
+          slug: "test-topic",
+          body: "Body",
+          isPinned: false,
+          replyCount: 0,
+          lastPostAt: null,
+          author: { username: "user1", displayName: "User One" },
+          createdAt: now,
+          updatedAt: now
+        }
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 20
+    };
+    const listTopicsSpy = vi.fn().mockResolvedValue(paginatedResult);
+    const authServiceSpy = { resolveSession: vi.fn() };
+    const forumsService = makeForumsService({ listTopics: listTopicsSpy });
+    const controller = makeController(forumsService as never, authServiceSpy as never);
+    const result = await controller.listTopics("board-1");
+    expect(result).toEqual(paginatedResult);
+    expect(listTopicsSpy).toHaveBeenCalledWith("board-1", { page: undefined, pageSize: undefined });
+    // No auth required for public listing
+    expect(authServiceSpy.resolveSession).not.toHaveBeenCalled();
+  });
+
+  it("passes parsed page and pageSize query params to forumsService.listTopics", async () => {
+    const listTopicsSpy = vi.fn().mockResolvedValue({ topics: [], total: 0, page: 2, pageSize: 5 });
+    const forumsService = makeForumsService({ listTopics: listTopicsSpy });
+    const controller = makeController(forumsService as never, makeAuthService() as never);
+    await controller.listTopics("board-1", "2", "5");
+    expect(listTopicsSpy).toHaveBeenCalledWith("board-1", { page: 2, pageSize: 5 });
   });
 });
