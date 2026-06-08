@@ -1,0 +1,79 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST16 — Next.js web surfaces under /forums: category/board index (site boards only via the ST3 public read API), board view (paginated topics), topic view (paginated posts via MarkdownRenderer, sanitized), create-topic + reply forms (reuse MarkdownEditor + ImageUpload), quote-a-post affordance, @username autocomplete (mention-autocomplete component calling the ST14 suggest endpoint) with rendered @username linking to /users/<username>, and moderator-only pin/lock/move controls (client-gated via resolveProtectedSession()+hasGlobalRole; the ST6 API is the real enforcement boundary). Locked topics hide the reply form + show a notice. Reuses existing editor/renderer/upload. 75 new web specs; web suite green (368 pass, typecheck 0 errors, lint clean).
+
+Acceptance criteria to verify:
+- AC1: Forum index renders ONLY site boards (public read API; project-scoped boards never appear); all user-authored content renders through MarkdownRenderer — no raw dangerouslySetInnerHTML on forum pages
+- AC2: Authenticated members can create topics and post replies; unauthenticated guests see a sign-in affordance that preserves ?next= pointing at the forum URL
+- AC3: Locked topics hide the reply form entirely and show a locked-topic notice ("This topic is locked. No new replies can be posted.")
+- AC4: Moderator controls (pin/lock/move) render only for sessions where hasGlobalRole evaluates to moderator or admin; absent for regular member and guest sessions
+- AC5: @username autocomplete queries the ST14 suggest endpoint on @-trigger; selected suggestion is inserted as plain text @username; rendered @username handles in Markdown link to /users/<encodeURIComponent(username)>
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st16-documenter-20260608
+- Branch: ms4-st16-documenter-20260608 (includes Implementer commit, Tester commit d0a9080, Documenter commit d0c737f)
+- Base branch: ms4
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/forums/page.tsx
+- apps/web/app/forums/[boardSlug]/page.tsx
+- apps/web/app/forums/[boardSlug]/[topicSlug]/page.tsx
+- apps/web/app/forums/[boardSlug]/new-topic/page.tsx
+- apps/web/app/forums/forums-client.ts
+- apps/web/app/forums/forums.module.css
+- apps/web/components/mention-autocomplete.tsx
+- apps/web/components/mention-autocomplete.module.css
+- apps/web/app/forums/forums.spec.ts
+- apps/web/components/mention-autocomplete.spec.ts
+- docs/features/forums.md
+- docs/features/web-shell.md
+- docs/guides/content-management.md
+
+Commands executed by the Tester:
+- npx vitest run --root apps/web
+- pnpm typecheck
+- pnpm lint
+
+Final test outcomes:
+- vitest: 368 passed (368), 10 test files — PASS
+- typecheck: 0 errors — PASS
+- lint: 0 errors, 0 warnings — PASS
+- forums.spec.ts: 51 tests PASS
+- mention-autocomplete.spec.ts: 24 tests PASS
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-plan.md — ST16 section
+- Documentation Impact (from plan): EXTEND docs/features/forums.md with WEB SURFACES section; EXTEND docs/features/web-shell.md with /forums/* route map; ADD/extend forum moderation how-to in docs/guides/content-management.md; do NOT edit docs/deferred-tasks.md
+- Base branch: ms4
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table
+- docs/features/forums.md is the primary home for all forum contracts (API and web)
+- docs/features/web-shell.md covers the Next.js route map
+- docs/guides/content-management.md covers admin/mod how-tos
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe
+
+Updated documentation files:
+- docs/features/forums.md (added WEB SURFACES ST16 section replacing one-line forward-reference)
+- docs/features/web-shell.md (added four /forums/* routes to route map table)
+- docs/guides/content-management.md (added web-UI moderation walkthrough for pin/lock/move)
+
+Documentation commit: d0c737f
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST16
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Confirm no dangerouslySetInnerHTML on user-authored content in any forum page.
+- Confirm @username mention links render as /users/<encodeURIComponent(username)>.
+- Confirm locked-topic gate: reply form hidden, lockedNotice shown, sign-in link also hidden.
+- Confirm moderator controls (moderationBar) rendered only when hasGlobalRole evaluates to moderator/admin.
+- Confirm ?next= URLs are URL-encoded and point to the correct destination.
+- Confirm documentation files are accurate and consistent with the actual implementation.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
