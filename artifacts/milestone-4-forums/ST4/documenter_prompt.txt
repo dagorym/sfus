@@ -1,0 +1,64 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST4 verifier-driven remediation pass 2. Implementer fixed WARNING-1 in forums.service.ts (createTopic now has explicit typeof!=="string" guards on title and body, yielding BadRequestException 400 not TypeError 500 for missing or non-string inputs). Tester added two new regression tests to forums.service.test.ts: TEST A asserts listTopics issues findAndCount with deletedAt:IsNull() in the where clause (soft-delete exclusion, WARNING-2 coverage); TEST B asserts createTopic rejects missing/non-string title or body with 400 and does not call save. All original ST4 tests (TC1–TC13) remain passing: 682 total tests pass.
+
+Acceptance criteria validated:
+- TEST A (WARNING-2 regression): listTopics findAndCount where clause contains deletedAt:IsNull() — structural assertion; dropping the condition fails the test
+- TEST B (WARNING-1 fix): createTopic with undefined/number/object body or undefined/number title throws BadRequestException (400), NOT TypeError (500), save NOT called
+- TC1: nonexistent board → NotFoundException with TOPIC_NOT_FOUND_MESSAGE
+- TC2: gated (members-visibility) board → identical TOPIC_NOT_FOUND_MESSAGE (oracle parity)
+- TC3: listTopics nonexistent board → TOPIC_NOT_FOUND_MESSAGE
+- TC4: listTopics gated board → identical TOPIC_NOT_FOUND_MESSAGE (oracle parity)
+- TC5: createTopic on readable board calls AuthorizationService.evaluate()
+- TC6: listTopics on readable board calls AuthorizationService.evaluate()
+- TC7–TC8: unsafe Markdown (script tag, javascript: link) → 400 before persistence
+- TC9: findAndCount called with order {isPinned:DESC, lastPostAt:DESC, createdAt:DESC}
+- TC10–TC11: public response shape strips authorUserId/boardId/isLocked/movedByUserId/lockedByUserId/deletedAt; includes author.username/displayName
+- TC12: page=2, pageSize=5 → skip=5, take=5
+- TC13: pageSize=999 clamped to 100
+
+Implementation branch or worktree context:
+- Tester worktree: ms4-st4-tester-20260608 (branched from ms4-st4-implementer-20260608, base branch ms4)
+- Compare against ms4 main branch for documentation diff
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/forums/forums.service.ts (implementer: added typeof!=="string" guards in createTopic for title and body)
+- apps/api/src/forums/forums.service.test.ts (tester: added TEST A and TEST B regression tests)
+
+Test commit:
+- e3bb4b1ec75c74ed347b32b8c5e38de84ee46c24
+
+Commands executed:
+- pnpm --dir <worktree> install --frozen-lockfile
+- vitest run --root apps/api
+- pnpm typecheck
+- pnpm lint
+
+Final test outcomes:
+- 682 passed, 2 skipped (DB-gated integration tests, expected), 0 failed
+- forums.service.test.ts: 89 tests all passing
+- typecheck: 0 errors; lint: 0 warnings
+- All new regression tests (TEST A and TEST B) pass
+- All original ST4 tests (TC1–TC13) pass
+
+Documentation context:
+- docs/features/forums.md — primary documentation target; confirm it covers the 400 contract for missing/non-string title or body in createTopic (the WARNING-1 fix makes this contract explicit)
+- docs/features/forums.md — confirm soft-delete exclusion behavior for listTopics (WARNING-2: deletedAt IS NULL filter) is documented
+- No new public API surface was introduced; the fix enforces what was already the intended contract
+
+Plan and diff context:
+- plans/milestone-4-forums-plan.md — ST4 covers forum topics create+list
+- This is remediation pass 2; the significant behavioral change is in forums.service.ts createTopic (type-guard fix from TypeError→BadRequestException)
+- Infer comparison base from repository context if needed; most likely compare the tester worktree branch against ms4
+
+Startup behavior:
+- If tester branch/worktree context and story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST4
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
