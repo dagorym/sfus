@@ -57,6 +57,41 @@ describe("Proxy-hop: request.ip under trust proxy=1", () => {
   });
 
   /**
+   * Over-trust regression guard (security concern from first Verifier pass).
+   *
+   * When a TWO-entry X-Forwarded-For header is present (forged leftmost entry
+   * followed by the real immediate-hop client address), `trust proxy=1` must
+   * treat ONLY the rightmost entry as the client IP and discard the forged
+   * leftmost entry.
+   *
+   * Under the correct setting (`trust proxy=1`):
+   *   X-Forwarded-For: "1.1.1.1, 203.0.113.42"
+   *   →  request.ip === "203.0.113.42"  (rightmost, the real immediate hop)
+   *
+   * Under an over-trust regression (`trust proxy>=2`) this test would FAIL
+   * because Express would walk one extra hop and return "1.1.1.1" — the
+   * attacker-controlled leftmost entry.
+   *
+   * Security rationale: ST8/ST9 rate-limiting keys off `request.ip`.  An
+   * over-trust regression would let an attacker evade or mis-attribute
+   * throttles by prepending a forged IP to X-Forwarded-For.
+   */
+  it("rejects a spoofed leftmost entry in a two-hop X-Forwarded-For header", async () => {
+    const app = createTestApp();
+    const realIp = "203.0.113.42"; // TEST-NET-3 (RFC 5737) — real immediate hop
+    const spoofedIp = "1.1.1.1"; // attacker-controlled forged leftmost entry
+
+    const res = await request(app)
+      .get("/api/test/echo-ip")
+      .set("X-Forwarded-For", `${spoofedIp}, ${realIp}`)
+      .expect(200);
+
+    // Must resolve to the rightmost (real) entry, not the spoofed leftmost.
+    expect(res.body).toHaveProperty("ip", realIp);
+    expect(res.body.ip).not.toBe(spoofedIp);
+  });
+
+  /**
    * When no X-Forwarded-For header is present (direct connection), Express
    * falls back to the socket remote address.  supertest connects to the
    * server via loopback, so the resolved IP should be the loopback address
