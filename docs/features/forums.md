@@ -1,6 +1,6 @@
 # Forums
 
-Forum categories, boards, and topics — admin management, public read, and member topic creation. Posts and moderation are covered in later subtasks (ST5–ST6).
+Forum categories, boards, topics, and posts — admin management, public read, member topic creation (ST4), and member post creation with threaded replies (ST5). Moderation is covered in ST6.
 
 **Code:** `apps/api/src/forums/`
 **Related:** [authorization](authorization.md) for the admin gate · [development/api-conventions](../development/api-conventions.md) for the error envelope
@@ -102,6 +102,8 @@ Stripped from the public shape (internal-only): `scopeType`, `projectId`, `categ
 | GET | `/api/forums/boards/:id` | None | 200 / 404 | `{ board }` as `PublicBoardShape`. `404` for both nonexistent and non-publicly-accessible boards (identical message). |
 | GET | `/api/forums/boards/:boardId/topics` | None | 200 / 404 | `PaginatedTopicsShape`. `404` for both nonexistent and non-publicly-accessible boards (identical message). |
 | POST | `/api/forums/boards/:boardId/topics` | Session cookie | 201 / 400 / 401 / 404 | `{ topic }` as `PublicTopicShape`. Requires active session (401). Board must be publicly readable (404). Body must pass Markdown safety validation (400). |
+| GET | `/api/forums/topics/:topicId/posts` | None | 200 / 404 | `PaginatedPostsShape`. `404` when board or topic is nonexistent, hidden, or soft-deleted (identical message). |
+| POST | `/api/forums/topics/:topicId/posts` | Session cookie | 201 / 400 / 401 / 403 / 404 | `{ post }` as `PublicPostShape`. Requires active session (401). Board+topic must be publicly readable and topic non-deleted (404). Locked topic returns 403. Unsafe Markdown or invalid `parentId` returns 400. |
 
 ## Topic routes (ST4)
 
@@ -255,9 +257,109 @@ Both `reorderCategories` and `reorderBoards` are fully deterministic:
 
 All 11 admin endpoints are annotated with `@ApiOperation`, `@Api*Response` decorators documenting the `401`/`403`/`400`/`404` contract. The controller file header and each handler JSDoc block document the full error contract inline.
 
+## Post routes (ST5)
+
+### Member-authenticated post creation
+
+`POST /api/forums/topics/:topicId/posts`
+
+Requires an active session cookie (`sfus_session`). The controller resolves the session first and throws `401` before any service call if the session is missing or invalid.
+
+**Request body:**
+
+```json
+{ "body": "string (Markdown)", "parentId": "string (optional)", "quotedPostId": "string (optional)" }
+```
+
+**Validation and security order (all happen before persistence):**
+
+1. `AuthService.resolveSession()` — throws `401` if no active session.
+2. Board + topic lookup + visibility gate — the topic's board must exist and be publicly readable, and the topic must exist and be non-deleted. All failure cases return `404` with `ForumsService.TOPIC_NOT_FOUND_MESSAGE` (oracle parity, P12): nonexistent board, hidden board, nonexistent topic, soft-deleted topic.
+3. Locked topic gate — if `topic.isLocked` is true, throws `403` with `"This topic is locked. New posts are not allowed."`.
+4. Body type guard — missing or non-string `body` returns `400`.
+5. `normalizeMarkdownBody(body)` — normalizes whitespace/structure.
+6. `validateMarkdownBody(normalizedBody)` — rejects unsafe content (e.g. `<script>`, `javascript:` links) with `400` **before any DB write**.
+7. `parentId` threading validation — if `parentId` is provided, it must reference a **top-level post** (`parentId IS NULL`) on the **same topic** (`topicId` matches), and must not be soft-deleted. Any violation (nonexistent, different topic, reply-to-a-reply) returns a uniform `400 "parentId is invalid."` with **no existence oracle** — callers cannot infer whether the parent exists in another topic.
+8. `quotedPostId` — accepted as a soft-reference (no FK enforcement). Rendering is handled by the web layer (ST16).
+
+After persistence, the topic's `replyCount` is incremented by 1 and `lastPostAt` is updated to the current time.
+
+**Response (201):** `{ post: PublicPostShape }`
+
+**Error contract:**
+
+| Status | Condition |
+|---|---|
+| 400 | Missing or non-string body, unsafe Markdown in body, or invalid `parentId` (uniform message, no existence oracle) |
+| 401 | No active session |
+| 403 | Topic is locked (`"This topic is locked. New posts are not allowed."`) |
+| 404 | Board or topic not found, board not publicly readable, or topic soft-deleted (identical message in all cases) |
+
+### Public paginated post list
+
+`GET /api/forums/topics/:topicId/posts`
+
+No authentication required. Returns posts for any topic whose board passes the same public visibility predicate as the board read routes, and whose topic is not soft-deleted.
+
+**Query parameters:**
+
+| Parameter | Default | Constraints | Notes |
+|---|---|---|---|
+| `page` | `1` | ≥ 1; clamped to 1 | 1-indexed page number |
+| `pageSize` | `20` | 1–100; clamped to 100 | Number of posts per page |
+
+**Sort order (deterministic, oldest-first):**
+
+`createdAt ASC`, then `id ASC` as tie-break. This produces a flat oldest-first list consistent with the threading requirement.
+
+Only non-deleted posts (`deletedAt IS NULL`) are returned.
+
+**Response (200):** `PaginatedPostsShape`
+
+```typescript
+{
+  posts: PublicPostShape[];
+  total: number;   // total matching post count (for stable pagination)
+  page: number;    // resolved page (after clamping)
+  pageSize: number; // resolved pageSize (after clamping)
+}
+```
+
+**Error contract:**
+
+| Status | Condition |
+|---|---|
+| 404 | Board or topic not found, board not publicly readable, or topic soft-deleted (identical message in all cases) |
+
+### Post response shapes
+
+`PublicPostShape` — fields returned per post. Internal-only fields are stripped: `authorUserId` (FK), `topicId` (implicit from URL), `deletedAt`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string (UUID) | |
+| `body` | string | Normalized Markdown |
+| `parentId` | `string \| null` | `null` for top-level posts; id of the parent post for replies |
+| `quotedPostId` | `string \| null` | Soft-reference to a quoted post; rendering handled by web layer (ST16) |
+| `author` | `PublicAuthorShape` | `username` and `displayName` only (same shape as on topics) |
+| `createdAt` | Date | |
+| `updatedAt` | Date | |
+
+### Oracle parity for post routes (P12)
+
+All `404` responses on post routes use `ForumsService.TOPIC_NOT_FOUND_MESSAGE` (`"Forum topic not found."`), regardless of whether the board is nonexistent, the board is hidden, the topic is nonexistent, or the topic is soft-deleted. The error message is **identical in all cases** so callers cannot infer existence or visibility of boards or topics from post-route error messages. This mirrors the same pattern on board routes and topic routes.
+
+### One-level threading constraint
+
+`parentId` enforces a strict one-level threading model. A parent post must:
+- exist and not be soft-deleted,
+- belong to the **same topic** as the new post, and
+- itself be a top-level post (`parentId IS NULL`).
+
+Violations of any of these conditions produce the same `400 "parentId is invalid."` response. There is **no existence oracle**: callers cannot determine whether a given `parentId` exists in another topic by observing the error.
+
 ## Planned extensions
 
 The following surfaces are not yet implemented and are not documented here:
 
-- **ST5** — Posts (replies within a topic).
 - **ST6** — Moderation (pin, lock, delete, move topics and posts).
