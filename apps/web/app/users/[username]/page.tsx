@@ -8,8 +8,8 @@
  * Security:
  * - Renders ONLY the five allowlisted fields returned by the ST14 API:
  *   username, displayName, avatar, bio, joinDate.
- *   The profileProjection() helper enforces this at runtime — unknown keys
- *   are dropped even if the API response contains them.
+ *   The profileProjection() helper (see ./profile-projection) enforces this at
+ *   runtime — unknown keys are dropped even if the API response contains them.
  * - Avatar src comes exclusively from the gated /api/media/<id> path (ST15/ST12).
  *   The UserAvatar component degrades to the initials fallback on load failure.
  * - No user-supplied HTML is rendered (all text via React text nodes).
@@ -22,55 +22,9 @@ import { useParams } from "next/navigation";
 
 import { UserAvatar } from "../../../components/user-avatar";
 import styles from "../../forums/forums.module.css";
+import { profileProjection, type PublicProfileShape } from "./profile-projection";
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api";
-
-// ---------------------------------------------------------------------------
-// Types — five allowlisted fields only
-// ---------------------------------------------------------------------------
-
-/**
- * Exactly the five fields the ST14 /users/:username endpoint returns.
- * Adding any field here is a security-relevant change: confirm against
- * ST14 users.types.ts PublicProfileShape before doing so.
- */
-export interface PublicProfileShape {
-  username: string;
-  displayName: string | null;
-  avatar: string | null;
-  bio: string | null;
-  joinDate: string;
-}
-
-// ---------------------------------------------------------------------------
-// profileProjection — drops unknown keys (output guard)
-// ---------------------------------------------------------------------------
-
-/**
- * Project an API response object into ONLY the five permitted public profile
- * fields. Any keys not in this allowlist are silently dropped.
- *
- * Exported for unit-testability.
- *
- * Regression contract: if a required field is missing the function returns
- * null, preventing rendering of incomplete data.
- */
-export function profileProjection(raw: unknown): PublicProfileShape | null {
-  if (typeof raw !== "object" || raw === null) return null;
-  const r = raw as Record<string, unknown>;
-
-  // All five fields must be present (username and joinDate are required strings).
-  if (typeof r["username"] !== "string" || r["username"].trim() === "") return null;
-  if (typeof r["joinDate"] !== "string" || r["joinDate"].trim() === "") return null;
-
-  return {
-    username: r["username"],
-    displayName: typeof r["displayName"] === "string" ? r["displayName"] : null,
-    avatar: typeof r["avatar"] === "string" && r["avatar"].trim() !== "" ? r["avatar"] : null,
-    bio: typeof r["bio"] === "string" ? r["bio"] : null,
-    joinDate: r["joinDate"]
-  };
-}
 
 // ---------------------------------------------------------------------------
 // API client

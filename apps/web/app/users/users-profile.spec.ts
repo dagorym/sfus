@@ -12,7 +12,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { profileProjection } from "./[username]/page";
+import { profileProjection } from "./[username]/profile-projection";
 
 // ---------------------------------------------------------------------------
 // profileProjection — five-field allowlist enforcer
