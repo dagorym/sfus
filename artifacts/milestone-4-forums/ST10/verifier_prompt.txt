@@ -1,0 +1,52 @@
+You are the Verifier Agent for this project. Your task is to verify ST10 (Blog explicit-slug duplicate-key -> 409) on branch ms4-st10-documenter-20260608.
+
+Do not stop after activation, scope confirmation, or diff inspection when blocking inputs are present. Continue through the full verification workflow in the same run.
+
+## Story Summary
+
+BlogService.create() (explicit caller-supplied slug) and BlogService.update() (slug-changing update)
+now map a duplicate-key DB error to a 409 ConflictException ("A post with this slug already exists.")
+instead of a raw 500, reusing the existing isDuplicateKeyError() helper. The auto-derived slug retry
+path is unchanged. 7 new tests; full suite 795 pass, typecheck 0 errors, lint clean.
+Not security-marked.
+
+## Acceptance Criteria
+
+1. Explicit-slug create on a colliding slug → 409 Conflict (not 500).
+2. Slug-changing update on a colliding slug → 409 Conflict (not 500).
+3. Auto-derived slug retry path → unchanged (still retries 3 times then 409 on exhaustion).
+4. Non-slug-change updates and non-duplicate-key errors → propagate unchanged.
+
+## Modified Files (full review surface)
+
+**Implementation:**
+- apps/api/src/blog/blog.service.ts — create() explicit-slug path wraps save() in try/catch and maps isDuplicateKeyError() to ConflictException; update() wraps save() and maps isDuplicateKeyError() when input.slug is defined to ConflictException.
+
+**Tests:**
+- apps/api/src/blog/blog.service.test.ts — 7 new tests covering the four acceptance criteria cases.
+
+**Documentation:**
+- docs/features/blog.md — slug validation rule split into explicit-slug sub-bullet (409 on collision, no retry) and auto-derived sub-bullet (retry up to 3 times then 409); admin POST and PATCH route rows annotated with "When slug is supplied and already in use → 409 Conflict."
+
+**Artifacts (reference only, not under test):**
+- artifacts/milestone-4-forums/ST10/ — implementer, tester, and documenter artifacts.
+
+## Verification Scope
+
+1. Inspect the diff from base branch ms4 to HEAD on the worktree branch to confirm the implementation matches the story description.
+2. Confirm the 7 new tests exist in blog.service.test.ts and cover the four acceptance criteria.
+3. Confirm docs/features/blog.md accurately reflects the implemented behavior — explicit-slug 409, update slug-change 409, auto-derived path unchanged.
+4. Run the API test suite (pnpm --dir apps/api test or equivalent from the worktree root — note: no node_modules in the worktree; install first with pnpm --dir <worktree>/apps/api install or use vitest run --root apps/api from the main repo) and confirm 795 tests pass with 0 typecheck errors.
+5. Confirm no behavioral changes outside the explicit-slug 409 mapping scope are present.
+
+## Artifact Directory
+
+artifacts/milestone-4-forums/ST10
+
+## Completion Gate
+
+Do not report success unless:
+- All acceptance criteria are verified against the actual implemented diff.
+- The test suite passes (or you have confirmed the tester report documents a passing run and no new failures are introduced).
+- docs/features/blog.md accurately documents the 409 contract for both the explicit-slug create and slug-changing update paths.
+- verifier_report.md and verifier_result.json are written to artifacts/milestone-4-forums/ST10/ and committed.

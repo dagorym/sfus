@@ -1,0 +1,11 @@
+{
+  "status": "pass",
+  "story": "ST10",
+  "plan": "plans/milestone-4-forums-plan.md",
+  "documentation_commit": "8661a5a47815a7607aa6e9b5ac7c8be08b8cb731",
+  "files_updated": [
+    "docs/features/blog.md"
+  ],
+  "summary": "Updated docs/features/blog.md to document the explicit-slug 409 conflict contract: BlogService.create() with an explicit slug and BlogService.update() when changing the slug to a colliding value now both return 409 Conflict (previously propagated as 500). Split slug validation rule into explicit-slug and auto-derived sub-bullets for clarity. Annotated admin POST and PATCH API route rows with the 409 slug-collision outcome.",
+  "security_relevant": false
+}
