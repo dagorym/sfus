@@ -204,3 +204,37 @@ export interface PostListQuery {
   page?: number;
   pageSize?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Moderation DTOs (ST6) — returned only to moderators/admins.
+// ---------------------------------------------------------------------------
+
+/**
+ * Moderation-enriched topic shape. Extends the public shape with state and
+ * audit columns that are meaningful to moderators (isLocked, boardId, audit fields).
+ * Omits author details (not needed for moderation responses).
+ */
+export interface ModeratedTopicShape {
+  id: string;
+  title: string;
+  slug: string;
+  isPinned: boolean;
+  isLocked: boolean;
+  boardId: string;
+  lockedByUserId: string | null;
+  lockedAt: Date | null;
+  movedByUserId: string | null;
+  movedAt: Date | null;
+  replyCount: number;
+  lastPostAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Input for moving a topic to a different board.
+ * destinationBoardId must be a non-empty string (validated before persistence).
+ */
+export interface MoveTopicInput {
+  destinationBoardId: string;
+}

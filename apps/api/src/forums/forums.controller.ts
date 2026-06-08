@@ -45,7 +45,9 @@ import type {
   CreateTopicInput,
   PublicPostShape,
   PaginatedPostsShape,
-  CreatePostInput
+  CreatePostInput,
+  ModeratedTopicShape,
+  MoveTopicInput
 } from "./forums.types";
 
 /**
@@ -70,7 +72,17 @@ import type {
  *    Locked topic returns 403. Invalid parentId (nonexistent, different topic, reply-to-reply) → 400.
  *    - `GET /forums/topics/:topicId/posts` — paginated post list (oldest-first, deletedAt excluded).
  *
- * 3. **Admin management routes (ST2)** — require active session + global "admin" role:
+ * 4. **Moderation routes (ST6)** — require active session + global "moderator" or "admin" role:
+ *    - `PATCH /forums/moderation/topics/:topicId/pin` — pin a topic.
+ *    - `PATCH /forums/moderation/topics/:topicId/unpin` — unpin a topic.
+ *    - `PATCH /forums/moderation/topics/:topicId/lock` — lock a topic (blocks non-privileged posts).
+ *    - `PATCH /forums/moderation/topics/:topicId/unlock` — unlock a topic.
+ *    - `PATCH /forums/moderation/topics/:topicId/move` — move topic to another readable board.
+ *    Enforced by `ForumsService.assertModerationAccess()`. Move re-validates the destination
+ *    board via `AuthorizationService.evaluate()` to prevent cross-visibility-scope leaks.
+ *    Records `lockedByUserId`/`lockedAt` and `movedByUserId`/`movedAt` audit columns.
+ *
+ * 5. **Admin management routes (ST2)** — require active session + global "admin" role:
  *    Full CRUD for categories and boards, enforced by
  *    `ForumsService.assertAdminManagementAccess()`.
  *
@@ -317,6 +329,219 @@ export class ForumsController {
     const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
     const post = await this.forumsService.createPost(session.user.id, { topicId, ...body });
     return { post };
+  }
+
+  // ===========================================================================
+  // Moderation — pin / lock / move (ST6)
+  // ===========================================================================
+  //
+  // Error contract (uniform across all moderation handlers):
+  // - 401  No active session (thrown by AuthService.resolveSession).
+  // - 403  Caller's role is insufficient (thrown by assertModerationAccess).
+  // Both checks happen before any data operation.
+  // - 400  Malformed input (e.g. missing/non-string destinationBoardId) — clean 400, not 500.
+  // - 404  Topic or destination board not found or not publicly accessible (oracle parity; P12).
+
+  /**
+   * Pin a topic.
+   *
+   * Requires an active session and the global moderator or admin role. The gate
+   * fires (`401`/`403`) before any data operation. The topic must be non-deleted and
+   * its board must be publicly readable — a non-readable or nonexistent topic returns
+   * `404` with the same message as a truly nonexistent topic (oracle parity; P12).
+   *
+   * @param topicId Topic UUID.
+   * @returns 200 with `{ topic }` (moderated shape) reflecting the new pin state.
+   * @throws 401 No active session.
+   * @throws 403 Moderator or admin role required.
+   * @throws 404 Topic not found or not publicly accessible.
+   */
+  @Patch("moderation/topics/:topicId/pin")
+  @ApiOperation({ summary: "Pin a topic (moderator/admin)." })
+  @ApiOkResponse({
+    description:
+      "Topic pinned. Returns moderated topic shape with updated isPinned state. " +
+      "Pinned topics sort first in public topic lists."
+  })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({
+    description:
+      "Topic not found, or its board is not publicly accessible. " +
+      "The error message is identical for nonexistent and hidden topics (oracle parity)."
+  })
+  async pinTopic(
+    @Req() request: Request,
+    @Param("topicId") topicId: string
+  ): Promise<{ topic: ModeratedTopicShape }> {
+    // 401 check must happen before any data operation.
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    // 403 check must happen before any data operation.
+    this.forumsService.assertModerationAccess(session.user.globalRole);
+    const topic = await this.forumsService.setPinned(session.user.id, topicId, true);
+    return { topic };
+  }
+
+  /**
+   * Unpin a topic.
+   *
+   * Requires an active session and the global moderator or admin role. The gate
+   * fires (`401`/`403`) before any data operation. The topic must be non-deleted and
+   * its board must be publicly readable (oracle parity; P12).
+   *
+   * @param topicId Topic UUID.
+   * @returns 200 with `{ topic }` (moderated shape) reflecting the new pin state.
+   * @throws 401 No active session.
+   * @throws 403 Moderator or admin role required.
+   * @throws 404 Topic not found or not publicly accessible.
+   */
+  @Patch("moderation/topics/:topicId/unpin")
+  @ApiOperation({ summary: "Unpin a topic (moderator/admin)." })
+  @ApiOkResponse({ description: "Topic unpinned. Returns moderated topic shape with updated isPinned state." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({
+    description:
+      "Topic not found, or its board is not publicly accessible. " +
+      "The error message is identical for nonexistent and hidden topics (oracle parity)."
+  })
+  async unpinTopic(
+    @Req() request: Request,
+    @Param("topicId") topicId: string
+  ): Promise<{ topic: ModeratedTopicShape }> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    this.forumsService.assertModerationAccess(session.user.globalRole);
+    const topic = await this.forumsService.setPinned(session.user.id, topicId, false);
+    return { topic };
+  }
+
+  /**
+   * Lock a topic.
+   *
+   * Requires an active session and the global moderator or admin role. The gate
+   * fires (`401`/`403`) before any data operation. Records `lockedByUserId` and
+   * `lockedAt` on the topic. A locked topic blocks new posts for non-privileged
+   * users (consistent with blog comment-lock semantics; enforced by ST5 `createPost`).
+   *
+   * The topic must be non-deleted and its board must be publicly readable (oracle parity; P12).
+   *
+   * @param topicId Topic UUID.
+   * @returns 200 with `{ topic }` (moderated shape) reflecting the new locked state.
+   * @throws 401 No active session.
+   * @throws 403 Moderator or admin role required.
+   * @throws 404 Topic not found or not publicly accessible.
+   */
+  @Patch("moderation/topics/:topicId/lock")
+  @ApiOperation({ summary: "Lock a topic (moderator/admin)." })
+  @ApiOkResponse({
+    description:
+      "Topic locked. Returns moderated topic shape with isLocked=true, lockedByUserId, and lockedAt. " +
+      "A locked topic blocks new posts for non-privileged users."
+  })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({
+    description:
+      "Topic not found, or its board is not publicly accessible. " +
+      "The error message is identical for nonexistent and hidden topics (oracle parity)."
+  })
+  async lockTopic(
+    @Req() request: Request,
+    @Param("topicId") topicId: string
+  ): Promise<{ topic: ModeratedTopicShape }> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    this.forumsService.assertModerationAccess(session.user.globalRole);
+    const topic = await this.forumsService.setLocked(session.user.id, topicId, true);
+    return { topic };
+  }
+
+  /**
+   * Unlock a topic.
+   *
+   * Requires an active session and the global moderator or admin role. The gate
+   * fires (`401`/`403`) before any data operation. Clears `lockedByUserId` and `lockedAt`.
+   * Non-privileged users may post again once the topic is unlocked.
+   *
+   * The topic must be non-deleted and its board must be publicly readable (oracle parity; P12).
+   *
+   * @param topicId Topic UUID.
+   * @returns 200 with `{ topic }` (moderated shape) reflecting the new locked state.
+   * @throws 401 No active session.
+   * @throws 403 Moderator or admin role required.
+   * @throws 404 Topic not found or not publicly accessible.
+   */
+  @Patch("moderation/topics/:topicId/unlock")
+  @ApiOperation({ summary: "Unlock a topic (moderator/admin)." })
+  @ApiOkResponse({ description: "Topic unlocked. Returns moderated topic shape with isLocked=false." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({
+    description:
+      "Topic not found, or its board is not publicly accessible. " +
+      "The error message is identical for nonexistent and hidden topics (oracle parity)."
+  })
+  async unlockTopic(
+    @Req() request: Request,
+    @Param("topicId") topicId: string
+  ): Promise<{ topic: ModeratedTopicShape }> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    this.forumsService.assertModerationAccess(session.user.globalRole);
+    const topic = await this.forumsService.setLocked(session.user.id, topicId, false);
+    return { topic };
+  }
+
+  /**
+   * Move a topic to a different board.
+   *
+   * Requires an active session and the global moderator or admin role. The gate
+   * fires (`401`/`403`) before any data operation. `destinationBoardId` must be a
+   * non-empty string (`400` if missing or malformed — clean 400, not 500).
+   *
+   * The destination board is re-validated through `AuthorizationService.evaluate()` so
+   * a move cannot relocate a topic into a project-scoped or non-publicly-readable board —
+   * preventing cross-visibility-scope leaks (P12). A non-manageable or non-readable
+   * destination returns `404` (oracle parity; indistinguishable from nonexistent).
+   *
+   * Records `movedByUserId` and `movedAt` on the topic.
+   *
+   * @param topicId Topic UUID.
+   * @body `{ destinationBoardId }` — target board UUID.
+   * @returns 200 with `{ topic }` (moderated shape) reflecting the new boardId and audit fields.
+   * @throws 400 Missing or non-string `destinationBoardId`.
+   * @throws 401 No active session.
+   * @throws 403 Moderator or admin role required.
+   * @throws 404 Source topic not found / not accessible, or destination board not found / not
+   *             accessible (uniform oracle-parity message per resource type).
+   */
+  @Patch("moderation/topics/:topicId/move")
+  @ApiOperation({ summary: "Move a topic to a different board (moderator/admin)." })
+  @ApiOkResponse({
+    description:
+      "Topic moved. Returns moderated topic shape with updated boardId, movedByUserId, and movedAt. " +
+      "The destination board is re-validated via evaluate() — moves into project-scoped or non-readable " +
+      "boards are rejected (cross-scope leak prevention)."
+  })
+  @ApiBadRequestResponse({ description: "Missing or non-string destinationBoardId." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({
+    description:
+      "Source topic not found / not accessible, or destination board not found / not accessible. " +
+      "Oracle-parity messages — nonexistent is indistinguishable from non-accessible."
+  })
+  async moveTopic(
+    @Req() request: Request,
+    @Param("topicId") topicId: string,
+    @Body() body: MoveTopicInput
+  ): Promise<{ topic: ModeratedTopicShape }> {
+    // Input guard: destinationBoardId must be a non-empty string (no global ValidationPipe).
+    if (typeof body?.destinationBoardId !== "string" || body.destinationBoardId.trim().length === 0) {
+      throw new BadRequestException("destinationBoardId must be a non-empty string.");
+    }
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    this.forumsService.assertModerationAccess(session.user.globalRole);
+    const topic = await this.forumsService.moveTopic(session.user.id, topicId, body.destinationBoardId);
+    return { topic };
   }
 
   // ===========================================================================

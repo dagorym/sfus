@@ -28,7 +28,8 @@ import type {
   PublicPostShape,
   PaginatedPostsShape,
   CreatePostInput,
-  PostListQuery
+  PostListQuery,
+  ModeratedTopicShape
 } from "./forums.types";
 
 /**
@@ -771,6 +772,167 @@ export class ForumsService {
       total,
       page,
       pageSize
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Moderation controls (ST6) — assertModerationAccess + pin/lock/move
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Asserts the caller holds the global moderator or admin role. Throws:
+   * - `ForbiddenException` (403) when the session role is insufficient.
+   *
+   * Mirrors BlogService.assertModerationAccess — same semantics, no weaker check.
+   * Callers must already have resolved a live session (resolveSession throws 401
+   * when there is no session, so this method sees only authenticated actors).
+   */
+  assertModerationAccess(actorGlobalRole: string): void {
+    if (!this.authorizationService.hasGlobalRole(actorGlobalRole, "moderator")) {
+      throw new ForbiddenException("Forum moderation requires the moderator or admin role.");
+    }
+  }
+
+  /**
+   * Pins or unpins a topic.
+   *
+   * Security contract: caller must have invoked assertModerationAccess before calling this.
+   * The topic must be non-deleted and its board must be publicly readable.
+   * Non-readable or nonexistent topics return TOPIC_NOT_FOUND_MESSAGE (oracle parity, P12).
+   *
+   * @param actorUserId The moderator's user id (not stored on pin — entity has no pin audit cols).
+   * @param topicId Topic UUID.
+   * @param pin true to pin, false to unpin.
+   */
+  async setPinned(actorUserId: string, topicId: string, pin: boolean): Promise<ModeratedTopicShape> {
+    const topic = await this.topicRepository.findOne({
+      where: { id: topicId, deletedAt: IsNull() },
+      relations: ["board"]
+    });
+    if (!topic || !this.isBoardPubliclyReadable(topic.board)) {
+      throw new NotFoundException(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+    }
+    topic.isPinned = pin;
+    await this.topicRepository.save(topic);
+    return this.toModeratedTopicShape(topic);
+  }
+
+  /**
+   * Locks or unlocks a topic.
+   *
+   * Security contract: caller must have invoked assertModerationAccess before calling this.
+   * Records lockedByUserId + lockedAt when locking; clears them when unlocking.
+   * A locked topic rejects new posts from non-privileged users (ST5 createPost enforces this).
+   * Moderators (who have asserted access) may still post to locked topics via the
+   * createPost flow, which checks topic.isLocked but is called after the session gate.
+   * Per plan, the lock semantic matches blog comment-lock: non-privileged users blocked.
+   *
+   * Non-readable or nonexistent topics return TOPIC_NOT_FOUND_MESSAGE (oracle parity, P12).
+   */
+  async setLocked(actorUserId: string, topicId: string, lock: boolean): Promise<ModeratedTopicShape> {
+    const topic = await this.topicRepository.findOne({
+      where: { id: topicId, deletedAt: IsNull() },
+      relations: ["board"]
+    });
+    if (!topic || !this.isBoardPubliclyReadable(topic.board)) {
+      throw new NotFoundException(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+    }
+    topic.isLocked = lock;
+    if (lock) {
+      topic.lockedByUserId = actorUserId;
+      topic.lockedAt = new Date();
+    } else {
+      topic.lockedByUserId = null;
+      topic.lockedAt = null;
+    }
+    await this.topicRepository.save(topic);
+    return this.toModeratedTopicShape(topic);
+  }
+
+  /**
+   * Moves a topic to a different board.
+   *
+   * Security contract:
+   * - Caller must have invoked assertModerationAccess before calling this.
+   * - Source topic must be non-deleted and its board must be publicly readable.
+   * - Destination board must exist AND be publicly readable (isBoardPubliclyReadable).
+   *   Non-readable or nonexistent destination returns 404 with BOARD_NOT_FOUND_MESSAGE
+   *   (oracle parity: destination non-manageable === nonexistent from the caller's view).
+   * - Cross-scope move leak prevention: the destination board is re-validated through
+   *   isBoardPubliclyReadable (which calls evaluate() on the anonymous actor), so a move
+   *   cannot relocate a topic into a project-scoped or non-publicly-readable board —
+   *   preventing a visibility-scope leak (P12).
+   * - destinationBoardId must be a non-empty string; malformed input yields 400 (not 500).
+   * - Records movedByUserId + movedAt on the topic.
+   *
+   * @param actorUserId The moderator's user id.
+   * @param topicId Topic UUID.
+   * @param destinationBoardId Target board UUID.
+   */
+  async moveTopic(actorUserId: string, topicId: string, destinationBoardId: string): Promise<ModeratedTopicShape> {
+    // Input guard: destinationBoardId must be a non-empty string (no global ValidationPipe).
+    if (typeof destinationBoardId !== "string" || destinationBoardId.trim().length === 0) {
+      throw new BadRequestException("destinationBoardId must be a non-empty string.");
+    }
+
+    // Source topic gate.
+    const topic = await this.topicRepository.findOne({
+      where: { id: topicId, deletedAt: IsNull() },
+      relations: ["board"]
+    });
+    if (!topic || !this.isBoardPubliclyReadable(topic.board)) {
+      throw new NotFoundException(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+    }
+
+    // No-op if already on the destination.
+    if (topic.boardId === destinationBoardId.trim()) {
+      return this.toModeratedTopicShape(topic);
+    }
+
+    // Destination board gate — re-validate via isBoardPubliclyReadable (calls evaluate()).
+    // A non-manageable or non-readable destination returns 404 (oracle parity).
+    // This prevents cross-scope leaks: a moderator cannot move a topic into a
+    // project-scoped or non-publicly-readable board.
+    const destBoard = await this.boardRepository.findOne({ where: { id: destinationBoardId.trim() } });
+    if (!destBoard || !this.isBoardPubliclyReadable(destBoard)) {
+      throw new NotFoundException(ForumsService.BOARD_NOT_FOUND_MESSAGE);
+    }
+
+    // Persist the move with audit trail.
+    topic.boardId = destBoard.id;
+    topic.movedByUserId = actorUserId;
+    topic.movedAt = new Date();
+    await this.topicRepository.save(topic);
+
+    // Reload board relation for the response shape.
+    const updated = await this.topicRepository.findOne({
+      where: { id: topicId },
+      relations: ["board"]
+    });
+    return this.toModeratedTopicShape(updated!);
+  }
+
+  /**
+   * Maps a ForumTopicEntity to the moderated topic shape, which extends the public
+   * shape with moderation-relevant state (isLocked, isPinned, boardId, audit fields).
+   * This shape is returned only to moderators/admins.
+   */
+  private toModeratedTopicShape(topic: ForumTopicEntity): ModeratedTopicShape {
+    return {
+      id: topic.id,
+      title: topic.title,
+      slug: topic.slug,
+      isPinned: topic.isPinned,
+      isLocked: topic.isLocked,
+      boardId: topic.boardId,
+      lockedByUserId: topic.lockedByUserId,
+      lockedAt: topic.lockedAt,
+      movedByUserId: topic.movedByUserId,
+      movedAt: topic.movedAt,
+      replyCount: topic.replyCount,
+      lastPostAt: topic.lastPostAt,
+      createdAt: topic.createdAt,
+      updatedAt: topic.updatedAt
     };
   }
 
