@@ -1,0 +1,91 @@
+Your role is 'documenter'. Your task is as follows:
+
+Document Milestone 4 subtask ST4 — Topics: create, paginated read, visibility, pinned ordering.
+
+## Blocking inputs
+
+All blocking inputs are present. Continue past scope confirmation, documentation discovery, and diff review to write documentation changes.
+
+## Context
+
+Subtask: ST4 — Topics: create, paginated read, visibility, pinned ordering
+Plan: milestone-4-forums-plan.md
+Shared artifact directory (repository-root-relative): artifacts/milestone-4-forums/ST4
+
+## Implementation summary
+
+The implementer added two new public endpoints to the forums API on branch ms4-st4-implementer-20260608 (implementation commit b73d475):
+
+### New endpoints
+
+**POST /forums/boards/:boardId/topics** — member-authenticated topic creation
+- Requires active session (401 if not present)
+- Board must be publicly readable via AuthorizationService.evaluate() — nonexistent or gated boards return 404 with uniform TOPIC_NOT_FOUND_MESSAGE (oracle parity)
+- Body is normalized (normalizeMarkdownBody) then validated (validateMarkdownBody) before any DB write; unsafe Markdown rejected 400
+- Returns 201 with `{ topic: PublicTopicShape }`
+
+**GET /forums/boards/:boardId/topics** — paginated topic list (no authentication required)
+- Board must be publicly readable — same 404 oracle parity as above
+- Returns only non-deleted topics (deletedAt IS NULL)
+- Order: isPinned DESC, lastPostAt DESC, createdAt DESC (pinned topics always first)
+- Pagination: page (1-indexed, default 1), pageSize (default 20, max 100)
+- Returns `PaginatedTopicsShape { topics, total, page, pageSize }`
+
+### New types
+
+In `forums.types.ts`:
+- `PublicAuthorShape` — `{ username: string; displayName: string | null }`
+- `PublicTopicShape` — public-safe topic DTO (omits authorUserId, boardId, isLocked, movedByUserId, lockedByUserId, deletedAt)
+- `PaginatedTopicsShape` — paginated response type
+- `CreateTopicInput` — `{ boardId, title, body }`
+- `TopicListQuery` — `{ page?, pageSize? }`
+
+### Service additions in forums.service.ts
+
+- `ForumsService.TOPIC_NOT_FOUND_MESSAGE` — static constant, identical error string for gated and nonexistent boards
+- `ForumsService.createTopic(authorUserId, input)` — creates a topic with Markdown validation
+- `ForumsService.listTopics(boardId, query)` — paginated listing with pinned ordering
+- `private toTopicShape(topic)` — maps entity to PublicTopicShape, stripping internal fields
+
+## Files changed by implementer and tester
+
+Implementer:
+- `apps/api/src/forums/forums.controller.ts`
+- `apps/api/src/forums/forums.service.ts`
+- `apps/api/src/forums/forums.types.ts`
+- `apps/api/src/forums/forums.service.test.ts` (factory updated for new topicRepo constructor arg)
+
+Tester:
+- `apps/api/src/forums/forums.service.test.ts` (added 13 new ST4 test cases in 2 describe blocks)
+- `apps/api/src/forums/forums.controller.test.ts` (added 3 new ST4 test cases in 2 describe blocks + stub updates)
+
+Tester test commit: 080b3f7
+
+## Test results (confirmation gate)
+
+```
+Test Files  27 passed | 1 skipped (28)
+     Tests  676 passed | 2 skipped (678)
+```
+0 typecheck errors. 0 lint errors. All 14 required ST4 test cases passing.
+
+## Documentation instructions
+
+1. Consult `docs/README.md` routing table to find the owning doc(s) for forums features.
+2. The primary doc is likely `docs/features/forums.md`. Update it to cover:
+   - New public topic endpoints: POST and GET /forums/boards/:boardId/topics
+   - Authentication contract: POST requires session (401); GET is unauthenticated
+   - Visibility contract: board must pass AuthorizationService.evaluate() for anonymous read; uniform 404 oracle parity
+   - Markdown safety: body normalized and validated before persistence; 400 on unsafe content
+   - Pagination contract: page (1-indexed), pageSize (default 20, max 100), stable order (isPinned DESC, lastPostAt DESC, createdAt DESC)
+   - Public shape: PublicTopicShape and PublicAuthorShape field lists; which fields are stripped
+3. If API conventions doc (`docs/development/api-conventions.md`) describes pagination or public shape patterns, update it if ST4 introduces or clarifies patterns.
+4. Do NOT create new documentation files unless the routing table explicitly requires it.
+5. Update only the owning doc per the routing table.
+
+## Completion gate
+
+Do not report success unless:
+- All required artifact files exist in `artifacts/milestone-4-forums/ST4/`
+- All documentation changes are committed
+- `documenter_result.json` records the documentation commit hash
