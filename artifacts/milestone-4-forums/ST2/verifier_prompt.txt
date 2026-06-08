@@ -1,0 +1,68 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST2: Admin CRUD for forum categories and boards behind assertAdminManagementAccess (admin role, 401/403 gate). ForumsController exposes 11 admin endpoints (GET/POST/PATCH/DELETE/PUT on categories and boards). Board create/update persist scopeType ('site'|'project'), visibility ('public'|'unlisted'|'members'|'project-only'|'private'), and projectId (nullable, no FK — forward-scaffolding for M7/M8). Invalid enum values rejected 400. reorderCategories/reorderBoards are deterministic (orderedIds position becomes sortOrder; mismatch -> 400). deleteCategory requires boards absent (400 if attached). Swagger/JSDoc document the full 401/403/400/404 contract.
+
+Acceptance criteria to verify:
+- 401/403 gate enforced before any data operation via resolveSession + assertAdminManagementAccess
+- scopeType (site|project) and visibility (public|unlisted|members|project-only|private) and projectId (nullable, no FK) persisted
+- Invalid enum values for scopeType/visibility rejected with 400
+- Swagger/JSDoc accurate for all 11 endpoints covering the 401/403/400/404 contract
+
+Implementation branch or worktree context:
+- Implementer + Tester changes on branch ms4-st2-documenter-20260608 (worktree /home/tstephen/repos/worktrees/ms4-st2-documenter-20260608)
+- Base branch: ms4
+- 11 admin endpoints in ForumsController covering categories and boards
+- Authorization gate: AuthService.resolveSession + ForumsService.assertAdminManagementAccess
+- scopeType ('site'|'project'), visibility (5 values), projectId (nullable, no FK) persisted on ForumBoardEntity
+- reorderCategories and reorderBoards: position in orderedIds array becomes sortOrder; mismatch -> 400
+- deleteCategory: 400 if boards remain
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/forums/forums.controller.ts
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.types.ts
+- apps/api/src/forums/forums.module.ts
+- apps/api/src/forums/forums.controller.test.ts
+- apps/api/src/forums/forums.service.test.ts
+- docs/README.md
+- docs/features/forums.md
+
+Commands executed:
+- pnpm --filter @sfus/api test --run
+- pnpm typecheck
+- pnpm lint
+
+Final test outcomes:
+- AC1 PASS: 401/403 gate — resolveSession + assertAdminManagementAccess called before every data operation
+- AC2 PASS: scopeType, visibility, projectId persisted on board create/update with correct defaults and nullable FK-free projectId
+- AC3 PASS: invalid scopeType/visibility values return 400 before persistence
+- AC4 PASS: Swagger/JSDoc @Api*Response annotations cover 401/403/400/404 on all 11 admin endpoints
+- Full suite: 536 API tests pass, typecheck 0 errors, lint clean
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-plan.md (ST2)
+- Base branch: ms4
+- Tester branch: ms4-st2-documenter-20260608 contains implementer + tester changes
+- Documentation impact per plan: create docs/features/forums.md, add row to docs/README.md
+
+Convention-file guidance:
+- Repository documentation lives under docs/ organized by type (features/, operations/, architecture/)
+- New subsystem gets a new docs/features/<name>.md plus a row in docs/README.md routing table
+- One fact, one home — no duplication across docs
+- Do not document planned behavior (ST3-ST6 topics/posts/moderation) in this doc
+
+Updated documentation files:
+- docs/README.md
+- docs/features/forums.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST2
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
