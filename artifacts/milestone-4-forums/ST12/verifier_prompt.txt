@@ -1,0 +1,76 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Security-driven remediation pass 2 for ST12 (avatar upload resource type). Fixes a fixture/seed-completeness regression from pass 1: added avatarUploadMaxSizeBytes to 5 test fixtures and MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES to the two tracked env seed files (apps/api/.env and apps/api/.env.example). Resolved 4 typecheck errors and 6 runtime test failures. Avatar feature behavior unchanged. Full suite now green (typecheck 0 errors, 829 tests pass, lint clean).
+
+Acceptance criteria to verify:
+- typecheck 0 errors
+- full test 0 failures (829 pass)
+- lint clean
+- all env/media fixtures include the field
+- both env seed files contain MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES
+- avatar feature behavior unchanged
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st12-documenter-20260608 (branch ms4-st12-documenter-20260608; contains implementer, tester, and documenter changes for both passes)
+- Base: ms4 — diff this branch against ms4 for the full change set
+- Prior pass artifacts preserved under artifacts/milestone-4-forums/ST12/history/security-1-regression/
+- Pass-2 remediation: added avatarUploadMaxSizeBytes to 5 test fixtures, added MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES to apps/api/.env and apps/api/.env.example. Core avatar feature (resourceType, two-limit size scheme, self-service auth, magic-byte verification) unchanged from pass-1 implementation (doc commit 455f306).
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/media/media.service.ts
+- apps/api/src/media/media.controller.ts
+- apps/api/src/config/environment.ts
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/database/database.config.test.ts
+- apps/api/src/health/readiness.service.test.ts
+- apps/api/src/common/throttle/throttle-env.test.ts
+- apps/api/.env.example
+- apps/api/.env
+- docs/features/media.md
+- docs/operations/launch.md
+
+Commands executed:
+- pnpm install --frozen-lockfile
+- pnpm --dir apps/api run typecheck
+- pnpm test
+- pnpm --dir apps/api run lint
+- pnpm --dir apps/web run lint
+
+Final test outcomes:
+- PASS: pnpm --dir apps/api run typecheck — 0 errors
+- PASS: pnpm test (full suite) — 829 passed, 0 failed, 2 skipped
+- PASS: pnpm lint (api + web) — 0 warnings or errors
+- PASS: all test fixtures with media objects include avatarUploadMaxSizeBytes
+- PASS: apps/api/.env contains MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES=1048576
+- PASS: apps/api/.env.example contains MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES=1048576
+- PASS: avatar feature behavior unchanged — media.controller.test.ts (14 tests) and media.service.test.ts (46 tests) all pass
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-plan.md (ST12). Base branch: ms4.
+- Prior pass artifacts: artifacts/milestone-4-forums/ST12/history/security-1-regression/
+- Documentation commit 455f306 (docs(media): document avatar resourceType, self-service auth, and avatar size cap) is the authoritative doc basis for both passes.
+- Documenter pass-2 determination: no new documentation edits required; docs verified accurate and complete for the full ST12 implementation including pass-2 changes.
+
+Convention-file guidance:
+- Shared artifact directory: artifacts/milestone-4-forums/ST12
+- Verifier compares branch against ms4 base branch
+- Documentation accuracy should be verified against the implemented diff (git diff ms4 -- docs/features/media.md docs/operations/launch.md)
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe
+
+Updated documentation files:
+- docs/features/media.md (updated in pass-1 doc commit 455f306; verified accurate in this pass — no changes made)
+- docs/operations/launch.md (updated in pass-1 doc commit 455f306; verified accurate in this pass — no changes made)
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST12
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+- Do not stop after activation, scope confirmation, or diff review when verification work can proceed.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
