@@ -1,0 +1,25 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST9/security_report.md",
+    "artifacts/milestone-4-forums/ST9/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st9-security-20260608",
+  "documentation_sufficiency_summary": [
+    "Adequate. ST9 documenter pass updated docs/features/blog.md (comment rate-limit), docs/features/forums.md (posting limits), and docs/development/api-conventions.md (anti-spam contract reference). Controller JSDoc accurately describes the throttle + new-account tier + link-cap behavior and the 401-before-throttle ordering.",
+    "Env-var contract for throttle limits (windowMs, maxHits, newAccountMaxHits, newAccountWindowMs, maxLinksPerPost) is owned by ST8 (environment.ts + launch.md) and unchanged by ST9; no operational gap introduced."
+  ],
+  "note_finding_count": 2,
+  "outcome": "PASS",
+  "pass_label": "PASS",
+  "status": "completed",
+  "task_id": "milestone-4-forums/ST9",
+  "test_sufficiency_summary": [
+    "STRONG and non-vacuous. Validation run from this worktree: vitest run --root apps/api src/forums/forums.controller.test.ts src/blog/blog.controller.test.ts => 150/150 passed (2 files). pnpm typecheck => clean (apps/api, apps/web). pnpm lint => clean (eslint --max-warnings=0, both apps).",
+    "All THREE protected sites covered with dedicated ST9 specs (forum-topic-create, forum-post-create, blog-comment-create): over-limit -> 429 AND persistence (createTopic/createPost/createComment) asserted not.toHaveBeenCalled() (fail-closed: no write on breach); under-limit pass-through; link-over-limit -> 400 with persistence asserted not called.",
+    "Ordering proven: when resolveSession rejects (no session), checkRequest is asserted not.toHaveBeenCalled() at all three sites \u2014 the 401 auth gate fires strictly before the throttle.",
+    "Identity/tier wiring proven: checkRequest asserted to receive userId AND a non-null userCreatedAt sourced from usersService.findById; an explicit 'VACUOUS if userCreatedAt is null' test demonstrates that with null createdAt the stricter tier is inactive (3 requests pass at maxHits=10) while a young real createdAt is throttled at newAccountMaxHits=2 \u2014 proving the createdAt wiring is load-bearing.",
+    "New-account-tier tests are driven through the REAL ThrottleService + InMemoryThrottleStore (not a mock), confirming enforcement reuses the ST8 module rather than a reimplemented/divergent throttle."
+  ],
+  "warning_finding_count": 0
+}
