@@ -1,7 +1,7 @@
 /**
  * users.controller.test.ts
  *
- * Unit tests for UsersController (ST14).
+ * Unit tests for UsersController (ST14, ST15).
  *
  * Acceptance criteria validated:
  * AC-SUGGEST-401: 401 when no session — resolveSession rejection → UnauthorizedException; DB/service NOT called.
@@ -13,9 +13,18 @@
  * AC-PROFILE-P12: Enumeration parity — nonexistent and inactive users BOTH return 404 with IDENTICAL message.
  * AC-PROFILE-AVATAR: avatar resolves to /api/media/<id> or null.
  * AC-PROFILE-400: malformed/empty :username → 400.
+ * AC-SETAVATAR-400: malformed/missing mediaId → 400; service NOT called.
+ * AC-SETAVATAR-401: no session → 401; service NOT called.
+ * AC-SETAVATAR-403-NONEXISTENT: nonexistent media id → ForbiddenException; avatarMediaId NOT updated.
+ * AC-SETAVATAR-403-WRONGTYPE: wrong resourceType → ForbiddenException; not bound.
+ * AC-SETAVATAR-403-FOREIGN: foreign-owner media → ForbiddenException; caller's avatarMediaId NOT set.
+ * AC-SETAVATAR-ORACLE: rejection message is IDENTICAL for all three 403 cases (oracle parity).
+ * AC-SETAVATAR-SUCCESS: own resourceType='avatar' media → persists; avatarUrl is /api/media/<id>.
+ * AC-REMOVEAVATAR-401: no session → 401.
+ * AC-REMOVEAVATAR-SUCCESS: clears avatar; returns {avatarUrl:null}.
  */
 
-import { BadRequestException, HttpException, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, HttpException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import { UsersController } from "./users.controller";
@@ -68,6 +77,8 @@ const makeUsersService = (overrides?: Partial<{
   suggestResult: unknown[];
   profileResult: unknown | null;
   findByIdResult: unknown;
+  setAvatarResult: string | Error;
+  removeAvatarResult: void | Error;
 }>) => {
   const createdAt = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000); // 10 days old
   // Use hasOwnProperty to distinguish explicit null from omission.
@@ -75,6 +86,15 @@ const makeUsersService = (overrides?: Partial<{
   const profileResult = hasProfileOverride
     ? overrides!.profileResult
     : { username: "alice", displayName: "Alice", avatar: null, bio: "Hello", joinDate: new Date().toISOString() };
+
+  const setAvatarImpl = overrides?.setAvatarResult instanceof Error
+    ? vi.fn().mockRejectedValue(overrides.setAvatarResult)
+    : vi.fn().mockResolvedValue(overrides?.setAvatarResult ?? "/api/media/media-1");
+
+  const removeAvatarImpl = overrides?.removeAvatarResult instanceof Error
+    ? vi.fn().mockRejectedValue(overrides.removeAvatarResult)
+    : vi.fn().mockResolvedValue(undefined);
+
   return {
     findById: vi.fn().mockResolvedValue(overrides?.findByIdResult ?? {
       id: "user-1",
@@ -83,7 +103,9 @@ const makeUsersService = (overrides?: Partial<{
     suggestByPrefix: vi.fn().mockResolvedValue(overrides?.suggestResult ?? [
       { username: "alice", displayName: "Alice", avatarUrl: null }
     ]),
-    findPublicProfile: vi.fn().mockResolvedValue(profileResult)
+    findPublicProfile: vi.fn().mockResolvedValue(profileResult),
+    setAvatar: setAvatarImpl,
+    removeAvatar: removeAvatarImpl
   };
 };
 
@@ -455,5 +477,267 @@ describe("UsersController.getPublicProfile: avatar resolution (AC-PROFILE-AVATAR
     const controller = makeController(usersService);
     const response = await controller.getPublicProfile("alice");
     expect(response.profile.avatar).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /users/me/avatar — 400 guard (AC-SETAVATAR-400)
+// ---------------------------------------------------------------------------
+
+describe("UsersController.setAvatar: 400 for malformed/missing mediaId (AC-SETAVATAR-400)", () => {
+  it("throws 400 when body is null", async () => {
+    const controller = makeController();
+    await expect(
+      controller.setAvatar(null, makeRequest() as never)
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws 400 when body is missing mediaId", async () => {
+    const controller = makeController();
+    await expect(
+      controller.setAvatar({}, makeRequest() as never)
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws 400 when mediaId is not a string (number)", async () => {
+    const controller = makeController();
+    await expect(
+      controller.setAvatar({ mediaId: 42 }, makeRequest() as never)
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws 400 when mediaId is an empty string", async () => {
+    const controller = makeController();
+    await expect(
+      controller.setAvatar({ mediaId: "" }, makeRequest() as never)
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws 400 when mediaId is whitespace-only", async () => {
+    const controller = makeController();
+    await expect(
+      controller.setAvatar({ mediaId: "   " }, makeRequest() as never)
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("does NOT call authService or setAvatar when body is malformed (service not reached)", async () => {
+    const authService = makeAuthService();
+    const usersService = makeUsersService();
+    const controller = makeController(usersService, authService);
+    try {
+      await controller.setAvatar(null, makeRequest() as never);
+    } catch {
+      // expected
+    }
+    expect(authService.resolveSession).not.toHaveBeenCalled();
+    expect(usersService.setAvatar).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /users/me/avatar — 401 gate (AC-SETAVATAR-401)
+// ---------------------------------------------------------------------------
+
+describe("UsersController.setAvatar: 401 when no session (AC-SETAVATAR-401)", () => {
+  it("throws UnauthorizedException when resolveSession rejects", async () => {
+    const authService = makeAuthServiceNoSession();
+    const usersService = makeUsersService();
+    const controller = makeController(usersService, authService);
+    await expect(
+      controller.setAvatar({ mediaId: "media-1" }, makeRequest() as never)
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("does NOT call setAvatar when session is missing", async () => {
+    const authService = makeAuthServiceNoSession();
+    const usersService = makeUsersService();
+    const controller = makeController(usersService, authService);
+    try {
+      await controller.setAvatar({ mediaId: "media-1" }, makeRequest() as never);
+    } catch {
+      // expected
+    }
+    expect(usersService.setAvatar).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /users/me/avatar — 403 nonexistent (AC-SETAVATAR-403-NONEXISTENT)
+// ---------------------------------------------------------------------------
+
+describe("UsersController.setAvatar: ForbiddenException for nonexistent media id (AC-SETAVATAR-403-NONEXISTENT)", () => {
+  it("throws ForbiddenException when setAvatar rejects with ForbiddenException", async () => {
+    const usersService = makeUsersService({
+      setAvatarResult: new ForbiddenException("Media id not found or not usable as your avatar.")
+    });
+    const controller = makeController(usersService);
+    await expect(
+      controller.setAvatar({ mediaId: "no-such-id" }, makeRequest() as never)
+    ).rejects.toThrow(ForbiddenException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /users/me/avatar — 403 wrong resourceType (AC-SETAVATAR-403-WRONGTYPE)
+// ---------------------------------------------------------------------------
+
+describe("UsersController.setAvatar: ForbiddenException for wrong resourceType (AC-SETAVATAR-403-WRONGTYPE)", () => {
+  it("throws ForbiddenException when media exists but resourceType is not 'avatar'", async () => {
+    // The service enforces the resourceType='avatar' predicate in the single WHERE clause.
+    // A blog-post or blog-comment media id produces the same ForbiddenException.
+    const usersService = makeUsersService({
+      setAvatarResult: new ForbiddenException("Media id not found or not usable as your avatar.")
+    });
+    const controller = makeController(usersService);
+    await expect(
+      controller.setAvatar({ mediaId: "blog-post-media-id" }, makeRequest() as never)
+    ).rejects.toThrow(ForbiddenException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /users/me/avatar — 403 foreign owner (AC-SETAVATAR-403-FOREIGN)
+// ---------------------------------------------------------------------------
+
+describe("UsersController.setAvatar: ForbiddenException for foreign-owner media (AC-SETAVATAR-403-FOREIGN)", () => {
+  it("throws ForbiddenException when media belongs to a different user", async () => {
+    // A valid resourceType='avatar' media row owned by another user must produce ForbiddenException.
+    // The caller's avatarMediaId must NOT be set.
+    const usersService = makeUsersService({
+      setAvatarResult: new ForbiddenException("Media id not found or not usable as your avatar.")
+    });
+    const controller = makeController(usersService);
+    await expect(
+      controller.setAvatar({ mediaId: "other-user-avatar-id" }, makeRequest() as never)
+    ).rejects.toThrow(ForbiddenException);
+    // setAvatar was called (the rejection came FROM the service, not a short-circuit)
+    expect(usersService.setAvatar).toHaveBeenCalledWith("user-1", "other-user-avatar-id");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /users/me/avatar — oracle parity (AC-SETAVATAR-ORACLE)
+// ---------------------------------------------------------------------------
+
+describe("UsersController.setAvatar: oracle parity — identical rejection for all 403 cases (AC-SETAVATAR-ORACLE)", () => {
+  it("nonexistent, wrong-type, and foreign-owner all produce identical ForbiddenException message", async () => {
+    const forbidden = new ForbiddenException("Media id not found or not usable as your avatar.");
+
+    const serviceNonexistent = makeUsersService({ setAvatarResult: new ForbiddenException("Media id not found or not usable as your avatar.") });
+    const serviceWrongType   = makeUsersService({ setAvatarResult: new ForbiddenException("Media id not found or not usable as your avatar.") });
+    const serviceForeign     = makeUsersService({ setAvatarResult: new ForbiddenException("Media id not found or not usable as your avatar.") });
+
+    let msgNonexistent: string | undefined;
+    let msgWrongType: string | undefined;
+    let msgForeign: string | undefined;
+
+    try {
+      await makeController(serviceNonexistent).setAvatar({ mediaId: "no-such-id" }, makeRequest() as never);
+    } catch (err) {
+      msgNonexistent = (err as ForbiddenException).message;
+    }
+
+    try {
+      await makeController(serviceWrongType).setAvatar({ mediaId: "blog-media-id" }, makeRequest() as never);
+    } catch (err) {
+      msgWrongType = (err as ForbiddenException).message;
+    }
+
+    try {
+      await makeController(serviceForeign).setAvatar({ mediaId: "foreign-avatar-id" }, makeRequest() as never);
+    } catch (err) {
+      msgForeign = (err as ForbiddenException).message;
+    }
+
+    expect(msgNonexistent).toBeDefined();
+    expect(msgWrongType).toBeDefined();
+    expect(msgForeign).toBeDefined();
+    // Oracle parity: all three messages are IDENTICAL.
+    expect(msgNonexistent).toBe(msgWrongType);
+    expect(msgWrongType).toBe(msgForeign);
+
+    // Suppress unused-variable warning for `forbidden` reference
+    void forbidden;
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /users/me/avatar — success (AC-SETAVATAR-SUCCESS)
+// ---------------------------------------------------------------------------
+
+describe("UsersController.setAvatar: success path — persists and returns avatarUrl (AC-SETAVATAR-SUCCESS)", () => {
+  it("returns { avatarUrl: '/api/media/<id>' } when setAvatar succeeds", async () => {
+    const usersService = makeUsersService({ setAvatarResult: "/api/media/avatar-owned-by-caller" });
+    const controller = makeController(usersService);
+    const response = await controller.setAvatar(
+      { mediaId: "avatar-owned-by-caller" },
+      makeRequest() as never
+    );
+    expect(response.avatarUrl).toBe("/api/media/avatar-owned-by-caller");
+  });
+
+  it("passes the caller's userId and mediaId to setAvatar", async () => {
+    const usersService = makeUsersService({ setAvatarResult: "/api/media/my-avatar" });
+    const session = makeSession("user-42");
+    const authService = makeAuthService(session);
+    const controller = makeController(usersService, authService);
+    await controller.setAvatar({ mediaId: "my-avatar" }, makeRequest() as never);
+    expect(usersService.setAvatar).toHaveBeenCalledWith("user-42", "my-avatar");
+  });
+
+  it("avatarUrl starts with /api/media/", async () => {
+    const usersService = makeUsersService({ setAvatarResult: "/api/media/uuid-1234" });
+    const controller = makeController(usersService);
+    const response = await controller.setAvatar({ mediaId: "uuid-1234" }, makeRequest() as never);
+    expect(response.avatarUrl).toMatch(/^\/api\/media\//);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /users/me/avatar — 401 gate (AC-REMOVEAVATAR-401)
+// ---------------------------------------------------------------------------
+
+describe("UsersController.removeAvatar: 401 when no session (AC-REMOVEAVATAR-401)", () => {
+  it("throws UnauthorizedException when resolveSession rejects", async () => {
+    const authService = makeAuthServiceNoSession();
+    const usersService = makeUsersService();
+    const controller = makeController(usersService, authService);
+    await expect(
+      controller.removeAvatar(makeRequest() as never)
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("does NOT call removeAvatar when session is missing", async () => {
+    const authService = makeAuthServiceNoSession();
+    const usersService = makeUsersService();
+    const controller = makeController(usersService, authService);
+    try {
+      await controller.removeAvatar(makeRequest() as never);
+    } catch {
+      // expected
+    }
+    expect(usersService.removeAvatar).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /users/me/avatar — success (AC-REMOVEAVATAR-SUCCESS)
+// ---------------------------------------------------------------------------
+
+describe("UsersController.removeAvatar: success path — clears avatar and returns {avatarUrl:null} (AC-REMOVEAVATAR-SUCCESS)", () => {
+  it("returns { avatarUrl: null } after successful removal", async () => {
+    const usersService = makeUsersService();
+    const controller = makeController(usersService);
+    const response = await controller.removeAvatar(makeRequest() as never);
+    expect(response.avatarUrl).toBeNull();
+  });
+
+  it("calls removeAvatar with the caller's userId", async () => {
+    const usersService = makeUsersService();
+    const session = makeSession("user-77");
+    const authService = makeAuthService(session);
+    const controller = makeController(usersService, authService);
+    await controller.removeAvatar(makeRequest() as never);
+    expect(usersService.removeAvatar).toHaveBeenCalledWith("user-77");
   });
 });
