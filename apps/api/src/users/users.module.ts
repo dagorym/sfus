@@ -4,6 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthModule } from "../auth/auth.module";
 import { ThrottleModule } from "../common/throttle/throttle.module";
 import type { ApplicationEnvironment } from "../config/environment";
+import { MediaReferenceEntity } from "../media/entities/media-reference.entity";
 import { UserEntity } from "./entities/user.entity";
 import { UsersController } from "./users.controller";
 import { UsersService } from "./users.service";
@@ -19,7 +20,7 @@ import { UsersService } from "./users.service";
  * for the user lookup inside AuthService (e.g., resolveSession → findById).
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([UserEntity])],
+  imports: [TypeOrmModule.forFeature([UserEntity, MediaReferenceEntity])],
   providers: [UsersService],
   exports: [TypeOrmModule, UsersService]
 })
@@ -35,7 +36,7 @@ export class UsersModule {
     return {
       module: UsersModule,
       imports: [
-        TypeOrmModule.forFeature([UserEntity]),
+        TypeOrmModule.forFeature([UserEntity, MediaReferenceEntity]),
         AuthModule.register(environment),
         ThrottleModule.register(environment)
       ],

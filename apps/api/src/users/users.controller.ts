@@ -1,7 +1,7 @@
 /**
  * users.controller.ts
  *
- * UsersController (ST14) — two public-facing, security-sensitive endpoints:
+ * UsersController (ST14, ST15) — self-service profile endpoints:
  *
  * 1. GET /users/suggest?q=
  *    Session-gated, throttled username prefix-suggest.
@@ -19,24 +19,45 @@
  *    - 404 for both nonexistent and inactive users (uniform — no enumeration oracle).
  *    Never includes email, globalRole, status, id, or any other field.
  *
+ * 3. PUT /users/me/avatar  (ST15)
+ *    Set the calling user's avatar.  Body: { mediaId: string }
+ *    - 400 when `mediaId` is missing or not a non-empty string.
+ *    - 401 when no active session.
+ *    - 403 when the media id does not exist, is not resourceType='avatar',
+ *         or is not owned by the caller (uniform — no oracle).
+ *    - 200 { avatarUrl: "/api/media/<id>" } on success.
+ *
+ * 4. DELETE /users/me/avatar  (ST15)
+ *    Remove (clear) the calling user's avatar.
+ *    - 401 when no active session.
+ *    - 200 { avatarUrl: null } on success.
+ *
  * Security (P12):
  *   - Suggest: 400 guard first, then 401 auth gate, then throttle, then DB.
  *     Field allowlist enforced in UsersService.suggestByPrefix.
  *   - Profile: uniform 404 for nonexistent/inactive (no enumeration oracle).
  *     Field allowlist enforced in UsersService.findPublicProfile.
+ *   - Set-avatar: 400 guard first, then 401 auth gate, then ownership
+ *     validation; uniform 403 for nonexistent/wrong-type/foreign ids (no
+ *     existence oracle for foreign media).
  */
 
 import {
   BadRequestException,
+  Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
+  Put,
   Query,
   Req
 } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -49,7 +70,13 @@ import type { Request } from "express";
 import { AuthService } from "../auth/auth.service";
 import { ThrottleService } from "../common/throttle/throttle.service";
 import { UsersService } from "./users.service";
-import type { PublicProfileShape, UserSuggestResponse } from "./users.types";
+import type {
+  PublicProfileShape,
+  RemoveAvatarResponse,
+  SetAvatarBody,
+  SetAvatarResponse,
+  UserSuggestResponse
+} from "./users.types";
 
 /** Route label for the suggest throttle key. */
 const THROTTLE_LABEL_SUGGEST = "user-suggest";
@@ -112,6 +139,81 @@ export class UsersController {
 
     const users = await this.usersService.suggestByPrefix(q);
     return { users };
+  }
+
+  // ===========================================================================
+  // PUT /users/me/avatar  (ST15 — set avatar, ownership-enforced)
+  // ===========================================================================
+
+  /**
+   * Set the calling user's avatar by binding a media_references id.
+   *
+   * Security order: 400 → 401 → ownership validation → DB.
+   *
+   * Validates that the media id exists, is resourceType='avatar', and is owned
+   * by the calling user.  Returns a uniform 403 for all not-allowed cases to
+   * avoid leaking the existence of a foreign media id (oracle parity).
+   *
+   * @param body  { mediaId: string } — the media_references id to bind.
+   */
+  @Put("me/avatar")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Set the calling user's avatar (ownership-enforced)." })
+  @ApiOkResponse({
+    description: "Avatar bound successfully. Returns the resolved /api/media/<id> URL."
+  })
+  @ApiBadRequestResponse({ description: "Missing or non-string `mediaId` in request body." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({
+    description:
+      "Media id not found, is not resourceType='avatar', or is not owned by the caller. " +
+      "Message is identical for all three cases (no existence oracle)."
+  })
+  async setAvatar(
+    @Body() body: unknown,
+    @Req() request: Request
+  ): Promise<SetAvatarResponse> {
+    // 400 guard — body must be an object with a non-empty string mediaId.
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      typeof (body as Record<string, unknown>)["mediaId"] !== "string" ||
+      ((body as Record<string, unknown>)["mediaId"] as string).trim() === ""
+    ) {
+      throw new BadRequestException("Request body must contain a non-empty string `mediaId`.");
+    }
+    const { mediaId } = body as SetAvatarBody;
+
+    // 401 gate — resolveSession throws UnauthorizedException when no valid session.
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+
+    // Ownership validation — throws ForbiddenException on any not-allowed case.
+    const avatarUrl = await this.usersService.setAvatar(session.user.id, mediaId);
+    return { avatarUrl };
+  }
+
+  // ===========================================================================
+  // DELETE /users/me/avatar  (ST15 — remove avatar)
+  // ===========================================================================
+
+  /**
+   * Remove the calling user's avatar (clears avatar_media_id to null).
+   *
+   * Security order: 401 → DB.
+   *
+   * Requires an active session (401 otherwise).
+   */
+  @Delete("me/avatar")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Remove the calling user's avatar." })
+  @ApiOkResponse({ description: "Avatar cleared. Returns { avatarUrl: null }." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  async removeAvatar(@Req() request: Request): Promise<RemoveAvatarResponse> {
+    // 401 gate — resolveSession throws UnauthorizedException when no valid session.
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+
+    await this.usersService.removeAvatar(session.user.id);
+    return { avatarUrl: null };
   }
 
   // ===========================================================================

@@ -72,7 +72,7 @@ describe("UsersService.suggestByPrefix: field exposure (AC-SERVICE-SUGGEST-FIELD
       id: "uid-secret"
     });
     const repo = makeRepository({ findResult: [user] });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     const results = await service.suggestByPrefix("al");
 
     expect(results).toHaveLength(1);
@@ -97,7 +97,7 @@ describe("UsersService.suggestByPrefix: field exposure (AC-SERVICE-SUGGEST-FIELD
   it("returns EXACTLY three keys per item", async () => {
     const user = makeUserEntity();
     const repo = makeRepository({ findResult: [user] });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     const results = await service.suggestByPrefix("al");
     expect(Object.keys(results[0])).toHaveLength(3);
     expect(Object.keys(results[0])).toEqual(
@@ -109,7 +109,7 @@ describe("UsersService.suggestByPrefix: field exposure (AC-SERVICE-SUGGEST-FIELD
 describe("UsersService.suggestByPrefix: active-only (AC-SERVICE-SUGGEST-ACTIVE)", () => {
   it("passes status='active' to the find query", async () => {
     const repo = makeRepository({ findResult: [] });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     await service.suggestByPrefix("alice");
 
     expect(repo.find).toHaveBeenCalledOnce();
@@ -122,7 +122,7 @@ describe("UsersService.suggestByPrefix: active-only (AC-SERVICE-SUGGEST-ACTIVE)"
 describe("UsersService.suggestByPrefix: count cap (AC-SERVICE-SUGGEST-CAP)", () => {
   it("passes take=10 to the repository query (SUGGEST_RESULT_CAP)", async () => {
     const repo = makeRepository({ findResult: [] });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     await service.suggestByPrefix("u");
     const callArg = repo.find.mock.calls[0][0];
     expect(callArg.take).toBe(10);
@@ -133,7 +133,7 @@ describe("UsersService.suggestByPrefix: avatar URL resolution (AC-SERVICE-SUGGES
   it("sets avatarUrl to /api/media/<id> when avatarMediaId is set", async () => {
     const user = makeUserEntity({ avatarMediaId: "media-abc" });
     const repo = makeRepository({ findResult: [user] });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     const results = await service.suggestByPrefix("al");
     expect(results[0].avatarUrl).toBe("/api/media/media-abc");
   });
@@ -141,7 +141,7 @@ describe("UsersService.suggestByPrefix: avatar URL resolution (AC-SERVICE-SUGGES
   it("sets avatarUrl to null when avatarMediaId is null", async () => {
     const user = makeUserEntity({ avatarMediaId: null });
     const repo = makeRepository({ findResult: [user] });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     const results = await service.suggestByPrefix("al");
     expect(results[0].avatarUrl).toBeNull();
   });
@@ -162,7 +162,7 @@ describe("UsersService.findPublicProfile: exact 5-field shape (AC-SERVICE-PROFIL
       createdAt: new Date("2024-03-01T00:00:00.000Z")
     });
     const repo = makeRepository({ findOneResult: user });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     const profile = await service.findPublicProfile("alice");
 
     expect(profile).not.toBeNull();
@@ -187,7 +187,7 @@ describe("UsersService.findPublicProfile: exact 5-field shape (AC-SERVICE-PROFIL
   it("returns EXACTLY five keys", async () => {
     const user = makeUserEntity({ status: "active" });
     const repo = makeRepository({ findOneResult: user });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     const profile = await service.findPublicProfile("alice");
     expect(profile).not.toBeNull();
     expect(Object.keys(profile!)).toHaveLength(5);
@@ -200,7 +200,7 @@ describe("UsersService.findPublicProfile: exact 5-field shape (AC-SERVICE-PROFIL
     const createdAt = new Date("2024-01-15T12:00:00.000Z");
     const user = makeUserEntity({ createdAt, status: "active" });
     const repo = makeRepository({ findOneResult: user });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     const profile = await service.findPublicProfile("alice");
     expect(profile!.joinDate).toBe(createdAt.toISOString());
   });
@@ -209,14 +209,14 @@ describe("UsersService.findPublicProfile: exact 5-field shape (AC-SERVICE-PROFIL
 describe("UsersService.findPublicProfile: uniform null for nonexistent/inactive (AC-SERVICE-PROFILE-INACTIVE)", () => {
   it("returns null when user does not exist (repository returns null)", async () => {
     const repo = makeRepository({ findOneResult: null });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     const result = await service.findPublicProfile("nobody");
     expect(result).toBeNull();
   });
 
   it("passes username AND status='active' to findOne — inactive users not found", async () => {
     const repo = makeRepository({ findOneResult: null });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     await service.findPublicProfile("inactiveuser");
     expect(repo.findOne).toHaveBeenCalledOnce();
     const callArg = repo.findOne.mock.calls[0][0];
@@ -227,7 +227,7 @@ describe("UsersService.findPublicProfile: uniform null for nonexistent/inactive 
     // The service returns null unconditionally when findOne returns null,
     // making nonexistent vs inactive indistinguishable to callers.
     const repo = makeRepository({ findOneResult: null });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     const resultNonexistent = await service.findPublicProfile("nobody");
     const resultInactive = await service.findPublicProfile("inactiveuser");
     // Both return null — identical, no oracle.
@@ -240,7 +240,7 @@ describe("UsersService.findPublicProfile: avatar URL resolution (AC-SERVICE-PROF
   it("sets avatar to /api/media/<id> when avatarMediaId is set", async () => {
     const user = makeUserEntity({ avatarMediaId: "media-xyz", status: "active" });
     const repo = makeRepository({ findOneResult: user });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     const profile = await service.findPublicProfile("alice");
     expect(profile!.avatar).toBe("/api/media/media-xyz");
   });
@@ -248,7 +248,7 @@ describe("UsersService.findPublicProfile: avatar URL resolution (AC-SERVICE-PROF
   it("sets avatar to null when avatarMediaId is null", async () => {
     const user = makeUserEntity({ avatarMediaId: null, status: "active" });
     const repo = makeRepository({ findOneResult: user });
-    const service = new UsersService(repo as never);
+    const service = new UsersService(repo as never, {} as never);
     const profile = await service.findPublicProfile("alice");
     expect(profile!.avatar).toBeNull();
   });

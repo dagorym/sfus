@@ -1,7 +1,8 @@
-import { Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Like, Repository } from "typeorm";
 
+import { MediaReferenceEntity } from "../media/entities/media-reference.entity";
 import { UserEntity } from "./entities/user.entity";
 import type { PublicProfileShape, UserSuggestItem } from "./users.types";
 
@@ -14,15 +15,72 @@ const MEDIA_URL_PREFIX = "/api/media/";
 /** User status value that identifies an account accessible to public APIs. */
 const ACTIVE_STATUS = "active";
 
+/**
+ * resourceType value that identifies an avatar-use media reference.
+ * Used to enforce that only avatar uploads can be bound as a user's avatar.
+ */
+const AVATAR_RESOURCE_TYPE = "avatar";
+
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(UserEntity)
-    private readonly usersRepository: Repository<UserEntity>
+    private readonly usersRepository: Repository<UserEntity>,
+    @InjectRepository(MediaReferenceEntity)
+    private readonly mediaRepository: Repository<MediaReferenceEntity>
   ) {}
 
   async findById(id: string): Promise<UserEntity | null> {
     return this.usersRepository.findOne({ where: { id } });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Set / remove avatar (ST15)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Binds a media_references row as the calling user's avatar.
+   *
+   * Validates BOTH conditions before persisting:
+   *   (a) the row exists and resourceType === 'avatar', AND
+   *   (b) ownerUserId === callerId.
+   *
+   * Oracle-parity: returns a uniform ForbiddenException for all not-allowed
+   * cases (nonexistent id, wrong resourceType, foreign owner) to avoid leaking
+   * whether a foreign media id exists.
+   *
+   * @param callerId The authenticated user's id.
+   * @param mediaId  The media_references id to bind.
+   * @returns The resolved /api/media/<id> URL on success.
+   */
+  async setAvatar(callerId: string, mediaId: string): Promise<string> {
+    // Lookup — apply both predicates in one query to avoid leaking existence
+    // of a foreign media id (oracle parity).
+    const media = await this.mediaRepository.findOne({
+      where: {
+        id: mediaId,
+        resourceType: AVATAR_RESOURCE_TYPE,
+        ownerUserId: callerId
+      }
+    });
+
+    if (!media) {
+      // Uniform rejection — does not distinguish "nonexistent", "wrong type",
+      // or "foreign owner" to avoid leaking others' media ids (oracle parity).
+      throw new ForbiddenException("Media id not found or not usable as your avatar.");
+    }
+
+    await this.usersRepository.update({ id: callerId }, { avatarMediaId: mediaId });
+    return `${MEDIA_URL_PREFIX}${mediaId}`;
+  }
+
+  /**
+   * Clears the calling user's avatar by setting avatar_media_id to null.
+   *
+   * @param callerId The authenticated user's id.
+   */
+  async removeAvatar(callerId: string): Promise<void> {
+    await this.usersRepository.update({ id: callerId }, { avatarMediaId: null });
   }
 
   // ---------------------------------------------------------------------------

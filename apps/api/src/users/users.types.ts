@@ -1,7 +1,7 @@
 /**
  * users.types.ts
  *
- * Public-safe DTO shapes for the users module (ST14).
+ * Public-safe DTO shapes for the users module (ST14, ST15).
  * All shapes use explicit allowlist mappings — no entity passthrough.
  */
 
@@ -26,6 +26,35 @@ export interface UserSuggestItem {
  */
 export interface UserSuggestResponse {
   users: UserSuggestItem[];
+}
+
+// ---------------------------------------------------------------------------
+// Set/remove-avatar endpoint (PUT/DELETE /users/me/avatar) — ST15
+// ---------------------------------------------------------------------------
+
+/**
+ * Request body for PUT /users/me/avatar.
+ * Accepts the `media_references` id of the avatar to bind.
+ */
+export interface SetAvatarBody {
+  /** The `media_references` id of the avatar to bind (must be owned by the caller and resourceType='avatar'). */
+  mediaId: string;
+}
+
+/**
+ * Response for a successful set-avatar operation.
+ */
+export interface SetAvatarResponse {
+  /** The resolved /api/media/<id> URL for the bound avatar. */
+  avatarUrl: string;
+}
+
+/**
+ * Response for a successful remove-avatar operation.
+ */
+export interface RemoveAvatarResponse {
+  /** Always null after removal. */
+  avatarUrl: null;
 }
 
 // ---------------------------------------------------------------------------
