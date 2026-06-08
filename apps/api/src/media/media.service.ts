@@ -9,6 +9,7 @@ import { Repository } from "typeorm";
 import { API_ENVIRONMENT } from "../config/config.constants";
 import type { ApplicationEnvironment } from "../config/environment";
 import { MediaReferenceEntity } from "./entities/media-reference.entity";
+import { imageMagicBytesMatch } from "./image-magic-bytes";
 
 export interface UploadedFileInput {
   /** Original filename from the upload, used for display only — not trusted for storage. */
@@ -66,6 +67,7 @@ export class MediaService {
     resourceId: string | null
   ): Promise<MediaUploadResult> {
     this.assertValidMimeType(file.mimetype);
+    this.assertValidMagicBytes(file.buffer, file.mimetype);
     this.assertValidFileSize(file.size);
     this.assertValidResourceType(resourceType);
 
@@ -149,6 +151,25 @@ export class MediaService {
     if (!this.environment.media.allowedMimeTypes.includes(mimeType)) {
       throw new BadRequestException(
         `Unsupported file type. Allowed types: ${this.environment.media.allowedMimeTypes.join(", ")}.`
+      );
+    }
+  }
+
+  /**
+   * Verifies that the file's leading bytes match the declared MIME type.
+   * Rejects (`400`) any upload whose magic-byte signature does not correspond to
+   * the client-supplied content-type, catching polyglot and mislabelled files.
+   *
+   * Applies to every image resourceType handled by this service:
+   *   blog-post, standalone-page, blog-comment (and avatar once ST12 lands).
+   *
+   * SVG (`image/svg+xml`) is absent from both this check and the MIME allow-list
+   * because SVG can embed executable content.
+   */
+  assertValidMagicBytes(buffer: Buffer, claimedMimeType: string): void {
+    if (!imageMagicBytesMatch(buffer, claimedMimeType)) {
+      throw new BadRequestException(
+        "File content does not match the declared content type. Upload rejected."
       );
     }
   }

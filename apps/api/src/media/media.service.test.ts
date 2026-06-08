@@ -83,7 +83,9 @@ const validFile = {
   originalname: "photo.jpg",
   mimetype: "image/jpeg",
   size: 1024,
-  buffer: Buffer.from("fake-image-data")
+  // Real JPEG magic bytes (FF D8 FF) followed by filler — required now that
+  // magic-byte verification is enforced on every upload (ST11).
+  buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01])
 };
 
 // ---------------------------------------------------------------------------
