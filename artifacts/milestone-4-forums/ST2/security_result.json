@@ -1,0 +1,24 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST2/security_report.md",
+    "artifacts/milestone-4-forums/ST2/security_result.json"
+  ],
+  "blocking_finding_count": 1,
+  "branch_name": "ms4-st2-security-20260608",
+  "documentation_sufficiency_summary": [
+    "P1 (contract accuracy) is satisfied in the code: per-handler JSDoc and Swagger decorators on all 11 endpoints accurately state 401/403/400/404 and the scopeType/visibility allowed vocabularies; the controller header comment correctly states both checks happen before any data operation. docs/features/forums.md documents the admin board/category management surface and the scope/visibility model and matches code behavior.",
+    "The single failing test references documentation/JSDoc accuracy but the underlying JSDoc IS correct (adminDeleteCategory documents 400 and 404 at forums.controller.ts lines 174-177 and decorators at 183-186); the failure is a test-scoping bug, not a real doc/code drift instance.",
+    "No operational/runbook documentation gap relevant to ST2's admin-only surface."
+  ],
+  "note_finding_count": 5,
+  "outcome": "FAIL",
+  "pass_label": "FAIL",
+  "status": "completed",
+  "task_id": "milestone-4-forums/ST2",
+  "test_sufficiency_summary": [
+    "Strong coverage of the security-critical behaviors. forums.controller.test.ts has explicit per-endpoint 401-before-DB and 403-before-DB tests for all 12 handler entry points (lines 122-300), plus gate-ordering assertions that the repository is NOT called when the gate fires, and assertions that session.user.globalRole is what is passed to the gate.",
+    "forums.service.test.ts covers: admin gate allow/deny, gate-ordering (DB not called when gate fires), invalid scopeType rejected BEFORE any DB call on create (AC3) and on update, invalid visibility rejected before persistence on create and update, default scopeType=site/visibility=public when omitted, scopeType=project persistence, slug validation, delete-with-boards 400, and 404-before-mutation ordering.",
+    "Gap: the validation matrix is currently RED - 1 controller test (line 591-599) fails. It is a mis-scoped source-slice assertion rather than a missing security control, but it MUST be fixed so the suite is green before handoff. No oracle-parity gap of concern for ST2 since there is no public read path here (ST3 owns that)."
+  ],
+  "warning_finding_count": 0
+}
