@@ -1,0 +1,59 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Security-driven remediation pass 2 for ST12 (avatar upload resource type). Fixes fixture/seed-completeness regression from pass 1: added avatarUploadMaxSizeBytes: 1048576 to every test fixture missing the field (5 test files), and added MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES=1048576 to both tracked env seed files. Resolves 4 typecheck errors and 6 runtime test failures. Avatar feature behavior unchanged.
+
+Modified files:
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/database/database.config.test.ts
+- apps/api/src/health/readiness.service.test.ts
+- apps/api/src/common/throttle/throttle-env.test.ts
+- apps/api/.env.example
+- apps/api/.env
+
+Acceptance criteria to validate (from Planner):
+- pnpm --dir apps/api run typecheck passes with 0 errors
+- pnpm test (full suite) passes with 0 failures
+- pnpm lint passes with 0 warnings or errors
+- All test fixtures that build a media/environment object include avatarUploadMaxSizeBytes
+- apps/api/.env and apps/api/.env.example contain MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES
+- Avatar feature behavior (POST /api/media/upload?resourceType=avatar) unchanged
+
+Create test files in:
+- apps/api/src/media/media.controller.test.ts — avatar auth + size cap tests (written in pass 1, unchanged)
+- apps/api/src/media/media.service.test.ts — avatar logic tests (written in pass 1, unchanged)
+- apps/api/src/common/throttle/throttle-env.test.ts — now passes (MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES added to createValidEnv())
+- apps/api/src/auth/auth.controller.test.ts — now passes (avatarUploadMaxSizeBytes added to fixture)
+- apps/api/src/auth/auth.service.test.ts — now passes (avatarUploadMaxSizeBytes added to fixture)
+- apps/api/src/database/database.config.test.ts — now passes (avatarUploadMaxSizeBytes added to fixture)
+- apps/api/src/health/readiness.service.test.ts — now passes (avatarUploadMaxSizeBytes added to fixture)
+
+Implementation context for testing:
+- This is a fixtures/seed-completeness fix only. The avatar upload surface passed security review and is unchanged.
+- ApplicationEnvironment in environment.ts requires media.avatarUploadMaxSizeBytes (added in ST12 pass 1). Five test files constructing inline fixtures were missing the field.
+- throttle-env.test.ts uses createValidEnv() which calls loadEnvironment() — missing MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES caused env validation to fail at runtime, causing 6 test failures.
+- apps/api/.env and apps/api/.env.example are both git-tracked and were missing the new env var, which would crash the API on boot.
+- Security note: ownerUserId is recorded from session.user.id in the controller (ST15 will enforce ownership) — preserved.
+- Documenter note: no additional doc change needed beyond what pass 1 already wrote (media.md + launch.md). The .env.example addition already documents the new variable inline.
+- IMPORTANT for Tester: Run BOTH pnpm --dir apps/api run typecheck AND pnpm test (full suite) after pnpm install. Confirm 0 typecheck errors and 0 test failures. The prior tester missed these validations.
+
+Suggested test command(s):
+- pnpm install --frozen-lockfile
+- pnpm --dir apps/api run typecheck
+- pnpm test
+- pnpm lint
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST12
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
