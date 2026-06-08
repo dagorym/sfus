@@ -1,0 +1,73 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST1 — Forums data model, migration, and module scaffold (remediation pass 2). Lint defect fixed: _environment renamed to environment in ForumsModule.register(); environment now consumed via API_ENVIRONMENT token (matching HealthModule pattern). All four entities (ForumCategoryEntity, ForumBoardEntity, ForumTopicEntity, ForumPostEntity), migration MilestoneFourForumsFoundation1780890123767, ForumsModule.register(environment) imported by AppModule, all entities and migration registered in database.config.ts. All acceptance criteria now pass.
+
+Acceptance criteria validated:
+- Entities compile and are added to reviewedEntityClasses; migration added to reviewedMigrationClasses named MilestoneFourForumsFoundation1780890123767
+- forum_boards has scope_type (default 'site'), nullable project_id (no FK — forward-scaffolding for M7/M8), and visibility columns
+- Migration applies cleanly on MySQL 5.7.44 schema; down() drops FK-safely (posts->topics->boards->categories); no 8.0-only syntax; utf8mb4; precision-3 datetimes
+- ForumsModule.register(environment) follows dynamic-module pattern and is imported by AppModule; provides API_ENVIRONMENT token
+- pnpm lint, pnpm typecheck, pnpm test, and API tsc build all pass
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st1-tester-20260607 (branch ms4-st1-tester-20260607)
+- Main sfus repo branch: ms4 (does not yet contain the forums directory — all forums implementation is in the worktree)
+- Implementer commits: 04f78e2 (initial ST1), 39ec154 (remediation-pass-2 lint fix)
+- Tester commits: 278085f (initial test files), 955aee4 (API_ENVIRONMENT assertion)
+- Compare ms4-st1-tester-20260607 against ms4 to see all implementer + tester changes
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/forums/forums.module.ts
+- apps/api/src/forums/entities/forum-category.entity.ts
+- apps/api/src/forums/entities/forum-board.entity.ts
+- apps/api/src/forums/entities/forum-topic.entity.ts
+- apps/api/src/forums/entities/forum-post.entity.ts
+- apps/api/src/database/migrations/1780890123767-milestone-four-forums-foundation.ts
+- apps/api/src/database/database.config.ts
+- apps/api/src/app.module.ts
+- apps/api/src/forums/forums-entities.test.ts
+- apps/api/src/forums/forums.module.test.ts
+- apps/api/src/database/database.config.test.ts
+
+Test commit:
+- 955aee4
+
+Commands executed:
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st1-tester-20260607 --filter @sfus/api test
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st1-tester-20260607 lint
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st1-tester-20260607 typecheck
+- pnpm --dir /home/tstephen/repos/worktrees/ms4-st1-tester-20260607 --filter @sfus/api run build
+
+Final test outcomes:
+- 381 tests passed, 2 skipped (integration tests skipped; no failures)
+- forums-entities.test.ts: 9/9 pass (entity instantiation, scope_type/visibility vocabulary, deletedAt, quotedPostId)
+- forums.module.test.ts: 3/3 pass (DynamicModule shape, TypeORM imports, API_ENVIRONMENT provider)
+- database.config.test.ts: 3/3 pass (includes MilestoneFourForumsFoundation1780890123767 migration name)
+- pnpm lint: PASS (0 errors, 0 warnings) — remediation fix confirmed
+- pnpm typecheck: PASS
+- API tsc build: PASS
+
+Documentation context:
+- ST1 is a pure schema/scaffold subtask with no request handlers — only data model and module wiring documentation applies
+- A new forums feature module has been introduced; docs/features/ may need a forums.md created
+- Key schema design decisions to document: scope_type as varchar(16) (not ENUM) for MySQL 5.7.44 compatibility; project_id nullable with no FK (forward-scaffolding for M7/M8); visibility reuses existing authorization vocabulary; deleted_at on topics and posts for soft-delete; quoted_post_id with no FK
+- Migration comment already documents the ALTER TABLE to add FK when projects table lands
+- ForumsModule follows the HealthModule/MediaModule/BlogModule dynamic-module pattern with API_ENVIRONMENT token
+- docs/README.md routing table should be consulted before adding new docs
+- Active milestone plan: plans/milestone-4-forums-plan.md
+
+Plan and diff context:
+- Plan path: plans/milestone-4-forums-plan.md (ST1 section)
+- Base branch for diff: ms4 (main sfus repo); worktree branch ms4-st1-tester-20260607 diverges from ms4 at commit 07d732c
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
