@@ -1,0 +1,79 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST6: Forum moderation controls (pin/lock/move). Six moderator/admin PATCH endpoints under /forums/moderation/topics/:topicId/{pin,unpin,lock,unlock,move} behind assertModerationAccess (moderator|admin, mirrors BlogService). Each enforces 401 (no session) then 403 (non-moderator) before any data op. setPinned/setLocked persist + record audit (lockedByUserId/At). moveTopic re-validates the DESTINATION board through the shared isBoardPubliclyReadable/AuthorizationService.evaluate() predicate so a move cannot leak a topic across visibility scopes (project-scoped or non-publicly-readable destination -> rejected; nonexistent -> 404; malformed destinationBoardId -> 400 not 500); records movedByUserId/At. Lock toggles topic.isLocked, which ST5 createPost already enforces (403 thread-locked for non-privileged). New ModeratedTopicShape (moderation-enriched) + MoveTopicInput types. Full Swagger/JSDoc on all six. 68 new tests; full suite green (765 pass, typecheck 0 errors, lint clean).
+
+Acceptance criteria to verify:
+- Six PATCH endpoints under /api/forums/moderation/topics/:topicId/{pin,unpin,lock,unlock,move} exist and behave correctly
+- assertModerationAccess gate: 401 first (no session), then 403 (insufficient role) before any data operation
+- setPinned persists isPinned; pinned topics sort first in the public topic list
+- setLocked persists isLocked, lockedByUserId, lockedAt (clears all three on unlock)
+- moveTopic re-validates destination board via AuthorizationService.evaluate() — project-scoped or non-publicly-readable destination returns 404 (cross-scope leak prevention)
+- Nonexistent destination board returns 404 (oracle parity with BOARD_NOT_FOUND_MESSAGE)
+- Malformed destinationBoardId (missing, non-string, empty) returns 400 not 500
+- movedByUserId/movedAt audit recorded on successful move
+- ST5 createPost locked-topic 403 integration: locked topic blocks non-privileged post creation
+- ModeratedTopicShape and MoveTopicInput types present in forums.types.ts
+- Full Swagger/JSDoc on all six endpoints
+- 68 new tests; full suite green (765 pass, typecheck 0 errors, lint clean)
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st6-documenter-20260608 (branch ms4-st6-documenter-20260608, contains implementer + tester changes)
+- Base branch: ms4
+- Diff branch against ms4 for full change set
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/forums/forums.service.ts — assertModerationAccess, setPinned, setLocked, moveTopic, toModeratedTopicShape
+- apps/api/src/forums/forums.controller.ts — six moderation PATCH endpoints with full Swagger/JSDoc
+- apps/api/src/forums/forums.types.ts — ModeratedTopicShape, MoveTopicInput
+- apps/api/src/forums/forums.service.test.ts — 68 new moderation tests
+- apps/api/src/forums/forums.controller.test.ts — controller-level moderation tests
+- docs/features/forums.md — added MODERATION section (ST6), updated file header
+- docs/guides/content-management.md — added Forums section with pin/lock/move how-tos
+
+Commands executed:
+- myteam get role documenter
+- myteam get skill execution-start
+- myteam get skill documenter/preflight
+- python .myteam/documenter/preflight/resolve_preflight.py
+- myteam get skill documenter/diff-review
+- python .myteam/documenter/diff-review/analyze_doc_impact.py
+- Read docs/features/forums.md
+- Read docs/guides/content-management.md
+- Read apps/api/src/forums/forums.types.ts
+- Read apps/api/src/forums/forums.controller.ts (moderation section)
+- Read apps/api/src/forums/forums.service.ts (moderation section)
+- Edit docs/features/forums.md (added MODERATION section, updated header)
+- Edit docs/guides/content-management.md (added Forums section)
+- git add docs/features/forums.md docs/guides/content-management.md
+- git commit (docs commit d199039)
+
+Final test outcomes:
+- Full API suite: 765 passed, typecheck 0 errors, lint clean (from tester report)
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-plan.md (ST6)
+- ST6 Documentation Impact: extend docs/features/forums.md with MODERATION section; add forum moderation how-to pointer to docs/guides/content-management.md
+- Removed the 'Planned extensions / ST6' forward-reference placeholder from forums.md
+- docs/README.md routing table confirmed — forums.md covers apps/api/src/forums/; content-management.md covers admin/member how-tos
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table — consulted before editing
+- One fact, one home — moderation contract lives in docs/features/forums.md; content-management.md has a brief how-to that links to it
+- No duplicate facts introduced across documentation files
+- docs/deferred-tasks.md was not edited (per policy: only edited during planning cycles)
+
+Updated documentation files:
+- docs/features/forums.md
+- docs/guides/content-management.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST6
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
