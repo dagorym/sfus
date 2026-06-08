@@ -1,0 +1,63 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST2: Admin CRUD for forum categories and boards behind assertAdminManagementAccess (admin role, 401/403 gate). ForumsController exposes 11 admin endpoints (GET/POST/PATCH/DELETE/PUT on categories and boards). ForumsService.assertAdminManagementAccess mirrors BlogService pattern. Board create/update persist scopeType ('site'|'project'), visibility ('public'|'unlisted'|'members'|'project-only'|'private'), and projectId. Invalid enum values rejected 400. reorderCategories/reorderBoards are deterministic. Swagger/JSDoc document the full 401/403/400/404 status contract.
+
+Acceptance criteria validated:
+- Admin endpoints enforce 401 (no session) / 403 (non-admin) before any data operation — PASS
+- Create/update persist scope_type, visibility, project_id; reorder/position is deterministic in the response — PASS
+- Invalid scope_type/visibility values are rejected 400 — PASS
+- Swagger/JSDoc match the real status contract — PASS
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st2-tester-20260608 (branch ms4-st2-tester-20260608)
+- Base branch: ms4
+- Compare ms4-st2-tester-20260608 against ms4 to see all implementer + tester changes
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/forums/forums.controller.ts
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.types.ts
+- apps/api/src/forums/forums.module.ts
+- apps/api/src/forums/forums.service.test.ts
+- apps/api/src/forums/forums.controller.test.ts
+
+Test commit:
+- 6c69017a034bfc320446d2dc1bf1ca05c2a50c85
+
+Commands executed:
+- pnpm install --frozen-lockfile
+- pnpm typecheck
+- pnpm test
+- pnpm lint
+- pnpm --filter @sfus/api run build
+
+Final test outcomes:
+- 536 tests passed, 2 skipped (pre-existing integration tests), 0 failed
+- forums.service.test.ts: all tests pass (assertAdminManagementAccess gate, CRUD, enum validation, reorder determinism, 400/404 guards)
+- forums.controller.test.ts: all tests pass (11 x 401 gate, 11 x 403 gate, all non-vacuous, happy-path wiring, Swagger/JSDoc source-contract)
+- pnpm typecheck: PASS (0 errors)
+- pnpm lint: PASS (0 errors, 0 warnings)
+- pnpm --filter @sfus/api run build: PASS
+
+Documentation context:
+- ST2 introduces the complete admin CRUD API surface for forum categories and boards; docs/features/ may need a forums.md to document the API contract and auth model
+- Key behaviors to document: 11 admin endpoints requiring the admin global role; assertAdminManagementAccess pattern (same as BlogService); scopeType/visibility vocabulary and defaults; projectId forward-scaffolding note (no FK, for M7/M8); deleteCategory requires boards to be absent first (400 if boards attached)
+- Reorder contract: orderedIds must exactly match existing IDs; position in array becomes sortOrder; 400 on any mismatch
+- docs/README.md routing table should be consulted before adding new docs
+- Active milestone plan: plans/milestone-4-forums-plan.md (ST2 section)
+
+Plan and diff context:
+- Plan path: plans/milestone-4-forums-plan.md (ST2 section)
+- Base branch for diff: ms4; worktree branch ms4-st2-tester-20260608 diverges from ms4 at most recent ms4 commit
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
