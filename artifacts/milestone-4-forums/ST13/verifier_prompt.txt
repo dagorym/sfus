@@ -1,0 +1,56 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Added bio (TEXT NULL) and avatar_media_id (CHAR(36) NULL, FK -> media_references ON DELETE SET NULL) columns to the users table via a single reversible migration (1780892561355-user-bio-and-avatar.ts). UserEntity updated with bio, avatarMediaId column mappings and avatarMedia ManyToOne relation following the BlogPostEntity pattern. Migration registered in database.config.ts reviewedMigrationClasses. Existing test fixtures in auth.service.test.ts and database.config.test.ts updated as mechanical consequence of entity shape change. All 381 tests pass; workspace typecheck and lint clean.
+
+Acceptance criteria to verify:
+- Migration applies cleanly on MySQL 5.7.44 and is reversible; entity updated and registered. VERIFIED (tester).
+- pnpm typecheck and the API tsc build pass. VERIFIED (tester).
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st13-documenter-20260607
+- Branch: ms4-st13-documenter-20260607 (from tester branch ms4-st13-tester-20260607)
+- Implementation commit: cd53ba6
+- Comparison base: ms4
+- Documentation commit hash: fc7282be21d086ae82032ebf7482c414242f8be9
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/database/migrations/1780892561355-user-bio-and-avatar.ts (Implementer: new migration adding bio and avatar_media_id columns)
+- apps/api/src/database/database.config.ts (Implementer: registered UserBioAndAvatar1780892561355 in reviewedMigrationClasses)
+- apps/api/src/users/entities/user.entity.ts (Implementer: added bio, avatarMediaId columns and avatarMedia ManyToOne relation)
+- apps/api/src/auth/auth.service.test.ts (Tester: updated fixtures for new entity shape)
+- apps/api/src/database/database.config.test.ts (Tester: updated fixtures for new migration registration)
+- docs/development/api-conventions.md (Documenter: added UserBioAndAvatar1780892561355 to reviewed migration list)
+
+Commands executed:
+- None
+
+Final test outcomes:
+- 381 tests passed, 2 skipped (SFUS_DB_INTEGRATION gated), 0 failed.
+- pnpm typecheck clean; pnpm lint clean.
+
+Plan or evaluation context guidance:
+- Plan path: plans/milestone-4-forums-plan.md (ST13)
+- Documentation Impact in plan: 'none here (surfaced in ST14/ST15 docs)' -- applies to feature/endpoint documentation.
+- The plan's 'none here' guidance is confirmed accurate for feature docs (no endpoint exposes bio/avatar yet).
+- However, docs/development/api-conventions.md maintains a synchronized migration list that must match reviewedMigrationClasses; this required updating.
+
+Convention-file guidance:
+- docs/README.md routing table: docs/development/api-conventions.md covers DB/migration conventions (read when adding/changing any migration).
+- The migration list in api-conventions.md is explicitly synchronized with reviewedMigrationClasses in database.config.ts.
+- AGENTS.md and .myteam/ files are not affected by this schema-only change.
+- Feature docs (auth.md, etc.) are not affected -- bio/avatar are not yet exposed via any endpoint.
+
+Updated documentation files:
+- docs/development/api-conventions.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST13
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
