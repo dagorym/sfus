@@ -1,0 +1,39 @@
+{
+  "status": "FAIL",
+  "subtask": "ST17",
+  "branch_name": "ms4-st17-tester-20260608",
+  "test_commit_hash": "No Changes Made",
+  "test_files_added_or_modified": [],
+  "commands_run": [
+    "pnpm --dir <worktree> install --frozen-lockfile",
+    "<worktree>/node_modules/.bin/vitest run --root apps/web",
+    "pnpm --dir <worktree> typecheck",
+    "pnpm --dir <worktree> lint"
+  ],
+  "pass_fail_totals": {
+    "total": 407,
+    "passed": 407,
+    "failed": 0,
+    "st17_new_tests": {
+      "components/user-avatar.spec.ts": 16,
+      "app/users/users-profile.spec.ts": 12,
+      "total_new": 28
+    }
+  },
+  "typecheck_errors": 0,
+  "lint_status": "FAIL",
+  "lint_defect": {
+    "file": "apps/web/components/user-avatar.tsx",
+    "line": 102,
+    "rule": "@next/next/no-img-element",
+    "description": "Uses <img> instead of <Image /> from next/image. 1 warning with --max-warnings=0 -> exit code 1.",
+    "defect_type": "implementation_defect"
+  },
+  "unmet_acceptance_criteria": [
+    "Web lint FAILS: apps/web/components/user-avatar.tsx line 102 uses <img> instead of next/image <Image />, triggering ESLint warning @next/next/no-img-element with --max-warnings=0 configured. This is an implementation defect in product code. Expected: lint clean (0 warnings). Actual: 1 warning -> exit code 1."
+  ],
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST17/tester_report.md",
+    "artifacts/milestone-4-forums/ST17/tester_result.json"
+  ]
+}

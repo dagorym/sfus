@@ -1,0 +1,22 @@
+{
+  "status": "FAIL",
+  "subtask": "ST17",
+  "task_summary": "ST17 — Web: public profile page + avatar upload & display. Implemented /users/[username] public profile page with profileProjection() five-field allowlist, UserAvatar component with initials fallback, avatar upload/remove in /profile via ImageUpload(resourceType='avatar'), and avatar display in mention-autocomplete.",
+  "branch_name": "ms4-st17-tester-20260608",
+  "test_commit_hash": "No Changes Made",
+  "test_files_changed": [],
+  "commands_run": [
+    "pnpm --dir <worktree> install --frozen-lockfile",
+    "<worktree>/node_modules/.bin/vitest run --root apps/web",
+    "pnpm --dir <worktree> typecheck",
+    "pnpm --dir <worktree> lint"
+  ],
+  "final_test_outcomes": "407 tests PASS (0 failures). ST17 new specs: user-avatar.spec.ts (16 tests), users-profile.spec.ts (12 tests) — all 28 execute and pass. Typecheck: 0 errors. Lint: FAIL — 1 warning in apps/web/components/user-avatar.tsx line 102 (@next/next/no-img-element: uses <img> instead of next/image <Image />). This is an implementation defect. Lint configured with --max-warnings=0 causes exit code 1.",
+  "unmet_acceptance_criteria": [
+    "Web lint FAILS: apps/web/components/user-avatar.tsx line 102 uses <img> instead of next/image <Image />, triggering ESLint warning @next/next/no-img-element with --max-warnings=0 configured. This is an implementation defect in product code. Expected: lint clean (0 warnings). Actual: 1 warning -> exit code 1."
+  ],
+  "artifact_files_written": [
+    "artifacts/milestone-4-forums/ST17/tester_report.md",
+    "artifacts/milestone-4-forums/ST17/tester_result.json"
+  ]
+}
