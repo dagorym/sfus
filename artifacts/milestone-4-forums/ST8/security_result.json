@@ -1,0 +1,24 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST8/security_report.md",
+    "artifacts/milestone-4-forums/ST8/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st8-security-20260608",
+  "documentation_sufficiency_summary": [
+    "ADEQUATE. docs/development/api-conventions.md now (a) correctly states the new-account tier is dormant in ST8 (guard passes userCreatedAt: null) and activates in ST9 - pass-1 P1 drift removed and verified accurate against throttle.guard.ts; (b) documents the link scanner as linear-time indexOf-based with the 256 KB scan cap and the expanded counted set (Markdown links + http/https + ftp/mailto/tel + www. hosts); (c) documents the no-XFF identity resolution and the 429 envelope.",
+    "apps/api/.env.example now lists all five THROTTLE_* vars with the cross-field constraint, closing the deploy-env-drift footgun.",
+    "Minor doc opportunities for ST9 (non-blocking): note the mailto:/tel: substring over-count behavior and the scan-cap/body-limit relationship so a future change keeping the scan window >= the max accepted body size is intentional. The fail-closed-on-store-error behavior is now proven by tests though still worth an explicit doc line for a future Redis-store author."
+  ],
+  "note_finding_count": 6,
+  "outcome": "CONDITIONAL PASS",
+  "pass_label": "security-2",
+  "status": "completed",
+  "task_id": "milestone-4-forums/ST8",
+  "test_sufficiency_summary": [
+    "ADEQUATE for ST8's security surface after remediation. The pass-1 security-relevant GAPS are closed: (1) ReDoS regression - link-limit.test.ts adds a 1 MB and a 64 KB pathological-body timing assertion (under 100 ms / under 20 ms), demonstrably non-vacuous against the old backtracking regex; (2) evasion - 13 new cases cover ftp/mailto/tel/www detection, www. word-boundary acceptance/rejection, and no-double-count with Markdown links; (3) guard fail-closed - new throttle.guard.test.ts (8 tests) proves throwing-store => denial (fail-closed), session-error => IP fallback, userId-vs-IP key selection, and store window-reset/independent-key/sweep semantics.",
+    "Full matrix re-run by this reviewer: lint PASS, typecheck PASS, API test PASS (521 pass / 2 DB-gated skips), API tsc build PASS.",
+    "Residual (non-blocking) test gaps: no test asserts the mailto:/tel: substring false-positive boundary (it is currently unguarded), and no test pins the 256 KB scan-cap completeness boundary; both are non-exploitable and can be addressed alongside the ST9 enforcement wiring."
+  ],
+  "warning_finding_count": 1
+}
