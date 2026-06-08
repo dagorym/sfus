@@ -1,0 +1,26 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST11/verifier_report.md",
+    "artifacts/milestone-4-forums/ST11/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st11-verifier-20260607",
+  "documentation_accuracy_summary": [
+    "ACCURATE. docs/features/media.md documents the magic-byte verification contract: after the MIME allow-list check the server reads leading bytes and compares against JPEG (FF D8 FF), PNG (89 50 4E 47...), GIF87a/GIF89a, and WebP (RIFF....WEBP) signatures.",
+    "The doc correctly states: rejects 400 on mismatch even when the Content-Type names an allowed type; applies to every image resourceType (blog-post, standalone-page, blog-comment); SVG excluded from both the MIME allow-list and magic-byte signatures because SVG can embed executable content.",
+    "The API route table 400-reason list includes 'magic-byte mismatch'. The uploadImage JSDoc in media.service.ts accurately lists magic-byte verification as a rejection condition.",
+    "No stale text (P1 compliant). No contradictions or duplicated facts across the changed documentation."
+  ],
+  "note_finding_count": 1,
+  "pass_label": "verifier-pass-1",
+  "status": "complete",
+  "task_id": "ST11",
+  "test_sufficiency_summary": [
+    "SUFFICIENT. 28 tests in image-magic-bytes.test.ts cover per-format classification (JPEG, PNG, GIF87a, GIF89a, WebP), WebP wildcard size-field positions (varying bytes 4-7 still classify as WebP), short-buffer boundary (empty and 11-byte \u2014 one below MIN_SNIFF_BYTES=12), unknown-format rejection (PDF, all-zero, SVG-like text), SVG exclusion (sniffImageMimeType returns null for SVG-like bytes), and unrecognised MIME type rejection.",
+    "38 tests in media.service.test.ts cover assertValidMagicBytes at service layer for all format pairs, non-vacuous polyglot rejection (PNG bytes claimed as image/jpeg asserts writeFileSync NOT called), per-resourceType no-regression acceptance (blog-post, standalone-page, blog-comment), per-resourceType polyglot rejection (standalone-page, blog-comment), short-buffer rejection, and exact error message text assertion.",
+    "P7 breadth fully covered: all 3 current image resourceTypes (blog-post, standalone-page, blog-comment) are explicitly tested for acceptance of valid images and rejection of polyglots. Single upload funnel confirmed \u2014 no alternate image write path exists.",
+    "Full API suite: 431 passed, 2 skipped (DB-gated integration tests \u2014 by design). Web suite: 293 passed. All confirmed by independent re-run from this worktree."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
