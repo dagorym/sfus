@@ -1,0 +1,148 @@
+Your role is 'tester'. Your task is as follows:
+
+Test Milestone 4 subtask ST15 — set/remove-avatar API with ownership enforcement.
+Source of truth: plans/milestone-4-forums-plan.md (ST15), implementer_report.md.
+Continue past preflight into test implementation when no blocking input is missing.
+
+## Context
+
+The implementer added two self-service endpoints to `UsersController`:
+
+- `PUT /users/me/avatar` — binds a `media_references` id as the caller's avatar
+- `DELETE /users/me/avatar` — clears avatar_media_id to null
+
+Both endpoints live in `apps/api/src/users/users.controller.ts`.
+Service logic lives in `apps/api/src/users/users.service.ts` (`setAvatar`, `removeAvatar`).
+Types: `apps/api/src/users/users.types.ts`.
+
+**Route home:** `UsersController` (not `AuthController`).
+
+## Changed Files (read before writing tests)
+
+- `apps/api/src/users/users.controller.ts`
+- `apps/api/src/users/users.service.ts`
+- `apps/api/src/users/users.types.ts`
+- `apps/api/src/users/users.module.ts`
+- `apps/api/src/users/users.service.test.ts` (updated existing ST14 fixtures)
+
+## Test File Location
+
+Write API specs as: `apps/api/src/users/users.controller.test.ts` (extend the existing file — add ST15 describe blocks below the existing ST14 blocks) AND/OR `apps/api/src/users/users.service.test.ts` (add service-level ownership tests).
+
+Follow the exact test patterns from the existing tests in those files — use `makeController()` / `makeUsersService()` style, stub `AuthService.resolveSession` and `UsersService.setAvatar` / `UsersService.removeAvatar`.
+
+## Acceptance Criteria (must test ALL of the following)
+
+### Set-avatar: session/auth
+- AC-SETAVATAR-401: No session → `UnauthorizedException` (401); `setAvatar` on service NOT called.
+
+### Set-avatar: input validation
+- AC-SETAVATAR-400-MISSING: Missing `mediaId` in body (undefined body, empty object, null body) → `BadRequestException` (400).
+- AC-SETAVATAR-400-EMPTY: `mediaId` is an empty string or whitespace → `BadRequestException` (400).
+- AC-SETAVATAR-400-NONSTRING: `mediaId` is a number or boolean → `BadRequestException` (400).
+- AC-SETAVATAR-400-ORDER: 400 fires BEFORE `resolveSession` is called (DB/session not reached on bad body).
+
+### Set-avatar: ownership/ownership enforcement (THE KEY SECURITY TEST)
+- AC-SETAVATAR-403-NONEXISTENT: A media id that does not exist → `ForbiddenException` (403).
+- AC-SETAVATAR-403-WRONG-TYPE: A media id that exists but `resourceType !== 'avatar'` → `ForbiddenException` (403).
+- AC-SETAVATAR-403-FOREIGN: A valid avatar media id owned by ANOTHER user → `ForbiddenException` (403).
+  * **This is the key ownership test — a user MUST NOT be able to set another user's media as their own avatar.**
+- AC-SETAVATAR-ORACLE-PARITY: All three rejection cases produce the same error type and message (no existence oracle — the caller cannot determine whether a foreign id exists).
+
+### Set-avatar: success
+- AC-SETAVATAR-SUCCESS: Caller's own avatar id (resourceType='avatar', same ownerUserId) → 200; `setAvatar` called with correct `(callerId, mediaId)`; response is `{ avatarUrl: "/api/media/<id>" }`.
+- AC-SETAVATAR-PROFILE: After a successful set-avatar, the id appears in the profile (avatar_media_id field used by `findPublicProfile`). Test via service-level unit test that `avatarMediaId` is updated.
+
+### Remove-avatar
+- AC-REMOVEAVATAR-401: No session → `UnauthorizedException` (401); `removeAvatar` on service NOT called.
+- AC-REMOVEAVATAR-SUCCESS: Active session → 200; `removeAvatar` called with correct `callerId`; response is `{ avatarUrl: null }`.
+
+### Service-level tests (in users.service.test.ts)
+- AC-SERVICE-SETAVATAR-OWNERSHIP: `setAvatar` queries repository with `{ id: mediaId, resourceType: 'avatar', ownerUserId: callerId }` — all three conditions in one query.
+- AC-SERVICE-SETAVATAR-FOREIGN: When `mediaRepository.findOne` returns `null` (simulating nonexistent/wrong-type/foreign), `setAvatar` throws `ForbiddenException` — not `NotFoundException` or anything else.
+- AC-SERVICE-SETAVATAR-UNIFORM-MESSAGE: The ForbiddenException message is the same regardless of why the lookup failed (oracle parity).
+- AC-SERVICE-SETAVATAR-SUCCESS: When `findOne` returns a matching entity, `usersRepository.update` is called with `{ avatarMediaId: mediaId }` and the method returns the `/api/media/<id>` URL.
+- AC-SERVICE-REMOVEAVATAR: `removeAvatar(callerId)` calls `usersRepository.update({ id: callerId }, { avatarMediaId: null })`.
+
+## Key Implementation Details
+
+### Controller setAvatar handler
+```
+// Security order: 400 → 401 → 403 → persist
+1. 400 guard: body must be object with non-empty string `mediaId`
+2. authService.resolveSession({ cookieHeader }) — 401 if no session
+3. usersService.setAvatar(session.user.id, mediaId) — 403 on any not-allowed case
+4. return { avatarUrl }
+```
+
+### Service setAvatar method
+```typescript
+async setAvatar(callerId: string, mediaId: string): Promise<string> {
+  const media = await this.mediaRepository.findOne({
+    where: { id: mediaId, resourceType: 'avatar', ownerUserId: callerId }
+  });
+  if (!media) throw new ForbiddenException("Media id not found or not usable as your avatar.");
+  await this.usersRepository.update({ id: callerId }, { avatarMediaId: mediaId });
+  return `/api/media/${mediaId}`;
+}
+```
+
+### Service removeAvatar method
+```typescript
+async removeAvatar(callerId: string): Promise<void> {
+  await this.usersRepository.update({ id: callerId }, { avatarMediaId: null });
+}
+```
+
+### Oracle parity
+`setAvatar` uses a single three-condition WHERE clause so the same null result
+covers all three rejection cases. The ForbiddenException message is:
+`"Media id not found or not usable as your avatar."`
+
+## Repository Mock Pattern (for service tests)
+
+The service now has TWO injected repositories. Use:
+```typescript
+const makeService = (userRepoOverrides?, mediaRepoOverrides?) =>
+  new UsersService(
+    { findOne: vi.fn()..., find: vi.fn()..., update: vi.fn()... } as never,
+    { findOne: vi.fn()... } as never  // mediaRepository
+  );
+```
+
+See existing `users.service.test.ts` for the `new UsersService(repo as never, {} as never)` pattern.
+
+## Validation Commands
+
+Install once:
+```
+pnpm --dir <worktree-root> install --frozen-lockfile
+```
+
+Run tests (must use vitest directly — not pnpm --filter, which resolves to the main repo):
+```
+<worktree-root>/node_modules/.bin/vitest run --root <worktree-root>/apps/api
+```
+
+Must include `src/users/*.test.ts`. Paste the real pass/fail summary.
+
+Also run:
+```
+pnpm --dir <worktree-root> typecheck
+pnpm --dir <worktree-root> lint
+```
+
+## Security Review
+
+This subtask has security_review: required. The security reviewer must confirm:
+1. Ownership enforcement: the single WHERE clause (id + resourceType + ownerUserId) provides a real ownership check.
+2. Oracle parity: a caller cannot determine whether a foreign media id exists from the error response.
+3. 401-first: session check fires before any ownership DB query.
+4. 400-first: body validation fires before session check.
+5. Remove-avatar also requires a session (no unauthenticated avatar clearing).
+
+## Artifact Directory
+
+`artifacts/milestone-4-forums/ST15/`
+
+Do not report success unless all required artifacts exist and all changes are committed.
