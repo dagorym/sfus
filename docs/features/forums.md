@@ -1,16 +1,17 @@
 # Forums
 
-Forum categories and boards — admin management and public read API. Topics, posts, and moderation are covered in later subtasks (ST4–ST6).
+Forum categories, boards, and topics — admin management, public read, and member topic creation. Posts and moderation are covered in later subtasks (ST5–ST6).
 
 **Code:** `apps/api/src/forums/`
 **Related:** [authorization](authorization.md) for the admin gate · [development/api-conventions](../development/api-conventions.md) for the error envelope
 
 ## Overview
 
-The forums subsystem organises discussion into a two-level hierarchy:
+The forums subsystem organises discussion into a three-level hierarchy:
 
 - **Category** — a named group with an ordered list of boards.
 - **Board** — a named discussion area within a category, with scope, visibility, and optional project association.
+- **Topic** — a discussion thread within a board, authored by a member. Created via an authenticated POST; listed via a public paginated GET.
 
 All admin management endpoints are under `/api/forums/admin/...` and require an active session with the global `admin` role.
 
@@ -99,6 +100,113 @@ Stripped from the public shape (internal-only): `scopeType`, `projectId`, `categ
 |---|---|---|---|---|
 | GET | `/api/forums/categories` | None | 200 | `{ categories }` ordered by `sortOrder ASC`. Each category includes only site-scoped, publicly-readable boards. |
 | GET | `/api/forums/boards/:id` | None | 200 / 404 | `{ board }` as `PublicBoardShape`. `404` for both nonexistent and non-publicly-accessible boards (identical message). |
+| GET | `/api/forums/boards/:boardId/topics` | None | 200 / 404 | `PaginatedTopicsShape`. `404` for both nonexistent and non-publicly-accessible boards (identical message). |
+| POST | `/api/forums/boards/:boardId/topics` | Session cookie | 201 / 400 / 401 / 404 | `{ topic }` as `PublicTopicShape`. Requires active session (401). Board must be publicly readable (404). Body must pass Markdown safety validation (400). |
+
+## Topic routes (ST4)
+
+### Member-authenticated topic creation
+
+`POST /api/forums/boards/:boardId/topics`
+
+Requires an active session cookie (`sfus_session`). The controller resolves the session first and throws `401` before any service call if the session is missing or invalid.
+
+**Request body:**
+
+```json
+{ "title": "string", "body": "string (Markdown)" }
+```
+
+**Validation and security order (all happen before persistence):**
+
+1. `AuthService.resolveSession()` — throws `401` if no active session.
+2. Board lookup + visibility gate — nonexistent or non-publicly-readable board returns `404` with `ForumsService.TOPIC_NOT_FOUND_MESSAGE` (oracle parity, P12).
+3. Title validation — empty or too-long title returns `400`.
+4. `normalizeMarkdownBody(body)` — normalizes whitespace/structure.
+5. `validateMarkdownBody(normalizedBody)` — rejects unsafe content (e.g. `<script>`, `javascript:` links) with `400` **before any DB write**.
+
+**Response (201):** `{ topic: PublicTopicShape }`
+
+**Error contract:**
+
+| Status | Condition |
+|---|---|
+| 400 | Empty title, title too long, or unsafe Markdown in body |
+| 401 | No active session |
+| 404 | Board not found or not publicly readable (identical message in both cases) |
+
+### Public paginated topic list
+
+`GET /api/forums/boards/:boardId/topics`
+
+No authentication required. Returns topics for any board that passes the same public visibility predicate as the board read routes.
+
+**Query parameters:**
+
+| Parameter | Default | Constraints | Notes |
+|---|---|---|---|
+| `page` | `1` | ≥ 1; clamped to 1 | 1-indexed page number |
+| `pageSize` | `20` | 1–100; clamped to 100 | Number of topics per page |
+
+**Sort order (deterministic):**
+
+1. `isPinned DESC` — pinned topics always appear first.
+2. `lastPostAt DESC` — most recently active topics next (nulls sort last).
+3. `createdAt DESC` — tie-break by creation time.
+
+Only non-deleted topics (`deletedAt IS NULL`) are returned.
+
+**Response (200):** `PaginatedTopicsShape`
+
+```typescript
+{
+  topics: PublicTopicShape[];
+  total: number;   // total matching topic count (for stable pagination)
+  page: number;    // resolved page (after clamping)
+  pageSize: number; // resolved pageSize (after clamping)
+}
+```
+
+**Error contract:**
+
+| Status | Condition |
+|---|---|
+| 404 | Board not found or not publicly readable (identical message in both cases) |
+
+### Topic response shapes
+
+`PublicAuthorShape` — author sub-object embedded in every topic response. Internal fields (`id`, `email`, `globalRole`, `status`) are stripped.
+
+| Field | Type | Notes |
+|---|---|---|
+| `username` | string | |
+| `displayName` | `string \| null` | |
+
+`PublicTopicShape` — fields returned per topic. Internal-only fields are stripped: `authorUserId` (FK), `boardId` (implicit from URL), `isLocked`, `movedByUserId`, `movedAt`, `lockedByUserId`, `lockedAt`, `deletedAt`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string (UUID) | |
+| `title` | string | |
+| `slug` | string | Derived from title at create time |
+| `body` | string | Normalized Markdown |
+| `isPinned` | boolean | |
+| `replyCount` | number | Count of non-deleted replies |
+| `lastPostAt` | `Date \| null` | Set on first reply; null for topics with no replies |
+| `author` | `PublicAuthorShape` | `username` and `displayName` only |
+| `createdAt` | Date | |
+| `updatedAt` | Date | |
+
+### Oracle parity for topic routes (P12)
+
+Both topic routes use `ForumsService.TOPIC_NOT_FOUND_MESSAGE` (`"Forum topic not found."`) for `404` responses regardless of whether the board is nonexistent or exists but is not publicly readable. The error message is **identical in both cases** so callers cannot infer board existence from topic-route error messages. This mirrors the same pattern on board routes (`ForumsService.BOARD_NOT_FOUND_MESSAGE`).
+
+### Markdown safety contract
+
+Topic body content is processed in two steps before any DB write:
+
+1. **`normalizeMarkdownBody`** — trims and normalizes whitespace.
+2. **`validateMarkdownBody`** — rejects content containing unsafe constructs (raw HTML script tags, `javascript:` protocol links, and other XSS vectors). Returns `{ safe: boolean, reason?: string }`. A `safe: false` result throws `BadRequestException(400)` immediately; the topic is never persisted.
 
 ## Admin API routes
 
@@ -151,4 +259,5 @@ All 11 admin endpoints are annotated with `@ApiOperation`, `@Api*Response` decor
 
 The following surfaces are not yet implemented and are not documented here:
 
-- **ST4–ST6** — Topics, posts, and moderation.
+- **ST5** — Posts (replies within a topic).
+- **ST6** — Moderation (pin, lock, delete, move topics and posts).
