@@ -1,0 +1,59 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST11 — Magic-byte (content-sniffing) verification for all image uploads. Added image-magic-bytes.ts with byte-signature checks for JPEG, PNG, GIF87a, GIF89a, and WebP. Wired assertValidMagicBytes into MediaService.uploadImage so every upload (for all 3 current resourceTypes: blog-post, standalone-page, blog-comment) is rejected (400) when the file's leading bytes do not match the declared MIME type, even when the content-type header is in the allow-list. SVG remains excluded from both the MIME allow-list and magic-byte signatures. Closes deferred security finding M2. Documentation updated in docs/features/media.md and the uploadImage JSDoc.
+
+Acceptance criteria to verify:
+- Validation rejects (400) a file whose magic bytes do not match an allowed image type even when the content-type header is allowed; applies to all 3 resourceTypes; SVG remains rejected.
+- Compliant real images for each resourceType upload unchanged (no regression).
+- API tsc build + full validation matrix pass.
+- docs/features/media.md accurately documents the magic-byte verification contract and SVG-excluded note.
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st11-documenter-20260607
+- Branch: ms4-st11-documenter-20260607 (contains implementer + tester + documenter changes)
+- Base branch: ms4
+- Diff base: ms4...HEAD
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/media/image-magic-bytes.ts (new — implementer)
+- apps/api/src/media/media.service.ts (updated — implementer + documenter JSDoc)
+- apps/api/src/media/image-magic-bytes.test.ts (new — tester)
+- apps/api/src/media/media.service.test.ts (updated — tester)
+- docs/features/media.md (updated — documenter)
+
+Commands executed:
+- git diff ms4...HEAD --name-only
+- git add docs/features/media.md apps/api/src/media/media.service.ts
+- git commit -F /tmp/doc_commit_msg.txt
+
+Final test outcomes:
+- 431 API tests pass (0 failures, 2 skipped) — from tester run
+- 293 web tests pass — from tester run
+- image-magic-bytes.test.ts: 28 tests pass
+- media.service.test.ts: 38 tests pass
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-plan.md, subtask ST11
+- Documentation Impact in plan: update docs/features/media.md (magic-byte verification contract, SVG-excluded note) — completed
+- Deferred finding M2 is now implemented and documented; deferred-tasks.md cleanup handled separately by user/planner
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table — docs/features/media.md is the canonical location for media upload behavior
+- No new docs created — existing media.md updated
+- In-code JSDoc updated in media.service.ts per documenter role permission for comment-only edits
+
+Updated documentation files:
+- docs/features/media.md
+- apps/api/src/media/media.service.ts (JSDoc comment only)
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST11
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
