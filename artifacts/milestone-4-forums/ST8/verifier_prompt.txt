@@ -1,0 +1,69 @@
+Your role is 'verifier'. Your task is as follows:
+
+Task summary:
+- ST8 Security Remediation Pass 2: validated three security fixes — (1) linear indexOf-based ReDoS-safe link scanner replacing backtracking regex in link-limit.ts; (2) broadened evasion detection for ftp://, mailto:, tel:, www.-prefixed hosts; (3) THROTTLE_* env vars added to apps/api/.env.example. Tester added a ReDoS regression test, evasion tests, and a new throttle.guard.test.ts (fail-closed, IP-fallback, sweep). Full suite green.
+
+Acceptance criteria to verify:
+- AC1: Over-limit -> 429 envelope; under-limit passes; identity prefers session userId, falls back to proxy-resolved request.ip; new-account tier applies to young accounts when userCreatedAt is non-null.
+- AC2: Link-count limiter rejects over-max, accepts compliant.
+- AC3: Storage only via IThrottleStore; in-memory default; test-double seam proven.
+- AC4: Five THROTTLE_* env vars validated; missing/invalid -> startup failure; cross-field newAccountMaxHits<=maxHits.
+- AC-Security-ReDoS: linear; 1 MB pathological body < 100 ms; 256 KB scan cap.
+- AC-Security-Evasion: ftp://, mailto:, tel:, www. now counted.
+- AC-Security-FailClosed: throwing IThrottleStore denies the request (never silent allow).
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st8-documenter-20260608 (branch ms4-st8-documenter-20260608, contains implementer + tester + documenter changes).
+- Base branch for diff: ms4.
+- Prior-pass artifacts: artifacts/milestone-4-forums/ST8/history/security-1-fail/
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/.env.example
+- apps/api/src/app.module.ts
+- apps/api/src/common/throttle/link-limit.ts
+- apps/api/src/common/throttle/link-limit.test.ts
+- apps/api/src/common/throttle/throttle-store.ts
+- apps/api/src/common/throttle/throttle-store.test.ts
+- apps/api/src/common/throttle/throttle.guard.ts
+- apps/api/src/common/throttle/throttle.guard.test.ts
+- apps/api/src/common/throttle/throttle.module.ts
+- apps/api/src/common/throttle/throttle.service.ts
+- apps/api/src/common/throttle/throttle.service.test.ts
+- apps/api/src/common/throttle/throttle-env.test.ts
+- apps/api/src/common/throttle/throttle.types.ts
+- apps/api/src/config/environment.ts
+- docs/development/api-conventions.md
+- docs/operations/launch.md
+
+Commands executed:
+- git diff ms4 -- apps/api/src/common/throttle/ apps/api/src/config/environment.ts apps/api/src/app.module.ts apps/api/.env.example docs/
+- git add docs/development/api-conventions.md
+- git commit
+
+Final test outcomes:
+- All tests green on ms4-st8-documenter-20260608 branch as of tester pass. Documentation-only changes made by Documenter; no test behavior modified.
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-plan.md, ST8. Comparison base: ms4.
+- Prior-pass artifacts: artifacts/milestone-4-forums/ST8/history/security-1-fail/
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+
+Convention-file guidance:
+- Routing table: docs/README.md.
+- API contracts doc: docs/development/api-conventions.md (rate-limiting section updated by this Documenter pass).
+- Canonical env-var table: docs/operations/launch.md (THROTTLE_* rows already present from prior documenter pass — verified accurate).
+- Repository guidance: AGENTS.md / .myteam/ for agent and skill policies.
+
+Updated documentation files:
+- docs/development/api-conventions.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST8
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
