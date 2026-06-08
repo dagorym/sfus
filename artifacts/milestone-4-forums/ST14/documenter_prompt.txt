@@ -1,0 +1,59 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST14 — username suggest endpoint (GET /users/suggest?q=) and minimal public profile API (GET /users/:username). Suggest is session-gated (401), throttled (429 via ST8), prefix-matches ACTIVE users only, caps at 10 (SUGGEST_RESULT_CAP), returns ONLY {username,displayName,avatarUrl}. Public profile returns EXACTLY 5 fields {username,displayName,avatar,bio,joinDate}; uniform 404 for nonexistent AND inactive users (no enumeration oracle, P12); avatar resolved to /api/media/<id> URL or null.
+
+Acceptance criteria validated:
+- AC-SUGGEST-401: 401 when no session — resolveSession rejection → UnauthorizedException; DB/service NOT called.
+- AC-SUGGEST-429: 429 when throttled — checkRequest throws; called with userId AND non-null userCreatedAt.
+- AC-SUGGEST-FIELDS: Suggest response items contain ONLY username, displayName, avatarUrl — no email, globalRole, status, id, createdAt.
+- AC-SUGGEST-PREFIX: Prefix match on ACTIVE users only; inactive excluded; count capped at 10.
+- AC-SUGGEST-400: Missing/non-string q → 400 (not 500); auth/DB not reached.
+- AC-PROFILE-FIELDS: Public profile response.profile contains EXACTLY {username, displayName, avatar, bio, joinDate}; forbidden fields absent.
+- AC-PROFILE-P12: Nonexistent and inactive users return 404 with BYTE-IDENTICAL message (no enumeration oracle).
+- AC-PROFILE-AVATAR: avatar resolves to /api/media/<avatarMediaId> when set, or null.
+- AC-PROFILE-400: Empty/whitespace-only :username → 400.
+
+Implementation branch or worktree context:
+- Branch: ms4-st14-tester-20260608 (worktree from ms4). Compare against ms4 base.
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/users/users.controller.ts (implementer — new file)
+- apps/api/src/users/users.service.ts (implementer — new methods: suggestByPrefix, findPublicProfile, findById)
+- apps/api/src/users/users.types.ts (implementer — new types: UserSuggestItem, UserSuggestResponse, PublicProfileShape)
+- apps/api/src/users/users.module.ts (implementer — register(env) dynamic module form)
+- apps/api/src/app.module.ts (implementer — UsersModule.register wired in)
+- apps/api/src/users/users.controller.test.ts (tester — new file)
+- apps/api/src/users/users.service.test.ts (tester — new file)
+
+Test commit:
+- bb236269e51fef717ec4882a2afdbcbe5b924a83
+
+Commands executed:
+- pnpm --dir <worktree> install --frozen-lockfile
+- vitest run --root apps/api
+- pnpm typecheck
+- pnpm lint
+
+Final test outcomes:
+- 832 passed, 0 failed, 2 skipped across 30 test files. All 37 new ST14 users tests pass (23 controller + 14 service). 0 typecheck errors. 0 lint warnings.
+
+Documentation context:
+- docs/features/ likely needs a new or updated users.md documenting the two new public API endpoints (suggest and public profile), their security contracts (session gate, throttle, field allowlist, enumeration parity), and response shapes.
+- Check docs/README.md routing table for canonical doc location for user-facing public API.
+- docs/development/api-conventions.md may need updating if avatar URL resolution pattern (/api/media/<id>) is not already documented.
+
+Plan and diff context:
+- plans/milestone-4-forums-plan.md, subtask ST14.
+- Base branch: ms4. Compare ms4-st14-tester-20260608 against ms4 to see the full implementer+tester diff.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST14
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

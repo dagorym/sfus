@@ -1,0 +1,23 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST14/tester_report.md",
+    "artifacts/milestone-4-forums/ST14/tester_result.json"
+  ],
+  "branch_name": "ms4-st14-tester-20260608",
+  "commands_run": [
+    "pnpm --dir <worktree> install --frozen-lockfile",
+    "vitest run --root apps/api",
+    "pnpm typecheck",
+    "pnpm lint"
+  ],
+  "pass_fail_totals": null,
+  "pass_label": null,
+  "status": "pass",
+  "task_id": null,
+  "test_commit_hash": "bb236269e51fef717ec4882a2afdbcbe5b924a83",
+  "test_files_changed": [
+    "apps/api/src/users/users.controller.test.ts",
+    "apps/api/src/users/users.service.test.ts"
+  ],
+  "unmet_acceptance_criteria": []
+}
