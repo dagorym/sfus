@@ -3,18 +3,17 @@
     "artifacts/deferred-cleanup/reviewer_report.md",
     "artifacts/deferred-cleanup/reviewer_result.json"
   ],
-  "blocking_finding_count": 2,
-  "branch_name": "cleanup-reviewer-20260607",
-  "final_outcome": "FAIL",
+  "blocking_finding_count": 0,
+  "branch_name": "cleanup",
+  "final_outcome": "CONDITIONAL PASS",
   "follow_up_feature_requests": [
-    "Coordinator remediation (this cycle, before plan closure): merge the five unmerged documenter branches (cleanup-subtask-{3,5,7,8,10}-documenter-20260607, commits 18cc9d7, 5493bdf, 4d3bce1, acc7388, d0b739f) into `cleanup`, including their documenter_report.md/documenter_result.json artifacts; pages.md requires a content merge so both subtask-5 (featuredMediaId/relation) and subtask-6 (/pages endpoint+route) sections are present; then confirm blog.md's 'trimming them is a deferred task' claim and the public-list BlogCommentDetail row are gone.",
-    "Coordinator remediation (this cycle): run the specialist security stage for subtasks 2, 3, and 6 per the plan's 'Security review required: yes' markings, or record explicit waiver artifacts in each subtask's artifact directory.",
-    "Coordinator remediation (this cycle): record the discharge of subtask-8 verifier finding B1 (re-issue the verifier verdict or add a coordinator disposition note) so the artifact record no longer terminates at FAIL.",
-    "Small follow-up subtask: add the missing style-src 'unsafe-inline' justification comment in apps/web/next.config.mjs and the HSTS enforcement-point statement in docs/operations/deployment.md (subtask-2's two accepted CONDITIONAL PASS warnings).",
-    "Next planning cycle: append media security finding M2 (header-only MIME validation; no magic-byte verification; SVG must remain excluded) to docs/deferred-tasks.md per the specialist security report for subtask-8."
+    "Small follow-up subtask: remove the unjustified `img-src data:` CSP allowance from apps/web/next.config.mjs (or supply a real consumer-based justification), and correct the three places that assert the false claim together: the in-code comment, docs/features/web-shell.md's CSP allowance list, and the pinning test next.config.spec.ts:165.",
+    "Small follow-up subtask: close the navigation linkType-switch validation hole \u2014 in NavigationService.update(), revalidate the effective URL whenever the effective linkType becomes 'internal' (i.e. also when input.linkType is supplied without input.url); add the bypass test (PATCH linkType-only onto an item with an external/protocol-relative URL).",
+    "Tester follow-up subtask: deliver the executed behavioral tests the plan mandated but did not receive \u2014 (a) a supertest-style proxy-hop test proving request.ip resolves from X-Forwarded-For under trust proxy=1; (b) API response-header emission assertions for the helmet baseline (nosniff present, Strict-Transport-Security absent, no CSP header); (c) an executed public-serializer test asserting the created/listed comment payload object contains no authorUserId/moderatedByUserId/moderatedAt keys.",
+    "Next planning cycle (register edits, planner-owned): add the 'CSP nonce/hash hardening' entry that next.config.mjs and web-shell.md already reference; carry over the subtask-8 security report's M2 (header-only MIME validation \u2014 add magic-byte verification, keep SVG excluded); optionally record the explicit-slug duplicate-key 500 parity gap and the web reserved-slug cardinality pinning gap; remove the register entries closed by this plan."
   ],
-  "note_finding_count": 4,
+  "note_finding_count": 7,
   "status": "success",
-  "task_id": "deferred-cleanup (final feature-level review, all 10 subtasks)",
+  "task_id": "deferred-cleanup (final feature-level review, all 10 subtasks \u2014 independent code-driven re-review)",
   "warning_finding_count": 3
 }
