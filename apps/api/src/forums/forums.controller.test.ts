@@ -17,6 +17,9 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+// Required for Reflect.getMetadata used in the ST6 decorator-metadata assertions.
+import "reflect-metadata";
+
 import { BadRequestException, ForbiddenException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
@@ -74,6 +77,11 @@ const makeForumsService = (overrides?: Record<string, unknown>) => ({
   // ST5: post routes
   createPost: vi.fn().mockResolvedValue({ id: "post-new", body: "Reply", parentId: null, quotedPostId: null, author: { username: "u", displayName: null }, createdAt: new Date(), updatedAt: new Date() }),
   listPosts: vi.fn().mockResolvedValue({ posts: [], total: 0, page: 1, pageSize: 20 }),
+  // ST6: moderation routes
+  assertModerationAccess: vi.fn(), // does not throw by default (moderator/admin session)
+  setPinned: vi.fn().mockResolvedValue({ id: "topic-1", title: "T", slug: "t", isPinned: true, isLocked: false, boardId: "board-1", lockedByUserId: null, lockedAt: null, movedByUserId: null, movedAt: null, replyCount: 0, lastPostAt: null, createdAt: new Date(), updatedAt: new Date() }),
+  setLocked: vi.fn().mockResolvedValue({ id: "topic-1", title: "T", slug: "t", isPinned: false, isLocked: true, boardId: "board-1", lockedByUserId: "mod-1", lockedAt: new Date(), movedByUserId: null, movedAt: null, replyCount: 0, lastPostAt: null, createdAt: new Date(), updatedAt: new Date() }),
+  moveTopic: vi.fn().mockResolvedValue({ id: "topic-1", title: "T", slug: "t", isPinned: false, isLocked: false, boardId: "board-dest", lockedByUserId: null, lockedAt: null, movedByUserId: "mod-1", movedAt: new Date(), replyCount: 0, lastPostAt: null, createdAt: new Date(), updatedAt: new Date() }),
   ...overrides
 });
 
@@ -852,6 +860,343 @@ describe("ForumsController: listPosts (ST5: public route, no auth)", () => {
 // ---------------------------------------------------------------------------
 // ST5: createPost — happy-path delegation
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// ST6: Moderation endpoints — helper to assert gate fires before any service data op
+// ---------------------------------------------------------------------------
+
+/** ForumsService stub that overrides assertModerationAccess to throw 403. */
+const makeModerationForbiddenService = (dataSpy: ReturnType<typeof vi.fn>) => ({
+  ...makeForumsService(),
+  assertModerationAccess: vi.fn().mockImplementation(() => {
+    throw new ForbiddenException("moderation requires moderator or admin role");
+  }),
+  setPinned: dataSpy,
+  setLocked: dataSpy,
+  moveTopic: dataSpy
+});
+
+/** Assert 401 fires before any data op (resolveSession rejects). */
+const assertModeration401FiresBeforeData = async (
+  action: (controller: ForumsController) => Promise<unknown>
+) => {
+  const dataSpy = vi.fn();
+  const forumsService = { ...makeForumsService(), setPinned: dataSpy, setLocked: dataSpy, moveTopic: dataSpy };
+  const authService = makeAuthServiceNoSession();
+  const controller = makeController(forumsService as never, authService as never);
+  await expect(action(controller)).rejects.toThrow(UnauthorizedException);
+  expect(dataSpy).not.toHaveBeenCalled();
+};
+
+/** Assert 403 fires before any data op when assertModerationAccess throws. */
+const assertModeration403FiresBeforeData = async (
+  action: (controller: ForumsController) => Promise<unknown>
+) => {
+  const dataSpy = vi.fn();
+  const forumsService = makeModerationForbiddenService(dataSpy);
+  const authService = makeAuthService(makeUserSession()); // non-moderator session
+  const controller = makeController(forumsService as never, authService as never);
+  await expect(action(controller)).rejects.toThrow(ForbiddenException);
+  expect(dataSpy).not.toHaveBeenCalled();
+};
+
+// ---------------------------------------------------------------------------
+// ST6: 401 gate fires before any data op — all six moderation endpoints
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST6: 401 gate fires before any data op on all moderation endpoints", () => {
+  it("pinTopic throws 401 before any data op when no session", async () => {
+    await assertModeration401FiresBeforeData((c) => c.pinTopic(makeRequest() as never, "topic-1"));
+  });
+
+  it("unpinTopic throws 401 before any data op when no session", async () => {
+    await assertModeration401FiresBeforeData((c) => c.unpinTopic(makeRequest() as never, "topic-1"));
+  });
+
+  it("lockTopic throws 401 before any data op when no session", async () => {
+    await assertModeration401FiresBeforeData((c) => c.lockTopic(makeRequest() as never, "topic-1"));
+  });
+
+  it("unlockTopic throws 401 before any data op when no session", async () => {
+    await assertModeration401FiresBeforeData((c) => c.unlockTopic(makeRequest() as never, "topic-1"));
+  });
+
+  it("moveTopic throws 401 before any data op when no session", async () => {
+    await assertModeration401FiresBeforeData((c) =>
+      c.moveTopic(makeRequest() as never, "topic-1", { destinationBoardId: "board-dest" })
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST6: 403 gate fires before any repository save/find — all six moderation endpoints
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST6: 403 gate fires before repository ops on all moderation endpoints (non-moderator)", () => {
+  it("pinTopic throws 403 before any data op for non-moderator", async () => {
+    await assertModeration403FiresBeforeData((c) => c.pinTopic(makeRequest() as never, "topic-1"));
+  });
+
+  it("unpinTopic throws 403 before any data op for non-moderator", async () => {
+    await assertModeration403FiresBeforeData((c) => c.unpinTopic(makeRequest() as never, "topic-1"));
+  });
+
+  it("lockTopic throws 403 before any data op for non-moderator", async () => {
+    await assertModeration403FiresBeforeData((c) => c.lockTopic(makeRequest() as never, "topic-1"));
+  });
+
+  it("unlockTopic throws 403 before any data op for non-moderator", async () => {
+    await assertModeration403FiresBeforeData((c) => c.unlockTopic(makeRequest() as never, "topic-1"));
+  });
+
+  it("moveTopic throws 403 before any data op for non-moderator", async () => {
+    await assertModeration403FiresBeforeData((c) =>
+      c.moveTopic(makeRequest() as never, "topic-1", { destinationBoardId: "board-dest" })
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST6: moveTopic input guard — malformed destinationBoardId → 400 before auth
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST6: moveTopic input guard — malformed destinationBoardId → 400 NOT 500, save NOT called", () => {
+  const makeModeratorSession = () => ({
+    user: { id: "user-mod", globalRole: "moderator" },
+    id: "session-mod"
+  });
+
+  it("missing destinationBoardId (undefined) → BadRequestException (400), moveTopic NOT called", async () => {
+    const moveTopicSpy = vi.fn();
+    const forumsService = makeForumsService({ moveTopic: moveTopicSpy });
+    const authService = makeAuthService(makeModeratorSession());
+    const controller = makeController(forumsService as never, authService as never);
+    // No destinationBoardId field — will be undefined
+    await expect(
+      controller.moveTopic(makeRequest() as never, "topic-1", {} as never)
+    ).rejects.toThrow(BadRequestException);
+    expect(moveTopicSpy).not.toHaveBeenCalled();
+  });
+
+  it("empty string destinationBoardId → BadRequestException (400), moveTopic NOT called", async () => {
+    const moveTopicSpy = vi.fn();
+    const forumsService = makeForumsService({ moveTopic: moveTopicSpy });
+    const authService = makeAuthService(makeModeratorSession());
+    const controller = makeController(forumsService as never, authService as never);
+    await expect(
+      controller.moveTopic(makeRequest() as never, "topic-1", { destinationBoardId: "   " })
+    ).rejects.toThrow(BadRequestException);
+    expect(moveTopicSpy).not.toHaveBeenCalled();
+  });
+
+  it("numeric destinationBoardId (42) → BadRequestException (400), moveTopic NOT called", async () => {
+    const moveTopicSpy = vi.fn();
+    const forumsService = makeForumsService({ moveTopic: moveTopicSpy });
+    const authService = makeAuthService(makeModeratorSession());
+    const controller = makeController(forumsService as never, authService as never);
+    await expect(
+      controller.moveTopic(makeRequest() as never, "topic-1", { destinationBoardId: 42 as never })
+    ).rejects.toThrow(BadRequestException);
+    expect(moveTopicSpy).not.toHaveBeenCalled();
+  });
+
+  it("object destinationBoardId ({}) → BadRequestException (400), moveTopic NOT called", async () => {
+    const moveTopicSpy = vi.fn();
+    const forumsService = makeForumsService({ moveTopic: moveTopicSpy });
+    const authService = makeAuthService(makeModeratorSession());
+    const controller = makeController(forumsService as never, authService as never);
+    await expect(
+      controller.moveTopic(makeRequest() as never, "topic-1", { destinationBoardId: {} as never })
+    ).rejects.toThrow(BadRequestException);
+    expect(moveTopicSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST6: happy-path delegation — moderator session, service methods called
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST6: happy-path delegation — moderator session", () => {
+  const makeModeratorSession = () => ({
+    user: { id: "user-mod", globalRole: "moderator" },
+    id: "session-mod"
+  });
+
+  const makeModeratedShape = (overrides?: object) => ({
+    id: "topic-1",
+    title: "T",
+    slug: "t",
+    isPinned: false,
+    isLocked: false,
+    boardId: "board-1",
+    lockedByUserId: null,
+    lockedAt: null,
+    movedByUserId: null,
+    movedAt: null,
+    replyCount: 0,
+    lastPostAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides
+  });
+
+  it("pinTopic: calls assertModerationAccess + setPinned(userId, topicId, true), returns { topic }", async () => {
+    const pinned = makeModeratedShape({ isPinned: true });
+    const setPinnedSpy = vi.fn().mockResolvedValue(pinned);
+    const assertModerationSpy = vi.fn();
+    const forumsService = makeForumsService({ setPinned: setPinnedSpy, assertModerationAccess: assertModerationSpy });
+    const authService = makeAuthService(makeModeratorSession());
+    const controller = makeController(forumsService as never, authService as never);
+    const result = await controller.pinTopic(makeRequest() as never, "topic-1");
+    expect(assertModerationSpy).toHaveBeenCalledWith("moderator");
+    expect(setPinnedSpy).toHaveBeenCalledWith("user-mod", "topic-1", true);
+    expect(result).toEqual({ topic: pinned });
+  });
+
+  it("unpinTopic: calls assertModerationAccess + setPinned(userId, topicId, false), returns { topic }", async () => {
+    const unpinned = makeModeratedShape({ isPinned: false });
+    const setPinnedSpy = vi.fn().mockResolvedValue(unpinned);
+    const assertModerationSpy = vi.fn();
+    const forumsService = makeForumsService({ setPinned: setPinnedSpy, assertModerationAccess: assertModerationSpy });
+    const authService = makeAuthService(makeModeratorSession());
+    const controller = makeController(forumsService as never, authService as never);
+    const result = await controller.unpinTopic(makeRequest() as never, "topic-1");
+    expect(assertModerationSpy).toHaveBeenCalledWith("moderator");
+    expect(setPinnedSpy).toHaveBeenCalledWith("user-mod", "topic-1", false);
+    expect(result).toEqual({ topic: unpinned });
+  });
+
+  it("lockTopic: calls assertModerationAccess + setLocked(userId, topicId, true), returns { topic }", async () => {
+    const locked = makeModeratedShape({ isLocked: true, lockedByUserId: "user-mod", lockedAt: new Date() });
+    const setLockedSpy = vi.fn().mockResolvedValue(locked);
+    const assertModerationSpy = vi.fn();
+    const forumsService = makeForumsService({ setLocked: setLockedSpy, assertModerationAccess: assertModerationSpy });
+    const authService = makeAuthService(makeModeratorSession());
+    const controller = makeController(forumsService as never, authService as never);
+    const result = await controller.lockTopic(makeRequest() as never, "topic-1");
+    expect(assertModerationSpy).toHaveBeenCalledWith("moderator");
+    expect(setLockedSpy).toHaveBeenCalledWith("user-mod", "topic-1", true);
+    expect(result).toEqual({ topic: locked });
+  });
+
+  it("unlockTopic: calls assertModerationAccess + setLocked(userId, topicId, false), returns { topic }", async () => {
+    const unlocked = makeModeratedShape({ isLocked: false });
+    const setLockedSpy = vi.fn().mockResolvedValue(unlocked);
+    const assertModerationSpy = vi.fn();
+    const forumsService = makeForumsService({ setLocked: setLockedSpy, assertModerationAccess: assertModerationSpy });
+    const authService = makeAuthService(makeModeratorSession());
+    const controller = makeController(forumsService as never, authService as never);
+    const result = await controller.unlockTopic(makeRequest() as never, "topic-1");
+    expect(assertModerationSpy).toHaveBeenCalledWith("moderator");
+    expect(setLockedSpy).toHaveBeenCalledWith("user-mod", "topic-1", false);
+    expect(result).toEqual({ topic: unlocked });
+  });
+
+  it("moveTopic: calls assertModerationAccess + moveTopic(userId, topicId, boardId), returns { topic }", async () => {
+    const moved = makeModeratedShape({ boardId: "board-dest", movedByUserId: "user-mod", movedAt: new Date() });
+    const moveTopicSpy = vi.fn().mockResolvedValue(moved);
+    const assertModerationSpy = vi.fn();
+    const forumsService = makeForumsService({ moveTopic: moveTopicSpy, assertModerationAccess: assertModerationSpy });
+    const authService = makeAuthService(makeModeratorSession());
+    const controller = makeController(forumsService as never, authService as never);
+    const result = await controller.moveTopic(makeRequest() as never, "topic-1", { destinationBoardId: "board-dest" });
+    expect(assertModerationSpy).toHaveBeenCalledWith("moderator");
+    expect(moveTopicSpy).toHaveBeenCalledWith("user-mod", "topic-1", "board-dest");
+    expect(result).toEqual({ topic: moved });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST6: Swagger decorator metadata contract — via Reflect.getMetadata
+// Assert each of the six moderation handlers carries the correct response decorators.
+// Uses decorator metadata, NOT source-text slicing.
+// ---------------------------------------------------------------------------
+
+describe("ForumsController ST6: Swagger decorator metadata contract (decorator-metadata assertions)", () => {
+  // Import reflect-metadata to ensure Reflect API is available
+  // NestJS decorators store metadata via Reflect.defineMetadata
+  // The metadata key for API responses is 'swagger/apiResponse'
+  const SWAGGER_API_RESPONSE_KEY = "swagger/apiResponse";
+
+  const getHandlerResponses = (methodName: keyof ForumsController): Record<number, unknown> => {
+    const proto = ForumsController.prototype as unknown as Record<string, object>;
+    return Reflect.getMetadata(SWAGGER_API_RESPONSE_KEY, proto[methodName as string]) ?? {};
+  };
+
+  // pin: must have 401, 403, 404
+  it("pinTopic carries @ApiUnauthorizedResponse (401)", () => {
+    const responses = getHandlerResponses("pinTopic");
+    expect(responses).toHaveProperty("401");
+  });
+  it("pinTopic carries @ApiForbiddenResponse (403)", () => {
+    const responses = getHandlerResponses("pinTopic");
+    expect(responses).toHaveProperty("403");
+  });
+  it("pinTopic carries @ApiNotFoundResponse (404)", () => {
+    const responses = getHandlerResponses("pinTopic");
+    expect(responses).toHaveProperty("404");
+  });
+
+  // unpin: must have 401, 403, 404
+  it("unpinTopic carries @ApiUnauthorizedResponse (401)", () => {
+    const responses = getHandlerResponses("unpinTopic");
+    expect(responses).toHaveProperty("401");
+  });
+  it("unpinTopic carries @ApiForbiddenResponse (403)", () => {
+    const responses = getHandlerResponses("unpinTopic");
+    expect(responses).toHaveProperty("403");
+  });
+  it("unpinTopic carries @ApiNotFoundResponse (404)", () => {
+    const responses = getHandlerResponses("unpinTopic");
+    expect(responses).toHaveProperty("404");
+  });
+
+  // lock: must have 401, 403, 404
+  it("lockTopic carries @ApiUnauthorizedResponse (401)", () => {
+    const responses = getHandlerResponses("lockTopic");
+    expect(responses).toHaveProperty("401");
+  });
+  it("lockTopic carries @ApiForbiddenResponse (403)", () => {
+    const responses = getHandlerResponses("lockTopic");
+    expect(responses).toHaveProperty("403");
+  });
+  it("lockTopic carries @ApiNotFoundResponse (404)", () => {
+    const responses = getHandlerResponses("lockTopic");
+    expect(responses).toHaveProperty("404");
+  });
+
+  // unlock: must have 401, 403, 404
+  it("unlockTopic carries @ApiUnauthorizedResponse (401)", () => {
+    const responses = getHandlerResponses("unlockTopic");
+    expect(responses).toHaveProperty("401");
+  });
+  it("unlockTopic carries @ApiForbiddenResponse (403)", () => {
+    const responses = getHandlerResponses("unlockTopic");
+    expect(responses).toHaveProperty("403");
+  });
+  it("unlockTopic carries @ApiNotFoundResponse (404)", () => {
+    const responses = getHandlerResponses("unlockTopic");
+    expect(responses).toHaveProperty("404");
+  });
+
+  // move: must have 400, 401, 403, 404
+  it("moveTopic carries @ApiBadRequestResponse (400)", () => {
+    const responses = getHandlerResponses("moveTopic");
+    expect(responses).toHaveProperty("400");
+  });
+  it("moveTopic carries @ApiUnauthorizedResponse (401)", () => {
+    const responses = getHandlerResponses("moveTopic");
+    expect(responses).toHaveProperty("401");
+  });
+  it("moveTopic carries @ApiForbiddenResponse (403)", () => {
+    const responses = getHandlerResponses("moveTopic");
+    expect(responses).toHaveProperty("403");
+  });
+  it("moveTopic carries @ApiNotFoundResponse (404)", () => {
+    const responses = getHandlerResponses("moveTopic");
+    expect(responses).toHaveProperty("404");
+  });
+});
 
 describe("ForumsController: createPost (ST5: happy path delegation)", () => {
   it("resolves session and delegates to forumsService.createPost, returning { post }", async () => {

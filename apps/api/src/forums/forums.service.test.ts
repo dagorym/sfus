@@ -1855,6 +1855,432 @@ describe("ForumsService.listPosts (ST5: topic gate + pagination)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// ST6: assertModerationAccess — gate enforcement
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.assertModerationAccess (ST6: 403 gate)", () => {
+  it("allows the moderator global role", () => {
+    const service = makeForumsService();
+    expect(() => service.assertModerationAccess("moderator")).not.toThrow();
+  });
+
+  it("allows the admin global role (admin >= moderator rank)", () => {
+    const service = makeForumsService();
+    expect(() => service.assertModerationAccess("admin")).not.toThrow();
+  });
+
+  it("throws ForbiddenException for the user role", () => {
+    const service = makeForumsService();
+    expect(() => service.assertModerationAccess("user")).toThrow(ForbiddenException);
+  });
+
+  it("throws ForbiddenException for an empty string role", () => {
+    const service = makeForumsService();
+    expect(() => service.assertModerationAccess("")).toThrow(ForbiddenException);
+  });
+
+  it("repository save is NOT called when the moderation gate fires (gate-ordering)", async () => {
+    const saveSpy = vi.fn();
+    const service = makeForumsService(undefined, undefined, { save: saveSpy }, { save: saveSpy });
+    expect(() => service.assertModerationAccess("user")).toThrow(ForbiddenException);
+    expect(saveSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST6: setPinned — persist change, return ModeratedTopicShape, board gate
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.setPinned (ST6: pin/unpin persist + shape)", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+
+  const makePublicBoard = () => ({
+    id: "board-pub",
+    name: "Public Board",
+    slug: "public-board",
+    description: null,
+    sortOrder: 0,
+    scopeType: "site",
+    visibility: "public",
+    projectId: null,
+    categoryId: "cat-1",
+    createdAt: now,
+    updatedAt: now
+  });
+
+  const makeTopicEntity = (overrides?: object) => ({
+    id: "topic-1",
+    boardId: "board-pub",
+    authorUserId: "user-author",
+    title: "Test Topic",
+    slug: "test-topic",
+    body: "Content",
+    isPinned: false,
+    isLocked: false,
+    replyCount: 3,
+    lastPostAt: now,
+    lockedByUserId: null,
+    lockedAt: null,
+    movedByUserId: null,
+    movedAt: null,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    board: makePublicBoard(),
+    ...overrides
+  });
+
+  // ST6-PIN-persist: setPinned(true) sets isPinned=true and saves
+  it("setPinned(true) persists isPinned=true and returns ModeratedTopicShape with isPinned=true", async () => {
+    const topic = makeTopicEntity({ isPinned: false });
+    const topicFindOneSpy = vi.fn().mockResolvedValue(topic);
+    const topicSaveSpy = vi.fn().mockImplementation(async (t: unknown) => t);
+    const service = makeForumsService(undefined, undefined, { findOne: topicFindOneSpy, save: topicSaveSpy });
+    const result = await service.setPinned("mod-user-1", "topic-1", true);
+    expect(topicSaveSpy).toHaveBeenCalled();
+    expect(result.isPinned).toBe(true);
+    expect(result.id).toBe("topic-1");
+  });
+
+  // ST6-UNPIN-persist: setPinned(false) sets isPinned=false and saves
+  it("setPinned(false) persists isPinned=false and returns ModeratedTopicShape with isPinned=false", async () => {
+    const topic = makeTopicEntity({ isPinned: true });
+    const topicFindOneSpy = vi.fn().mockResolvedValue(topic);
+    const topicSaveSpy = vi.fn().mockImplementation(async (t: unknown) => t);
+    const service = makeForumsService(undefined, undefined, { findOne: topicFindOneSpy, save: topicSaveSpy });
+    const result = await service.setPinned("mod-user-1", "topic-1", false);
+    expect(topicSaveSpy).toHaveBeenCalled();
+    expect(result.isPinned).toBe(false);
+  });
+
+  // ST6-PIN-shape: returned shape has required moderation fields including boardId
+  it("ModeratedTopicShape includes isLocked, boardId, lockedByUserId, lockedAt, movedByUserId, movedAt", async () => {
+    const topic = makeTopicEntity();
+    const topicFindOneSpy = vi.fn().mockResolvedValue(topic);
+    const topicSaveSpy = vi.fn().mockImplementation(async (t: unknown) => t);
+    const service = makeForumsService(undefined, undefined, { findOne: topicFindOneSpy, save: topicSaveSpy });
+    const result = await service.setPinned("mod-user-1", "topic-1", true);
+    expect(result).toHaveProperty("isLocked");
+    expect(result).toHaveProperty("boardId");
+    expect(result).toHaveProperty("lockedByUserId");
+    expect(result).toHaveProperty("lockedAt");
+    expect(result).toHaveProperty("movedByUserId");
+    expect(result).toHaveProperty("movedAt");
+    // boardId matches the topic's board
+    expect(result.boardId).toBe("board-pub");
+  });
+
+  // ST6-PIN-404: nonexistent topic → TOPIC_NOT_FOUND_MESSAGE, save NOT called
+  it("throws NotFoundException with TOPIC_NOT_FOUND_MESSAGE for nonexistent topic; save NOT called", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(null);
+    const topicSaveSpy = vi.fn();
+    const service = makeForumsService(undefined, undefined, { findOne: topicFindOneSpy, save: topicSaveSpy });
+    await expect(service.setPinned("mod-user-1", "nonexistent", true)).rejects.toThrow(
+      ForumsService.TOPIC_NOT_FOUND_MESSAGE
+    );
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // ST6-PIN-gated: topic with non-public board → TOPIC_NOT_FOUND_MESSAGE, save NOT called
+  it("throws TOPIC_NOT_FOUND_MESSAGE for topic on non-readable board (oracle parity); save NOT called", async () => {
+    const gatedBoard = { ...makePublicBoard(), visibility: "members" };
+    const topic = makeTopicEntity({ board: gatedBoard });
+    const topicFindOneSpy = vi.fn().mockResolvedValue(topic);
+    const topicSaveSpy = vi.fn();
+    const service = makeForumsService(undefined, undefined, { findOne: topicFindOneSpy, save: topicSaveSpy });
+    await expect(service.setPinned("mod-user-1", "topic-1", true)).rejects.toThrow(
+      ForumsService.TOPIC_NOT_FOUND_MESSAGE
+    );
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST6: setLocked — persist change with audit columns, board gate
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.setLocked (ST6: lock/unlock persist + audit columns)", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+
+  const makePublicBoard = () => ({
+    id: "board-pub",
+    name: "Public Board",
+    slug: "public-board",
+    description: null,
+    sortOrder: 0,
+    scopeType: "site",
+    visibility: "public",
+    projectId: null,
+    categoryId: "cat-1",
+    createdAt: now,
+    updatedAt: now
+  });
+
+  const makeTopicEntity = (overrides?: object) => ({
+    id: "topic-1",
+    boardId: "board-pub",
+    authorUserId: "user-author",
+    title: "Test Topic",
+    slug: "test-topic",
+    body: "Content",
+    isPinned: false,
+    isLocked: false,
+    replyCount: 0,
+    lastPostAt: null,
+    lockedByUserId: null,
+    lockedAt: null,
+    movedByUserId: null,
+    movedAt: null,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    board: makePublicBoard(),
+    ...overrides
+  });
+
+  // ST6-LOCK-persist: setLocked(true) records lockedByUserId + lockedAt audit cols
+  it("setLocked(true) sets isLocked=true, records lockedByUserId=actorUserId and lockedAt=timestamp", async () => {
+    const topic = makeTopicEntity({ isLocked: false });
+    const topicFindOneSpy = vi.fn().mockResolvedValue(topic);
+    const topicSaveSpy = vi.fn().mockImplementation(async (t: unknown) => t);
+    const service = makeForumsService(undefined, undefined, { findOne: topicFindOneSpy, save: topicSaveSpy });
+    const result = await service.setLocked("mod-user-99", "topic-1", true);
+    expect(topicSaveSpy).toHaveBeenCalled();
+    expect(result.isLocked).toBe(true);
+    // Audit columns must be recorded
+    expect(result.lockedByUserId).toBe("mod-user-99");
+    expect(result.lockedAt).toBeInstanceOf(Date);
+  });
+
+  // ST6-UNLOCK-persist: setLocked(false) clears lockedByUserId and lockedAt
+  it("setLocked(false) sets isLocked=false and clears lockedByUserId=null, lockedAt=null", async () => {
+    const topic = makeTopicEntity({ isLocked: true, lockedByUserId: "mod-original", lockedAt: now });
+    const topicFindOneSpy = vi.fn().mockResolvedValue(topic);
+    const topicSaveSpy = vi.fn().mockImplementation(async (t: unknown) => t);
+    const service = makeForumsService(undefined, undefined, { findOne: topicFindOneSpy, save: topicSaveSpy });
+    const result = await service.setLocked("mod-user-99", "topic-1", false);
+    expect(result.isLocked).toBe(false);
+    expect(result.lockedByUserId).toBeNull();
+    expect(result.lockedAt).toBeNull();
+  });
+
+  // ST6-LOCK-404: nonexistent topic → TOPIC_NOT_FOUND_MESSAGE, save NOT called
+  it("throws TOPIC_NOT_FOUND_MESSAGE for nonexistent topic; save NOT called", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(null);
+    const topicSaveSpy = vi.fn();
+    const service = makeForumsService(undefined, undefined, { findOne: topicFindOneSpy, save: topicSaveSpy });
+    await expect(service.setLocked("mod-user-1", "nonexistent", true)).rejects.toThrow(
+      ForumsService.TOPIC_NOT_FOUND_MESSAGE
+    );
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // ST6-LOCK-gated: topic with gated board → TOPIC_NOT_FOUND_MESSAGE, save NOT called
+  it("throws TOPIC_NOT_FOUND_MESSAGE for topic on non-readable board (oracle parity); save NOT called", async () => {
+    const gatedBoard = { ...makePublicBoard(), visibility: "private" };
+    const topic = makeTopicEntity({ board: gatedBoard });
+    const topicFindOneSpy = vi.fn().mockResolvedValue(topic);
+    const topicSaveSpy = vi.fn();
+    const service = makeForumsService(undefined, undefined, { findOne: topicFindOneSpy, save: topicSaveSpy });
+    await expect(service.setLocked("mod-user-1", "topic-1", true)).rejects.toThrow(
+      ForumsService.TOPIC_NOT_FOUND_MESSAGE
+    );
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // ST6-LOCK-INTEGRATION: after setLocked(true), createPost for non-privileged user → 403
+  it("LOCK INTEGRATION: after setLocked(true), createPost throws ForbiddenException (thread-locked 403)", async () => {
+    const topic = makeTopicEntity({ isLocked: false });
+    const topicFindOneSpy = vi.fn().mockResolvedValue(topic);
+    const topicSaveSpy = vi.fn().mockImplementation(async (t: unknown) => t);
+    const postSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy, save: topicSaveSpy },
+      { save: postSaveSpy }
+    );
+    // First lock the topic
+    await service.setLocked("mod-user-99", "topic-1", true);
+
+    // Now simulate createPost: the topic entity now has isLocked=true (was mutated in-place by setLocked)
+    // Re-mock findOne to return the locked state
+    const lockedTopic = { ...makeTopicEntity({ isLocked: true, board: makePublicBoard() }) };
+    const findOneForPost = vi.fn().mockResolvedValue(lockedTopic);
+    const serviceForPost = makeForumsService(
+      undefined, undefined,
+      { findOne: findOneForPost },
+      { save: postSaveSpy }
+    );
+    await expect(
+      serviceForPost.createPost("regular-user", { topicId: "topic-1", body: "Hello" })
+    ).rejects.toThrow(ForbiddenException);
+    expect(postSaveSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST6: moveTopic — cross-scope security, destination validation, audit columns
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.moveTopic (ST6: move + cross-scope security + audit columns)", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+
+  const makePublicBoard = (id = "board-pub") => ({
+    id,
+    name: "Public Board",
+    slug: "public-board",
+    description: null,
+    sortOrder: 0,
+    scopeType: "site",
+    visibility: "public",
+    projectId: null,
+    categoryId: "cat-1",
+    createdAt: now,
+    updatedAt: now
+  });
+
+  const makeTopicEntity = (overrides?: object) => ({
+    id: "topic-1",
+    boardId: "board-src",
+    authorUserId: "user-author",
+    title: "Test Topic",
+    slug: "test-topic",
+    body: "Content",
+    isPinned: false,
+    isLocked: false,
+    replyCount: 0,
+    lastPostAt: null,
+    lockedByUserId: null,
+    lockedAt: null,
+    movedByUserId: null,
+    movedAt: null,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    board: makePublicBoard("board-src"),
+    ...overrides
+  });
+
+  // ST6-MOVE-valid: valid move to readable site board persists new boardId + movedByUserId + movedAt
+  it("moves topic to readable destination board, persisting boardId + movedByUserId + movedAt", async () => {
+    const sourceTopic = makeTopicEntity({ boardId: "board-src", board: makePublicBoard("board-src") });
+    const destBoard = makePublicBoard("board-dest");
+    const updatedTopic = { ...sourceTopic, boardId: "board-dest", movedByUserId: "mod-user-1", movedAt: now, board: destBoard };
+
+    const topicFindOneSpy = vi.fn()
+      .mockResolvedValueOnce(sourceTopic)  // source lookup
+      .mockResolvedValueOnce(updatedTopic); // reload after save
+    const boardFindOneSpy = vi.fn().mockResolvedValue(destBoard);
+    const topicSaveSpy = vi.fn().mockImplementation(async (t: unknown) => t);
+
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { findOne: topicFindOneSpy, save: topicSaveSpy }
+    );
+    const result = await service.moveTopic("mod-user-1", "topic-1", "board-dest");
+    expect(topicSaveSpy).toHaveBeenCalled();
+    expect(result.boardId).toBe("board-dest");
+    expect(result.movedByUserId).toBe("mod-user-1");
+    expect(result.movedAt).toBeInstanceOf(Date);
+  });
+
+  // ST6-MOVE-cross-scope-project: destination is project-scoped → 404, boardSave NOT called
+  it("CROSS-SCOPE LEAK: move into project-scoped board is REJECTED with NotFoundException; save NOT called", async () => {
+    const sourceTopic = makeTopicEntity({ boardId: "board-src", board: makePublicBoard("board-src") });
+    const projectBoard = { ...makePublicBoard("board-project"), scopeType: "project", projectId: "proj-1" };
+
+    const topicFindOneSpy = vi.fn().mockResolvedValue(sourceTopic);
+    const boardFindOneSpy = vi.fn().mockResolvedValue(projectBoard);
+    const topicSaveSpy = vi.fn();
+
+    // For project-scoped boards, isBoardPubliclyReadable short-circuits (scopeType !== 'site')
+    // BEFORE calling evaluate(), so no spy assertion on evaluate here.
+    // Key assertion: save was NOT called (cross-scope leak prevention).
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { findOne: topicFindOneSpy, save: topicSaveSpy }
+    );
+
+    await expect(service.moveTopic("mod-user-1", "topic-1", "board-project")).rejects.toThrow(
+      ForumsService.BOARD_NOT_FOUND_MESSAGE
+    );
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // ST6-MOVE-cross-scope-nonreadable: destination with visibility='members' → 404, save NOT called
+  it("CROSS-SCOPE LEAK: move into non-publicly-readable board (members) is REJECTED with NotFoundException; save NOT called and isBoardPubliclyReadable/evaluate() is called on destination", async () => {
+    const sourceTopic = makeTopicEntity({ boardId: "board-src", board: makePublicBoard("board-src") });
+    const membersBoard = { ...makePublicBoard("board-members"), visibility: "members" };
+
+    const topicFindOneSpy = vi.fn().mockResolvedValue(sourceTopic);
+    const boardFindOneSpy = vi.fn().mockResolvedValue(membersBoard);
+    const topicSaveSpy = vi.fn();
+
+    const authorizationService = new AuthorizationService();
+    const evaluateSpy = vi.spyOn(authorizationService, "evaluate");
+
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      { ...createMinimalRepository(), findOne: boardFindOneSpy } as never,
+      { ...createMinimalRepository(), findOne: topicFindOneSpy, save: topicSaveSpy } as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+
+    await expect(service.moveTopic("mod-user-1", "topic-1", "board-members")).rejects.toThrow(
+      ForumsService.BOARD_NOT_FOUND_MESSAGE
+    );
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+    // For site-scoped non-public boards, evaluate() IS called on the destination
+    expect(evaluateSpy).toHaveBeenCalled();
+  });
+
+  // ST6-MOVE-nonexistent-dest: nonexistent destination board → 404 BOARD_NOT_FOUND_MESSAGE
+  it("nonexistent destination board → NotFoundException with BOARD_NOT_FOUND_MESSAGE; save NOT called", async () => {
+    const sourceTopic = makeTopicEntity({ boardId: "board-src", board: makePublicBoard("board-src") });
+
+    const topicFindOneSpy = vi.fn().mockResolvedValue(sourceTopic);
+    const boardFindOneSpy = vi.fn().mockResolvedValue(null); // destination not found
+    const topicSaveSpy = vi.fn();
+
+    const service = makeForumsService(
+      undefined,
+      { findOne: boardFindOneSpy },
+      { findOne: topicFindOneSpy, save: topicSaveSpy }
+    );
+
+    await expect(service.moveTopic("mod-user-1", "topic-1", "board-nonexistent")).rejects.toThrow(
+      ForumsService.BOARD_NOT_FOUND_MESSAGE
+    );
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // ST6-MOVE-source-404: nonexistent source topic → TOPIC_NOT_FOUND_MESSAGE, save NOT called
+  it("nonexistent source topic → NotFoundException with TOPIC_NOT_FOUND_MESSAGE; save NOT called", async () => {
+    const topicFindOneSpy = vi.fn().mockResolvedValue(null);
+    const topicSaveSpy = vi.fn();
+    const service = makeForumsService(
+      undefined, undefined,
+      { findOne: topicFindOneSpy, save: topicSaveSpy }
+    );
+    await expect(service.moveTopic("mod-user-1", "nonexistent-topic", "board-dest")).rejects.toThrow(
+      ForumsService.TOPIC_NOT_FOUND_MESSAGE
+    );
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+
+  // ST6-MOVE-input-guard: empty string destinationBoardId → 400 BadRequestException, save NOT called
+  it("empty string destinationBoardId → BadRequestException (400), save NOT called", async () => {
+    const topicSaveSpy = vi.fn();
+    const service = makeForumsService(undefined, undefined, { save: topicSaveSpy });
+    await expect(service.moveTopic("mod-user-1", "topic-1", "   ")).rejects.toThrow(BadRequestException);
+    expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // TEST B (WARNING-1 fix validation): createTopic must reject missing/non-string
 // title or body with BadRequestException (400), NOT a TypeError (500).
 // save must NOT be called in these cases.
