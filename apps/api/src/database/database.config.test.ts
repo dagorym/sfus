@@ -14,6 +14,7 @@ const environment: ApplicationEnvironment = {
   swaggerEnabled: true,
   media: {
     uploadMaxSizeBytes: 5242880,
+    avatarUploadMaxSizeBytes: 1048576,
     allowedMimeTypes: ["image/jpeg", "image/png"],
     storagePath: "./storage/uploads"
   },
