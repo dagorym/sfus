@@ -1,0 +1,62 @@
+Your role is 'tester'. Your task is as follows:
+
+Test Milestone 4 subtask ST4 — Topics: create, paginated read, visibility, pinned ordering.
+
+Source of truth: plans/milestone-4-forums-plan.md (ST4 AC), implementation commit b73d475 on branch ms4-st4-implementer-20260608.
+
+Changed files:
+- apps/api/src/forums/forums.controller.ts
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.types.ts
+- apps/api/src/forums/forums.service.test.ts (factory updated for new topicRepo constructor arg — P7 breadth)
+
+Test file location (add new describe blocks to existing files; do not create new files unless necessary):
+- apps/api/src/forums/forums.service.test.ts (service unit tests for createTopic, listTopics)
+- apps/api/src/forums/forums.controller.test.ts (controller unit tests for createTopic/listTopics routes)
+
+Acceptance criteria to validate:
+- AC1: Create topic requires an active session (401); writes to a non-readable/nonexistent board return 404 with a uniform message (oracle parity — identical message for both cases).
+- AC2: Topic list paginates with deterministic order (isPinned DESC, lastPostAt DESC, createdAt DESC) and a stable page contract (page 1-indexed, pageSize 1-100 default 20, total returned).
+- AC3: Unsafe Markdown rejected 400 before persistence (validateMarkdownBody called before save).
+- AC4: Visibility checks use shared predicate helpers (isBoardPubliclyReadable/evaluate() is actually called — operator-pinned test).
+- AC5: Public topic shape exposes only id, title, slug, body, isPinned, replyCount, lastPostAt, author{username,displayName}, createdAt, updatedAt. Must NOT expose authorUserId, boardId, isLocked, movedByUserId, movedAt, lockedByUserId, lockedAt, deletedAt.
+
+Required test cases (all of these must pass):
+1. ORACLE PARITY — createTopic with a nonexistent boardId (boardRepo.findOne returns null) throws NotFoundException with message === ForumsService.TOPIC_NOT_FOUND_MESSAGE.
+2. ORACLE PARITY — createTopic with a gated board (project-scoped or members-visibility) throws NotFoundException with message === ForumsService.TOPIC_NOT_FOUND_MESSAGE (byte-identical to truly-nonexistent case).
+3. ORACLE PARITY — listTopics with a nonexistent boardId throws NotFoundException with message === ForumsService.TOPIC_NOT_FOUND_MESSAGE.
+4. ORACLE PARITY — listTopics with a gated board throws NotFoundException with message === ForumsService.TOPIC_NOT_FOUND_MESSAGE.
+5. OPERATOR-PINNED PREDICATE — createTopic on a readable board causes AuthorizationService.evaluate() to be called. Use vi.spyOn(authorizationService, 'evaluate') and assert it was called.
+6. OPERATOR-PINNED PREDICATE — listTopics on a readable board causes AuthorizationService.evaluate() to be called.
+7. UNSAFE MARKDOWN — createTopic with a body containing <script>alert(1)</script> throws BadRequestException (400). topicRepo.save must NOT be called (assert via spy before the throw).
+8. UNSAFE MARKDOWN — createTopic with a body containing a javascript: link throws BadRequestException (400) before persistence.
+9. PINNED ORDERING — listTopics repository call uses order: { isPinned: 'DESC', lastPostAt: 'DESC', createdAt: 'DESC' }. Assert the findAndCount order option.
+10. PUBLIC SHAPE FIELD-STRIPPING — createTopic response does NOT contain authorUserId, boardId, isLocked, movedByUserId, lockedByUserId, deletedAt. DOES contain author.username and author.displayName.
+11. PUBLIC SHAPE FIELD-STRIPPING — listTopics response topic items do NOT contain the above internal fields.
+12. PAGINATION — listTopics with page=2, pageSize=5 calls repository with skip=5 and take=5.
+13. PAGINATION — listTopics clamps pageSize to 100 when a larger value (e.g. 999) is provided; clamps to 1 when 0 or negative is provided.
+14. 401 gate on controller — controller createTopic handler throws UnauthorizedException when resolveSession rejects, before any ForumsService call is made.
+
+Implementation context for testing:
+- ForumsService.createTopic: board loaded via boardRepo.findOne, then isBoardPubliclyReadable checks scopeType and calls evaluate(). If board null or not readable then NotFoundException. normalizeMarkdownBody then validateMarkdownBody throw 400 if unsafe. topicRepo.create + save. topicRepo.findOne with relations:['author'] reload. toTopicShape() maps to allowlist.
+- ForumsService.listTopics: board loaded via boardRepo.findOne, isBoardPubliclyReadable check. If not readable then NotFoundException. topicRepo.findAndCount with where:{boardId, deletedAt: IsNull()}, relations:['author'], order:{isPinned:'DESC', lastPostAt:'DESC', createdAt:'DESC'}, skip, take.
+- ForumsService.TOPIC_NOT_FOUND_MESSAGE = "Forum topic not found." — use this constant in oracle-parity assertions.
+- makeForumsService in forums.service.test.ts now accepts (categoryRepo?, boardRepo?, topicRepo?) as 3 optional params; pass a topicRepo override when testing topic methods.
+- For operator-pinned tests, construct a new AuthorizationService(), spy on evaluate(), and pass it directly: new ForumsService(catRepo, boardRepo, topicRepo, authorizationService).
+
+Validation commands (run in this order):
+  pnpm --dir apps/api typecheck
+  pnpm lint
+  pnpm exec vitest run --root apps/api
+  pnpm --dir apps/api build
+
+Use vitest directly (not pnpm test) to ensure forums tests run in the worktree, not the main repo.
+
+Security review: required — flag any visibility/oracle parity gap found during testing.
+
+Existing validations expected to fail only because approved behavior changed:
+- None.
+
+Shared artifact directory: artifacts/milestone-4-forums/ST4/
+
+Completion gate: do not report success unless all required test cases pass and all validation commands succeed with 0 failures.
