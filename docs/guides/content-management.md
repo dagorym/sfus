@@ -69,9 +69,30 @@ Note can be recorded with each save.
 
 ## Forums
 
-The forums subsystem supports moderator/admin controls for pinning, locking, and moving topics. Full API contract details live in [features/forums.md](../features/forums.md#moderation-st6).
+The forums subsystem supports moderator/admin controls for pinning, locking, and moving topics.
 
-### Pinning and unpinning topics (moderator/admin)
+### Browsing forums (guests and members)
+
+- `/forums` — category/board index listing all public site boards.
+- `/forums/<boardSlug>` — board view with paginated topics; pinned topics appear first.
+- `/forums/<boardSlug>/<topicSlug>` — topic view with paginated posts.
+- Members can create topics (`+ New Topic` link) and post replies; guests see a `Sign in` link that preserves the destination as `?next=`.
+
+### Moderation from the web UI (moderator/admin)
+
+Moderators and admins see a moderation bar on every topic page at `/forums/<boardSlug>/<topicSlug>`. Sign in with a `moderator` or `admin` account and navigate to the topic to use these controls.
+
+**Pin / Unpin** — click **Pin** to make the topic appear first in the board's topic list; click **Unpin** to restore normal sort order.
+
+**Lock / Unlock** — click **Lock** to prevent new replies (locked topics show a "This topic is locked" notice; the reply form is hidden for all visitors). Click **Unlock** to re-enable replies.
+
+**Move** — click **Move…** to expand the move form, enter the destination board UUID, and click **Confirm move**. The destination must be a publicly-readable site board; moves into restricted or project-scoped boards are rejected by the API.
+
+These buttons call the ST6 moderation API (`/api/forums/moderation/topics/:topicId/...`), which enforces `moderator`/`admin` access independently. The buttons are hidden for regular member sessions (client-side UX only; the API is the enforcement boundary).
+
+Full API contract details for pin/lock/move live in [features/forums.md](../features/forums.md#moderation-st6).
+
+### Pinning and unpinning topics — API (moderator/admin)
 
 Pinned topics sort before all others in the board's topic list.
 
@@ -80,7 +101,7 @@ Pinned topics sort before all others in the board's topic list.
 
 Both require an active session with the `moderator` or `admin` global role. Returns the updated `ModeratedTopicShape`.
 
-### Locking and unlocking topics (moderator/admin)
+### Locking and unlocking topics — API (moderator/admin)
 
 A locked topic blocks new posts from non-privileged users (they receive `403`).
 
@@ -89,7 +110,7 @@ A locked topic blocks new posts from non-privileged users (they receive `403`).
 
 Both require an active session with the `moderator` or `admin` global role.
 
-### Moving topics (moderator/admin)
+### Moving topics — API (moderator/admin)
 
 `PATCH /api/forums/moderation/topics/:topicId/move`
 

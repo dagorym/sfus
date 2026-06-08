@@ -32,6 +32,10 @@ error surface (`error.tsx`) are part of the shell.
 | `/blog`, `/blog/:slug` | public | see [blog](blog.md) |
 | `/pages` | public | published pages index; see [pages](pages.md) |
 | `/pages/:slug`, `/:slug` | public | see [pages](pages.md) |
+| `/forums` | public | forum category/board index; see [forums](forums.md#web-surfaces-st16) |
+| `/forums/[boardSlug]` | public | board view (paginated topics); see [forums](forums.md#web-surfaces-st16) |
+| `/forums/[boardSlug]/[topicSlug]` | public | topic view (paginated posts, reply form, moderation controls); see [forums](forums.md#web-surfaces-st16) |
+| `/forums/[boardSlug]/new-topic` | session | create-topic form; guests redirected to `/login?next=<path>`; see [forums](forums.md#web-surfaces-st16) |
 | `/admin/blog[...]`, `/admin/pages[...]`, `/admin/navigation` | admin | client-gated admin management; the API role checks are the enforcement boundary |
 | `/health/live`, `/health/ready` | public | static JSON `{ status: "ok", service: "web", check: "live" \| "ready" }` — **no dependency checks**; web readiness says nothing about API/DB health |
 

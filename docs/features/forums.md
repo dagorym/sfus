@@ -443,6 +443,97 @@ Author details are not included in `ModeratedTopicShape` (moderation responses d
 
 All six moderation endpoints have `@ApiOperation`, `@Api*Response` decorators documenting the full `400`/`401`/`403`/`404` contract. Controller JSDoc blocks on each handler document the security contract inline.
 
-## @username mention and autocomplete (ST16)
+## Web Surfaces (ST16)
 
-Forum post authoring in ST16 will support `@username` mentions that link to `/users/<username>`. Autocomplete for these mentions uses the session-gated `GET /api/users/suggest?q=` endpoint. See [auth.md § User discovery API](auth.md#user-discovery-api-st14) for the full contract (field allowlist, throttle, and active-user-only restriction).
+The forum web layer lives entirely in `apps/web/app/forums/` with supporting components in `apps/web/components/`. All pages are Next.js App Router client components.
+
+### Route map
+
+| Route | Access | Notes |
+|---|---|---|
+| `/forums` | public | Category/board index. Lists all site-scoped publicly-readable boards, grouped by category. Data from `GET /api/forums/categories` only. |
+| `/forums/[boardSlug]` | public | Board view. Paginated topic list (20 per page). Pinned topics sort first; locked topics show a "Locked" badge. |
+| `/forums/[boardSlug]/[topicSlug]` | public | Topic view. Paginated posts (20 per page, oldest-first), rendered via `MarkdownRenderer`. Reply form for authenticated members; locked-topic notice when locked. |
+| `/forums/[boardSlug]/new-topic` | session | Create-topic form. Requires active session; guests are redirected to `/login?next=<path>`. |
+
+Board and topic slugs are resolved by fetching the public category listing and matching on slug client-side. The board `id` (UUID) is used for all API calls.
+
+### What each page renders
+
+**Forum index (`page.tsx`)** — calls `listCategories()` (wraps `GET /api/forums/categories`). Renders categories as sections, each with its list of boards linked to `/forums/<slug>`. Non-site or non-public boards never appear (filtered by the API). Empty states: "Unable to load forum categories." (error), "Loading…", "No forum boards are available yet."
+
+**Board view (`[boardSlug]/page.tsx`)** — resolves the board from the category listing, then calls `listTopics(boardId, { page, pageSize: 20 })`. Renders a paginated topic list. Each row shows pinned/locked badges, author, reply count, and last-post date. Authenticated members see a `+ New Topic` link; unauthenticated visitors see `Sign in to create a topic` linking to `/login?next=<board>/new-topic`.
+
+**Topic view (`[boardSlug]/[topicSlug]/page.tsx`)** — resolves the board and topic, then calls `listPosts(topicId, { page, pageSize: 20 })`. Renders topic body and each post body through `MarkdownRenderer`. Provides a quote affordance (Quote button) and a reply form with `MentionAutocomplete` and `ImageUpload`. Moderator controls are shown to moderator/admin sessions (client-gated; API is the enforcement boundary).
+
+**New-topic form (`[boardSlug]/new-topic/page.tsx`)** — calls `resolveProtectedSession()` on mount; redirects guests to `/login?next=<form path>`. Renders a title input, a `MentionAutocomplete` textarea for the body, an optional MarkdownEditor preview toggle, and an `ImageUpload` widget. Submits to `POST /api/forums/boards/:boardId/topics`.
+
+### Sanitized-Markdown render contract
+
+All user-authored content (topic bodies and post bodies) renders exclusively through `MarkdownRenderer`. Raw HTML is never injected via `dangerouslySetInnerHTML`. The `MarkdownRenderer` component:
+
+- strips all raw HTML tags (`<...>`),
+- rejects `javascript:`, `data:`, and any non-http(s)/relative URL scheme (sanitizeUrl),
+- renders `@username` handles as plain links (see below).
+
+The API also validates body content server-side before persistence (`validateMarkdownBody`), providing defense in depth. The web layer's `MarkdownRenderer` is an additional client-side safety layer applied on display.
+
+### @mention autocomplete and rendered links
+
+The `MentionAutocomplete` component (`apps/web/components/mention-autocomplete.tsx`) wraps a textarea and watches for `@` followed by a valid username prefix (`[a-zA-Z0-9_-]{0,30}`). When triggered:
+
+1. A debounced call is made to `GET /api/users/suggest?q=<prefix>` (the ST14 session-gated suggest endpoint; see [auth.md § User discovery API](auth.md#user-discovery-api-st14)).
+2. A dropdown lists matching active users with username and optional displayName.
+3. Selecting a suggestion inserts `@username ` (plain text, not HTML) at the cursor.
+4. Arrow keys, Enter/Tab, and Escape provide keyboard accessibility.
+
+`@username` handles in rendered Markdown are rendered as links pointing to `/users/<encodeURIComponent(username)>` by `MarkdownRenderer`. No server-side mention resolution is performed; the `/users/<username>` profile page is owned by ST17.
+
+Autocomplete calls the suggest endpoint only; it never performs a full user listing or leaks fields beyond `username`, `displayName`, and `avatarUrl`. If the session is missing or the endpoint is unavailable, the dropdown degrades gracefully (no suggestions shown, typing continues normally).
+
+### Quote affordance
+
+Each rendered post has a **Quote** button. Clicking it:
+
+1. Prefixes the quoted post body (each line prepended with `> `) into the reply textarea.
+2. Sets `quotedPost` state so the reply form shows the original post for reference.
+3. When the reply is submitted, `quotedPostId` is passed to `POST /api/forums/topics/:topicId/posts`.
+
+A quoted post within the same loaded page is resolved from the already-fetched post list and rendered via `MarkdownRenderer`. If the quoted post is on a different page or has been deleted, the block shows "(Referenced post is not available on this page.)" — no additional fetch is made.
+
+### Locked-topic UX
+
+When `topic.isLocked` is true:
+
+- The reply form is completely hidden.
+- A `<p role="status">` notice is shown: "This topic is locked. No new replies can be posted."
+- The `Sign in to reply` affordance is also hidden (no point directing guests to sign in).
+- The `isLocked` field is part of `PublicTopicShape` returned by the API and surfaced in the board view as a "Locked" badge next to the topic title.
+
+The API enforces the lock at the post-create endpoint (`POST /api/forums/topics/:topicId/posts` returns `403` for locked topics). The web layer hides the form for UX only.
+
+### Guest sign-in affordance
+
+Pages that require a session provide a visible sign-in link that preserves the current path as `?next=`:
+
+- Board view: `Sign in to create a topic` → `/login?next=<board>/new-topic`
+- Topic view: `Sign in to reply` → `/login?next=<topic path>`
+- New-topic form: `resolveProtectedSession()` redirects guests directly to `/login?next=<form path>`
+
+The `?next=` parameter value is always URL-encoded. The login page validates the `next` parameter (must start with `/`, not `//` — open-redirect guard).
+
+### Moderator-only controls (client-gated)
+
+When the session user has global role `moderator` or `admin` (`hasGlobalRole(session.user, "moderator")`), the topic view renders a moderation bar with:
+
+- **Pin / Unpin** — calls `PATCH /api/forums/moderation/topics/:topicId/pin` or `/unpin`.
+- **Lock / Unlock** — calls `PATCH /api/forums/moderation/topics/:topicId/lock` or `/unlock`.
+- **Move…** — expands a form to enter a destination board UUID, then calls `PATCH /api/forums/moderation/topics/:topicId/move`.
+
+The moderation bar is absent for regular member sessions and for unauthenticated visitors. **The ST6 API endpoints are the real enforcement boundary** — these buttons call the ST6 moderation API, which independently enforces `401`/`403` on every request. Client-side gating is for UX only.
+
+See [Moderation (ST6)](#moderation-st6) for the full server-side contract and `ModeratedTopicShape` definition.
+
+### @username mention and autocomplete
+
+See the subsection above ("@mention autocomplete and rendered links") for the full contract. The suggest endpoint is documented in [auth.md § User discovery API](auth.md#user-discovery-api-st14).
