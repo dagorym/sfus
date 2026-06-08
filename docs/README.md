@@ -14,6 +14,7 @@ and skip the rest.
 | [features/blog.md](features/blog.md) | blog posts, publishing lifecycle, comments, moderation | `apps/api/src/blog/`, `apps/web/app/blog/`, `apps/web/app/admin/blog/` |
 | [features/pages.md](features/pages.md) | standalone pages, revisions/restore, reserved slugs | `apps/api/src/pages/`, `apps/web/app/pages/`, `apps/web/app/[slug]/`, `apps/web/app/admin/pages/` |
 | [features/navigation.md](features/navigation.md) | nav items, visibility + publication-leak filtering, shell rendering | `apps/api/src/navigation/`, `apps/web/components/navigation.tsx`, `apps/web/app/admin/navigation/` |
+| [features/forums.md](features/forums.md) | forum categories and boards — admin management API, scoping/visibility model, reorder contract | `apps/api/src/forums/` |
 | [features/web-shell.md](features/web-shell.md) | layout/branding, route map, protected-route session handling, landing page, API path targeting | `apps/web/app/layout.tsx`, `apps/web/app/page.tsx`, `apps/web/next.config.mjs`, new web routes |
 
 ## Development docs — cross-cutting engineering contracts
