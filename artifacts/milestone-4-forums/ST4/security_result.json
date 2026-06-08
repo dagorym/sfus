@@ -1,0 +1,24 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST4/security_report.md",
+    "artifacts/milestone-4-forums/ST4/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st4-security-20260608",
+  "documentation_sufficiency_summary": [
+    "docs/features/forums.md updated to document the new 400 contract: step 3 now describes the title type guard plus content validation, step 4 the body type guard before normalizeMarkdownBody, and the error table lists \"Missing or non-string title or body\" under 400. Oracle parity (identical TOPIC_NOT_FOUND_MESSAGE for nonexistent vs hidden), 401-first ordering, sanitize-before-persist sequence, pageSize 1-100 clamp, deletedAt IS NULL exclusion, and the PublicTopicShape/PublicAuthorShape allowlist remain accurately documented.",
+    "Documentation is sufficient for safe operation; no documentation finding. The pass-1 recommendation to document the malformed-body 400 is now satisfied."
+  ],
+  "note_finding_count": 3,
+  "outcome": "PASS",
+  "pass_label": "PASS (pass 2 / re-review)",
+  "status": "complete",
+  "task_id": "ST4",
+  "test_sufficiency_summary": [
+    "Validation matrix GREEN, run from this worktree after `pnpm --dir <worktree> install --frozen-lockfile`: `vitest run --root apps/api src/forums/forums.controller.test.ts src/forums/forums.service.test.ts` = 146 passed (57 controller + 89 service, up from 84); `pnpm typecheck` = pass (apps/api + apps/web, 0 errors); `pnpm lint` = pass (eslint --max-warnings=0, 0 warnings).",
+    "WARNING-2 RESOLVED and non-vacuous: TEST A (forums.service.test.ts:1312) drives listTopics on a public board and asserts findAndCount is called with where.deletedAt deep-equal to typeorm IsNull(); dropping or undefining that condition fails the assertion, so a regression that leaked soft-deleted topics is now caught by the unit suite.",
+    "WARNING-1 RESOLVED and non-vacuous: TEST B (forums.service.test.ts:1336) asserts createTopic with undefined body, body=42, body={}, undefined title, and title=99 each throws BadRequestException (400, not a TypeError/500) with topicRepository.save NOT called; each case sets a public board so execution reaches the new type guards rather than short-circuiting at the gate.",
+    "Pre-existing security coverage intact: oracle parity (TC1-TC4 assert byte-identical TOPIC_NOT_FOUND_MESSAGE via toBe for gated-vs-nonexistent boards on both create and list); evaluate() invoked on readable paths (TC5/TC6); 401-before-data-op (controller asserts forumsService.createTopic not called without a session); unsafe Markdown <script>/javascript: rejected 400 before persist (TC7/TC8); public-shape allowlist strips authorUserId/boardId/isLocked/movedByUserId/lockedByUserId/deletedAt (TC10/TC11); pagination offset + pageSize clamp to 100 (TC12/TC13) and pinned order (TC9)."
+  ],
+  "warning_finding_count": 0
+}
