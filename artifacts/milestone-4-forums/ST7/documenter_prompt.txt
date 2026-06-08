@@ -1,0 +1,61 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST7 remediation pass 2 of 2: Supertest-class HTTP harness + proxy-hop and helmet integration tests for the SFUS API, with a spoof-rejection assertion closing an over-trust detection gap. Six executed tests (3 proxy-hop, 3 helmet) use real HTTP via supertest — no mocking. The new spoof-rejection test sends a two-hop X-Forwarded-For and asserts that trust proxy=1 resolves the rightmost IP and rejects the forged leftmost entry.
+
+Acceptance criteria validated:
+- AC1: Executed proxy-hop test asserts request.ip equals the injected X-Forwarded-For client address (real HTTP, not mocked) — PASS
+- AC2: Executed helmet tests assert 3 header conditions on real HTTP responses (nosniff present, HSTS absent, CSP absent) — PASS
+- AC3: Harness is reusable exported helper, CommonJS-safe (no import.meta), API tsc build passes — PASS
+- AC4 NEW: Spoof-rejection test exists, executes, sends 'X-Forwarded-For: 1.1.1.1, 203.0.113.42', asserts ip===203.0.113.42 AND ip!==1.1.1.1; would fail under trust proxy>=2 regression — PASS
+
+Implementation branch or worktree context:
+- Implementation commit: 6f40cfa (test(ST7): add spoof-rejection assertion for two-hop XFF)
+- Tester branch: ms4-st7-tester-20260607 (identical to implementer branch ms4-st7-implementer-20260607)
+- No test modifications made — existing tests already covered all acceptance criteria
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/http.integration.test.ts — 6 executed tests (3 proxy-hop, 3 helmet); new spoof-rejection test at line 79
+- apps/api/src/test-harness.ts — reusable exported helper with createTestApp() for ST8/ST9 reuse
+
+Test commit:
+- No Changes Made
+
+Commands executed:
+- pnpm --dir apps/api lint
+- pnpm --dir apps/api typecheck
+- pnpm --dir apps/api test
+- pnpm --dir apps/api build
+
+Final test outcomes:
+- PASS — 387 tests passed, 2 skipped (DB integration, expected), 0 failed
+- PASS — src/http.integration.test.ts: 6 tests all executed and passed
+- PASS — AC1: 'resolves request.ip to the injected X-Forwarded-For client address' — real HTTP, expect(res.body).toHaveProperty('ip', '203.0.113.42')
+- PASS — AC4 NEW: 'rejects a spoofed leftmost entry in a two-hop X-Forwarded-For header' — sends XFF '1.1.1.1, 203.0.113.42', asserts ip===203.0.113.42 AND ip!==1.1.1.1
+- PASS — AC4 over-trust regression check: under trust proxy>=2 the spoof-rejection test would fail (ip would resolve to '1.1.1.1'); detection gap is closed
+- PASS — AC2: 3 helmet tests assert nosniff present, HSTS absent, CSP absent on real HTTP responses
+- PASS — AC3: test-harness.ts exports createTestApp(), no import.meta, API tsc build exits 0
+- PASS — lint exit 0, typecheck exit 0, build exit 0
+
+Documentation context:
+- ST7 establishes the HTTP-layer test harness (test-harness.ts) to be reused by ST8/ST9 throttle integration tests
+- trust proxy=1 is a locked architecture decision (docs/architecture/milestone-1-foundation-decisions.md §Security)
+- The spoof-rejection test formally documents the over-trust detection contract for rate-limiting key reliability (ST8/ST9)
+- Helmet configuration (strictTransportSecurity: false, contentSecurityPolicy: false) is confirmed by integration tests
+- 6 new integration tests covering proxy-hop and helmet behavior now exist in apps/api/src/http.integration.test.ts
+
+Plan and diff context:
+- Plan: plans/milestone-4-forums-plan.md — ST7 is the HTTP harness + proxy-hop + helmet subtask
+- Comparison base: ms4 branch (the coordination branch for milestone 4)
+- Implementation commit range: ms4..6f40cfa adds http.integration.test.ts and test-harness.ts
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST7
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
