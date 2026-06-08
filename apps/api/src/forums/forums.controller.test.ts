@@ -65,6 +65,9 @@ const makeForumsService = (overrides?: Record<string, unknown>) => ({
   updateBoard: vi.fn().mockResolvedValue({ id: "board-1", name: "Updated Board", categoryId: "cat-1", slug: "board", scopeType: "site", visibility: "public", projectId: null, sortOrder: 0 }),
   deleteBoard: vi.fn().mockResolvedValue(undefined),
   reorderBoards: vi.fn().mockResolvedValue([]),
+  // ST3: public read routes
+  listPublicCategories: vi.fn().mockResolvedValue([]),
+  getPublicBoard: vi.fn().mockResolvedValue(null),
   ...overrides
 });
 
@@ -540,6 +543,83 @@ describe("ForumsController: adminReorderBoards (AC2: deterministic result)", () 
     await expect(
       controller.adminReorderBoards(makeRequest() as never, "cat-1", { orderedIds: "not-an-array" as never })
     ).rejects.toThrow(BadRequestException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST3: Public read routes — listPublicCategories and getPublicBoard
+// No authentication required; service methods delegated correctly.
+// ---------------------------------------------------------------------------
+
+describe("ForumsController: listPublicCategories (ST3: public route, no auth)", () => {
+  it("returns { categories } from forumsService.listPublicCategories without touching auth", async () => {
+    const now = new Date("2026-01-01T00:00:00Z");
+    const categories = [
+      {
+        id: "cat-1",
+        name: "General",
+        slug: "general",
+        description: null,
+        sortOrder: 0,
+        boards: [
+          {
+            id: "board-1",
+            name: "Public Board",
+            slug: "public-board",
+            description: null,
+            sortOrder: 0,
+            visibility: "public",
+            createdAt: now,
+            updatedAt: now
+          }
+        ],
+        createdAt: now,
+        updatedAt: now
+      }
+    ];
+    const listPublicCategoriesSpy = vi.fn().mockResolvedValue(categories);
+    const authServiceSpy = { resolveSession: vi.fn() };
+    const forumsService = makeForumsService({ listPublicCategories: listPublicCategoriesSpy });
+    const controller = makeController(forumsService as never, authServiceSpy as never);
+    const result = await controller.listPublicCategories();
+    expect(result).toEqual({ categories });
+    expect(listPublicCategoriesSpy).toHaveBeenCalled();
+    // Auth is NOT invoked for public routes
+    expect(authServiceSpy.resolveSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("ForumsController: getPublicBoard (ST3: public route, no auth)", () => {
+  it("returns { board } from forumsService.getPublicBoard without touching auth", async () => {
+    const now = new Date("2026-01-01T00:00:00Z");
+    const board = {
+      id: "board-1",
+      name: "Public Board",
+      slug: "public-board",
+      description: null,
+      sortOrder: 0,
+      visibility: "public" as const,
+      createdAt: now,
+      updatedAt: now
+    };
+    const getPublicBoardSpy = vi.fn().mockResolvedValue(board);
+    const authServiceSpy = { resolveSession: vi.fn() };
+    const forumsService = makeForumsService({ getPublicBoard: getPublicBoardSpy });
+    const controller = makeController(forumsService as never, authServiceSpy as never);
+    const result = await controller.getPublicBoard("board-1");
+    expect(result).toEqual({ board });
+    expect(getPublicBoardSpy).toHaveBeenCalledWith("board-1");
+    // Auth is NOT invoked for public routes
+    expect(authServiceSpy.resolveSession).not.toHaveBeenCalled();
+  });
+
+  it("propagates NotFoundException from forumsService.getPublicBoard unchanged", async () => {
+    const getPublicBoardSpy = vi.fn().mockRejectedValue(new NotFoundException("Forum board not found."));
+    const authServiceSpy = { resolveSession: vi.fn() };
+    const forumsService = makeForumsService({ getPublicBoard: getPublicBoardSpy });
+    const controller = makeController(forumsService as never, authServiceSpy as never);
+    await expect(controller.getPublicBoard("hidden-board-id")).rejects.toThrow(NotFoundException);
+    await expect(controller.getPublicBoard("hidden-board-id")).rejects.toThrow("Forum board not found.");
   });
 });
 

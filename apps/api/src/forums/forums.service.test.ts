@@ -590,6 +590,318 @@ describe("ForumsService.deleteBoard", () => {
 });
 
 // ---------------------------------------------------------------------------
+// ST3: isBoardPubliclyReadable — predicate unit tests
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.isBoardPubliclyReadable (ST3: predicate)", () => {
+  it("returns false for scopeType='project' WITHOUT calling evaluate (short-circuit)", () => {
+    const authorizationService = new AuthorizationService();
+    const evaluateSpy = vi.spyOn(authorizationService, "evaluate");
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const board = { id: "b1", scopeType: "project", visibility: "public", projectId: null } as never;
+    const result = service.isBoardPubliclyReadable(board);
+    expect(result).toBe(false);
+    expect(evaluateSpy).not.toHaveBeenCalled();
+  });
+
+  it("calls evaluate() and returns true for scopeType='site', visibility='public'", () => {
+    const authorizationService = new AuthorizationService();
+    const evaluateSpy = vi.spyOn(authorizationService, "evaluate");
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const board = { id: "b2", scopeType: "site", visibility: "public", projectId: null } as never;
+    const result = service.isBoardPubliclyReadable(board);
+    expect(result).toBe(true);
+    expect(evaluateSpy).toHaveBeenCalled();
+  });
+
+  it("calls evaluate() and returns true for scopeType='site', visibility='unlisted'", () => {
+    const authorizationService = new AuthorizationService();
+    const evaluateSpy = vi.spyOn(authorizationService, "evaluate");
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const board = { id: "b3", scopeType: "site", visibility: "unlisted", projectId: null } as never;
+    const result = service.isBoardPubliclyReadable(board);
+    expect(result).toBe(true);
+    expect(evaluateSpy).toHaveBeenCalled();
+  });
+
+  it("calls evaluate() and returns false for scopeType='site', visibility='private'", () => {
+    const authorizationService = new AuthorizationService();
+    const evaluateSpy = vi.spyOn(authorizationService, "evaluate");
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const board = { id: "b4", scopeType: "site", visibility: "private", projectId: null } as never;
+    const result = service.isBoardPubliclyReadable(board);
+    expect(result).toBe(false);
+    expect(evaluateSpy).toHaveBeenCalled();
+  });
+
+  it("returns false for scopeType='site', visibility='members'", () => {
+    const authorizationService = new AuthorizationService();
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const board = { id: "b5", scopeType: "site", visibility: "members", projectId: null } as never;
+    expect(service.isBoardPubliclyReadable(board)).toBe(false);
+  });
+
+  it("returns false for scopeType='site', visibility='project-only'", () => {
+    const authorizationService = new AuthorizationService();
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      createMinimalRepository() as never,
+      authorizationService
+    );
+    const board = { id: "b6", scopeType: "site", visibility: "project-only", projectId: null } as never;
+    expect(service.isBoardPubliclyReadable(board)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST3: listPublicCategories — leak and shape tests
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.listPublicCategories (ST3: leak tests)", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+
+  const makeCategory = (boards: object[]) => ({
+    id: "cat-1",
+    name: "General",
+    slug: "general",
+    description: null,
+    sortOrder: 0,
+    boards,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  it("project-scoped board (scopeType='project') is ABSENT from the listing", async () => {
+    const projectBoard = {
+      id: "board-proj",
+      name: "Project Board",
+      slug: "project-board",
+      description: null,
+      sortOrder: 0,
+      scopeType: "project",
+      visibility: "public",
+      projectId: "proj-1",
+      categoryId: "cat-1",
+      createdAt: now,
+      updatedAt: now
+    };
+    const category = makeCategory([projectBoard]);
+    const findSpy = vi.fn().mockResolvedValue([category]);
+    const service = makeForumsService({ find: findSpy });
+    const result = await service.listPublicCategories();
+    expect(result).toHaveLength(1);
+    expect(result[0].boards).toHaveLength(0);
+    const boardIds = result[0].boards.map((b) => b.id);
+    expect(boardIds).not.toContain("board-proj");
+  });
+
+  it.each(["members", "private", "project-only"] as const)(
+    "board with visibility='%s' is ABSENT from the listing",
+    async (visibility) => {
+      const hiddenBoard = {
+        id: `board-${visibility}`,
+        name: "Hidden",
+        slug: "hidden",
+        description: null,
+        sortOrder: 0,
+        scopeType: "site",
+        visibility,
+        projectId: null,
+        categoryId: "cat-1",
+        createdAt: now,
+        updatedAt: now
+      };
+      const category = makeCategory([hiddenBoard]);
+      const findSpy = vi.fn().mockResolvedValue([category]);
+      const service = makeForumsService({ find: findSpy });
+      const result = await service.listPublicCategories();
+      expect(result[0].boards).toHaveLength(0);
+      expect(result[0].boards.map((b) => b.id)).not.toContain(`board-${visibility}`);
+    }
+  );
+
+  it("site/public board APPEARS in the listing", async () => {
+    const publicBoard = {
+      id: "board-public",
+      name: "Public Board",
+      slug: "public-board",
+      description: null,
+      sortOrder: 0,
+      scopeType: "site",
+      visibility: "public",
+      projectId: null,
+      categoryId: "cat-1",
+      createdAt: now,
+      updatedAt: now
+    };
+    const category = makeCategory([publicBoard]);
+    const findSpy = vi.fn().mockResolvedValue([category]);
+    const service = makeForumsService({ find: findSpy });
+    const result = await service.listPublicCategories();
+    expect(result[0].boards).toHaveLength(1);
+    expect(result[0].boards[0].id).toBe("board-public");
+  });
+
+  it("site/unlisted board APPEARS in the listing (unlisted passes evaluate for read)", async () => {
+    const unlistedBoard = {
+      id: "board-unlisted",
+      name: "Unlisted Board",
+      slug: "unlisted-board",
+      description: null,
+      sortOrder: 0,
+      scopeType: "site",
+      visibility: "unlisted",
+      projectId: null,
+      categoryId: "cat-1",
+      createdAt: now,
+      updatedAt: now
+    };
+    const category = makeCategory([unlistedBoard]);
+    const findSpy = vi.fn().mockResolvedValue([category]);
+    const service = makeForumsService({ find: findSpy });
+    const result = await service.listPublicCategories();
+    expect(result[0].boards).toHaveLength(1);
+    expect(result[0].boards[0].id).toBe("board-unlisted");
+  });
+
+  it("public board shape from listPublicCategories excludes scopeType, projectId, categoryId", async () => {
+    const publicBoard = {
+      id: "board-shape",
+      name: "Shape Board",
+      slug: "shape-board",
+      description: "desc",
+      sortOrder: 1,
+      scopeType: "site",
+      visibility: "public",
+      projectId: "proj-9",
+      categoryId: "cat-1",
+      createdAt: now,
+      updatedAt: now
+    };
+    const category = makeCategory([publicBoard]);
+    const findSpy = vi.fn().mockResolvedValue([category]);
+    const service = makeForumsService({ find: findSpy });
+    const result = await service.listPublicCategories();
+    const board = result[0].boards[0];
+    expect(board).not.toHaveProperty("scopeType");
+    expect(board).not.toHaveProperty("projectId");
+    expect(board).not.toHaveProperty("categoryId");
+    // Required fields present
+    expect(board.id).toBe("board-shape");
+    expect(board.name).toBe("Shape Board");
+    expect(board.slug).toBe("shape-board");
+    expect(board.visibility).toBe("public");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST3: getPublicBoard — oracle parity tests
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.getPublicBoard (ST3: oracle parity)", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+
+  it("throws NotFoundException for a nonexistent board id", async () => {
+    const service = makeForumsService();
+    await expect(service.getPublicBoard("nonexistent-id")).rejects.toThrow(NotFoundException);
+  });
+
+  it("nonexistent board throws NotFoundException with message === BOARD_NOT_FOUND_MESSAGE", async () => {
+    const service = makeForumsService();
+    await expect(service.getPublicBoard("nonexistent-id")).rejects.toThrow(
+      ForumsService.BOARD_NOT_FOUND_MESSAGE
+    );
+  });
+
+  it("project-scoped board throws NotFoundException with the IDENTICAL message as nonexistent", async () => {
+    const projectBoard = {
+      id: "board-proj",
+      name: "Project Board",
+      slug: "project-board",
+      description: null,
+      sortOrder: 0,
+      scopeType: "project",
+      visibility: "public",
+      projectId: "proj-1",
+      categoryId: "cat-1",
+      createdAt: now,
+      updatedAt: now
+    };
+    const boardFindOneSpy = vi.fn().mockResolvedValue(projectBoard);
+    const service = makeForumsService(undefined, { findOne: boardFindOneSpy });
+    await expect(service.getPublicBoard("board-proj")).rejects.toThrow(
+      ForumsService.BOARD_NOT_FOUND_MESSAGE
+    );
+  });
+
+  it("visibility='members' board throws NotFoundException with the IDENTICAL message as nonexistent", async () => {
+    const membersBoard = {
+      id: "board-members",
+      name: "Members Board",
+      slug: "members-board",
+      description: null,
+      sortOrder: 0,
+      scopeType: "site",
+      visibility: "members",
+      projectId: null,
+      categoryId: "cat-1",
+      createdAt: now,
+      updatedAt: now
+    };
+    const boardFindOneSpy = vi.fn().mockResolvedValue(membersBoard);
+    const service = makeForumsService(undefined, { findOne: boardFindOneSpy });
+    await expect(service.getPublicBoard("board-members")).rejects.toThrow(
+      ForumsService.BOARD_NOT_FOUND_MESSAGE
+    );
+  });
+
+  it("site/public board returns the board shape WITHOUT scopeType, projectId, categoryId", async () => {
+    const publicBoard = {
+      id: "board-public",
+      name: "Public Board",
+      slug: "public-board",
+      description: "a description",
+      sortOrder: 2,
+      scopeType: "site",
+      visibility: "public",
+      projectId: null,
+      categoryId: "cat-1",
+      createdAt: now,
+      updatedAt: now
+    };
+    const boardFindOneSpy = vi.fn().mockResolvedValue(publicBoard);
+    const service = makeForumsService(undefined, { findOne: boardFindOneSpy });
+    const result = await service.getPublicBoard("board-public");
+    expect(result.id).toBe("board-public");
+    expect(result.name).toBe("Public Board");
+    expect(result.visibility).toBe("public");
+    expect(result).not.toHaveProperty("scopeType");
+    expect(result).not.toHaveProperty("projectId");
+    expect(result).not.toHaveProperty("categoryId");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC2: reorderBoards — deterministic result ordering
 // ---------------------------------------------------------------------------
 
