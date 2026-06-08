@@ -94,3 +94,62 @@ export interface ReorderBoardInput {
   /** Ordered list of board ids within the category; all board ids in the category must be present. */
   orderedIds: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Topic DTOs (ST4) — public read shapes and member create input.
+// ---------------------------------------------------------------------------
+
+/**
+ * Public-safe author shape included on topic responses.
+ * Omits author id, email, globalRole, status, and all other internal fields.
+ */
+export interface PublicAuthorShape {
+  username: string;
+  displayName: string | null;
+}
+
+/**
+ * Public-safe topic shape returned from topic list and topic detail.
+ * Omits authorUserId (internal FK), boardId (implicit from URL), isLocked,
+ * movedByUserId, movedAt, lockedByUserId, lockedAt, deletedAt.
+ */
+export interface PublicTopicShape {
+  id: string;
+  title: string;
+  slug: string;
+  body: string;
+  isPinned: boolean;
+  replyCount: number;
+  lastPostAt: Date | null;
+  author: PublicAuthorShape;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Paginated topic list response.
+ * Order: isPinned DESC, then lastPostAt DESC (nulls last), then createdAt DESC.
+ */
+export interface PaginatedTopicsShape {
+  topics: PublicTopicShape[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * Input for creating a new forum topic (member-only).
+ */
+export interface CreateTopicInput {
+  boardId: string;
+  title: string;
+  body: string;
+}
+
+/**
+ * Pagination query parameters for topic listing.
+ */
+export interface TopicListQuery {
+  page?: number;
+  pageSize?: number;
+}

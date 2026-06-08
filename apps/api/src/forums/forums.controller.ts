@@ -11,6 +11,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Req
 } from "@nestjs/common";
 import {
@@ -38,19 +39,29 @@ import type {
   UpdateBoardInput,
   ReorderBoardInput,
   PublicBoardShape,
-  PublicCategoryShape
+  PublicCategoryShape,
+  PublicTopicShape,
+  PaginatedTopicsShape,
+  CreateTopicInput
 } from "./forums.types";
 
 /**
  * ForumsController exposes:
  *
- * 1. **Public read routes (ST3)** — no authentication required:
+ * 1. **Public read routes (ST3/ST4)** — no authentication required:
  *    - `GET /forums/categories` — list categories with publicly-readable site boards only.
  *    - `GET /forums/boards/:id` — fetch a single publicly-readable site board.
- *    Both routes route every visibility decision through `AuthorizationService.evaluate()`.
- *    Hidden/nonexistent boards return a uniform `404` (no existence oracle).
+ *    - `GET /forums/boards/:boardId/topics` — paginated topic list (isPinned DESC, lastPostAt DESC).
+ *    All routes route every visibility decision through `AuthorizationService.evaluate()`.
+ *    Hidden/nonexistent boards and topics return a uniform `404` (no existence oracle).
  *
- * 2. **Admin management routes (ST2)** — require active session + global "admin" role:
+ * 2. **Member-authenticated topic creation (ST4)**:
+ *    - `POST /forums/boards/:boardId/topics` — create a topic within a readable board.
+ *    Requires an active session (401). Board must be publicly readable (404 if not).
+ *    Body is normalized (normalizeMarkdownBody) then validated (validateMarkdownBody)
+ *    before persistence; unsafe Markdown returns 400.
+ *
+ * 3. **Admin management routes (ST2)** — require active session + global "admin" role:
  *    Full CRUD for categories and boards, enforced by
  *    `ForumsService.assertAdminManagementAccess()`.
  *
@@ -120,6 +131,93 @@ export class ForumsController {
   async getPublicBoard(@Param("id") id: string): Promise<{ board: PublicBoardShape }> {
     const board = await this.forumsService.getPublicBoard(id);
     return { board };
+  }
+
+  // ===========================================================================
+  // Topics — public read and member-authenticated creation (ST4)
+  // ===========================================================================
+
+  /**
+   * List topics in a publicly-readable board, paginated.
+   *
+   * Pinned topics always sort first, then by `lastPostAt DESC` (most-recently
+   * active), then `createdAt DESC`. Only non-deleted topics are returned.
+   *
+   * Returns `404` when the board does not exist **or** is not publicly
+   * readable (oracle parity; P12).
+   *
+   * No authentication required.
+   *
+   * @param boardId Board UUID.
+   * @param page 1-indexed page number (default 1).
+   * @param pageSize Number of topics per page (default 20, max 100).
+   * @returns 200 with `{ topics, total, page, pageSize }`.
+   * @throws 404 Board not found or not publicly accessible.
+   */
+  @Get("boards/:boardId/topics")
+  @ApiOperation({ summary: "List paginated topics in a publicly-readable board (isPinned DESC, lastPostAt DESC)." })
+  @ApiOkResponse({
+    description:
+      "Paginated topic list. Pinned topics first, then by most-recently active. " +
+      "Author shape exposes only username/displayName."
+  })
+  @ApiNotFoundResponse({
+    description:
+      "Board not found, or is not publicly accessible. " +
+      "The error message is identical for nonexistent and hidden boards (oracle parity)."
+  })
+  async listTopics(
+    @Param("boardId") boardId: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string
+  ): Promise<PaginatedTopicsShape> {
+    return this.forumsService.listTopics(boardId, {
+      page: page !== undefined ? parseInt(page, 10) : undefined,
+      pageSize: pageSize !== undefined ? parseInt(pageSize, 10) : undefined
+    });
+  }
+
+  /**
+   * Create a new topic in a publicly-readable board.
+   *
+   * Requires an active session (`401` otherwise). The target board must be
+   * publicly readable — a non-readable or nonexistent board returns `404`
+   * with the same message as a truly nonexistent board (oracle parity; P12).
+   *
+   * The body is run through `normalizeMarkdownBody` then `validateMarkdownBody`
+   * before persistence; unsafe Markdown is rejected with `400` before any DB write.
+   *
+   * @param boardId Board UUID.
+   * @body `{ title, body }`
+   * @returns 201 with `{ topic }`.
+   * @throws 400 Empty title, title too long, or unsafe Markdown in body.
+   * @throws 401 No active session.
+   * @throws 404 Board not found or not publicly accessible (uniform message).
+   */
+  @Post("boards/:boardId/topics")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: "Create a topic in a readable board (member-authenticated)." })
+  @ApiCreatedResponse({
+    description: "Topic created. Author shape exposes only username/displayName."
+  })
+  @ApiBadRequestResponse({
+    description: "Empty or too-long title, or unsafe Markdown content in body (rejected before persistence)."
+  })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiNotFoundResponse({
+    description:
+      "Board not found, or is not publicly accessible. " +
+      "The error message is identical for nonexistent and hidden boards (oracle parity)."
+  })
+  async createTopic(
+    @Req() request: Request,
+    @Param("boardId") boardId: string,
+    @Body() body: Omit<CreateTopicInput, "boardId">
+  ): Promise<{ topic: PublicTopicShape }> {
+    // 401 check must happen before any data operation.
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    const topic = await this.forumsService.createTopic(session.user.id, { boardId, ...body });
+    return { topic };
   }
 
   // ===========================================================================

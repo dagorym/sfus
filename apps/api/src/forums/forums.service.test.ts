@@ -40,12 +40,14 @@ const createMinimalRepository = (): MinimalRepo => ({
 
 const makeForumsService = (
   categoryRepo?: Partial<MinimalRepo>,
-  boardRepo?: Partial<MinimalRepo>
+  boardRepo?: Partial<MinimalRepo>,
+  topicRepo?: Partial<MinimalRepo>
 ): ForumsService => {
   const authorizationService = new AuthorizationService();
   const catRepo = { ...createMinimalRepository(), ...categoryRepo };
   const brdRepo = { ...createMinimalRepository(), ...boardRepo };
-  return new ForumsService(catRepo as never, brdRepo as never, authorizationService);
+  const tpcRepo = { ...createMinimalRepository(), ...topicRepo };
+  return new ForumsService(catRepo as never, brdRepo as never, tpcRepo as never, authorizationService);
 };
 
 // ---------------------------------------------------------------------------
@@ -600,6 +602,7 @@ describe("ForumsService.isBoardPubliclyReadable (ST3: predicate)", () => {
     const service = new ForumsService(
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     const board = { id: "b1", scopeType: "project", visibility: "public", projectId: null } as never;
@@ -612,6 +615,7 @@ describe("ForumsService.isBoardPubliclyReadable (ST3: predicate)", () => {
     const authorizationService = new AuthorizationService();
     const evaluateSpy = vi.spyOn(authorizationService, "evaluate");
     const service = new ForumsService(
+      createMinimalRepository() as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       authorizationService
@@ -628,6 +632,7 @@ describe("ForumsService.isBoardPubliclyReadable (ST3: predicate)", () => {
     const service = new ForumsService(
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     const board = { id: "b3", scopeType: "site", visibility: "unlisted", projectId: null } as never;
@@ -640,6 +645,7 @@ describe("ForumsService.isBoardPubliclyReadable (ST3: predicate)", () => {
     const authorizationService = new AuthorizationService();
     const evaluateSpy = vi.spyOn(authorizationService, "evaluate");
     const service = new ForumsService(
+      createMinimalRepository() as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       authorizationService
@@ -655,6 +661,7 @@ describe("ForumsService.isBoardPubliclyReadable (ST3: predicate)", () => {
     const service = new ForumsService(
       createMinimalRepository() as never,
       createMinimalRepository() as never,
+      createMinimalRepository() as never,
       authorizationService
     );
     const board = { id: "b5", scopeType: "site", visibility: "members", projectId: null } as never;
@@ -664,6 +671,7 @@ describe("ForumsService.isBoardPubliclyReadable (ST3: predicate)", () => {
   it("returns false for scopeType='site', visibility='project-only'", () => {
     const authorizationService = new AuthorizationService();
     const service = new ForumsService(
+      createMinimalRepository() as never,
       createMinimalRepository() as never,
       createMinimalRepository() as never,
       authorizationService

@@ -2,11 +2,13 @@ import crypto from "node:crypto";
 
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { IsNull, Repository } from "typeorm";
 
 import { AuthorizationService } from "../authorization/authorization.service";
+import { normalizeMarkdownBody, validateMarkdownBody } from "../media/markdown-sanitizer";
 import { ForumCategoryEntity } from "./entities/forum-category.entity";
 import { ForumBoardEntity } from "./entities/forum-board.entity";
+import { ForumTopicEntity } from "./entities/forum-topic.entity";
 import { forumBoardScopeTypes, forumBoardVisibilities } from "./forums.types";
 import type {
   CreateCategoryInput,
@@ -16,7 +18,12 @@ import type {
   UpdateBoardInput,
   ReorderBoardInput,
   PublicBoardShape,
-  PublicCategoryShape
+  PublicCategoryShape,
+  PublicTopicShape,
+  PaginatedTopicsShape,
+  CreateTopicInput,
+  TopicListQuery,
+  PublicAuthorShape
 } from "./forums.types";
 
 /**
@@ -30,6 +37,8 @@ export class ForumsService {
     private readonly categoryRepository: Repository<ForumCategoryEntity>,
     @InjectRepository(ForumBoardEntity)
     private readonly boardRepository: Repository<ForumBoardEntity>,
+    @InjectRepository(ForumTopicEntity)
+    private readonly topicRepository: Repository<ForumTopicEntity>,
     private readonly authorizationService: AuthorizationService
   ) {}
 
@@ -435,6 +444,150 @@ export class ForumsService {
   }
 
   // ---------------------------------------------------------------------------
+  // Topics — create and paginated read (ST4)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * The uniform "not found" message used for both nonexistent and hidden topics.
+   * Identical structure to BOARD_NOT_FOUND_MESSAGE for oracle parity (P12).
+   */
+  static readonly TOPIC_NOT_FOUND_MESSAGE = "Forum topic not found.";
+
+  /**
+   * Maps a ForumTopicEntity (with loaded `author` relation) to the public-safe
+   * PublicTopicShape DTO. Strips internal-only fields (authorUserId FK,
+   * boardId, movedBy/lockedBy audit fields, deletedAt, isLocked).
+   */
+  private toTopicShape(topic: ForumTopicEntity & { author: { username: string; displayName: string | null } }): PublicTopicShape {
+    const author: PublicAuthorShape = {
+      username: topic.author.username,
+      displayName: topic.author.displayName
+    };
+    return {
+      id: topic.id,
+      title: topic.title,
+      slug: topic.slug,
+      body: topic.body,
+      isPinned: topic.isPinned,
+      replyCount: topic.replyCount,
+      lastPostAt: topic.lastPostAt,
+      author,
+      createdAt: topic.createdAt,
+      updatedAt: topic.updatedAt
+    };
+  }
+
+  /**
+   * Creates a new forum topic within a board, authenticated as `authorUserId`.
+   *
+   * Security contract:
+   * - The board must exist **and** be publicly readable (isBoardPubliclyReadable).
+   *   Non-readable or nonexistent boards return TOPIC_NOT_FOUND_MESSAGE (oracle parity).
+   * - Body is normalized then validated before persistence; unsafe content returns 400.
+   * - The caller must already hold an active session (controller resolves session
+   *   and passes the user id — 401 happens at the controller layer before this call).
+   */
+  async createTopic(
+    authorUserId: string,
+    input: CreateTopicInput
+  ): Promise<PublicTopicShape> {
+    // Board lookup + visibility gate (oracle-parity: nonexistent === gated → 404).
+    const board = await this.boardRepository.findOne({ where: { id: input.boardId } });
+    if (!board || !this.isBoardPubliclyReadable(board)) {
+      throw new NotFoundException(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+    }
+
+    // Input validation.
+    this.assertTopicTitleValid(input.title);
+
+    // Markdown sanitization — normalize then validate before any persistence.
+    const normalizedBody = normalizeMarkdownBody(input.body);
+    const validation = validateMarkdownBody(normalizedBody);
+    if (!validation.safe) {
+      throw new BadRequestException(`Unsafe Markdown content rejected. ${validation.reason ?? ""}`);
+    }
+
+    const slug = this.generateTopicSlug(input.title);
+    const id = crypto.randomUUID();
+
+    const topic = this.topicRepository.create({
+      id,
+      boardId: input.boardId,
+      authorUserId,
+      title: input.title.trim(),
+      slug,
+      body: normalizedBody,
+      isPinned: false,
+      isLocked: false,
+      replyCount: 0,
+      lastPostAt: null,
+      movedByUserId: null,
+      movedAt: null,
+      lockedByUserId: null,
+      lockedAt: null,
+      deletedAt: null
+    });
+    await this.topicRepository.save(topic);
+
+    // Reload with author relation for the public shape.
+    const saved = await this.topicRepository.findOne({
+      where: { id },
+      relations: ["author"]
+    });
+    if (!saved) {
+      // Should never happen immediately after a successful save.
+      throw new NotFoundException(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+    }
+    return this.toTopicShape(saved as ForumTopicEntity & { author: { username: string; displayName: string | null } });
+  }
+
+  /**
+   * Returns a paginated list of publicly-visible topics in a board.
+   *
+   * Security contract:
+   * - The board must exist **and** be publicly readable (oracle parity, P12).
+   * - Only non-deleted topics (deletedAt IS NULL) are returned.
+   * - Deterministic order: isPinned DESC, then lastPostAt DESC (nulls last),
+   *   then createdAt DESC.
+   *
+   * Pagination contract:
+   * - page is 1-indexed; pageSize defaults to 20; max pageSize is 100.
+   * - Returns total count for stable pagination across pages.
+   */
+  async listTopics(boardId: string, query: TopicListQuery): Promise<PaginatedTopicsShape> {
+    // Board lookup + visibility gate (oracle-parity: nonexistent === gated → 404).
+    const board = await this.boardRepository.findOne({ where: { id: boardId } });
+    if (!board || !this.isBoardPubliclyReadable(board)) {
+      throw new NotFoundException(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+    }
+
+    const page = Math.max(1, query.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 20));
+    const skip = (page - 1) * pageSize;
+
+    const [topics, total] = await this.topicRepository.findAndCount({
+      where: { boardId, deletedAt: IsNull() },
+      relations: ["author"],
+      order: {
+        isPinned: "DESC",
+        lastPostAt: "DESC",
+        createdAt: "DESC"
+      },
+      skip,
+      take: pageSize
+    });
+
+    return {
+      topics: topics.map((t) =>
+        this.toTopicShape(t as ForumTopicEntity & { author: { username: string; displayName: string | null } })
+      ),
+      total,
+      page,
+      pageSize
+    };
+  }
+
+  // ---------------------------------------------------------------------------
   // Private validation helpers
   // ---------------------------------------------------------------------------
 
@@ -472,5 +625,27 @@ export class ForumsService {
         `Invalid visibility '${visibility}'. Allowed values: ${forumBoardVisibilities.join(", ")}.`
       );
     }
+  }
+
+  private assertTopicTitleValid(title: string): void {
+    if (!title || title.trim().length === 0) {
+      throw new BadRequestException("Topic title must not be empty.");
+    }
+    if (title.trim().length > 255) {
+      throw new BadRequestException("Topic title must not exceed 255 characters.");
+    }
+  }
+
+  /**
+   * Generates a URL-safe slug from a topic title.
+   * Lowercases, replaces non-alphanumeric runs with hyphens, trims hyphens.
+   * Truncates to 200 characters to stay within the varchar(255) column.
+   */
+  private generateTopicSlug(title: string): string {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 200);
   }
 }
