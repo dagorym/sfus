@@ -1,0 +1,106 @@
+Your role is 'tester'. Your task is as follows:
+
+ST16 Security Remediation Pass 2 — Tester Handoff
+
+The Implementer has fixed the blocking stored XSS in the shared Markdown renderer
+(apps/web/components/markdown-renderer.tsx) and added 9 behavioral XSS security
+tests to apps/web/components/authoring-components.spec.ts.
+
+Prior security-1-fail artifacts are preserved under:
+  artifacts/milestone-4-forums/ST16/history/security-1-fail/
+
+## What Changed
+
+- apps/web/components/markdown-renderer.tsx
+  - sanitizeUrl() now REJECTS any URL containing attribute-breaking characters
+    (", ', <, >, &) by returning "#". Previously the function returned the raw
+    URL, allowing a '"' to break out of href="..." / src="..." even after
+    &quot; encoding (because the HTML parser resolves &quot; → " terminating
+    the attribute).
+  - convertMarkdownToHtml is now exported (@internal) to allow pure-function testing.
+
+- apps/web/components/authoring-components.spec.ts
+  - Added 9 behavioral XSS tests under describe block:
+    "MarkdownRenderer XSS behavioural tests — attribute breakout (ST16 security)"
+    Tests feed the proven payload and variants, asserting INERT output:
+    1. Proven payload: [click](/a" onpointerover=alert`1`) → href="#", no handler
+    2. Variant: quote in href rejected to #
+    3. Proven payload: ![alt](/x" onerror=alert`1`) → src="#", no handler
+    4. Variant: quote in img src rejected
+    5. javascript: scheme in href rejected
+    6. javascript: scheme in src rejected
+    7. data: URI in href rejected
+    8. Clean URL passes through intact (regression guard)
+    9. HTTPS URL passes through intact (regression guard)
+  - Updated 2 source-audit assertions that referenced old 'return "#"' literal.
+
+- apps/web/app/forums/forums.spec.ts
+  - Updated 2 source-audit assertions that referenced old 'return "#"' literal.
+
+## Implementation Commit
+
+  5560ecd — fix(security): neutralize stored XSS in shared Markdown renderer (ST16)
+
+## Required Verifications (all must pass)
+
+### A. Full web matrix — worktree-local run (REQUIRED)
+
+Run from the worktree root:
+  vitest run --root /home/tstephen/repos/worktrees/ms4-st16-implementer-20260608/apps/web
+
+Expected: 0 failures, all 377 tests pass (10 test files).
+If the count differs, confirm new tests are present and counted.
+
+IMPORTANT: Run with the FULL ABSOLUTE PATH to the worktree's apps/web directory.
+Running from /home/tstephen/repos/sfus picks up the canonical repo specs, not
+the worktree changes.
+
+### B. XSS behavioral tests are present and passing
+
+Confirm the describe block "MarkdownRenderer XSS behavioural tests — attribute
+breakout (ST16 security)" appears in the test output and all 9 tests pass.
+
+### C. XSS tests are NON-VACUOUS (tests fail on old renderer)
+
+To verify non-vacuousness, temporarily modify sanitizeUrl() in the worktree copy
+to remove the attribute-breaking-char rejection (make it return trimmed directly
+when the scheme is allowed), run the tests, and confirm the proven-payload test
+FAILS with "expected '...' not to contain 'onpointerover='". Then restore the fix.
+This confirms the tests are not passing by accident.
+
+### D. Blog and pages specs — no regression in shared renderer
+
+Confirm:
+  app/blog/blog.spec.ts     — all 116 tests pass
+  app/pages/pages.spec.ts   — all 85 tests pass
+  app/forums/forums.spec.ts — all 51 tests pass
+
+### E. typecheck and lint
+
+  pnpm typecheck  → 0 errors
+  pnpm lint       → clean (0 warnings)
+
+## All ST16 ACs Must Remain Covered
+
+Verify the original ST16 acceptance criteria remain covered:
+  AC1 - Forum index renders ONLY site boards from the public read API
+  AC2 - Members can create topics and replies; guests see sign-in affordance
+  AC3 - Locked topics hide reply form and show a lock notice
+  AC4 - Moderator controls render only for moderator/admin sessions
+  AC5 - @-autocomplete queries suggest endpoint; @username links to /users/<username>
+
+The forums.spec.ts tests cover all five ACs; confirm they still pass.
+
+## Note for Documenter
+
+If the renderer's sanitization contract is documented in docs/features/media.md,
+update it to note that sanitizeUrl() rejects URLs containing attribute-breaking
+characters (double-quote, single-quote, <, >, &) rather than encoding them, and
+that this protects href/src attributes from breakout across all content types
+(blog, pages, forums).
+
+## Shared Artifact Directory
+
+  artifacts/milestone-4-forums/ST16/
+
+Do not report success unless all required artifacts exist and all changes are committed.
