@@ -1,0 +1,74 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST1 — Forums data model, migration, and module scaffold (remediation pass 2). Four entities (ForumCategoryEntity, ForumBoardEntity, ForumTopicEntity, ForumPostEntity), migration MilestoneFourForumsFoundation1780890123767, ForumsModule.register(environment) imported by AppModule, all entities and migration registered in database.config.ts. Lint defect fixed: _environment renamed to environment; API_ENVIRONMENT token provided following HealthModule pattern. All acceptance criteria pass.
+
+Acceptance criteria to verify:
+- Entities compile and are added to reviewedEntityClasses; migration added to reviewedMigrationClasses named MilestoneFourForumsFoundation1780890123767
+- forum_boards has scope_type (default 'site'), nullable project_id (no FK — forward-scaffolding for M7/M8), and visibility columns
+- Migration applies cleanly on MySQL 5.7.44 schema; down() drops FK-safely (posts->topics->boards->categories); no 8.0-only syntax; utf8mb4; precision-3 datetimes
+- ForumsModule.register(environment) follows dynamic-module pattern and is imported by AppModule; provides API_ENVIRONMENT token
+- pnpm lint, pnpm typecheck, pnpm test, and API tsc build all pass
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms4-st1-documenter-20260607 (branch ms4-st1-documenter-20260607)
+- Implementer commits: 04f78e2 (initial ST1), 39ec154 (remediation-pass-2 lint fix)
+- Tester commits: 278085f (initial test files), 955aee4 (API_ENVIRONMENT assertion)
+- Documenter commit: 324aeb4 (api-conventions.md migration list update)
+- Base branch: ms4
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/forums/forums.module.ts
+- apps/api/src/forums/entities/forum-category.entity.ts
+- apps/api/src/forums/entities/forum-board.entity.ts
+- apps/api/src/forums/entities/forum-topic.entity.ts
+- apps/api/src/forums/entities/forum-post.entity.ts
+- apps/api/src/database/migrations/1780890123767-milestone-four-forums-foundation.ts
+- apps/api/src/database/database.config.ts
+- apps/api/src/app.module.ts
+- apps/api/src/forums/forums-entities.test.ts
+- apps/api/src/forums/forums.module.test.ts
+- apps/api/src/database/database.config.test.ts
+- docs/development/api-conventions.md
+
+Commands executed:
+- pnpm --filter @sfus/api test (via tester — 381 passed, 2 skipped, 0 failed)
+- pnpm lint (PASS)
+- pnpm typecheck (PASS)
+- pnpm --filter @sfus/api run build (PASS)
+
+Final test outcomes:
+- AC1 PASS: entities compile and are added to reviewedEntityClasses; MilestoneFourForumsFoundation1780890123767 in reviewedMigrationClasses
+- AC2 PASS: forum_boards has scope_type varchar(16) default 'site', nullable project_id (no FK), and visibility varchar(32)
+- AC3 PASS: migration applies cleanly; down() drops FK-safely (posts->topics->boards->categories); no 8.0-only syntax; utf8mb4; precision-3 datetimes
+- AC4 PASS: ForumsModule.register(environment) follows dynamic-module pattern; imported by AppModule; provides API_ENVIRONMENT token
+- AC5 PASS: pnpm lint, pnpm typecheck, pnpm test (381 pass), and API tsc build all pass
+
+Plan or evaluation context guidance:
+- Plan file: plans/milestone-4-forums-plan.md, ST1 section
+- ST1 Documentation Impact per plan: 'none here (doc lands with the API surface in ST2-ST6)'
+- Determination: plan guidance confirmed correct — no forums.md or docs/README.md row added (those land with ST2)
+- One update required: api-conventions.md lists reviewed migration set enforced by health-check readiness; MilestoneFourForumsFoundation1780890123767 added to that list
+- Compare branch ms4-st1-documenter-20260607 against base ms4
+
+Convention-file guidance:
+- Repository documentation routing table: docs/README.md
+- Cross-cutting API contracts (migrations, env validation, module wiring): docs/development/api-conventions.md
+- New feature docs (forums API surface): docs/features/ — not yet created, lands with ST2-ST6
+- Entities and migrations registered in: apps/api/src/database/database.config.ts
+- Module dynamic-module pattern: ForumsModule.register(environment) following HealthModule template
+- In-code doc requirements: no repository-mandated docblock convention on entity files (existing entities have none); new forum entity files already include design-decision comments on key columns
+
+Updated documentation files:
+- docs/development/api-conventions.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums/ST1
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
