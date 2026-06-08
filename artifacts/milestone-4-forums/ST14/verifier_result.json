@@ -1,0 +1,26 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums/ST14/verifier_report.md",
+    "artifacts/milestone-4-forums/ST14/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4-st14-verifier-20260608",
+  "documentation_accuracy_summary": [
+    "docs/features/auth.md: User discovery API section (ST14) added. Both routes in API route table. Suggest field allowlist (username/displayName/avatarUrl; 'never includes email, globalRole, status, id') accurate. Profile 5-field allowlist accurate. Security order (400 \u2192 401 \u2192 throttle \u2192 DB) documented. LIKE escaping (%, _, \\) documented. P12 enumeration-parity contract stated with 'identical in both cases' \u2014 matches implementation exactly (single NotFoundException('User not found.') for both paths).",
+    "docs/features/forums.md: Cross-link to auth.md#user-discovery-api-st14 present and accurate. References the suggest endpoint for @username mention autocomplete.",
+    "UsersModule static/dynamic wiring documented accurately \u2014 circular dependency rationale (AuthModule \u2192 UsersModule.register \u2192 ThrottleModule \u2192 AuthModule) correct.",
+    "Documentation matches implemented and tested behavior with no contradictions, omissions, or duplicated facts."
+  ],
+  "note_finding_count": 3,
+  "pass_label": "PASS",
+  "status": "completed",
+  "task_id": "ST14",
+  "test_sufficiency_summary": [
+    "37 ST14 tests in 2 files (users.controller.test.ts: 23, users.service.test.ts: 14), all passing. Full suite: 832 tests passing (2 integration tests skipped), 0 failures.",
+    "Suggest ACs covered: 400 before auth/DB (q undefined, q=number, q=null \u2014 authService.resolveSession and suggestByPrefix NOT called verified); 401 when resolveSession rejects (suggestByPrefix NOT called); 429 when checkRequest throws (suggestByPrefix NOT called); checkRequest called with userId + non-null userCreatedAt (new-account tier); field allowlist \u2014 exact 3-key count (Object.keys(item).toHaveLength(3)) and forbidden fields absent (email/globalRole/status/id/createdAt/updatedAt/bio/emailVerifiedAt); active-only (where:{status:'active'} asserted on repository.find call); cap (take:10 asserted); avatar /api/media/<id>-or-null.",
+    "Profile ACs covered: 400 on empty string and whitespace-only username; exact 5-key count (Object.keys(profile!).toHaveLength(5)) and forbidden fields absent (email/globalRole/status/id/createdAt/updatedAt/emailVerifiedAt/passwordAuthenticators/sessions); P12 enumeration parity \u2014 nonexistent and inactive BOTH throw NotFoundException AND byte-identical message asserted (expect(msgNonexistent).toBe(msgInactive)); service asserts findOne where:{username,status:'active'} so inactive==nonexistent==null; avatar /api/media/<id>-or-null; joinDate is ISO-8601 string.",
+    "Tests are non-vacuous: assertions derive from acceptance criteria per P3, not from implementation internals. Both controller and service layers independently validate field allowlists, ensuring defense in depth."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
