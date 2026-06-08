@@ -42,7 +42,10 @@ import type {
   PublicCategoryShape,
   PublicTopicShape,
   PaginatedTopicsShape,
-  CreateTopicInput
+  CreateTopicInput,
+  PublicPostShape,
+  PaginatedPostsShape,
+  CreatePostInput
 } from "./forums.types";
 
 /**
@@ -60,6 +63,12 @@ import type {
  *    Requires an active session (401). Board must be publicly readable (404 if not).
  *    Body is normalized (normalizeMarkdownBody) then validated (validateMarkdownBody)
  *    before persistence; unsafe Markdown returns 400.
+ *
+ * 3. **Posts — member create and public paginated read (ST5)**:
+ *    - `POST /forums/topics/:topicId/posts` — create a post (reply) within an unlocked readable topic.
+ *    Requires an active session (401). Board+topic must be publicly readable (404 if not).
+ *    Locked topic returns 403. Invalid parentId (nonexistent, different topic, reply-to-reply) → 400.
+ *    - `GET /forums/topics/:topicId/posts` — paginated post list (oldest-first, deletedAt excluded).
  *
  * 3. **Admin management routes (ST2)** — require active session + global "admin" role:
  *    Full CRUD for categories and boards, enforced by
@@ -218,6 +227,96 @@ export class ForumsController {
     const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
     const topic = await this.forumsService.createTopic(session.user.id, { boardId, ...body });
     return { topic };
+  }
+
+  // ===========================================================================
+  // Posts — public paginated read and member-authenticated creation (ST5)
+  // ===========================================================================
+
+  /**
+   * List posts in a topic, paginated, oldest-first.
+   *
+   * Only non-deleted posts are returned. The board and topic must both be publicly
+   * readable — a non-readable or nonexistent board/topic returns `404` with the same
+   * message as a truly nonexistent topic (oracle parity; P12).
+   *
+   * No authentication required.
+   *
+   * @param topicId Topic UUID.
+   * @param page 1-indexed page number (default 1).
+   * @param pageSize Number of posts per page (default 20, max 100).
+   * @returns 200 with `{ posts, total, page, pageSize }`.
+   * @throws 404 Topic not found or not publicly accessible.
+   */
+  @Get("topics/:topicId/posts")
+  @ApiOperation({ summary: "List paginated posts in a topic (oldest-first)." })
+  @ApiOkResponse({
+    description:
+      "Paginated post list, oldest-first. " +
+      "Author shape exposes only username/displayName."
+  })
+  @ApiNotFoundResponse({
+    description:
+      "Topic not found, or its board is not publicly accessible. " +
+      "The error message is identical for nonexistent and hidden cases (oracle parity)."
+  })
+  async listPosts(
+    @Param("topicId") topicId: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string
+  ): Promise<PaginatedPostsShape> {
+    return this.forumsService.listPosts(topicId, {
+      page: page !== undefined ? parseInt(page, 10) : undefined,
+      pageSize: pageSize !== undefined ? parseInt(pageSize, 10) : undefined
+    });
+  }
+
+  /**
+   * Create a new post (reply) in a readable, unlocked topic.
+   *
+   * Requires an active session (`401` otherwise). The board and topic must be
+   * publicly readable — a non-readable or nonexistent board/topic returns `404`
+   * with the same message as a truly nonexistent topic (oracle parity; P12).
+   *
+   * Locked topics return `403` (thread-locked). Invalid `parentId` (nonexistent,
+   * different topic, or reply-to-a-reply) returns `400` with no existence oracle.
+   *
+   * The body is run through `normalizeMarkdownBody` then `validateMarkdownBody`
+   * before persistence; unsafe Markdown is rejected with `400`.
+   *
+   * @param topicId Topic UUID.
+   * @body `{ body, parentId?, quotedPostId? }`
+   * @returns 201 with `{ post }`.
+   * @throws 400 Unsafe Markdown, non-string body, or invalid parentId.
+   * @throws 401 No active session.
+   * @throws 403 Topic is locked.
+   * @throws 404 Topic or board not found or not publicly accessible (uniform message).
+   */
+  @Post("topics/:topicId/posts")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: "Create a post (reply) in a readable, unlocked topic (member-authenticated)." })
+  @ApiCreatedResponse({
+    description: "Post created. Author shape exposes only username/displayName."
+  })
+  @ApiBadRequestResponse({
+    description: "Non-string body, unsafe Markdown, or invalid parentId (uniform 400, no existence oracle)."
+  })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Topic is locked." })
+  @ApiNotFoundResponse({
+    description:
+      "Topic or board not found, or not publicly accessible. " +
+      "The error message is identical for nonexistent and hidden cases (oracle parity)."
+  })
+  async createPost(
+    @Req() request: Request,
+    @Param("topicId") topicId: string,
+    @Body() body: Omit<CreatePostInput, "topicId">
+  ): Promise<{ post: PublicPostShape }> {
+    // 401 check must happen before any data operation.
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    const post = await this.forumsService.createPost(session.user.id, { topicId, ...body });
+    return { post };
   }
 
   // ===========================================================================

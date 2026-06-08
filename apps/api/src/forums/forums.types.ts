@@ -153,3 +153,54 @@ export interface TopicListQuery {
   page?: number;
   pageSize?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Post DTOs (ST5) — public read shapes and member create input.
+// ---------------------------------------------------------------------------
+
+/**
+ * Public-safe post shape returned from the post list.
+ * Omits authorUserId (internal FK), topicId (implicit from URL), parentId internal FK,
+ * quotedPostId (rendered by web layer), deletedAt.
+ * Exposes quotedPostId so the web layer can render quotes.
+ */
+export interface PublicPostShape {
+  id: string;
+  body: string;
+  parentId: string | null;
+  quotedPostId: string | null;
+  author: PublicAuthorShape;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Paginated post list response.
+ * Order: parentId IS NULL first (top-level), then createdAt ASC (oldest-first within threading).
+ */
+export interface PaginatedPostsShape {
+  posts: PublicPostShape[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * Input for creating a new forum post (reply) within a topic.
+ * parentId: optional — if provided, must reference a top-level post in the same topic.
+ * quotedPostId: optional — soft-reference to a quoted post (no FK enforcement).
+ */
+export interface CreatePostInput {
+  topicId: string;
+  body: string;
+  parentId?: string | null;
+  quotedPostId?: string | null;
+}
+
+/**
+ * Pagination query parameters for post listing.
+ */
+export interface PostListQuery {
+  page?: number;
+  pageSize?: number;
+}

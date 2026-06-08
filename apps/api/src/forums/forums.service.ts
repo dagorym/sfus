@@ -9,6 +9,7 @@ import { normalizeMarkdownBody, validateMarkdownBody } from "../media/markdown-s
 import { ForumCategoryEntity } from "./entities/forum-category.entity";
 import { ForumBoardEntity } from "./entities/forum-board.entity";
 import { ForumTopicEntity } from "./entities/forum-topic.entity";
+import { ForumPostEntity } from "./entities/forum-post.entity";
 import { forumBoardScopeTypes, forumBoardVisibilities } from "./forums.types";
 import type {
   CreateCategoryInput,
@@ -23,7 +24,11 @@ import type {
   PaginatedTopicsShape,
   CreateTopicInput,
   TopicListQuery,
-  PublicAuthorShape
+  PublicAuthorShape,
+  PublicPostShape,
+  PaginatedPostsShape,
+  CreatePostInput,
+  PostListQuery
 } from "./forums.types";
 
 /**
@@ -39,6 +44,8 @@ export class ForumsService {
     private readonly boardRepository: Repository<ForumBoardEntity>,
     @InjectRepository(ForumTopicEntity)
     private readonly topicRepository: Repository<ForumTopicEntity>,
+    @InjectRepository(ForumPostEntity)
+    private readonly postRepository: Repository<ForumPostEntity>,
     private readonly authorizationService: AuthorizationService
   ) {}
 
@@ -588,6 +595,178 @@ export class ForumsService {
     return {
       topics: topics.map((t) =>
         this.toTopicShape(t as ForumTopicEntity & { author: { username: string; displayName: string | null } })
+      ),
+      total,
+      page,
+      pageSize
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Posts — create and paginated read (ST5)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * The uniform "not found" message used for both nonexistent and hidden posts.
+   * Identical structure to TOPIC_NOT_FOUND_MESSAGE for oracle parity (P12).
+   */
+  static readonly POST_NOT_FOUND_MESSAGE = "Forum post not found.";
+
+  /**
+   * Maps a ForumPostEntity (with loaded `author` relation) to the public-safe
+   * PublicPostShape DTO. Strips internal-only fields (authorUserId, topicId, deletedAt).
+   * Exposes quotedPostId so the web layer can render the quoted content.
+   */
+  private toPostShape(post: ForumPostEntity & { author: { username: string; displayName: string | null } }): PublicPostShape {
+    const author: PublicAuthorShape = {
+      username: post.author.username,
+      displayName: post.author.displayName
+    };
+    return {
+      id: post.id,
+      body: post.body,
+      parentId: post.parentId,
+      quotedPostId: post.quotedPostId,
+      author,
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt
+    };
+  }
+
+  /**
+   * Creates a new forum post (reply) within a topic.
+   *
+   * Security contract:
+   * - The board must exist AND be publicly readable (isBoardPubliclyReadable).
+   *   Non-readable or nonexistent boards → uniform TOPIC_NOT_FOUND_MESSAGE 404 (oracle parity).
+   * - The topic must exist AND be non-deleted AND be in that board.
+   *   Non-readable or nonexistent topics → uniform TOPIC_NOT_FOUND_MESSAGE 404 (oracle parity).
+   * - Locked topic → 403 thread-locked (consistent with blog comment-lock semantics).
+   * - parentId validation: if provided, must reference a TOP-LEVEL post (parentId IS NULL)
+   *   on the SAME topic. Invalid parentId → uniform 400 (no existence oracle).
+   * - Body is normalized then validated before persistence; unsafe content → 400.
+   * - The caller must already hold an active session (controller resolves session first → 401).
+   */
+  async createPost(
+    authorUserId: string,
+    input: CreatePostInput
+  ): Promise<PublicPostShape> {
+    // Topic lookup requires board lookup first for the full board+topic visibility predicate.
+    const topic = await this.topicRepository.findOne({
+      where: { id: input.topicId, deletedAt: IsNull() },
+      relations: ["board"]
+    });
+    // Gate: topic nonexistent, soft-deleted, or its board is not publicly readable → 404.
+    // All cases return the identical TOPIC_NOT_FOUND_MESSAGE (oracle parity, P12).
+    if (!topic || !this.isBoardPubliclyReadable(topic.board)) {
+      throw new NotFoundException(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+    }
+
+    // Locked topic → 403 thread-locked.
+    if (topic.isLocked) {
+      throw new ForbiddenException("This topic is locked. New posts are not allowed.");
+    }
+
+    // Input type-guard — guard against missing/non-string body before calling string methods.
+    // Mirrors blog.service.ts (?? "") pattern and ST4 createTopic guard.
+    if (typeof input.body !== "string") {
+      throw new BadRequestException("Post body must be a string.");
+    }
+
+    // Markdown sanitization — normalize then validate before any persistence.
+    const normalizedBody = normalizeMarkdownBody(input.body ?? "");
+    const validation = validateMarkdownBody(normalizedBody);
+    if (!validation.safe) {
+      throw new BadRequestException(`Unsafe Markdown content rejected. ${validation.reason ?? ""}`);
+    }
+
+    // One-level threading: validate parentId when supplied.
+    // Invalid parentId (nonexistent, different topic, or reply-to-a-reply) returns a uniform 400
+    // with NO existence oracle (do not reveal whether the parent exists in another topic).
+    let resolvedParentId: string | null = null;
+    if (input.parentId) {
+      const parentPost = await this.postRepository.findOne({
+        where: { id: input.parentId, deletedAt: IsNull() }
+      });
+      // All of: not found, different topic, already a reply → same uniform 400.
+      if (!parentPost || parentPost.topicId !== input.topicId || parentPost.parentId !== null) {
+        throw new BadRequestException("parentId is invalid.");
+      }
+      resolvedParentId = input.parentId;
+    }
+
+    const id = crypto.randomUUID();
+    const post = this.postRepository.create({
+      id,
+      topicId: input.topicId,
+      authorUserId,
+      body: normalizedBody,
+      parentId: resolvedParentId,
+      quotedPostId: input.quotedPostId ?? null,
+      deletedAt: null
+    });
+    await this.postRepository.save(post);
+
+    // Update topic reply count and lastPostAt.
+    topic.replyCount = (topic.replyCount ?? 0) + 1;
+    topic.lastPostAt = new Date();
+    await this.topicRepository.save(topic);
+
+    // Reload with author relation for the public shape.
+    const saved = await this.postRepository.findOne({
+      where: { id },
+      relations: ["author"]
+    });
+    if (!saved) {
+      throw new NotFoundException(ForumsService.POST_NOT_FOUND_MESSAGE);
+    }
+    return this.toPostShape(saved as ForumPostEntity & { author: { username: string; displayName: string | null } });
+  }
+
+  /**
+   * Returns a paginated list of posts in a topic.
+   *
+   * Security contract:
+   * - The board must exist AND be publicly readable (oracle parity, P12).
+   * - The topic must exist AND be non-deleted AND be in that board (oracle parity, P12).
+   * - Only non-deleted posts (deletedAt IS NULL) are returned.
+   *
+   * Pagination contract:
+   * - Deterministic oldest-first order: top-level posts first by createdAt ASC,
+   *   replies follow their parent by createdAt ASC. Implemented as a flat oldest-first
+   *   list (createdAt ASC, id ASC for tie-breaking) — consistent with the spec requirement
+   *   "oldest-first within threading".
+   * - page is 1-indexed; pageSize defaults to 20; max pageSize is 100.
+   * - Returns total count for stable pagination across pages.
+   */
+  async listPosts(topicId: string, query: PostListQuery): Promise<PaginatedPostsShape> {
+    // Topic lookup + board visibility gate (oracle-parity: nonexistent === gated → 404).
+    const topic = await this.topicRepository.findOne({
+      where: { id: topicId, deletedAt: IsNull() },
+      relations: ["board"]
+    });
+    if (!topic || !this.isBoardPubliclyReadable(topic.board)) {
+      throw new NotFoundException(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+    }
+
+    const page = Math.max(1, query.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 20));
+    const skip = (page - 1) * pageSize;
+
+    const [posts, total] = await this.postRepository.findAndCount({
+      where: { topicId, deletedAt: IsNull() },
+      relations: ["author"],
+      order: {
+        createdAt: "ASC",
+        id: "ASC"
+      },
+      skip,
+      take: pageSize
+    });
+
+    return {
+      posts: posts.map((p) =>
+        this.toPostShape(p as ForumPostEntity & { author: { username: string; displayName: string | null } })
       ),
       total,
       page,
