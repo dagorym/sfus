@@ -497,11 +497,19 @@ export class ForumsService {
       throw new NotFoundException(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
     }
 
-    // Input validation.
+    // Input validation — guard against missing/non-string values before calling
+    // string methods (no global ValidationPipe; mirrors blog.service.ts pattern).
+    if (typeof input.title !== "string") {
+      throw new BadRequestException("Topic title must not be empty.");
+    }
     this.assertTopicTitleValid(input.title);
 
+    if (typeof input.body !== "string") {
+      throw new BadRequestException("Topic body must be a string.");
+    }
+
     // Markdown sanitization — normalize then validate before any persistence.
-    const normalizedBody = normalizeMarkdownBody(input.body);
+    const normalizedBody = normalizeMarkdownBody(input.body ?? "");
     const validation = validateMarkdownBody(normalizedBody);
     if (!validation.safe) {
       throw new BadRequestException(`Unsafe Markdown content rejected. ${validation.reason ?? ""}`);
