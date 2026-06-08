@@ -345,6 +345,11 @@ describe("Top-level catch-all page route source contracts (AC1)", () => {
     for (const entry of elevenEntries) {
       expect(reservedBlock, `RESERVED_SLUGS must contain "${entry}"`).toContain(`"${entry}"`);
     }
+    // Pin cardinality and set equality (reviewer follow-up): the declaration must
+    // contain EXACTLY these eleven string literals — an extra or unknown entry fails.
+    const declaredLiterals = (reservedBlock.match(/"[^"]+"/g) ?? []).map((token) => token.slice(1, -1));
+    expect(declaredLiterals, "RESERVED_SLUGS must declare exactly eleven entries").toHaveLength(elevenEntries.length);
+    expect(new Set(declaredLiterals)).toEqual(new Set(elevenEntries));
   });
 
   it("returns a not-found state for reserved slugs without querying the API (AC1)", async () => {
@@ -591,11 +596,12 @@ describe("PagesController.listPublished source contracts (AC2, AC4, AC5)", () =>
     expect(source).toContain("@ApiOkResponse");
   });
 
-  it("toSummary helper returns only slug, title, updatedAt — no body field (AC2)", async () => {
-    // AC2: The payload must contain only index fields; body is absent to prevent
-    // expensive body-loading on the list surface.
+  it("toSummary helper returns only slug and title — no body or updatedAt (AC2)", async () => {
+    // AC2: The payload must contain only index-needs fields; body is absent to
+    // prevent expensive body-loading on the list surface, and updatedAt is absent
+    // because the index UI does not display it (reviewer follow-up).
     const source = await readAppFile("../../apps/api/src/pages/pages.controller.ts");
-    // toSummary function must map to slug/title/updatedAt
+    // toSummary function must map to slug/title only
     expect(source).toContain("toSummary");
     const fnIdx = source.indexOf("function toSummary");
     expect(fnIdx).toBeGreaterThan(-1);
@@ -603,14 +609,14 @@ describe("PagesController.listPublished source contracts (AC2, AC4, AC5)", () =>
     const fnBody = source.slice(fnIdx, fnEnd + 1);
     expect(fnBody).toContain("slug");
     expect(fnBody).toContain("title");
-    expect(fnBody).toContain("updatedAt");
+    expect(fnBody).not.toContain("updatedAt");
     // body must not appear in the summary shape
     expect(fnBody).not.toContain("body:");
   });
 
-  it("PageSummary interface contains slug, title, updatedAt — no body (AC2)", async () => {
-    // AC2: The declared interface confirms the payload contract — body and revision
-    // data must be absent from the index shape.
+  it("PageSummary interface contains slug and title — no body or updatedAt (AC2)", async () => {
+    // AC2: The declared interface confirms the payload contract — body, revision
+    // data, and undisplayed fields must be absent from the index shape.
     const source = await readAppFile("../../apps/api/src/pages/pages.controller.ts");
     expect(source).toContain("interface PageSummary");
     const ifaceIdx = source.indexOf("interface PageSummary");
@@ -618,7 +624,7 @@ describe("PagesController.listPublished source contracts (AC2, AC4, AC5)", () =>
     const ifaceBody = source.slice(ifaceIdx, ifaceEnd + 1);
     expect(ifaceBody).toContain("slug");
     expect(ifaceBody).toContain("title");
-    expect(ifaceBody).toContain("updatedAt");
+    expect(ifaceBody).not.toContain("updatedAt");
     // body must not be declared in the index interface
     expect(ifaceBody).not.toContain("body");
   });

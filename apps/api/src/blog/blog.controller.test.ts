@@ -28,6 +28,7 @@ import { NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import { AuthorizationService } from "../authorization/authorization.service";
+import { BlogController } from "./blog.controller";
 import { BlogService } from "./blog.service";
 
 // ---------------------------------------------------------------------------
@@ -523,4 +524,88 @@ describe("blog.controller.ts — resolveSession + assertAdminManagementAccess wi
       expect(handlerText).toContain("assertAdminManagementAccess");
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Executed serializer tests (reviewer follow-up, subtask-3 AC1): the public
+// comment endpoints must return payload OBJECTS that contain none of the
+// trimmed moderation-internal fields. Unlike the source-contract assertions
+// above, these tests execute the real handlers (with stubbed services) and
+// inspect the serialized return values directly.
+// ---------------------------------------------------------------------------
+
+describe("BlogController public comment handlers — executed payload trim (subtask-3 AC1)", () => {
+  const TRIMMED_FIELDS = ["authorUserId", "moderatedByUserId", "moderatedAt"];
+
+  const makeCommentEntity = (overrides: Record<string, unknown> = {}) => ({
+    id: "comment-1",
+    postId: "post-1",
+    parentId: null,
+    authorUserId: "user-7",
+    body: "A visible comment.",
+    status: "visible",
+    mediaReferenceId: null,
+    moderatedByUserId: "mod-9",
+    moderatedAt: new Date("2026-06-01T00:00:00.000Z"),
+    createdAt: new Date("2026-05-30T00:00:00.000Z"),
+    updatedAt: new Date("2026-05-31T00:00:00.000Z"),
+    ...overrides
+  });
+
+  const makeController = (serviceOverrides: Record<string, unknown>, authOverrides: Record<string, unknown> = {}) => {
+    const blogService = {
+      findPublishedBySlug: vi.fn().mockResolvedValue(null),
+      findPublishedById: vi.fn().mockResolvedValue(null),
+      findVisibleComments: vi.fn().mockResolvedValue([]),
+      createComment: vi.fn(),
+      ...serviceOverrides
+    } as unknown as BlogService;
+    const authService = {
+      resolveSession: vi.fn().mockResolvedValue({ user: { id: "user-7" } }),
+      ...authOverrides
+    } as unknown as import("../auth/auth.service").AuthService;
+    return new BlogController(blogService, authService);
+  };
+
+  it("listComments returns comment objects (and nested replies) without authorUserId, moderatedByUserId, or moderatedAt", async () => {
+    const reply = makeCommentEntity({ id: "comment-2", parentId: "comment-1" });
+    const topLevel = makeCommentEntity({ replies: [reply] });
+    const controller = makeController({
+      findPublishedBySlug: vi.fn().mockResolvedValue({ id: "post-1", commentsLocked: false }),
+      findVisibleComments: vi.fn().mockResolvedValue([topLevel, reply])
+    });
+
+    const result = await controller.listComments("post-1");
+
+    expect(result.comments).toHaveLength(1);
+    const serialized = result.comments[0] as unknown as Record<string, unknown>;
+    for (const field of TRIMMED_FIELDS) {
+      expect(Object.keys(serialized), `top-level comment must not expose ${field}`).not.toContain(field);
+    }
+    expect(serialized.id).toBe("comment-1");
+    expect(serialized.body).toBe("A visible comment.");
+    const replies = serialized.replies as Array<Record<string, unknown>>;
+    expect(replies).toHaveLength(1);
+    for (const field of TRIMMED_FIELDS) {
+      expect(Object.keys(replies[0]), `nested reply must not expose ${field}`).not.toContain(field);
+    }
+  });
+
+  it("createComment returns a comment object without authorUserId, moderatedByUserId, or moderatedAt", async () => {
+    const created = makeCommentEntity({ moderatedByUserId: null, moderatedAt: null });
+    const controller = makeController({
+      findPublishedBySlug: vi.fn().mockResolvedValue({ id: "post-1", commentsLocked: false }),
+      createComment: vi.fn().mockResolvedValue(created)
+    });
+
+    const request = { headers: { cookie: "sfus_session=token" } } as unknown as import("express").Request;
+    const result = await controller.createComment(request, "post-1", { body: "hello" });
+
+    const serialized = result.comment as unknown as Record<string, unknown>;
+    for (const field of TRIMMED_FIELDS) {
+      expect(Object.keys(serialized), `created comment must not expose ${field}`).not.toContain(field);
+    }
+    expect(serialized.id).toBe("comment-1");
+    expect(serialized.createdAt).toBe("2026-05-30T00:00:00.000Z");
+  });
 });
