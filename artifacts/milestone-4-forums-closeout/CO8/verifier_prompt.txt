@@ -1,0 +1,60 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Validated typed admin forums API client module (apps/web/app/admin/forums/forums-admin-client.ts) wrapping all 12 admin forums API endpoints. Implementer provided both implementation and 78-test source-audit spec. All ACs confirmed; no test changes needed.
+
+Acceptance criteria to verify:
+- AC1: Module exports typed functions for all 6 admin category endpoints (adminListCategories, adminGetCategory, adminCreateCategory, adminUpdateCategory, adminDeleteCategory, adminReorderCategories) — PASS per Tester
+- AC2: Module exports typed functions for all 6 admin board endpoints (adminListBoards, adminGetBoard, adminCreateBoard, adminUpdateBoard, adminDeleteBoard, adminReorderBoards) — PASS per Tester
+- AC3: All 12 functions include credentials:include — PASS per Tester
+- AC4: Response envelopes parsed — { category } / { categories } / { board } / { boards } — never raw/unwrapped — PASS per Tester
+- AC5: Error envelope: payload?.error?.message || payload?.message || <fallback> at every call site — PASS per Tester
+- AC6: Types include ForumBoardScopeType ('site'|'project') and ForumBoardVisibility ('public'|'unlisted'|'members'|'project-only'|'private') — PASS per Tester
+
+Implementation branch or worktree context:
+- Tester branch: ms4a-CO8-tester-20260608
+- Implementer commits: 5db1362, d9f7141
+- Comparison base: ms4a
+- Documenter branch: ms4a-CO8-documenter-20260608
+- Documenter commit hash (no external docs changed): 8e8cdb7dd20c2c374071e726c205fc0904a68092
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/admin/forums/forums-admin-client.ts (new — Implementer)
+- apps/web/app/admin/forums/forums-admin-client.spec.ts (new — Implementer)
+
+Commands executed (Tester):
+- pnpm install --dir /home/tstephen/repos/worktrees/ms4a-CO8-tester-20260608
+- vitest run --root apps/web (78 forums-admin-client.spec.ts tests, 507 total)
+- tsc -p apps/web/tsconfig.json --noEmit (typecheck)
+- pnpm --dir apps/web lint (--max-warnings=0)
+
+Final test outcomes:
+- 14 test files, 507 tests passed, 0 failed
+- forums-admin-client.spec.ts: 78 tests pass covering all 12 functions
+- AC1-AC6 all PASS; Typecheck clean; Lint clean
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-closeout-plan.md, subtask CO8
+- Documentation Impact: none — internal client module; consuming admin page CO9 is where admin-surface documentation belongs
+- Documenter confirmed no doc precisely enumerates admin forum web surfaces; no change justified
+
+Convention-file guidance:
+- docs/features/forums.md for the admin API contract (CO8 client wraps those endpoints)
+- docs/README.md routing table for scope coverage
+- Pattern follows blog-client.ts and forums-client.ts conventions
+
+Updated documentation files:
+- None (no external documentation changes required; full justification in documenter_report.md)
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO8
+
+Verification scope:
+- Review implementation and tests together.
+- Confirm the 12 exported functions align with the admin API routes documented in docs/features/forums.md (Admin API routes section).
+- Confirm no existing documentation was broken or omitted by this change.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
