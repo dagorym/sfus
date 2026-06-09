@@ -146,8 +146,11 @@ See [auth.md](auth.md#avatar-self-service-api-st15) for the enforcement contract
 to load (`onError`), the component renders an uppercase-initials placeholder derived from
 `displayName` (preferred) or `username`. A broken image is never displayed.
 
-**Security:** `avatarSrc` must always be the gated `/api/media/<id>` serve path. Callers
-must never pass raw or un-gated storage URLs.
+**Security:** `resolveAvatarSrc` enforces that `avatarSrc` begins with `/api/media/`
+before returning it; any other value — including `http(s)://`, protocol-relative `//`,
+`javascript:`, `data:`, or empty/whitespace — is rejected and returns `null` (initiating
+the initials fallback). Callers must not pass raw or un-gated storage URLs, and the
+function provides a defense-in-depth guard even if they do.
 
 Usernames in `/users/<username>` links are always `encodeURIComponent`-encoded, consistent
 with the ST16 byline convention.
