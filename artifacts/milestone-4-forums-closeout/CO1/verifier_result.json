@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums-closeout/CO1/verifier_report.md",
+    "artifacts/milestone-4-forums-closeout/CO1/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4a-CO1-documenter-20260608",
+  "documentation_accuracy_summary": [
+    "Accurate. docs/development/api-conventions.md (lines 168-171) now states bare http://, https://, ftp://, mailto:, and tel: URIs are counted only at a word boundary, with explicit examples (hotel:, motel: not counted). This matches the implementation and the tests exactly. No other doc describes per-post link-counting tokens; no further update is required."
+  ],
+  "note_finding_count": 2,
+  "pass_label": "verifier-1-pass",
+  "status": "completed",
+  "task_id": "CO1",
+  "test_sufficiency_summary": [
+    "Sufficient. 16 new tests cover AC2 negatives (hotel:, motel:, xmailto:, a-tel:, inlined_mailto: -> 0), AC3 positives (mailto:/tel: at start-of-string, after space, newline, tab, '>', '['), AC4 markdown-link single-count (no double-count, no skipPositions regression), and AC5 mixed-body fail-safe (boundary-preceded schemes in a mixed body count correctly; hotel:x and tel:+1 -> 1). All 51 tests verified passing by the verifier: npx pnpm --filter @sfus/api exec vitest run src/common/throttle/link-limit.test.ts returned 51 passed, 0 failed."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
