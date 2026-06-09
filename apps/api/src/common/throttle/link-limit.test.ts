@@ -235,6 +235,100 @@ describe("countLinks — evasion detection (AC-Security-Evasion)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// countLinks — word-boundary guard for bare schemes (AC1–AC5)
+// ---------------------------------------------------------------------------
+
+describe("countLinks — word-boundary guard for bare schemes", () => {
+  // AC2: Words that embed a scheme token preceded by a non-boundary character
+  // must NOT be counted as links.
+
+  it("does NOT count 'hotel:example' (non-boundary char before scheme)", () => {
+    // 'l' before 'tel:' is not a word-boundary character.
+    expect(countLinks("I stayed at hotel:example.com")).toBe(0);
+  });
+
+  it("does NOT count 'motel:something' (non-boundary char before scheme)", () => {
+    // 'l' before 'tel:' is not a word-boundary character.
+    expect(countLinks("motel:something is not a link")).toBe(0);
+  });
+
+  it("does NOT count 'xmailto:user@example.com' (non-boundary char before scheme)", () => {
+    // 'x' before 'mailto:' is not a word-boundary character.
+    expect(countLinks("xmailto:user@example.com")).toBe(0);
+  });
+
+  it("does NOT count 'a-tel:+1555' (non-boundary char before scheme)", () => {
+    // '-' before 'tel:' is not a word-boundary character.
+    expect(countLinks("a-tel:+1555")).toBe(0);
+  });
+
+  it("does NOT count 'inlined_mailto:user@example.com' (underscore before scheme)", () => {
+    // '_' before 'mailto:' is not a word-boundary character.
+    expect(countLinks("inlined_mailto:user@example.com")).toBe(0);
+  });
+
+  // AC3: Boundary-anchored bare schemes MUST be counted.
+
+  it("counts 'mailto:user@example.com' at start of string as 1", () => {
+    // charBefore is '' (empty string) which is in WORD_BOUNDARY_CHARS.
+    expect(countLinks("mailto:user@example.com")).toBe(1);
+  });
+
+  it("counts 'mailto:user@example.com' after a newline as 1", () => {
+    expect(countLinks("Contact:\nmailto:user@example.com")).toBe(1);
+  });
+
+  it("counts 'mailto:user@example.com' after a tab as 1", () => {
+    expect(countLinks("Email:\tmailto:user@example.com")).toBe(1);
+  });
+
+  it("counts 'mailto:user@example.com' after '>' as 1", () => {
+    // '>' (blockquote marker) is a boundary character.
+    expect(countLinks(">mailto:user@example.com")).toBe(1);
+  });
+
+  it("counts 'mailto:user@example.com' after '[' as 1", () => {
+    // '[' is a boundary character; this tests isolation from the markdown path.
+    expect(countLinks("[mailto:user@example.com")).toBe(1);
+  });
+
+  it("counts 'tel:+15551234' at start of string as 1", () => {
+    expect(countLinks("tel:+15551234")).toBe(1);
+  });
+
+  it("counts 'tel:+15551234' after a space as 1", () => {
+    expect(countLinks("Call us at tel:+15551234")).toBe(1);
+  });
+
+  // AC4: Markdown link '[x](mailto:user@example.com)' is counted exactly once;
+  // skipPositions mechanism is not regressed.
+
+  it("counts '[x](mailto:user@example.com)' exactly once (no double-count)", () => {
+    // If skipPositions regressed, the bare-scheme pass would count it again → 2.
+    expect(countLinks("[x](mailto:user@example.com)")).toBe(1);
+  });
+
+  it("counts '[call](tel:+15551234)' exactly once (no double-count)", () => {
+    expect(countLinks("[call](tel:+15551234)")).toBe(1);
+  });
+
+  // AC5: Fail-safe direction — the guard only reduces false positives; it does
+  // not suppress genuine bare-scheme links preceded by boundary characters.
+
+  it("still counts all boundary-preceded evasion schemes in a mixed body", () => {
+    // All four are boundary-preceded (space-separated) → count 4.
+    const body = "mailto:a@example.com tel:+1555 http://x.example.com ftp://y.example.com";
+    expect(countLinks(body)).toBe(4);
+  });
+
+  it("does not suppress boundary-preceded scheme when adjacent non-matching word has same suffix", () => {
+    // 'hotel:' is not counted, but the standalone 'tel:+1' after a space IS.
+    const body = "hotel:x and tel:+1";
+    expect(countLinks(body)).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // exceedsLinkLimit — over/under boundary
 // ---------------------------------------------------------------------------
 
