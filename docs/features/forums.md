@@ -511,7 +511,7 @@ When `topic.isLocked` is true:
 - The reply form is completely hidden.
 - A `<p role="status">` notice is shown: "This topic is locked. No new replies can be posted."
 - The `Sign in to reply` affordance is also hidden (no point directing guests to sign in).
-- The `isLocked` field is part of `PublicTopicShape` returned by the API and surfaced in the board view as a "Locked" badge next to the topic title.
+- The `isLocked` field is **not** returned by the API in `PublicTopicShape` (it is stripped server-side; see topic response shapes above). The web client derives initial lock state as `topic.isLocked ?? false`; after a moderator performs a lock/unlock action the component merges the `isLocked` value from the resulting `ModeratedTopicShape` into local state.
 
 The API enforces the lock at the post-create endpoint (`POST /api/forums/topics/:topicId/posts` returns `403` for locked topics). The web layer hides the form for UX only.
 
