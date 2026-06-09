@@ -1,0 +1,59 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- CO5 Remediation Pass 2: Added regression tests for malformed ?limit in GET /api/forums/recent. The implementer fix in ForumsService.listRecentTopics uses Number.isFinite() to coerce NaN/Infinity to the default limit (5), preventing HTTP 500 from queryBuilder.take(NaN). Five regression tests added: 3 service-level (NaN, Infinity, -Infinity) and 2 controller-level (?limit=abc, ?limit= empty string). Documentation updated to note that non-numeric or non-finite ?limit values coerce to the default (5) and never produce an error.
+
+Acceptance criteria to verify:
+- AC1: Returns up to bounded number of topics (default 5, hard cap 20), ordered lastPostAt DESC NULLS LAST then createdAt DESC, from publicly-readable site boards only — confirmed by existing tests.
+- AC2: Topics in non-publicly-readable boards (members/private) and project-scoped boards excluded — confirmed by existing tests.
+- AC3: Returns public-safe RecentTopicShape only (title, slug, board stub, author stub, lastPostAt, createdAt). No internal/PII fields — confirmed by existing tests.
+- AC4: No authentication required. Returns stable empty list when no public activity. Malformed ?limit (NaN, Infinity, -Infinity, 'abc', '') coerces to default 5 and returns 200 with { topics } — NEW REGRESSION TESTS confirm this.
+
+Implementation branch or worktree context:
+- Branch: ms4a-CO5-tester-20260608
+- Implementer fix: apps/api/src/forums/forums.service.ts — Number.isFinite guard in listRecentTopics (fix commit b48e1bf)
+- Controller: apps/api/src/forums/forums.controller.ts — passes parseInt(limit, 10) to service when ?limit present
+- Test commit: e63ca9f
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.controller.ts
+- apps/api/src/forums/forums.service.test.ts
+- apps/api/src/forums/forums.controller.test.ts
+- docs/features/forums.md
+
+Commands executed:
+- pnpm --filter api exec vitest run src/forums
+- pnpm --filter api exec tsc --noEmit
+- pnpm --filter api exec eslint src/forums/forums.service.ts src/forums/forums.controller.ts src/forums/forums.types.ts --max-warnings=0
+- pnpm --filter api exec vitest run
+
+Final test outcomes:
+- 256/256 forums tests pass (5 new regression tests added for CO5 AC4)
+- 885/885 API tests pass (3 DB integration tests skipped)
+- TypeScript compilation: no errors
+- ESLint on forums files: no warnings or errors
+- AC4 regression verified: NaN, Infinity, -Infinity all coerce to default limit 5; controller returns 200 with { topics } for ?limit=abc and ?limit= (empty string)
+
+Plan or evaluation context guidance:
+- plans/milestone-4-forums-closeout-plan.md — CO5 subtask
+- Comparison base: ms4a branch; the fix commit is b48e1bf
+
+Convention-file guidance:
+- docs/README.md — documentation routing table
+- docs/development/api-conventions.md — API conventions
+- docs/features/forums.md — forums feature documentation (canonical location for GET /api/forums/recent)
+
+Updated documentation files:
+- docs/features/forums.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO5
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
