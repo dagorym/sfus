@@ -1,0 +1,44 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Harden resolveAvatarSrc in apps/web/components/user-avatar.tsx to reject any avatarSrc not beginning with /api/media/, returning null (triggering the initials fallback) for http://, https://, //, javascript:, data:, and empty/whitespace inputs.
+
+Modified files:
+- apps/web/components/user-avatar.tsx
+
+Acceptance criteria to validate (from Planner):
+- resolveAvatarSrc returns null for any avatarSrc not beginning with /api/media/ (including http://, https://, //, javascript:, data:, empty/whitespace)
+- A valid gated path (e.g. /api/media/<uuid>) is returned unchanged when hasError is false
+- null is still returned when hasError is true (existing behavior preserved)
+- No change to initials derivation or any other UserAvatar rendering behavior for valid inputs
+
+Create test files in:
+- apps/web/components/user-avatar.spec.ts — add prefix-rejection cases, the valid pass-through case, and the hasError case using the existing pure-function test pattern (no jsdom render harness)
+
+Implementation context for testing:
+- resolveAvatarSrc is a single exported pure function in apps/web/components/user-avatar.tsx
+- Added one line: if (!avatarSrc.startsWith('/api/media/')) return null; between the existing falsy/hasError guard and the return avatarSrc
+- The !avatarSrc guard already handles null and empty string; the new check handles all non-empty values that fail the prefix test
+- All 407 existing vitest tests (including 16 in user-avatar.spec.ts) continue to pass
+- Typecheck clean, lint 0 warnings, next build succeeds
+- This is a security-sensitive change — security review is required before merging
+
+Suggested test command(s):
+- pnpm --filter web typecheck
+- pnpm --filter web lint
+- pnpm vitest run --root apps/web
+- pnpm --filter web build
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
