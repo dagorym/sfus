@@ -116,7 +116,7 @@ No authentication required. Returns the most-recently-active publicly-visible to
 
 | Parameter | Default | Constraints | Notes |
 |---|---|---|---|
-| `limit` | `5` | 1–20; hard-capped at 20 | Maximum number of topics to return |
+| `limit` | `5` | 1–20; hard-capped at 20 | Maximum number of topics to return. Non-numeric or non-finite values (e.g. `abc`, empty string, `NaN`, `Infinity`) coerce to the default (5) and never produce an error. |
 
 **Sort order:** `lastPostAt DESC NULLS LAST`, then `createdAt DESC`.
 
