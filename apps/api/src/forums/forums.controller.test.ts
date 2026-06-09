@@ -1764,3 +1764,42 @@ describe("ForumsController.listRecentTopics (CO5: AC4 — stable empty list when
     expect(result).toEqual({ topics });
   });
 });
+
+// ---------------------------------------------------------------------------
+// CO5: listRecentTopics — AC4 regression: malformed ?limit returns 200, not 500
+//
+// parseInt("abc", 10) and parseInt("", 10) both return NaN.
+// The controller passes the raw parseInt result to the service. The service's
+// Number.isFinite guard coerces NaN to the default limit. The controller must
+// not crash before or after that delegation.
+//
+// Controller tests mock the service (the NaN-tolerance is service-layer logic),
+// so these tests assert:
+//   1. The controller does not throw when called with a malformed limit string.
+//   2. The controller delegates to forumsService.listRecentTopics with { limit: NaN }
+//      (the exact value that parseInt("abc") and parseInt("") produce).
+// ---------------------------------------------------------------------------
+
+describe("ForumsController.listRecentTopics (CO5: AC4 — malformed ?limit returns 200 with stable list, not 500)", () => {
+  it("?limit=abc — returns 200 { topics } without throwing; service called with { limit: NaN }", async () => {
+    const listRecentTopicsSpy = vi.fn().mockResolvedValue([]);
+    const forumsService = makeForumsService({ listRecentTopics: listRecentTopicsSpy });
+    const controller = makeController(forumsService);
+    // parseInt("abc", 10) → NaN; must not throw
+    const result = await controller.listRecentTopics("abc");
+    expect(result).toEqual({ topics: [] });
+    // Controller must pass NaN to the service (not throw before reaching the service)
+    expect(listRecentTopicsSpy).toHaveBeenCalledWith({ limit: NaN });
+  });
+
+  it("?limit= (empty string) — returns 200 { topics } without throwing; service called with { limit: NaN }", async () => {
+    const listRecentTopicsSpy = vi.fn().mockResolvedValue([]);
+    const forumsService = makeForumsService({ listRecentTopics: listRecentTopicsSpy });
+    const controller = makeController(forumsService);
+    // parseInt("", 10) → NaN; must not throw
+    const result = await controller.listRecentTopics("");
+    expect(result).toEqual({ topics: [] });
+    // Controller must pass NaN to the service (not throw before reaching the service)
+    expect(listRecentTopicsSpy).toHaveBeenCalledWith({ limit: NaN });
+  });
+});

@@ -2709,3 +2709,69 @@ describe("ForumsService.listRecentTopics (CO5: AC3 — public-safe RecentTopicSh
     expect(result[0].lastPostAt).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// CO5: listRecentTopics — AC4 regression: malformed ?limit coerces to default (NaN guard)
+//
+// The defect: parseInt("abc", 10) and parseInt("", 10) both return NaN.
+// The old code used ?? (nullish coalescing) which does NOT catch NaN, so
+// Math.max(1, NaN) returned NaN and queryBuilder.take(NaN) threw a TypeORMError
+// causing HTTP 500.
+//
+// The fix uses Number.isFinite() to coerce non-finite values to the default limit
+// before clamping, ensuring take() always receives a valid finite integer.
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.listRecentTopics (CO5: AC4 — malformed limit coerces to default, does not throw)", () => {
+  it("listRecentTopics({ limit: NaN }) coerces to default (5), does NOT throw, take() called with finite integer", async () => {
+    const publicBoard = makePublicSiteBoard("board-pub-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([publicBoard]);
+    const qb = makeQbWithTopics([makeTopicStub("t1")]);
+    const createQbSpy = vi.fn().mockReturnValue(qb);
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    // Must not throw — the NaN guard coerces to RECENT_TOPICS_DEFAULT_LIMIT (5)
+    await expect(service.listRecentTopics({ limit: NaN })).resolves.toBeDefined();
+    // take() must be called with a finite integer (5, the default)
+    const takeArg = qb["take"].mock.calls[0][0] as number;
+    expect(Number.isFinite(takeArg)).toBe(true);
+    expect(takeArg).toBe(5);
+  });
+
+  it("listRecentTopics({ limit: Infinity }) coerces to default (5), does NOT throw, take() called with finite integer", async () => {
+    const publicBoard = makePublicSiteBoard("board-pub-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([publicBoard]);
+    const qb = makeQbWithTopics([makeTopicStub("t1")]);
+    const createQbSpy = vi.fn().mockReturnValue(qb);
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    // Infinity is not finite — must coerce to RECENT_TOPICS_DEFAULT_LIMIT (5)
+    await expect(service.listRecentTopics({ limit: Infinity })).resolves.toBeDefined();
+    const takeArg = qb["take"].mock.calls[0][0] as number;
+    expect(Number.isFinite(takeArg)).toBe(true);
+    expect(takeArg).toBe(5);
+  });
+
+  it("listRecentTopics({ limit: -Infinity }) coerces to default (5), does NOT throw, take() called with finite integer", async () => {
+    const publicBoard = makePublicSiteBoard("board-pub-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([publicBoard]);
+    const qb = makeQbWithTopics([makeTopicStub("t1")]);
+    const createQbSpy = vi.fn().mockReturnValue(qb);
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    // -Infinity is not finite — must coerce to RECENT_TOPICS_DEFAULT_LIMIT (5)
+    await expect(service.listRecentTopics({ limit: -Infinity })).resolves.toBeDefined();
+    const takeArg = qb["take"].mock.calls[0][0] as number;
+    expect(Number.isFinite(takeArg)).toBe(true);
+    expect(takeArg).toBe(5);
+  });
+});
