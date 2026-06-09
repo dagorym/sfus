@@ -1,0 +1,57 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Corrected the stale/inaccurate JSDoc comment on PublicTopicShape.isLocked in apps/web/app/forums/forums-client.ts. The old comment falsely stated the field is included in the API public topic shape; the API strips isLocked server-side. The corrected comment accurately states the field is NOT returned by the API and is typed optional so it is absent/undefined at runtime. No types, interfaces, exported symbols, function signatures, or runtime behavior were changed.
+
+Acceptance criteria to verify:
+- Comment at forums-client.ts:55 no longer misstates the public-topic contract: now reads 'isLocked is NOT returned by the API in the public topic shape (stripped server-side); typed optional so the field is absent/undefined at runtime.' Consistent with isLocked?: boolean declaration and with docs/features/forums.md. PASS.
+- No TypeScript type, interface, exported symbol, function signature, or runtime behavior was changed — comment text only. CONFIRMED: tsc --noEmit exits 0; eslint exits 0; 415/415 tests pass. PASS.
+
+Implementation branch or worktree context:
+- Implementer branch: ms4a-CO4-implementer-20260608
+- Tester branch: ms4a-CO4-tester-20260608
+- Documenter branch: ms4a-CO4-documenter-20260608
+- Documenter worktree: /home/tstephen/repos/worktrees/ms4a-CO4-documenter-20260608
+- Base branch: ms4a
+- Implementer changed: apps/web/app/forums/forums-client.ts (JSDoc comment at line 55 on PublicTopicShape.isLocked)
+- Documenter changed: docs/features/forums.md (corrected stale isLocked claim in locked-topic UX section)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/forums/forums-client.ts
+- docs/features/forums.md
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/web exec vitest run app/forums/forums.spec.ts
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/web exec tsc --noEmit
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/web exec eslint app/forums/forums-client.ts --max-warnings=0
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/web exec vitest run
+
+Final test outcomes:
+- 51/51 forums.spec.ts tests pass
+- 415/415 full web test suite tests pass
+- TypeScript tsc --noEmit: clean (exit 0, no output)
+- ESLint forums-client.ts --max-warnings=0: clean (exit 0, no output)
+
+Plan or evaluation context guidance:
+- Active plan: plans/milestone-4-forums-closeout-plan.md
+- Subtask CO4: comment correction on PublicTopicShape.isLocked
+- Compare ms4a-CO4-documenter-20260608 against ms4a for full diff
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table — consult it for doc location conventions
+- docs/features/forums.md is the canonical forums feature documentation
+- Only documentation files were changed in the documenter pass; no executable code was touched
+
+Updated documentation files:
+- docs/features/forums.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO4
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
