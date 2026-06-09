@@ -1,0 +1,57 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Build the admin forums management page at /admin/forums exposing full categories + boards CRUD, consuming the forums-admin-client from CO8.
+
+Acceptance criteria validated:
+- AC1: resolveProtectedSession('/admin/forums') called; hasGlobalRole(session.user, 'admin') checked; non-admin gets setLoadError('Admin access required.'); unauthenticated users redirected via router.replace(resolved.redirectTo)
+- AC2: adminListCategories imported and called on load; result stored in categories state; categories.map and cat.boards.map render the full list with boards
+- AC3: adminCreateCategory, adminUpdateCategory, adminDeleteCategory, adminReorderCategories all called; client-side boardCount>0 check and /board|must be empty|not empty/i regex catch both surface friendly delete message
+- AC4: adminCreateBoard, adminUpdateBoard, adminDeleteBoard, adminReorderBoards called; BoardFormState includes scopeType/visibility/projectId; all five visibility values and both scopeType values rendered in selects
+- AC5: No dangerouslySetInnerHTML anywhere; no encodeURIComponent in page.tsx; all user-supplied text (cat.name, board.name, actionError, actionSuccess, loadError) rendered as React text nodes; uses auth-shell.module.css (no new CSS)
+- AC6: setActionError called in all catch blocks (>=8 call sites); clearFeedback() clears both actionError and actionSuccess before each action; setActionSuccess confirms success for all six create/edit/delete operations; setLoadError surfaces initial load failure
+
+Implementation branch or worktree context:
+- Tester worktree: ms4a-CO9-tester-20260608 (branched from ms4a-CO9-implementer-20260608, code commit 686d771)
+- Implementer branch: ms4a-CO9-implementer-20260608
+- Single new file: apps/web/app/admin/forums/page.tsx
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/admin/forums/page.tsx (new — Implementer)
+- apps/web/app/admin/forums/forums-admin.spec.ts (new — Tester)
+
+Test commit:
+- 3d45e66
+
+Commands executed:
+- pnpm install --frozen-lockfile
+- pnpm vitest run --root apps/web
+- pnpm --filter web exec tsc --noEmit
+- eslint apps/web/app/admin/forums/ --ext .ts,.tsx --max-warnings=0
+
+Final test outcomes:
+- 551/551 tests pass (15 test files)
+- 44 new tests added in forums-admin.spec.ts — all pass
+- authoring-components.spec.ts and user-avatar.spec.ts pass after pnpm install (confirming they were missing-node_modules artifacts, not real failures)
+- TypeScript typecheck: clean (no errors)
+- ESLint: clean (0 errors, 0 warnings)
+
+Documentation context:
+- docs/features/forums.md — admin management page at /admin/forums is new and may need a section on forums administration workflow
+- docs/README.md routing table — check if admin/forums surface needs to be indexed
+- No existing documentation describes the admin forums CRUD UI; this is net-new behavior to document
+
+Plan and diff context:
+- Plan: plans/milestone-4-forums-closeout-plan.md (CO9 subtask in the forums closeout plan)
+- Comparison base: ms4a branch (main development branch for Milestone 4); diff from ms4a to ms4a-CO9-implementer-20260608 shows only apps/web/app/admin/forums/page.tsx added
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO9
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
