@@ -810,9 +810,14 @@ export class ForumsService {
    * missing boards — returns empty when no public activity exists).
    */
   async listRecentTopics(query: RecentTopicsQuery): Promise<RecentTopicShape[]> {
+    // Coerce non-finite (NaN, Infinity) or out-of-range limit values back to the
+    // default before clamping. parseInt("abc") and parseInt("") both produce NaN,
+    // which is not caught by ?? and would propagate to queryBuilder.take(NaN) → 500.
+    const rawLimit = query.limit;
+    const safeLimit = Number.isFinite(rawLimit) ? rawLimit! : ForumsService.RECENT_TOPICS_DEFAULT_LIMIT;
     const limit = Math.min(
       ForumsService.RECENT_TOPICS_MAX_LIMIT,
-      Math.max(1, query.limit ?? ForumsService.RECENT_TOPICS_DEFAULT_LIMIT)
+      Math.max(1, safeLimit)
     );
 
     // Fetch all publicly-readable site boards to build an allow-list of board ids.
