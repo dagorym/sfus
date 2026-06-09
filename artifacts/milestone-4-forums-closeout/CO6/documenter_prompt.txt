@@ -1,0 +1,62 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- CO6: MS4 landing page refresh — `page.tsx` updated with Milestone 4 copy (no Milestone 3 text remains), forums primary CTA ("Visit the forums" → /forums), a 6-card highlights grid (Community forums, Blog, Standalone pages, Navigation, Public member profiles, Anti-spam), a two-column "What's new in Milestone 4" section with RecentForumActivity (new component) and RecentPostsFeed, and an explore section with forums listed first. `forums-client.ts` received `listRecentTopics` / `RecentTopicItem` additions. `recent-forum-activity.tsx` and `recent-forum-activity.module.css` are new components. `public-shell.spec.ts` was updated to assert Milestone 4 (not 3) and the /forums href.
+
+Acceptance criteria validated:
+- AC1: All Milestone 3 references in page.tsx replaced with Milestone 4 copy (forums, @mentions + public profiles, avatars, anti-spam/rate-limits alongside existing features). No "Milestone 3" text remains.
+- AC2: Forums primary CTA ("Visit the forums" → /forums), forums highlight card in the highlights grid, forums entry (first) in the explore section.
+- AC3: RecentForumActivity component added; loading/empty/error/rendered states present; "View the forums ->" link at /forums; embedded in "What's new in Milestone 4" section; fetches via listRecentTopics.
+- AC4: All forum/user text rendered as React text nodes (no dangerouslySetInnerHTML); dynamic link segments encoded with encodeURIComponent.
+
+Implementation branch or worktree context:
+- Tester branch: ms4a-CO6-tester-20260608
+- Implementer commit: db70c3c (feat(web): refresh landing page for MS4, add forums CTA and RecentForumActivity feed)
+- Tester commit: 51e2f5e (test(web): add AC2 landing-page forums coverage to recent-forum-activity spec)
+- Base branch for comparison: ms4a
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/page.tsx (landing page rewrite)
+- apps/web/app/page.module.css (new section styles)
+- apps/web/app/forums/forums-client.ts (new listRecentTopics + RecentTopicItem)
+- apps/web/app/public-shell.spec.ts (test updated: Milestone 3 → Milestone 4 assertions)
+- apps/web/components/recent-forum-activity.tsx (new component)
+- apps/web/components/recent-forum-activity.module.css (new styles)
+- apps/web/components/recent-forum-activity.spec.ts (new + tester-added test)
+
+Test commit:
+- 51e2f5e
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run components/recent-forum-activity.spec.ts → 14/14 pass
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run → 429/429 pass (13 files)
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec tsc --noEmit → pre-existing workspace errors only (same pattern as recent-posts-feed); no CO6 issues
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec eslint app/page.tsx app/forums/forums-client.ts components/recent-forum-activity.tsx --max-warnings=0 → 0 errors, 0 warnings
+- apps/web/node_modules/.bin/next build apps/web → clean build, 20 pages
+
+Final test outcomes:
+- 429 tests pass (13 test files), 0 failures
+- 1 test added by tester for AC2 (forums CTA text, highlight card, explore-section ordering)
+- public-shell.spec.ts change assessed as correct and minimal
+
+Documentation context:
+- The primary documentation surface is docs/features/web-shell.md (if it exists) or docs/README.md routing table — the landing page user-visible copy is now MS4-scoped
+- docs/features/forums.md may have a "landing page feed" or "public endpoint" section documenting listRecentTopics / GET /api/forums/recent; verify it reflects the client-side component (RecentForumActivity)
+- The RecentTopicItem type and listRecentTopics function in forums-client.ts are new public contracts that may need documentation in the forums feature doc
+- The component mirrors RecentPostsFeed; any docs describing the landing page feed pattern should be updated to include both feeds
+- Check docs/README.md routing table for the canonical doc owner of web-shell / landing page content
+
+Plan and diff context:
+- Plan file: plans/milestone-4-forums-closeout-plan.md (check for CO6 scope description)
+- Comparison base: branch ms4a (the main closeout branch); CO6 implementer diff is between ms4a HEAD and implementer commit db70c3c
+
+Startup behavior:
+- If tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
