@@ -1,0 +1,24 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums-closeout/CO1/security_report.md",
+    "artifacts/milestone-4-forums-closeout/CO1/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4a-CO1-security-20260608",
+  "documentation_sufficiency_summary": [
+    "Sufficient. docs/development/api-conventions.md now states bare http://, https://, ftp://, mailto:, and tel: are counted only at a word boundary, with an explicit example that scheme substrings inside larger words (hotel:, motel:) are not counted, matching the implemented behavior.",
+    "No operational/runbook change is warranted: THROTTLE_MAX_LINKS_PER_POST semantics and enforcement points are unchanged; the doc accurately narrows the counting description without overstating it."
+  ],
+  "note_finding_count": 4,
+  "outcome": "PASS",
+  "pass_label": "security-1-pass",
+  "status": "completed",
+  "task_id": "CO1",
+  "test_sufficiency_summary": [
+    "Sufficient for the security-relevant behavior. 18 new assertions in apps/api/src/common/throttle/link-limit.test.ts cover AC2 negatives (hotel:, motel:, xmailto:, a-tel:, inlined_mailto: -> 0), AC3 positives (boundary-anchored mailto:/tel: after start/newline/tab/'>'/'['/space -> 1), AC4 markdown single-count for mailto:/tel: (no double-count, no skipPositions regression), and AC5 mixed-body fail-safe (all four boundary-preceded schemes still counted; 'hotel:x and tel:+1' -> 1).",
+    "Validation run (this review): `npx vitest run --root apps/api src/common/throttle/link-limit.test.ts` -> 35 passed; `npx vitest run --root apps/api src/common/throttle` -> 5 files, 90 passed. No failures.",
+    "No test asserts insecure behavior: the assertions encode the intended false-positive reduction while explicitly pinning that genuine boundary-anchored links and markdown-link destinations are still counted exactly once.",
+    "Gap (non-blocking): there is no direct unit assertion that the renderer does not autolink bare schemes; that property lives in the web layer and is the basis for the evasion conclusion. It is a documented assumption forwarded to the Verifier rather than a test gap in this API-scoped subtask."
+  ],
+  "warning_finding_count": 0
+}
