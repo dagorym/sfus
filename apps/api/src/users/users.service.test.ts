@@ -25,7 +25,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { MediaReferenceEntity } from "../media/entities/media-reference.entity";
 import { UserEntity } from "./entities/user.entity";
-import { UsersService } from "./users.service";
+import { escapeLikePrefix, UsersService } from "./users.service";
 
 // ---------------------------------------------------------------------------
 // Repository mock factory
@@ -440,6 +440,36 @@ describe("UsersService.setAvatar: success — persists and returns /api/media/<i
       resourceType: "avatar",
       ownerUserId: "caller-99"
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// escapeLikePrefix — exported for unit-testability (CO3)
+// ---------------------------------------------------------------------------
+
+describe("escapeLikePrefix: LIKE special-character escaping", () => {
+  it("escapes % in the input", () => {
+    expect(escapeLikePrefix("a%b")).toBe("a\\%b");
+  });
+
+  it("escapes _ in the input", () => {
+    expect(escapeLikePrefix("a_b")).toBe("a\\_b");
+  });
+
+  it("escapes \\ in the input", () => {
+    expect(escapeLikePrefix("a\\b")).toBe("a\\\\b");
+  });
+
+  it("passes plain prefixes through unchanged", () => {
+    expect(escapeLikePrefix("alice")).toBe("alice");
+  });
+
+  it("escapes multiple special characters in one string", () => {
+    expect(escapeLikePrefix("%_\\")).toBe("\\%\\_\\\\");
+  });
+
+  it("returns an empty string unchanged", () => {
+    expect(escapeLikePrefix("")).toBe("");
   });
 });
 

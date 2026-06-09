@@ -149,7 +149,9 @@ export class UsersService {
 /**
  * Escapes TypeORM LIKE special characters (`%`, `_`, `\`) in a prefix string
  * so user-supplied `q` values cannot alter the intended prefix pattern.
+ *
+ * Exported for unit-testability.
  */
-function escapeLikePrefix(q: string): string {
+export function escapeLikePrefix(q: string): string {
   return q.replace(/[%_\\]/g, (c) => `\\${c}`);
 }
