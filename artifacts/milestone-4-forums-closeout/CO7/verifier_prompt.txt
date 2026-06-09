@@ -1,0 +1,56 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Build the admin dashboard landing page at /admin with auth gating (resolveProtectedSession + hasGlobalRole("admin")), four labelled section links (/admin/blog, /admin/pages, /admin/navigation, /admin/forums) with short descriptions, and a discoverable Admin nav link in navigation.tsx shown only for admin-role sessions.
+
+Acceptance criteria to verify:
+- AC1: /admin is gated — login redirect when no session; 'Admin access required' for non-admin authenticated sessions; dashboard renders for admin session.
+- AC2: Dashboard shows labelled links with short descriptions to /admin/blog, /admin/pages, /admin/navigation, and /admin/forums.
+- AC3: navigation.tsx renders an 'Admin' entry linking to /admin only when session present, onboardingRequired false, and hasGlobalRole(session.user, 'admin') true; absent for guest, onboarding, and non-admin member sessions.
+
+Implementation branch or worktree context:
+- Implementer commit: a27ac4f on branch ms4a-CO7-implementer-20260608
+- Tester commit: d5b1f5d on branch ms4a-CO7-tester-20260608
+- Documenter commit: bc09dee on branch ms4a-CO7-documenter-20260608
+- Comparison base: ms4a
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/admin/page.tsx (new — admin dashboard landing page)
+- apps/web/components/navigation.tsx (modified — Admin nav link with hasGlobalRole gate)
+- apps/web/app/admin/admin-dashboard.spec.ts (new — tester spec)
+- apps/web/components/navigation.spec.ts (modified — Admin link tests extended)
+- docs/features/web-shell.md (updated — /admin route, dashboard section, nav link)
+- docs/guides/content-management.md (updated — Accessing the admin dashboard section)
+
+Commands executed:
+- git diff ms4a --name-only (confirmed changed files: apps/web/app/admin/page.tsx, apps/web/components/navigation.tsx, test specs)
+- git diff ms4a -- apps/web/app/admin/page.tsx apps/web/components/navigation.tsx (inspected implementation diff)
+- git commit -m 'docs(web-shell): document admin dashboard landing page and admin nav link (CO7)' (bc09dee)
+
+Final test outcomes:
+- 576 tests passed, 0 failed (16 test files); Typecheck clean; Lint clean (from tester report)
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-closeout-plan.md (CO7 subtask)
+- Documentation Impact for CO7: docs/features/web-shell.md (admin nav entry + dashboard) AND docs/guides/content-management.md (how admins reach the dashboard).
+- Do NOT re-document the admin forums management page (CO9) or the landing recent-activity feed (CO6).
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table — consult it to confirm targets.
+- docs/features/web-shell.md covers web shell routing, navigation, and admin page gating.
+- docs/guides/content-management.md covers admin how-tos for using the running site.
+
+Updated documentation files:
+- docs/features/web-shell.md
+- docs/guides/content-management.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO7
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
