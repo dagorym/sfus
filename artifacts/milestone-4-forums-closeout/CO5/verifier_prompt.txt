@@ -1,0 +1,69 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Added public unauthenticated GET /forums/recent endpoint returning most-recently-active public forum topics for the landing-page activity feed. Added RecentTopicShape, RecentTopicBoardStub, RecentTopicsQuery types; listRecentTopics() service method with limit/cap logic and isBoardPubliclyReadable filtering; listRecentTopics controller handler. Tester added 31 tests covering all 4 AC. Documenter added GET /api/forums/recent documentation to docs/features/forums.md.
+
+Acceptance criteria to verify:
+- AC1: Returns up to 5 topics by default (hard-capped at 20); ordered lastPostAt DESC then createdAt DESC; only from publicly-readable site boards. PASS.
+- AC2: Topics in non-publicly-readable boards (members/private) and project-scoped boards are excluded. Visibility decided through isBoardPubliclyReadable (AuthorizationService.evaluate()). No oracle leak (uniform empty list). PASS.
+- AC3: Returns public-safe shape: topic title, slug, board name+slug (stub), author username+displayName, lastPostAt, createdAt. No internal fields (authorUserId, audit cols, deletedAt, body, replyCount, etc.). PASS.
+- AC4: No authentication required. Returns stable empty list when no public activity. PASS.
+
+Implementation branch or worktree context:
+- Implementer branch: ms4a-CO5-tester-20260608 (worktree /home/tstephen/repos/worktrees/ms4a-CO5-tester-20260608)
+- Base branch: ms4a
+- Documenter branch: ms4a-CO5-documenter-20260608
+- listRecentTopics() in ForumsService uses RECENT_TOPICS_DEFAULT_LIMIT=5, RECENT_TOPICS_MAX_LIMIT=20, all boards fetched then filtered via isBoardPubliclyReadable, QueryBuilder with LEFT JOIN author+board, WHERE boardId IN + deletedAt IS NULL, ORDER BY lastPostAt DESC NULLS LAST THEN createdAt DESC, TAKE limit.
+- Returns [] immediately (no DB topic query) when publicBoardIds is empty — oracle-safe.
+- Controller: GET /forums/recent, @Query('limit') limit?: string, parses with parseInt if present.
+- Test commit: 28843e6423b69e753d50401d8031539bfa87713a
+- Documentation commit: 2921d76
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/forums/forums.controller.ts
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.types.ts
+- apps/api/src/forums/forums.controller.test.ts
+- apps/api/src/forums/forums.service.test.ts
+- docs/features/forums.md
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/api exec tsc --noEmit
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/api run build
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/api exec eslint src/forums/forums.controller.ts src/forums/forums.service.ts src/forums/forums.types.ts --max-warnings=0
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/api exec vitest run src/forums
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/api exec vitest run
+
+Final test outcomes:
+- All 256 forums tests pass (133 service, 111 controller, 9 entity, 3 module).
+- Full suite: 885 passed, 3 skipped (integration tests gated on SFUS_DB_INTEGRATION), 0 failed.
+- 31 new tests added covering CO5 acceptance criteria across service and controller.
+- TypeScript type check: no errors.
+- Build: clean.
+- ESLint: 0 warnings on implementation files.
+
+Plan or evaluation context guidance:
+- Plan file: plans/milestone-4-forums-closeout-plan.md (subtask CO5).
+- CO5 scope: new public unauthenticated GET /api/forums/recent endpoint for the landing-page activity feed.
+- Documentation impact per plan: docs/features/forums.md — document the new public recent-activity endpoint (route, response shape, visibility-filtering contract).
+- Compare ms4a-CO5-documenter-20260608 against ms4a base.
+
+Convention-file guidance:
+- Repository documentation lives under docs/ organized by type (features/, operations/, architecture/) — routing table at docs/README.md.
+- Feature contracts live in docs/features/<subsystem>.md; forums endpoint contracts live in docs/features/forums.md.
+- Artifact paths follow pattern: artifacts/<plan-slug>/<subtask-id>/<role>_<report|result|prompt>.md/.json/.txt.
+- Test commands documented in docs/development/testing.md.
+
+Updated documentation files:
+- docs/features/forums.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO5
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
