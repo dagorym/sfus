@@ -1,0 +1,36 @@
+{
+  "status": "success",
+  "subtask_id": "CO9",
+  "branch_name": "ms4a-CO9-implementer-20260608",
+  "code_commit_hash": "686d771",
+  "task_summary": "Build the admin forums management page at /admin/forums exposing full categories + boards CRUD, consuming the forums-admin-client from CO8.",
+  "changed_files": [
+    "apps/web/app/admin/forums/page.tsx"
+  ],
+  "validation_commands": [
+    "pnpm --filter web exec tsc --noEmit",
+    "pnpm --filter web run lint",
+    "pnpm vitest run --root apps/web",
+    "pnpm --filter web run build"
+  ],
+  "validation_commands_run": [
+    "pnpm --filter web exec tsc --noEmit",
+    "pnpm --filter web run lint",
+    "pnpm vitest run --root apps/web (via worktree)",
+    "pnpm --filter web run build (via main repo with page.tsx temporarily copied in)"
+  ],
+  "validation_outcome": "All pass. typecheck: clean. lint (--max-warnings=0): clean. vitest: 436 tests pass (2 pre-existing worktree react-resolution failures confirmed pre-existing). next build: 28 routes including /admin/forums, clean.",
+  "acceptance_criteria": [
+    "AC1: /admin/forums gated like other admin pages — resolveProtectedSession redirect, non-admin denied, admin sees page",
+    "AC2: Lists all categories with boards via adminListCategories",
+    "AC3: Category CRUD — create/edit/delete/reorder; no-boards delete surfaced as friendly message",
+    "AC4: Board CRUD — create/edit/delete/reorder with full field set including scopeType and visibility",
+    "AC5: No dangerouslySetInnerHTML; user text as React nodes; encodeURIComponent on URL segments",
+    "AC6: Errors surfaced via standard envelope as friendly messages"
+  ],
+  "test_location_guidance": "apps/web/app/admin/forums/forums-admin.spec.ts — source-audit pattern matching forums-admin-client.spec.ts and public-shell.spec.ts",
+  "implementation_context": "New page only, no existing files modified. Reuses auth-shell.module.css. Category delete proactively checks boards.length>0 client-side and catches 400 API responses. All text as React nodes. encodeURIComponent handled by client module on API calls.",
+  "expected_validation_failures": [
+    "components/authoring-components.spec.ts and components/user-avatar.spec.ts: pre-existing worktree react-resolution failures, not regressions from CO9"
+  ]
+}
