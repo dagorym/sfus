@@ -1,0 +1,40 @@
+{
+  "task_id": "CO6",
+  "task_summary": "Refresh the landing page (apps/web/app/page.tsx) for Milestone 4 and feature the forums, including a live recent-forum-activity feed.",
+  "status": "success",
+  "branch_name": "ms4a-CO6-implementer-20260608",
+  "code_commit_hash": "db70c3c",
+  "changed_files": [
+    "apps/web/app/page.tsx",
+    "apps/web/app/page.module.css",
+    "apps/web/app/forums/forums-client.ts",
+    "apps/web/app/public-shell.spec.ts",
+    "apps/web/components/recent-forum-activity.tsx",
+    "apps/web/components/recent-forum-activity.module.css",
+    "apps/web/components/recent-forum-activity.spec.ts"
+  ],
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms4a-CO6-implementer-20260608 --filter @sfus/web exec tsc --noEmit",
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms4a-CO6-implementer-20260608 --filter @sfus/web exec eslint app/page.tsx app/forums/forums-client.ts components/recent-forum-activity.tsx --max-warnings=0",
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms4a-CO6-implementer-20260608 --filter @sfus/web exec vitest run",
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms4a-CO6-implementer-20260608 --filter @sfus/web run build"
+  ],
+  "validation_results": [
+    {"command": "tsc --noEmit", "result": "PASS — no errors"},
+    {"command": "eslint --max-warnings=0 (TS/TSX files)", "result": "PASS — no warnings"},
+    {"command": "vitest run", "result": "PASS — 428/428 tests (13 new from recent-forum-activity.spec.ts)"},
+    {"command": "next build", "result": "PASS — production build succeeds, 27 routes"}
+  ],
+  "validation_outcome": "All validations passed. Typecheck clean, lint clean (--max-warnings=0), full web suite 428/428, production next build succeeds. One existing test (public-shell.spec.ts line 43) was updated from 'Milestone 3' to 'Milestone 4' as an expected consequence of the approved behavior change.",
+  "acceptance_criteria": [
+    "AC1: All Milestone 3 references in page.tsx replaced with Milestone 4; hero/intro, highlights, and current scope copy updated",
+    "AC2: Forums primary CTA added (Visit the forums -> /forums), forums highlight card added, forums entry in explore section added",
+    "AC3: RecentForumActivity component added, fetching /api/forums/recent via listRecentTopics; loading/empty/error states present; View the forums link at /forums",
+    "AC4: All forum/user text rendered as React text nodes; link segments encoded with encodeURIComponent; no dangerouslySetInnerHTML"
+  ],
+  "test_location_guidance": "apps/web/components/recent-forum-activity.spec.ts (created by implementer)",
+  "tester_spec_file": "apps/web/components/recent-forum-activity.spec.ts",
+  "artifact_dir": "artifacts/milestone-4-forums-closeout/CO6",
+  "implementation_context": "The landing page now features 6 highlight cards covering all MS4 features (forums, blog, pages, navigation, profiles, anti-spam). The hero description references MS4 features. The 'What's new in Milestone 4' section has two feed columns side by side: recent forum activity (left) and recent blog posts (right). The explore section is now a standalone panel with forums as the first entry. The meta card 'Current content scope' now lists Forums first. The RecentForumActivity component mirrors RecentPostsFeed's pattern exactly: 'use client', useState/useEffect, loading/empty/error states, maps items to Link elements. encodeURIComponent is used for both board.slug and topic.slug in the link href. The listRecentTopics function in forums-client.ts is a public GET with no credentials, matching the CO5 endpoint contract (GET /api/forums/recent?limit=N -> {topics: RecentTopicShape[]}). The public-shell.spec.ts test was updated: line 43 changed from expect(Milestone 3) to expect(Milestone 4) and added not.toContain(Milestone 3); the /forums href check was added. This is an expected behavior change per the approved task.",
+  "expected_failing_validations": []
+}
