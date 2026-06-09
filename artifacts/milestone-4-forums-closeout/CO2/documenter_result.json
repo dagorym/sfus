@@ -1,0 +1,14 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums-closeout/CO2/documenter_report.md",
+    "artifacts/milestone-4-forums-closeout/CO2/documenter_result.json"
+  ],
+  "branch_name": "ms4a-CO2-documenter-20260608",
+  "documentation_commit_hash": "5aa8869",
+  "documentation_files_changed": [
+    "docs/features/web-shell.md"
+  ],
+  "pass_label": null,
+  "status": "pass",
+  "task_id": "CO2"
+}

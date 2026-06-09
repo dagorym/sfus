@@ -1,0 +1,67 @@
+Your role is 'verifier'. Your task is as follows:
+
+## Task Summary
+
+resolveAvatarSrc in apps/web/components/user-avatar.tsx was hardened to reject any
+avatarSrc not beginning with /api/media/, returning null (triggering the initials
+fallback) for http://, https://, //, javascript:, data:, and empty/whitespace inputs.
+One guard line was added between the existing falsy/hasError check and the return
+statement. The function's JSDoc was updated with a Security: note documenting this
+enforcement. 8 new prefix-rejection tests were added in user-avatar.spec.ts (16 → 24
+total). docs/features/web-shell.md Security note was updated to document the
+function-level enforcement rather than expressing it only as a caller obligation.
+
+## Acceptance Criteria to Verify
+
+1. resolveAvatarSrc returns null for any avatarSrc not beginning with /api/media/
+   (including http://, https://, //, javascript:, data:, empty/whitespace).
+2. A valid gated path (e.g. /api/media/<uuid>) is returned unchanged when hasError is false.
+3. null is still returned when hasError is true (existing behavior preserved).
+4. No change to initials derivation or any other UserAvatar rendering behavior for valid inputs.
+
+## Files Modified
+
+**Implementer (commit 39abe70, branch ms4a-CO2-implementer-20260608):**
+- apps/web/components/user-avatar.tsx — prefix guard added, JSDoc updated with Security: note
+
+**Tester (commit f1b288e, branch ms4a-CO2-tester-20260608):**
+- apps/web/components/user-avatar.spec.ts — 8 new prefix-rejection and valid-path tests added
+
+**Documenter (commit 5aa8869, branch ms4a-CO2-documenter-20260608):**
+- docs/features/web-shell.md — Security note in UserAvatar display component section
+  updated to reflect function-level enforcement
+
+## Commands Executed and Test Outcomes
+
+- pnpm --filter web test: 415 passed, 0 failed (user-avatar.spec.ts: 24/24 pass)
+- pnpm --filter web typecheck: clean
+- pnpm --filter web lint: 0 warnings
+
+## Plan and Context
+
+- Plan: plans/milestone-4-forums-closeout-plan.md (subtask CO2)
+- Base branch: ms4a
+- Documentation commit: 5aa8869
+
+When inspecting the diff, compare against the ms4a base branch. Infer any missing
+plan-source, convention-file, or documentation-convention details from repository context
+when repository evidence is sufficient — do not stop to ask unless evidence is insufficient.
+
+## Security Note
+
+CO2 carries Security review: required per the plan. The /api/media/ prefix guard in
+resolveAvatarSrc prevents open-redirect and script-injection URIs from being rendered
+as img src values. Security review is required before merging to ms4a.
+
+## Shared Artifact Directory
+
+artifacts/milestone-4-forums-closeout/CO2
+
+Verification must cover all three layers together: the implementation guard in
+user-avatar.tsx, the test coverage in user-avatar.spec.ts, and the documentation update
+in docs/features/web-shell.md.
+
+Continue past preflight, convention discovery, and diff inspection into substantive
+verification in the same run when no blocking inputs are missing.
+
+Do not report success unless all required artifacts exist and all changes are committed.
