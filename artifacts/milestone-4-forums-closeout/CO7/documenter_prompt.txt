@@ -1,0 +1,56 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Build the admin dashboard landing page at /admin with auth gating (resolveProtectedSession + hasGlobalRole("admin")), four labelled section links (/admin/blog, /admin/pages, /admin/navigation, /admin/forums) with short descriptions, and a discoverable Admin nav link in navigation.tsx shown only for admin-role sessions.
+
+Acceptance criteria validated:
+- AC1: /admin is gated — login redirect when no session; 'Admin access required' error for non-admin authenticated sessions; dashboard renders for admin session.
+- AC2: Dashboard shows labelled links with short descriptions to /admin/blog, /admin/pages, /admin/navigation, and /admin/forums, rendered via an adminSections map with Next.js Link components.
+- AC3: navigation.tsx renders an 'Admin' entry linking to /admin only when session is present, onboardingRequired is false, and hasGlobalRole(session.user, "admin") is true; absent for guest, onboarding, and non-admin member sessions. Active style applied for /admin and /admin/* paths.
+
+Implementation branch or worktree context:
+- Branch: ms4a-CO7-tester-20260608
+- Comparison base: ms4a (main working branch for this plan cycle)
+- Implementer commit: a27ac4f (feat(web): add admin dashboard page and admin nav link)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/admin/page.tsx (new — admin dashboard page)
+- apps/web/components/navigation.tsx (modified — added Admin nav link with hasGlobalRole gate)
+- apps/web/app/admin/admin-dashboard.spec.ts (new — tester spec)
+- apps/web/components/navigation.spec.ts (modified — extended with Admin link tests)
+
+Test commit:
+- d5b1f5d
+
+Commands executed:
+- pnpm install --frozen-lockfile --dir <worktree-root>
+- pnpm --filter @sfus/web --dir <worktree-root> run test
+- pnpm --filter @sfus/web --dir <worktree-root> run typecheck
+- pnpm --filter @sfus/web --dir <worktree-root> run lint
+
+Final test outcomes:
+- 576 tests passed, 0 failed across 16 test files.
+- Typecheck: clean. Lint: clean (0 warnings).
+- New: admin-dashboard.spec.ts (25 new tests covering AC1, AC2, AC3/styling).
+- Extended: navigation.spec.ts (+6 tests covering Admin nav link AC3 conditions).
+
+Documentation context:
+- docs/features/web-shell.md likely covers the Navigation component and may need an entry about the Admin nav link behavior.
+- An admin section in docs (possibly docs/features/ or docs/guides/) may need to document the admin dashboard landing page, its gating behavior, and the four section links.
+- If a "how to access admin" guide or admin feature doc exists, it should be updated to reflect the new /admin landing page and the nav link discoverability.
+- The dashboard links resolve to existing admin routes: /admin/blog, /admin/pages, /admin/navigation, /admin/forums (all live from prior subtasks).
+
+Plan and diff context:
+- Plan: plans/milestone-4-forums-closeout-plan.md (CO7 subtask)
+- Comparison base: branch ms4a; run `git diff ms4a` from the worktree to see CO7 changes.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO7
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
