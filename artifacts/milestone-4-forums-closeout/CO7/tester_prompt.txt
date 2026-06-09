@@ -1,0 +1,46 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Build the admin dashboard landing page at /admin and add a discoverable Admin nav link for admin-role sessions.
+
+Modified files:
+- apps/web/app/admin/page.tsx
+- apps/web/components/navigation.tsx
+
+Acceptance criteria to validate (from Planner):
+- 1. /admin is gated: login redirect when no session; 'Admin access required' for non-admin session; dashboard renders for admin session.
+- 2. Dashboard shows labelled links with short descriptions to /admin/blog, /admin/pages, /admin/navigation, and /admin/forums.
+- 3. navigation.tsx renders an 'Admin' entry linking to /admin ONLY for admin-role sessions; absent for non-admin members and anonymous/onboarding states.
+
+Create test files in:
+- Extend apps/web/components/navigation.spec.ts to assert the Admin entry is shown only for admin sessions and absent otherwise.
+- Add dashboard gating and link-set coverage following the existing admin-page source-read test pattern — new spec file apps/web/app/admin/admin-dashboard.spec.ts (or similar, inferred from repository conventions).
+
+Implementation context for testing:
+- apps/web/app/admin/page.tsx is a new 'use client' page using resolveProtectedSession('/admin') and hasGlobalRole(session.user, 'admin') — same pattern as admin/blog/page.tsx and admin/forums/page.tsx.
+- Dashboard renders four labelled links with short descriptions: /admin/blog, /admin/pages, /admin/navigation, /admin/forums.
+- Reuses apps/web/app/auth-shell.module.css for all styling.
+- apps/web/components/navigation.tsx: added hasGlobalRole import and a conditional Admin Link rendered only when session is present, onboardingRequired is false, and hasGlobalRole(session.user, 'admin') is true.
+- Admin link is absent for guest, onboarding, and non-admin member sessions.
+- Admin link uses pathname-based active style matching /admin and /admin/* paths.
+- The /admin/forums link target is already live from CO9; all four dashboard links resolve.
+
+Suggested test command(s):
+- pnpm --filter @sfus/web run typecheck
+- pnpm --filter @sfus/web run lint
+- pnpm --filter @sfus/web run test
+- pnpm --filter @sfus/web run build
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO7
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
