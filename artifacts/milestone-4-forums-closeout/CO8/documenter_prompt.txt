@@ -1,0 +1,63 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Validated typed admin forums API client module (apps/web/app/admin/forums/forums-admin-client.ts) wrapping all 12 admin forums API endpoints. Implementer provided both implementation and 78-test source-audit spec. All ACs confirmed; no test changes needed.
+
+Acceptance criteria validated:
+- AC1: Module exports typed functions for all 6 admin category endpoints (adminListCategories, adminGetCategory, adminCreateCategory, adminUpdateCategory, adminDeleteCategory, adminReorderCategories)
+- AC2: Module exports typed functions for all 6 admin board endpoints (adminListBoards, adminGetBoard, adminCreateBoard, adminUpdateBoard, adminDeleteBoard, adminReorderBoards)
+- AC3: All 12 functions include credentials:include
+- AC4: Response envelopes parsed — { category } / { categories } / { board } / { boards } — never raw/unwrapped
+- AC5: Error envelope: payload?.error?.message || payload?.message || <fallback> at every call site
+- AC6: Types include ForumBoardScopeType ('site'|'project') and ForumBoardVisibility ('public'|'unlisted'|'members'|'project-only'|'private')
+
+Implementation branch or worktree context:
+- Branch: ms4a-CO8-tester-20260608 (worktree of ms4a)
+- Implementer commits: 5db1362 feat(web): add typed admin forums API client module; d9f7141 chore(artifacts): CO8 implementer success artifacts
+- New module only — no existing implementation files modified
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/admin/forums/forums-admin-client.ts
+- apps/web/app/admin/forums/forums-admin-client.spec.ts
+
+Test commit:
+- No Changes Made
+
+Commands executed:
+- pnpm install --dir /home/tstephen/repos/worktrees/ms4a-CO8-tester-20260608
+- vitest run --root apps/web (78 forums-admin-client.spec.ts tests, 507 total)
+- tsc -p apps/web/tsconfig.json --noEmit (typecheck)
+- pnpm --dir apps/web lint (--max-warnings=0)
+
+Final test outcomes:
+- 14 test files, 507 tests passed, 0 failed
+- forums-admin-client.spec.ts: 78 tests pass covering all 12 functions
+- AC1 (6 category endpoints): PASS
+- AC2 (6 board endpoints): PASS
+- AC3 (credentials:include on all 12 functions): PASS
+- AC4 (envelope parsing for category/categories/board/boards): PASS
+- AC5 (three-part error chain on all 12 functions): PASS
+- AC6 (ForumBoardScopeType, ForumBoardVisibility, AdminBoardShape, AdminCategoryShape types): PASS
+- Typecheck: clean (0 errors)
+- Lint: clean (0 warnings)
+
+Documentation context:
+- New module only — no existing docs were modified by this change
+- Pattern follows blog-client.ts and forums-client.ts conventions; documenter should check docs/features/ for web client or admin conventions
+- All 12 exported functions are ready for the admin forums page (CO9) to consume
+
+Plan and diff context:
+- Plan: milestone-4-forums-closeout / CO8
+- Base branch for comparison: ms4a
+- Diff: 2 new files in apps/web/app/admin/forums/ (forums-admin-client.ts, forums-admin-client.spec.ts)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO8
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
