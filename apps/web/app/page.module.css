@@ -91,6 +91,12 @@
   gap: var(--space-lg);
 }
 
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .card {
   display: grid;
   gap: var(--space-sm);
@@ -131,8 +137,7 @@
   gap: var(--space-lg);
 }
 
-.feedColumn,
-.linksColumn {
+.feedColumn {
   display: grid;
   gap: var(--space-md);
   padding: var(--space-xl);
@@ -140,6 +145,15 @@
   border-radius: var(--surface-radius-medium);
   background: var(--color-background-panel);
   align-content: start;
+}
+
+.exploreSection {
+  display: grid;
+  gap: var(--space-lg);
+  padding: var(--space-xl);
+  border: 1px solid var(--color-border);
+  border-radius: var(--surface-radius-medium);
+  background: var(--color-background-panel);
 }
 
 .columnHeading {

@@ -317,6 +317,44 @@ export async function moveTopic(
 }
 
 // ---------------------------------------------------------------------------
+// Public landing-page feed — no credentials required
+// ---------------------------------------------------------------------------
+
+export interface RecentTopicBoardStub {
+  name: string;
+  slug: string;
+}
+
+export interface RecentTopicItem {
+  id: string;
+  title: string;
+  slug: string;
+  board: RecentTopicBoardStub;
+  author: PublicAuthorShape;
+  lastPostAt: string | null;
+  createdAt: string;
+}
+
+/**
+ * Fetch the most-recently-active public forum topics for the landing-page feed.
+ * Calls GET /api/forums/recent. No authentication required.
+ * Returns at most `limit` topics (default 5, hard-capped at 20 by the API).
+ */
+export async function listRecentTopics(opts?: { limit?: number }): Promise<RecentTopicItem[]> {
+  const params = new URLSearchParams();
+  if (opts?.limit !== undefined) params.set("limit", String(opts.limit));
+  const qs = params.toString();
+  const url = `${apiBase}/forums/recent${qs ? `?${qs}` : ""}`;
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    throw new Error(payload?.error?.message || payload?.message || "Failed to load recent forum topics.");
+  }
+  const data = (await response.json()) as { topics: RecentTopicItem[] };
+  return data.topics;
+}
+
+// ---------------------------------------------------------------------------
 // User suggest — session-gated, throttled
 // ---------------------------------------------------------------------------
 

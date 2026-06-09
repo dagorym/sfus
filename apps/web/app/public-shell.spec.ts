@@ -37,11 +37,13 @@ describe("public web shell source contracts", () => {
 
     expect(pageSource).toContain("Chart the next frontier for Star Frontiers US.");
     expect(pageSource).toContain("Public Landing Experience");
-    // MS3 copy: no Milestone 2 references remain; MS3 capabilities are described
+    // MS4 copy: no Milestone 2 or Milestone 3 references remain; MS4 capabilities are described
     expect(pageSource).not.toContain("This Milestone 2 foundation delivers");
     expect(pageSource).not.toContain("Milestone 2");
-    expect(pageSource).toContain("Milestone 3");
-    // MS3: /blog and /about links are visible on the homepage
+    expect(pageSource).not.toContain("Milestone 3");
+    expect(pageSource).toContain("Milestone 4");
+    // MS4: /forums, /blog and /about links are visible on the homepage
+    expect(pageSource).toContain('href="/forums"');
     expect(pageSource).toContain('href="/blog"');
     expect(pageSource).toContain('href="/about"');
     expect(pageSource).not.toContain("Milestone 1");
