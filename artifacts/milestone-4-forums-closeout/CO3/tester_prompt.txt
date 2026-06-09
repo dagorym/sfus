@@ -1,0 +1,43 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Added export keyword to escapeLikePrefix in apps/api/src/users/users.service.ts, making it a named export consistent with resolveAvatarSrc/profileProjection precedent. Function body and the suggestByPrefix call site (Like(`${escapeLikePrefix(q)}%`)) are unchanged. Added 6 focused unit tests for escapeLikePrefix in users.service.test.ts covering %, _, backslash, multiple specials, plain prefix, and empty string inputs.
+
+Modified files:
+- apps/api/src/users/users.service.ts
+- apps/api/src/users/users.service.test.ts
+
+Acceptance criteria to validate (from Planner):
+- escapeLikePrefix is a named export of users.service.ts
+- The escaping contract is preserved: %, _, and \ are escaped; plain prefixes pass through unchanged
+- The function body and the suggestByPrefix call site are otherwise unchanged
+
+Create test files in:
+- apps/api/src/users/users.service.test.ts — the escapeLikePrefix describe block was added here (implemented by implementer per task directive)
+
+Implementation context for testing:
+- Single-keyword change in users.service.ts: `function escapeLikePrefix` → `export function escapeLikePrefix`. Added JSDoc note 'Exported for unit-testability.'
+- Import in users.service.test.ts updated to include escapeLikePrefix alongside UsersService.
+- Six new unit tests added in describe block 'escapeLikePrefix: LIKE special-character escaping': a%b→a\%b, a_b→a\_b, a\b→a\\b, plain prefix passes through, multiple specials, empty string.
+- All 32 users.service.test.ts tests pass; full suite 885/3 skipped.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec tsc --noEmit  →  PASS (exit 0, no output)
+- npx --yes pnpm@10.0.0 --filter @sfus/api run build  →  PASS (exit 0)
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec eslint src/users/users.service.ts src/users/users.service.test.ts --max-warnings=0  →  PASS (exit 0, no output)
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/users/users.service.test.ts  →  PASS — 32/32 tests passed
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run  →  PASS — 885 tests passed, 3 skipped (DB integration, expected)
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
