@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums-closeout/CO5/verifier_report.md",
+    "artifacts/milestone-4-forums-closeout/CO5/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4a-CO5-verifier-20260608",
+  "documentation_accuracy_summary": [
+    "ACCURATE and COMPLETE. docs/features/forums.md was updated (commit 2921d76) with a new 'Recent topics feed (CO5)' section including: route, query parameter table, sort order, visibility filter description, RecentTopicShape field table, RecentTopicBoardStub definition, and a Visibility filtering and oracle safety (P12) subsection accurately describing the implementation. The new row in the route table also matches the implementation. JSDoc in controller (lines 175-199) and service (lines 789-811) accurately document the endpoint contract. No inaccuracies or contradictions found. One minor gap: the documentation does not yet note that malformed ?limit values fall back to the default (once the WARNING is resolved, the 'always returns a stable list' claim in the JSDoc and docs will be fully accurate)."
+  ],
+  "note_finding_count": 2,
+  "pass_label": "CONDITIONAL PASS",
+  "status": "completed",
+  "task_id": "CO5",
+  "test_sufficiency_summary": [
+    "SUFFICIENT for the core correctness and security properties, with one gap tied to the WARNING. CO5 service tests (31 new tests) cover: default limit 5, explicit in-range limit (10), hard cap at 20; ordering lastPostAt DESC NULLS LAST then createdAt DESC; exclusion of members/private/project-scoped boards with createQueryBuilder asserted NOT called (oracle-safe); WHERE IN includes only public board ids; deletedAt IS NULL andWhere; early-return [] when no boards / when all boards fail the predicate; public-safe RecentTopicShape with explicit absence assertions for email/globalRole/id/authorUserId/boardId/isLocked/isPinned/body/replyCount/deletedAt/updatedAt and board.id/board.visibility; lastPostAt null pass-through. CO5 controller tests cover: no resolveSession call (route is public), limit parsing/delegation, undefined-limit pass-through, stable {topics:[]} empty envelope, and {topics} wrapping. GAP: no test for adversarial non-numeric/empty ?limit (e.g. ?limit=abc, ?limit=); such a test would currently surface the NaN\u2192500 behavior. A regression test should accompany the input-clamp fix."
+  ],
+  "verdict": "CONDITIONAL PASS",
+  "warning_finding_count": 1
+}
