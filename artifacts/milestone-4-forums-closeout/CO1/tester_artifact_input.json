@@ -1,0 +1,58 @@
+{
+  "status": "success",
+  "task_id": "CO1",
+  "task_summary": "Added word-boundary guard to scanBareUrls() in apps/api/src/common/throttle/link-limit.ts. A bare scheme (mailto:, tel:, http://, etc.) is now only counted when the character immediately before it is in WORD_BOUNDARY_CHARS and is not '('. This prevents embedded scheme substrings like 'hotel:', 'motel:', or 'xmailto:' from inflating the per-post link count. Tester added 16 new tests (51 total, up from 35) covering all 5 acceptance criteria.",
+  "branch_name": "ms4a-CO1-tester-20260608",
+  "test_commit_hash": "d8cd91ad94581bd975b19b24ae71ab0c7cc139f8",
+  "test_files_changed": [
+    "apps/api/src/common/throttle/link-limit.test.ts"
+  ],
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms4a-CO1-tester-20260608 --filter @sfus/api exec vitest run src/common/throttle/link-limit.test.ts"
+  ],
+  "pass_fail_totals": {
+    "passed": 51,
+    "failed": 0,
+    "skipped": 0
+  },
+  "unmet_acceptance_criteria": [],
+  "final_test_outcomes": [
+    "51/51 tests passing (35 pre-existing + 16 new)",
+    "AC1 PASS: word-boundary guard verified — charBefore must be in WORD_BOUNDARY_CHARS and not '('",
+    "AC2 PASS: hotel:, motel:, xmailto:, a-tel:, inlined_mailto: all return 0",
+    "AC3 PASS: mailto:/tel: at string start and after space/newline/tab/>/[ each return 1",
+    "AC4 PASS: '[x](mailto:user@example.com)' and '[call](tel:+15551234)' each return 1 (skipPositions not regressed)",
+    "AC5 PASS: mixed-body with 4 boundary-preceded evasion schemes returns 4; hotel: + tel: combo returns 1",
+    "The 4 other throttle test files require @nestjs/common and dotenv which are absent from the worktree node_modules; those 55 tests confirmed 90/90 passing from the main sfus workspace"
+  ],
+  "cleanup_notes": [
+    "tester_artifact_input.json is a required tool-input file retained in the artifact directory",
+    "No temporary byproducts were created outside the artifact directory"
+  ],
+  "acceptance_criteria_validated": [
+    "AC1: Bare scheme counted only when charBefore is in WORD_BOUNDARY_CHARS AND is not '(' — PASS",
+    "AC2: 'hotel:', 'motel:', embedded 'mailto:' inside a larger word are NOT counted — PASS",
+    "AC3: Boundary-anchored 'mailto:user@example.com' and 'tel:+15551234' each counted once — PASS",
+    "AC4: Markdown link '[x](mailto:user@example.com)' counted exactly once; skipPositions not regressed — PASS",
+    "AC5: Change only reduces false positives; fail-safe direction preserved — PASS"
+  ],
+  "implementation_context": [
+    "Branch: ms4a-CO1-tester-20260608",
+    "Worktree: /home/tstephen/repos/worktrees/ms4a-CO1-tester-20260608",
+    "Comparison base: ms4a branch (milestone-4 forums closeout plan branch)"
+  ],
+  "modified_files_for_documentation": [
+    "apps/api/src/common/throttle/link-limit.ts (implementer — word-boundary guard added to scanBareUrls())",
+    "apps/api/src/common/throttle/link-limit.test.ts (tester — 16 new word-boundary guard tests added)"
+  ],
+  "documentation_context": [
+    "link-limit.ts is the per-post link throttle utility; its public API (countLinks, exceedsLinkLimit) is unchanged",
+    "The word-boundary guard is a behavioral refinement reducing false positives in bare-scheme detection",
+    "Any docs covering link-count limiter behavior or per-post link limits may now accurately state that bare schemes are only counted at word boundaries"
+  ],
+  "plan_and_diff_context": [
+    "Plan: Milestone 4 forums closeout — CO1 subtask",
+    "Branch: ms4a (base) / ms4a-CO1-tester-20260608 (tester worktree)",
+    "Infer plan doc path from docs/README.md routing table if needed"
+  ]
+}
