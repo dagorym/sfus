@@ -1,0 +1,63 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- CO6: MS4 landing page refresh. page.tsx updated with Milestone 4 copy (no Milestone 3 text remains), forums primary CTA to /forums, 6-card highlights grid (Community forums, Blog, Standalone pages, Navigation, Public member profiles, Anti-spam), two-column What's new section with RecentForumActivity (new component fetching via listRecentTopics) and RecentPostsFeed, explore section with forums listed first. forums-client.ts received listRecentTopics/RecentTopicItem additions. recent-forum-activity.tsx and recent-forum-activity.module.css are new components. public-shell.spec.ts updated to assert Milestone 4.
+
+Acceptance criteria to verify:
+- AC1: All Milestone 3 references in page.tsx replaced with Milestone 4 copy (forums, @mentions + public profiles, avatars, anti-spam/rate-limits alongside existing features). No "Milestone 3" text remains.
+- AC2: Forums primary CTA ("Visit the forums" to /forums), forums highlight card in the highlights grid, forums entry (first) in the explore section.
+- AC3: RecentForumActivity component added; loading/empty/error/rendered states present; "View the forums ->" link at /forums; embedded in "What's new in Milestone 4" section; fetches via listRecentTopics.
+- AC4: All forum/user text rendered as React text nodes (no dangerouslySetInnerHTML); dynamic link segments encoded with encodeURIComponent.
+
+Implementation branch or worktree context:
+- Tester branch: ms4a-CO6-tester-20260608
+- Documenter branch: ms4a-CO6-documenter-20260608
+- Implementer commit: db70c3c
+- Tester commit: 51e2f5e
+- Documentation commit: 381626805c6916b518105a820186372f43ef6e3a
+- Base branch for comparison: ms4a
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/page.tsx (landing page rewrite)
+- apps/web/app/page.module.css (new section styles)
+- apps/web/app/forums/forums-client.ts (new listRecentTopics + RecentTopicItem)
+- apps/web/app/public-shell.spec.ts (test updated: Milestone 3 to Milestone 4 assertions)
+- apps/web/components/recent-forum-activity.tsx (new component)
+- apps/web/components/recent-forum-activity.module.css (new styles)
+- apps/web/components/recent-forum-activity.spec.ts (new + tester-added test)
+- docs/features/web-shell.md (documenter: MS4 landing page description)
+- docs/features/forums.md (documenter: CO6 web client consumer note for CO5 recent feed section)
+
+Commands executed:
+- Diff analysis: git diff ms4a..ms4a-CO6-tester-20260608 on implementation files
+- Documentation commit: git commit on docs/features/web-shell.md and docs/features/forums.md
+
+Final test outcomes:
+- 429 tests pass (13 test files), 0 failures
+- next build clean (apps/web): 20 pages
+- eslint --max-warnings=0 clean
+- TypeScript tsc --noEmit: pre-existing workspace dependency-resolution pattern (react/next not found in tsc context), same as recent-posts-feed.tsx; not a CO6 defect
+
+Plan or evaluation context guidance:
+- plans/milestone-4-forums-closeout-plan.md — CO6 subtask
+- Comparison base: ms4a branch
+
+Convention-file guidance:
+- docs/README.md — documentation routing table
+- docs/features/web-shell.md — web shell and landing page documentation
+- docs/features/forums.md — forums feature documentation (canonical for GET /api/forums/recent and web surfaces)
+
+Updated documentation files:
+- docs/features/web-shell.md — Landing page section replaced with MS4 layout description
+- docs/features/forums.md — CO6 web client consumer note added to CO5 section
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO6
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
