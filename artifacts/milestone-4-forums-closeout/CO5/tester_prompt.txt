@@ -1,0 +1,81 @@
+Your role is 'tester'. Your task is as follows:
+
+## Subtask: CO5 (Remediation Pass 2 of 2) — Regression Tests for Malformed ?limit
+
+The implementer has fixed a defect in `GET /api/forums/recent` where a non-finite `?limit` query value (e.g. `?limit=abc` or `?limit=`) caused an HTTP 500. The fix adds a `Number.isFinite` guard in `ForumsService.listRecentTopics` that coerces non-finite limit values to the default (5) before clamping.
+
+**You must add regression tests for the malformed-limit path and confirm all existing CO5 tests remain green.**
+
+## Modified Files (this remediation pass)
+
+- `apps/api/src/forums/forums.service.ts`
+
+## Test File Locations
+
+- `apps/api/src/forums/forums.controller.test.ts` — controller-level tests
+- `apps/api/src/forums/forums.service.test.ts` — service-level tests
+
+## Acceptance Criteria to Validate
+
+- **AC1:** Returns up to a bounded number of topics (default 5, hard cap 20), ordered `lastPostAt DESC NULLS LAST` then `createdAt DESC`, from publicly-readable site boards only.
+- **AC2:** Topics in non-publicly-readable boards (members/private) and project-scoped boards are excluded. No oracle leak.
+- **AC3:** Returns public-safe `RecentTopicShape` only (title, slug, board stub, author stub, lastPostAt, createdAt). No internal/PII fields.
+- **AC4:** No authentication required. Returns stable empty list when no public activity. **Malformed `?limit` values (e.g. `?limit=abc`, `?limit=`) must return 200 with a stable list clamped to the default — never a 500.**
+
+## Required New Regression Tests
+
+You MUST add at minimum the following tests:
+
+### In `forums.service.test.ts`
+
+1. **`listRecentTopics({ limit: NaN })` coerces to default** — call the service with `{ limit: NaN }` and assert it returns a stable list (up to default 5) and does NOT throw. Confirm `take()` is called with a finite integer.
+2. **`listRecentTopics({ limit: Infinity })` coerces to default** — same pattern for `Infinity`.
+3. **`listRecentTopics({ limit: -Infinity })` coerces to default** — same pattern.
+
+### In `forums.controller.test.ts`
+
+4. **`?limit=abc` — 200 with stable list, not 500** — pass `"abc"` to `controller.listRecentTopics("abc")` and assert the endpoint returns a `{ topics: [...] }` result without throwing, AND that `forumsService.listRecentTopics` was called with `{ limit: NaN }` (the result of `parseInt("abc", 10)`).
+5. **`?limit=` (empty string) — 200 with stable list, not 500** — pass `""` to `controller.listRecentTopics("")` and assert the same: no throw, 200 result, service called with `{ limit: NaN }`.
+
+## Implementation Context
+
+The defect was: `parseInt("abc", 10)` and `parseInt("", 10)` both return `NaN`. The old code did `query.limit ?? RECENT_TOPICS_DEFAULT_LIMIT` — nullish coalescing does NOT catch `NaN` (only catches `null`/`undefined`). So `Math.min(20, Math.max(1, NaN))` returned `NaN`, and `queryBuilder.take(NaN)` threw a `TypeORMError` causing HTTP 500.
+
+The fix in `forums.service.ts`:
+
+```typescript
+const rawLimit = query.limit;
+const safeLimit = Number.isFinite(rawLimit) ? rawLimit! : ForumsService.RECENT_TOPICS_DEFAULT_LIMIT;
+const limit = Math.min(
+  ForumsService.RECENT_TOPICS_MAX_LIMIT,
+  Math.max(1, safeLimit)
+);
+```
+
+Note: The controller already passes `parseInt(limit, 10)` to the service when `?limit` is present (so `?limit=abc` results in service receiving `{ limit: NaN }`). The fix is entirely in the service layer. Controller tests mock the service, so they test that the controller does not crash before reaching the service, and that it correctly delegates the NaN value.
+
+## Validation Commands
+
+```
+pnpm --filter api exec vitest run src/forums
+pnpm --filter api exec tsc --noEmit
+pnpm --filter api exec eslint src/forums/forums.service.ts src/forums/forums.controller.ts src/forums/forums.types.ts --max-warnings=0
+```
+
+## Existing Test Status
+
+All 256 existing forums tests pass. All 885 API tests pass (3 skipped: DB integration). No regressions from the fix.
+
+## Expected Failing Validations
+
+None — no validations should fail after adding the new tests.
+
+## Shared Artifact Directory
+
+`artifacts/milestone-4-forums-closeout/CO5`
+
+## Startup Behavior
+
+Acceptance criteria and implementation context are present. Begin writing tests immediately in the same run without stopping after activation or setup restatement.
+
+Do not report success unless all required artifacts exist and all changes are committed.
