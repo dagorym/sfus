@@ -29,7 +29,9 @@ import type {
   PaginatedPostsShape,
   CreatePostInput,
   PostListQuery,
-  ModeratedTopicShape
+  ModeratedTopicShape,
+  RecentTopicShape,
+  RecentTopicsQuery
 } from "./forums.types";
 
 /**
@@ -773,6 +775,86 @@ export class ForumsService {
       page,
       pageSize
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Recent topics feed (CO5) — public-safe, unauthenticated
+  // ---------------------------------------------------------------------------
+
+  /** Hard cap on the number of topics returned by the recent-topics feed. */
+  static readonly RECENT_TOPICS_MAX_LIMIT = 20;
+  /** Default number of topics returned when no limit is specified. */
+  static readonly RECENT_TOPICS_DEFAULT_LIMIT = 5;
+
+  /**
+   * Returns the most-recently-active publicly-visible topics across all
+   * publicly-readable site boards, for use by the landing-page activity feed.
+   *
+   * Security contract (P12 / oracle safety):
+   * - Only topics in boards that pass `isBoardPubliclyReadable` are considered.
+   *   No inline re-derived predicate — all visibility decisions go through the
+   *   shared `isBoardPubliclyReadable` / `AuthorizationService.evaluate()` path.
+   * - Topics in non-publicly-readable boards (members/private), project-scoped
+   *   boards, and soft-deleted topics are excluded.
+   * - Callers receive a uniform empty list when there is no public activity —
+   *   the response never reveals the existence of excluded boards or topics.
+   * - The returned shape is public-safe only: title, slug, board stub (name +
+   *   slug), author stub (username + displayName), lastPostAt, createdAt.
+   *   Internal-only fields (authorUserId, boardId FK, isLocked, isPinned,
+   *   audit cols, deletedAt, body, replyCount) are not included.
+   *
+   * Ordering: lastPostAt DESC (nulls last), then createdAt DESC.
+   * Limit: defaults to RECENT_TOPICS_DEFAULT_LIMIT; hard-capped at RECENT_TOPICS_MAX_LIMIT.
+   *
+   * No authentication required. Always returns a stable list (never throws for
+   * missing boards — returns empty when no public activity exists).
+   */
+  async listRecentTopics(query: RecentTopicsQuery): Promise<RecentTopicShape[]> {
+    const limit = Math.min(
+      ForumsService.RECENT_TOPICS_MAX_LIMIT,
+      Math.max(1, query.limit ?? ForumsService.RECENT_TOPICS_DEFAULT_LIMIT)
+    );
+
+    // Fetch all publicly-readable site boards to build an allow-list of board ids.
+    // This routes every visibility decision through isBoardPubliclyReadable (which
+    // calls AuthorizationService.evaluate()) — no inline predicate re-derivation.
+    const allBoards = await this.boardRepository.find();
+    const publicBoardIds = allBoards
+      .filter((b) => this.isBoardPubliclyReadable(b))
+      .map((b) => b.id);
+
+    // No public boards → stable empty list (no oracle leak).
+    if (publicBoardIds.length === 0) {
+      return [];
+    }
+
+    // Query non-deleted topics in public boards, ordered most-recently-active first.
+    // lastPostAt DESC (NULLS LAST) then createdAt DESC for deterministic ordering.
+    const topics = await this.topicRepository
+      .createQueryBuilder("topic")
+      .leftJoinAndSelect("topic.author", "author")
+      .leftJoinAndSelect("topic.board", "board")
+      .where("topic.boardId IN (:...boardIds)", { boardIds: publicBoardIds })
+      .andWhere("topic.deletedAt IS NULL")
+      .orderBy("topic.lastPostAt", "DESC", "NULLS LAST")
+      .addOrderBy("topic.createdAt", "DESC")
+      .take(limit)
+      .getMany();
+
+    return topics.map((topic) => {
+      const author = topic.author as { username: string; displayName: string | null };
+      const board = topic.board as { name: string; slug: string };
+      const recentShape: RecentTopicShape = {
+        id: topic.id,
+        title: topic.title,
+        slug: topic.slug,
+        board: { name: board.name, slug: board.slug },
+        author: { username: author.username, displayName: author.displayName },
+        lastPostAt: topic.lastPostAt,
+        createdAt: topic.createdAt
+      };
+      return recentShape;
+    });
   }
 
   // ---------------------------------------------------------------------------

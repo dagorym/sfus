@@ -54,7 +54,8 @@ import type {
   PaginatedPostsShape,
   CreatePostInput,
   ModeratedTopicShape,
-  MoveTopicInput
+  MoveTopicInput,
+  RecentTopicShape
 } from "./forums.types";
 
 /**
@@ -169,6 +170,38 @@ export class ForumsController {
   async getPublicBoard(@Param("id") id: string): Promise<{ board: PublicBoardShape }> {
     const board = await this.forumsService.getPublicBoard(id);
     return { board };
+  }
+
+  /**
+   * Return the most-recently-active public forum topics across the site,
+   * for use by the landing-page activity feed.
+   *
+   * Only topics in publicly-readable site boards are included. Topics in
+   * members/private or project-scoped boards are excluded. The response
+   * never reveals the existence of excluded boards or topics — callers
+   * receive a uniform empty list when there is no public activity (oracle
+   * safety; P12).
+   *
+   * No authentication required.
+   *
+   * @param limit Number of topics to return (default 5; hard cap 20).
+   * @returns 200 with `{ topics }` ordered most-recently-active first
+   *          (lastPostAt DESC, then createdAt DESC). Stable empty list
+   *          when no public activity exists.
+   */
+  @Get("recent")
+  @ApiOperation({ summary: "List the most-recently-active public forum topics (landing-page feed)." })
+  @ApiOkResponse({
+    description:
+      "Recent public topics returned, ordered most-recently-active first. " +
+      "Topics in non-publicly-readable or project-scoped boards are excluded. " +
+      "Returns a stable empty list when no public activity exists (oracle parity; P12)."
+  })
+  async listRecentTopics(@Query("limit") limit?: string): Promise<{ topics: RecentTopicShape[] }> {
+    const topics = await this.forumsService.listRecentTopics({
+      limit: limit !== undefined ? parseInt(limit, 10) : undefined
+    });
+    return { topics };
   }
 
   // ===========================================================================

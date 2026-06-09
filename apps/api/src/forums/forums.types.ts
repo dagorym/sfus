@@ -238,3 +238,43 @@ export interface ModeratedTopicShape {
 export interface MoveTopicInput {
   destinationBoardId: string;
 }
+
+// ---------------------------------------------------------------------------
+// Recent topics feed (CO5) — public-safe shape for the landing-page activity feed.
+// ---------------------------------------------------------------------------
+
+/**
+ * Public-safe board stub included on recent-topic entries.
+ * Provides only the board name and slug needed for linking — no internal fields.
+ */
+export interface RecentTopicBoardStub {
+  name: string;
+  slug: string;
+}
+
+/**
+ * Public-safe shape for a single entry in the recent-topics feed.
+ *
+ * Omits all internal-only fields: authorUserId, boardId FK, isLocked, isPinned,
+ * movedByUserId, movedAt, lockedByUserId, lockedAt, deletedAt, body, replyCount.
+ * The board is represented as a minimal stub (name + slug) for linking only.
+ * Author is represented as a minimal stub (username + displayName) — no email,
+ * globalRole, id, or other PII.
+ */
+export interface RecentTopicShape {
+  id: string;
+  title: string;
+  slug: string;
+  board: RecentTopicBoardStub;
+  author: PublicAuthorShape;
+  lastPostAt: Date | null;
+  createdAt: Date;
+}
+
+/**
+ * Query parameters for the recent-topics feed.
+ * limit: number of topics to return (default 5; hard-capped at 20).
+ */
+export interface RecentTopicsQuery {
+  limit?: number;
+}
