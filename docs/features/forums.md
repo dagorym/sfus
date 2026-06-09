@@ -104,6 +104,47 @@ Stripped from the public shape (internal-only): `scopeType`, `projectId`, `categ
 | POST | `/api/forums/boards/:boardId/topics` | Session cookie | 201 / 400 / 401 / 404 / 429 | `{ topic }` as `PublicTopicShape`. Requires active session (401). Board must be publicly readable (404). Body must pass Markdown safety validation (400). Link cap exceeded returns 400. Rate limit exceeded returns 429 (new-account tier active). |
 | GET | `/api/forums/topics/:topicId/posts` | None | 200 / 404 | `PaginatedPostsShape`. `404` when board or topic is nonexistent, hidden, or soft-deleted (identical message). |
 | POST | `/api/forums/topics/:topicId/posts` | Session cookie | 201 / 400 / 401 / 403 / 404 / 429 | `{ post }` as `PublicPostShape`. Requires active session (401). Board+topic must be publicly readable and topic non-deleted (404). Locked topic returns 403. Unsafe Markdown or invalid `parentId` returns 400. Link cap exceeded returns 400. Rate limit exceeded returns 429 (new-account tier active). |
+| GET | `/api/forums/recent` | None | 200 | `{ topics: RecentTopicShape[] }` ordered most-recently-active first. Returns a stable empty list when no public activity exists. |
+
+## Recent topics feed (CO5)
+
+### `GET /api/forums/recent`
+
+No authentication required. Returns the most-recently-active publicly-visible topics across the site, for use by the landing-page activity feed.
+
+**Query parameters:**
+
+| Parameter | Default | Constraints | Notes |
+|---|---|---|---|
+| `limit` | `5` | 1–20; hard-capped at 20 | Maximum number of topics to return |
+
+**Sort order:** `lastPostAt DESC NULLS LAST`, then `createdAt DESC`.
+
+Only non-deleted topics (`deletedAt IS NULL`) from site-scoped, publicly-readable boards are returned.
+
+**Response (200):** `{ topics: RecentTopicShape[] }`
+
+#### `RecentTopicShape`
+
+Public-safe minimal shape. All internal-only fields are stripped: `authorUserId`, `boardId` FK, `isLocked`, `isPinned`, `movedByUserId`, `movedAt`, `lockedByUserId`, `lockedAt`, `deletedAt`, `body`, `replyCount`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string (UUID) | |
+| `title` | string | |
+| `slug` | string | |
+| `board` | `RecentTopicBoardStub` | Board name and slug only (no `id`, `categoryId`, `visibility`, etc.) |
+| `author` | `PublicAuthorShape` | `username` and `displayName` only |
+| `lastPostAt` | `Date \| null` | `null` for topics with no replies |
+| `createdAt` | Date | |
+
+`RecentTopicBoardStub` — `{ name: string; slug: string }`.
+
+#### Visibility filtering and oracle safety (P12)
+
+- All publicly-readable boards are determined by fetching all boards and filtering through `isBoardPubliclyReadable`, which routes every visibility decision through `AuthorizationService.evaluate()` with an anonymous actor. No inline re-derived predicate.
+- Topics in non-publicly-readable boards (`members`, `private`) and project-scoped boards are excluded.
+- When no publicly-readable boards exist, the service returns `[]` immediately **without** issuing a topic query. Callers receive a uniform empty list — they cannot infer the existence of any excluded boards or topics from the response (oracle parity, P12).
 
 ## Topic routes (ST4)
 
