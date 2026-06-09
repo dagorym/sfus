@@ -1,0 +1,50 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Add a typed web client module at apps/web/app/admin/forums/forums-admin-client.ts that wraps all 12 admin forums API endpoints (6 category + 6 board) for the admin forums page (CO9) to consume, following the blog-client.ts and forums-client.ts conventions.
+
+Modified files:
+- apps/web/app/admin/forums/forums-admin-client.ts
+- apps/web/app/admin/forums/forums-admin-client.spec.ts
+
+Acceptance criteria to validate (from Planner):
+- AC1: Module exports typed functions for all 6 admin category endpoints: adminListCategories (GET /admin/categories), adminGetCategory (GET /admin/categories/:id), adminCreateCategory (POST /admin/categories), adminUpdateCategory (PATCH /admin/categories/:id), adminDeleteCategory (DELETE /admin/categories/:id), adminReorderCategories (PUT /admin/categories/reorder)
+- AC2: Module exports typed functions for all 6 admin board endpoints: adminListBoards (GET /admin/categories/:categoryId/boards), adminGetBoard (GET /admin/boards/:id), adminCreateBoard (POST /admin/boards), adminUpdateBoard (PATCH /admin/boards/:id), adminDeleteBoard (DELETE /admin/boards/:id), adminReorderBoards (PUT /admin/categories/:categoryId/boards/reorder)
+- AC3: All functions include credentials:include (admin session required)
+- AC4: Response envelopes parsed: { category } / { categories } / { board } / { boards } — never raw/unwrapped
+- AC5: Error envelope: payload?.error?.message || payload?.message || <fallback> at every call site
+- AC6: Types include ForumBoardScopeType ('site'|'project') and ForumBoardVisibility ('public'|'unlisted'|'members'|'project-only'|'private')
+
+Create test files in:
+- apps/web/app/admin/forums/forums-admin-client.spec.ts (already written by implementer as tester handoff)
+- Follow the source-audit pattern from apps/web/app/blog/blog.spec.ts and apps/web/app/forums/forums.spec.ts
+- vitest run --root apps/web to run all web tests
+
+Implementation context for testing:
+- New module only — no existing files modified
+- forums-admin-client.ts mirrors blog-client.ts and forums-client.ts conventions exactly
+- All 12 exported async functions include credentials:include, cache:no-store (GET), and JSON body for mutating methods
+- Error handling uses the three-part chain: payload?.error?.message || payload?.message || <fallback>
+- AdminCategoryShape and AdminBoardShape include all entity fields including internal ones (categoryId, scopeType, projectId) omitted from public-facing shapes
+- forums-admin-client.spec.ts contains 78 source-audit tests covering all 12 functions: method/URL/body mapping (AC1,AC2), credentials:include (AC3), envelope parsing (AC4), error chain (AC5), and types (AC6)
+- The spec's appRoot is path.resolve(__dirname, '../../../') resolving to apps/web/ from apps/web/app/admin/forums/
+
+Suggested test command(s):
+- pnpm --dir apps/web typecheck
+- pnpm --dir apps/web lint (--max-warnings=0)
+- vitest run --root apps/web
+- pnpm --dir apps/web build
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO8
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
