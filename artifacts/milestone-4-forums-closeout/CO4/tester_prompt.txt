@@ -1,0 +1,40 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Corrected the stale/inaccurate JSDoc comment on PublicTopicShape.isLocked in apps/web/app/forums/forums-client.ts. The old comment falsely stated the field is included in the API public topic shape; the API strips isLocked server-side. The corrected comment accurately states the field is NOT returned by the API and is typed optional so it is absent/undefined at runtime. No types, interfaces, exported symbols, function signatures, or runtime behavior were changed.
+
+Modified files:
+- apps/web/app/forums/forums-client.ts
+
+Acceptance criteria to validate (from Planner):
+- The comment at forums-client.ts:55 on PublicTopicShape.isLocked no longer misstates the public-topic contract; consistent with the actual isLocked?: boolean declaration and with how docs/features/forums.md describes the public topic shape (isLocked is stripped from the public shape server-side).
+- No TypeScript type, interface, exported symbol, function signature, or runtime behavior was changed — comment text only.
+
+Create test files in:
+- apps/web/app/forums/forums.spec.ts (existing suite, 51 tests — must remain green; no new tests expected for comments-only change)
+
+Implementation context for testing:
+- Single-line comment change at forums-client.ts:55. Old: 'isLocked is included on public topic shape from the API so guest can see lock state.' New: 'isLocked is NOT returned by the API in the public topic shape (stripped server-side); typed optional so the field is absent/undefined at runtime.'
+- The API's PublicTopicShape (apps/api/src/forums/forums.types.ts) has no isLocked field. The service toTopicShape() explicitly excludes it. docs/features/forums.md:190 lists isLocked as an internal-only field that is stripped.
+- The web-side isLocked?: boolean is typed optional correctly — absent/undefined at runtime. The optional type was correct; only the comment was wrong.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/web exec tsc --noEmit  ->  PASS (exit 0, no output)
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/web exec eslint app/forums/forums-client.ts --max-warnings=0  ->  PASS (exit 0, no output)
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/web exec vitest run app/forums/forums.spec.ts  ->  PASS: 51/51
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/web exec vitest run  ->  PASS: 415/415
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/web run build  ->  PASS: production next build succeeded
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO4
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
