@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { readSession, type SessionPayload } from "../app/auth-client";
+import { hasGlobalRole, readSession, type SessionPayload } from "../app/auth-client";
 import styles from "../app/layout.module.css";
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api";
@@ -270,6 +270,15 @@ export function Navigation() {
           </Link>
         );
       })}
+
+      {session && !session.user.onboardingRequired && hasGlobalRole(session.user, "admin") ? (
+        <Link
+          className={`${styles.navLink} ${pathname === "/admin" || pathname.startsWith("/admin/") ? styles.navLinkActive : ""}`.trim()}
+          href="/admin"
+        >
+          Admin
+        </Link>
+      ) : null}
 
       {session ? (
         <button className={styles.navButton} onClick={onSignOut} type="button">
