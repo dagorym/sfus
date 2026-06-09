@@ -1,0 +1,69 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Build the admin forums management page at /admin/forums exposing full categories + boards CRUD, consuming the forums-admin-client from CO8.
+
+Acceptance criteria to verify:
+- AC1: resolveProtectedSession('/admin/forums') called; hasGlobalRole(session.user, 'admin') checked; non-admin gets 'Admin access required.'; unauthenticated redirected
+- AC2: adminListCategories called on load; categories+boards rendered
+- AC3: category create/edit/delete/reorder; client-side boardCount>0 check + 400 regex catch surface friendly 'must have no boards' delete message
+- AC4: board create/edit/delete/reorder; scopeType (site|project) + visibility (public|unlisted|members|project-only|private) + projectId fields
+- AC5: No dangerouslySetInnerHTML; user text as React nodes; reuses auth-shell.module.css
+- AC6: errors surfaced via standard envelope as friendly messages; success messages for all CRUD ops
+
+Implementation branch or worktree context:
+- Tester worktree: ms4a-CO9-tester-20260608
+- Tester code commit: 686d771 (page.tsx), test commit: 3d45e66 (forums-admin.spec.ts)
+- Documenter branch: ms4a-CO9-documenter-20260608
+- Base branch: ms4a
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/admin/forums/page.tsx (new — Implementer)
+- apps/web/app/admin/forums/forums-admin.spec.ts (new — Tester)
+- docs/features/forums.md (updated — Documenter, added Admin web management surface section)
+- docs/guides/content-management.md (updated — Documenter, added Managing categories and boards how-to)
+
+Commands executed:
+- myteam get role documenter
+- myteam get skill execution-start
+- myteam get skill documenter/preflight
+- myteam get skill documenter/diff-review
+- myteam get skill documenter/doc-editing
+- myteam get skill diff-first-editing
+- myteam get skill documenter/commit-flow
+- myteam get skill documenter/artifact-writing
+- myteam get skill documenter/verifier-handoff
+- python .myteam/documenter/commit-flow/validate_documenter_state.py --phase docs
+- git add docs/features/forums.md docs/guides/content-management.md
+- git commit -F /tmp/co9-doc-commit-msg.txt
+
+Final test outcomes:
+- 551/551 tests pass (15 test files); 44 new tests in apps/web/app/admin/forums/forums-admin.spec.ts
+- TypeScript clean; ESLint clean
+- Two pre-existing worktree failures pass after pnpm install (deps artifact, not a real failure)
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-closeout-plan.md, subtask CO9
+- Documentation Impact from plan: docs/features/forums.md (admin web management surface) AND docs/guides/content-management.md (how to manage forum categories/boards as admin)
+- CO6 already documented the public recent-activity feed — not duplicated here
+- CO7 (dashboard + nav) is a separate subtask — not documented here
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table — feature docs go in docs/features/, admin how-tos go in docs/guides/content-management.md
+- No repository-required in-code documentation (docblocks, file headers) for Next.js page components
+- All user-supplied text rendered as React text nodes (no dangerouslySetInnerHTML) per AC5
+
+Updated documentation files:
+- docs/features/forums.md
+- docs/guides/content-management.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO9
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
