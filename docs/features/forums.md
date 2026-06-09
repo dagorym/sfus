@@ -366,7 +366,7 @@ Violations of any of these conditions produce the same `400 "parentId is invalid
 
 ## Moderation (ST6)
 
-Moderators and admins can pin, lock, and move topics through six `PATCH` endpoints under `/api/forums/moderation/topics/:topicId/...`. All endpoints enforce the same two-step gate, then perform the data operation.
+Moderators and admins can pin, lock, and move topics through five `PATCH` endpoints under `/api/forums/moderation/topics/:topicId/...`. All endpoints enforce the same two-step gate, then perform the data operation.
 
 ### Authorization gate
 
@@ -408,7 +408,7 @@ A locked topic blocks new posts for non-privileged users. The existing `POST /ap
 The destination board is **re-validated through `AuthorizationService.evaluate()`** (via `isBoardPubliclyReadable`) before the move is persisted. This ensures:
 
 - A move into a **project-scoped board** is rejected with `404`.
-- A move into a **non-publicly-readable board** (e.g. `members`, `private`, `unlisted`) is rejected with `404`.
+- A move into a **non-publicly-readable board** (e.g. `members`, `private`) is rejected with `404`. (Site-scoped `unlisted` boards are publicly readable and are valid move targets.)
 - A move into a **nonexistent board** returns `404` (oracle parity: indistinguishable from non-readable).
 - A **malformed `destinationBoardId`** (missing, non-string, or empty string) returns `400 "destinationBoardId must be a non-empty string."` — never a 500.
 
@@ -418,7 +418,7 @@ After a successful move, `movedByUserId` and `movedAt` are recorded on the topic
 
 ### `ModeratedTopicShape` response shape
 
-All six moderation endpoints return `{ topic: ModeratedTopicShape }`. This shape is a moderation-enriched view of the topic, including state and audit columns not present in `PublicTopicShape`.
+All five moderation endpoints return `{ topic: ModeratedTopicShape }`. This shape is a moderation-enriched view of the topic, including state and audit columns not present in `PublicTopicShape`.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -441,7 +441,7 @@ Author details are not included in `ModeratedTopicShape` (moderation responses d
 
 ### Swagger / JSDoc
 
-All six moderation endpoints have `@ApiOperation`, `@Api*Response` decorators documenting the full `400`/`401`/`403`/`404` contract. Controller JSDoc blocks on each handler document the security contract inline.
+All five moderation endpoints have `@ApiOperation`, `@Api*Response` decorators documenting the full `400`/`401`/`403`/`404` contract. Controller JSDoc blocks on each handler document the security contract inline.
 
 ## Web Surfaces (ST16)
 
