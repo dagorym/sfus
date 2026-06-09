@@ -91,4 +91,39 @@ describe("resolveAvatarSrc — avatar src resolver with error degradation", () =
   it("returns null when both avatarSrc is null and hasError is true", () => {
     expect(resolveAvatarSrc(null, true)).toBeNull();
   });
+
+  // AC1: prefix-rejection — any value not beginning with /api/media/ is rejected
+  it("returns null for an http:// URL (open-redirect / off-origin rejection)", () => {
+    expect(resolveAvatarSrc("http://evil.example.com/avatar.png", false)).toBeNull();
+  });
+
+  it("returns null for an https:// URL (off-origin rejection)", () => {
+    expect(resolveAvatarSrc("https://evil.example.com/avatar.png", false)).toBeNull();
+  });
+
+  it("returns null for a protocol-relative // URL", () => {
+    expect(resolveAvatarSrc("//evil.example.com/avatar.png", false)).toBeNull();
+  });
+
+  it("returns null for a javascript: URI (script-injection rejection)", () => {
+    expect(resolveAvatarSrc("javascript:alert(1)", false)).toBeNull();
+  });
+
+  it("returns null for a data: URI (inline-data injection rejection)", () => {
+    expect(resolveAvatarSrc("data:image/png;base64,abc", false)).toBeNull();
+  });
+
+  it("returns null for a whitespace-only string", () => {
+    expect(resolveAvatarSrc("   ", false)).toBeNull();
+  });
+
+  it("returns null for a relative path that does not begin with /api/media/", () => {
+    expect(resolveAvatarSrc("/static/avatar.png", false)).toBeNull();
+  });
+
+  // AC2: valid gated path is returned unchanged when hasError is false
+  it("returns the gated /api/media/<uuid> path unchanged when hasError is false", () => {
+    const uuid = "550e8400-e29b-41d4-a716-446655440000";
+    expect(resolveAvatarSrc(`/api/media/${uuid}`, false)).toBe(`/api/media/${uuid}`);
+  });
 });
