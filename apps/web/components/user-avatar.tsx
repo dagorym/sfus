@@ -65,14 +65,21 @@ export function deriveInitials(displayName: string | null, username: string): st
 
 /**
  * Resolve the avatar src to display. Returns the gated API URL when one is
- * provided and not yet in an error state; otherwise returns null (triggering
- * the initials fallback). Exported for unit-testability.
+ * provided, begins with the required "/api/media/" prefix, and has not yet
+ * encountered an error state; otherwise returns null (triggering the initials
+ * fallback). Exported for unit-testability.
+ *
+ * Security: Only paths that begin with "/api/media/" are permitted. Any other
+ * value — including http(s)://, protocol-relative //, javascript:, data:, or
+ * empty/whitespace input — is rejected and returns null. This prevents open
+ * redirects and script-injection URIs from reaching the DOM.
  */
 export function resolveAvatarSrc(
   avatarSrc: string | null,
   hasError: boolean
 ): string | null {
   if (!avatarSrc || hasError) return null;
+  if (!avatarSrc.startsWith("/api/media/")) return null;
   return avatarSrc;
 }
 
