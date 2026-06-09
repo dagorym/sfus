@@ -107,6 +107,20 @@ describe("RecentForumActivity component source contracts", () => {
     expect(pageSource).toContain("View the forums");
   });
 
+  it("page.tsx has Visit-the-forums primary CTA and forums highlight card (AC2)", async () => {
+    const pageSource = await readWebFile("app/page.tsx");
+    // Primary CTA text
+    expect(pageSource).toContain("Visit the forums");
+    // Forums highlight card exists in the highlights grid
+    expect(pageSource).toContain("Community forums");
+    // Forums entry is present in the explore section and appears before blog
+    expect(pageSource).toContain("browse boards and join the discussion");
+    const forumsExploreIdx = pageSource.indexOf("browse boards and join the discussion");
+    const blogExploreIdx = pageSource.indexOf("browse all published posts");
+    expect(blogExploreIdx).toBeGreaterThan(-1);
+    expect(forumsExploreIdx).toBeLessThan(blogExploreIdx);
+  });
+
   it("forums-client exports RecentTopicItem type and listRecentTopics function (AC7)", async () => {
     const clientSource = await readWebFile("app/forums/forums-client.ts");
     expect(clientSource).toContain("RecentTopicItem");
