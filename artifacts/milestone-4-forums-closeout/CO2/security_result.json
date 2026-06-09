@@ -1,0 +1,25 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums-closeout/CO2/security_report.md",
+    "artifacts/milestone-4-forums-closeout/CO2/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4a-CO2-security-20260608",
+  "documentation_sufficiency_summary": [
+    "SUFFICIENT. docs/features/web-shell.md Security note now states resolveAvatarSrc enforces the /api/media/ prefix before returning and enumerates the rejected classes (http(s)://, protocol-relative //, javascript:, data:, empty/whitespace), describing it as a defense-in-depth guard that holds even if callers misbehave.",
+    "The in-file JSDoc on resolveAvatarSrc (user-avatar.tsx:66-76) matches the documented behavior and the implemented guard. The caller contract (avatarSrc must be the gated /api/media/<id> path) is retained, so the doc does not weaken or contradict the server-side origin guarantee.",
+    "No operational/runbook impact: the change is a pure client-side narrowing with no new env, config, or deployment surface."
+  ],
+  "note_finding_count": 2,
+  "outcome": "PASS",
+  "pass_label": "PASS",
+  "status": "completed",
+  "task_id": "CO2",
+  "test_sufficiency_summary": [
+    "SUFFICIENT for the security-sensitive behavior. apps/web/components/user-avatar.spec.ts adds 8 negative tests (24 total) covering every enumerated dangerous class: http:// and https:// (off-origin/open-redirect), protocol-relative //, javascript: (script-injection), data: (inline-data injection), whitespace-only (truthy-but-rejected, exercising the new guard line specifically), and a non-matching relative path (/static/...). A positive AC2 test confirms a valid /api/media/<uuid> path is returned unchanged.",
+    "The pre-existing hasError=true degradation test (spec lines 85-88) and the null/empty cases remain intact, confirming no regression to the error fallback.",
+    "The whitespace-only case (\"   \", false) is non-vacuous: it is truthy so it bypasses the original falsy guard and is rejected solely by the new startsWith guard.",
+    "Executed validation (worktree ms4a-CO2-security-20260608, deps installed offline): `pnpm --filter @sfus/web exec vitest run components/user-avatar.spec.ts` -> 24 passed (24). `pnpm --filter @sfus/web run typecheck` (tsc --noEmit) -> clean. `pnpm --filter @sfus/web run lint` (eslint --max-warnings=0) -> clean. No tests assert insecure behavior."
+  ],
+  "warning_finding_count": 0
+}
