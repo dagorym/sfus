@@ -486,6 +486,47 @@ Author details are not included in `ModeratedTopicShape` (moderation responses d
 
 All five moderation endpoints have `@ApiOperation`, `@Api*Response` decorators documenting the full `400`/`401`/`403`/`404` contract. Controller JSDoc blocks on each handler document the security contract inline.
 
+## Admin web management surface (CO9)
+
+The admin forums management page at `/admin/forums` (`apps/web/app/admin/forums/page.tsx`) provides a full CRUD and reorder interface for forum categories and boards. It is a Next.js App Router client component that consumes the typed API client from `apps/web/app/admin/forums/forums-admin-client.ts` (CO8).
+
+### Access control
+
+On mount the page calls `resolveProtectedSession('/admin/forums')`. If no active session exists the user is redirected (via the resolved `redirectTo` path). After a session is resolved, `hasGlobalRole(session.user, 'admin')` is checked client-side; non-admin sessions see "Admin access required." and no data is fetched. The server enforces the same gate independently on every API call — client-side gating is for UX only.
+
+### Initial load
+
+`adminListCategories()` is called once on mount. It fetches `GET /api/forums/admin/categories` and returns all categories with their boards in `sortOrder ASC` order. The page renders each category as a card containing a board table.
+
+### Category management
+
+| Action | Trigger | Notes |
+|---|---|---|
+| Create | **New category** button | Requires name and slug (client validates before calling API). Optional description and sort order. Success message: "Category created." |
+| Edit | **Edit** button on category card | Inline form pre-populated from current values. Success message: "Category updated." |
+| Delete | **Delete** button on category card | Client checks `boardCount > 0` first and shows "Cannot delete this category because it still has boards." without calling the API. If the API returns a 400 matching `/board\|must be empty\|not empty/i`, the same friendly message is shown. Confirm dialog required. Success message: "Category deleted." |
+| Reorder (up) | **↑** arrow on category card | Calls `adminReorderCategories` with the complete ordered id list after swapping the category one position earlier. Disabled at the top position. |
+| Reorder (down) | **↓** arrow on category card | Calls `adminReorderCategories` after swapping the category one position later. Disabled at the last position. |
+
+### Board management
+
+Each category card renders a board table with Edit, Delete, and reorder arrows per row, plus an **+ Add board** button that expands an inline create form.
+
+| Action | Trigger | Notes |
+|---|---|---|
+| Create | **+ Add board** button | Requires name and slug. Optional description, sort order, scopeType (`site`\|`project`), visibility (all five values), projectId. Success message: "Board created." |
+| Edit | **Edit** button on board row | Inline form pre-populated from current values (all board fields). Success message: "Board updated." |
+| Delete | **Delete** button on board row | Confirm dialog required. Success message: "Board deleted." |
+| Reorder (up/down) | **↑** / **↓** arrows on board row | Calls `adminReorderBoards(categoryId, { orderedIds })` with siblings from the same category. |
+
+### Error and success feedback
+
+All API errors are caught and surfaced via `actionError` state rendered as a `<p className={styles.error}>`. All success confirmations are rendered as `<p className={styles.status}>`. Both states are cleared at the start of every action. No `dangerouslySetInnerHTML` is used — all user-supplied text renders as React text nodes. The page reuses `auth-shell.module.css` for layout (`panel`, `title`, `eyebrow`, `action`, `secondaryAction`, `error`, `status`).
+
+### Security boundary note
+
+All CRUD and reorder operations are enforced by the API's `assertAdminManagementAccess` gate (see [Authorization gate](#authorization-gate) above). The client-side role check at page load and the `boardCount > 0` pre-check are UX conveniences; the API returns `403` and `400` respectively if those checks are bypassed.
+
 ## Web Surfaces (ST16)
 
 The forum web layer lives entirely in `apps/web/app/forums/` with supporting components in `apps/web/components/`. All pages are Next.js App Router client components.

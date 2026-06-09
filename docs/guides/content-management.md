@@ -78,6 +78,53 @@ The forums subsystem supports moderator/admin controls for pinning, locking, and
 - `/forums/<boardSlug>/<topicSlug>` — topic view with paginated posts.
 - Members can create topics (`+ New Topic` link) and post replies; guests see a `Sign in` link that preserves the destination as `?next=`.
 
+### Managing categories and boards (admin)
+
+Sign in with an `admin` account and go to `/admin/forums`. The page lists all forum categories with their boards.
+
+**Create a category**
+
+1. Click **New category**.
+2. Fill in **Name** (required), **Slug** (required — lowercase hyphenated, e.g. `general-discussion`), optional **Description**, and optional **Sort Order** (lower numbers appear first; omit to append).
+3. Click **Create category**.
+
+**Edit a category**
+
+Click **Edit** on the category card. Update any field and click **Save changes**.
+
+**Delete a category**
+
+Click **Delete** on the category card. The category must have no boards; if it still has boards a friendly error is shown before the API is called. Confirm the dialog to proceed.
+
+**Reorder categories**
+
+Use the **↑** / **↓** arrows on each category card to move it one position up or down.
+
+**Create a board inside a category**
+
+1. On the category card, click **+ Add board**.
+2. Fill in **Name** (required), **Slug** (required), optional **Description** and **Sort Order**.
+3. Choose **Scope Type**: `Site` (default — standard site-wide board) or `Project` (forward-scaffolding for M7/M8).
+4. Choose **Visibility**: `Public` (default), `Unlisted`, `Members only`, `Project only`, or `Private`. Only `Public` and `Unlisted` boards appear in the public forum index.
+5. Optionally fill in **Project ID** (leave blank for site-scoped boards).
+6. Click **Create board**.
+
+**Edit a board**
+
+Click **Edit** on the board row inside its category card. Update any field and click **Save changes**.
+
+**Delete a board**
+
+Click **Delete** on the board row. Confirm the dialog. All topics and posts in the board must be removed or moved first via the moderation API; the admin page does not migrate board content.
+
+**Reorder boards within a category**
+
+Use the **↑** / **↓** arrows on each board row to move it within its category.
+
+All changes appear in the public forum index (`/forums`) immediately after the API call succeeds.
+
+Full API contract details live in [features/forums.md — Admin API routes](../features/forums.md#admin-api-routes).
+
 ### Moderation from the web UI (moderator/admin)
 
 Moderators and admins see a moderation bar on every topic page at `/forums/<boardSlug>/<topicSlug>`. Sign in with a `moderator` or `admin` account and navigate to the topic to use these controls.
