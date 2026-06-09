@@ -1,0 +1,26 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums-closeout/CO5/security_report.md",
+    "artifacts/milestone-4-forums-closeout/CO5/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4a-CO5-security-20260608",
+  "documentation_sufficiency_summary": [
+    "Controller-level JSDoc (forums.controller.ts:175-199) and service-level JSDoc (forums.service.ts:789-811) document the route, the public-safe shape, the visibility/oracle (P12) contract, ordering, and the default/hard-cap limits accurately.",
+    "Plan-listed doc impact (docs/features/forums.md - endpoint + visibility/oracle contract) is the Documenter's deliverable and is in scope for CO5; the Documenter/Verifier should confirm docs/features/forums.md was updated with the new GET /forums/recent route and its visibility contract.",
+    "Recommend the doc and code comments note the input-validation behavior for ?limit once the WARNING is resolved (malformed limit falls back to the default), so the 'always returns a stable list' guarantee is accurate."
+  ],
+  "note_finding_count": 2,
+  "outcome": "CONDITIONAL PASS",
+  "pass_label": "CONDITIONAL PASS",
+  "status": "completed",
+  "task_id": "CO5",
+  "test_sufficiency_summary": [
+    "SUFFICIENT for the core security properties. Ran (grounding): npx pnpm@10.0.0 -C <worktree> --filter @sfus/api exec vitest run src/forums/forums.service.test.ts src/forums/forums.controller.test.ts -> 2 files passed, 262 tests passed (146 service + 116 controller), 0 failed.",
+    "CO5 service tests cover: default limit 5, explicit in-range limit, hard cap at 20; ordering lastPostAt DESC NULLS LAST then createdAt DESC; exclusion of members/private/project-scoped boards with createQueryBuilder asserted NOT called (no oracle); WHERE IN includes only public board ids; deletedAt IS NULL andWhere; early-return [] when no boards / when all boards fail the predicate; public-safe RecentTopicShape with explicit absence assertions for email/globalRole/id/authorUserId/boardId/isLocked/isPinned/body/replyCount/deletedAt/updatedAt and board.id/board.visibility; lastPostAt null pass-through.",
+    "CO5 controller tests cover: no resolveSession call (route is public), limit parsing/delegation, undefined-limit pass-through, stable {topics:[]} empty envelope, and {topics} wrapping.",
+    "GAP (tie to the WARNING): there is NO test for an adversarial non-numeric/empty ?limit (e.g. ?limit=abc, ?limit=); such a test would currently surface the NaN->500 behavior. A regression test for this should accompany the input-clamp fix.",
+    "isBoardPubliclyReadable predicate tests (ST3) independently confirm scopeType!='site' short-circuits before evaluate, and that site+public/unlisted pass while site+members/private/project-only fail - the same shared predicate CO5 relies on."
+  ],
+  "warning_finding_count": 1
+}
