@@ -1,0 +1,55 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- The `resolveAvatarSrc` function in `apps/web/components/user-avatar.tsx` was hardened to reject any `avatarSrc` not beginning with `/api/media/`, returning null (triggering the initials fallback) for http://, https://, //, javascript:, data:, and empty/whitespace inputs. One line was added between the existing falsy/hasError guard and the return statement: `if (!avatarSrc.startsWith('/api/media/')) return null;`. The function's JSDoc comment was also updated to document this security gating behavior. Tests were added in `user-avatar.spec.ts` covering all rejection cases (8 new tests), bringing the total from 16 to 24 tests in that file. All 415 web tests pass.
+
+Acceptance criteria validated:
+- resolveAvatarSrc returns null for any avatarSrc not beginning with /api/media/ (including http://, https://, //, javascript:, data:, empty/whitespace)
+- A valid gated path (e.g. /api/media/<uuid>) is returned unchanged when hasError is false
+- null is still returned when hasError is true (existing behavior preserved)
+- No change to initials derivation or any other UserAvatar rendering behavior for valid inputs
+
+Implementation branch or worktree context:
+- Implementer branch: ms4a-CO2-implementer-20260608 (implementer commit: 39abe70)
+- Tester branch: ms4a-CO2-tester-20260608 (branched from implementer, tester commit: f1b288e)
+- Base branch: ms4a
+- Comparison base: diff against ms4a or against commit 39abe70's parent to see the security fix and test additions
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/components/user-avatar.tsx (security hardening: prefix guard added, JSDoc updated)
+- apps/web/components/user-avatar.spec.ts (8 new prefix-rejection tests added)
+
+Test commit:
+- f1b288e
+
+Commands executed:
+- pnpm --filter web test (415 passed, 0 failed)
+- pnpm --filter web typecheck (clean)
+- pnpm --filter web lint (0 warnings)
+
+Final test outcomes:
+- 415 tests passed across 12 test files
+- user-avatar.spec.ts: 24 tests (16 existing + 8 new) all pass
+- No regressions; no existing tests modified
+
+Documentation context:
+- The security behavior of resolveAvatarSrc is now documented in the function's JSDoc in user-avatar.tsx (see the Security: note in the comment)
+- Check docs/features/ for any user profile or avatar-related feature documentation that may need to reflect the /api/media/ prefix constraint
+- The UserAvatar component contract (avatarSrc must be a gated /api/media/ path) may need a note in any component API documentation or feature docs covering avatars/user profiles
+- This is a security-sensitive change; the documenter should note that security review is required before merging
+
+Plan and diff context:
+- Plan: milestone-4-forums-closeout, task CO2
+- Infer the exact plan file path from repository conventions (check plans/ directory)
+- Comparison base: ms4a branch (the parent of the implementer's work)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
