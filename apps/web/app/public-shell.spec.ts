@@ -51,12 +51,13 @@ describe("public web shell source contracts", () => {
     // page.tsx remains a server component — no fetch() or useEffect at top level
     expect(pageSource).not.toMatch(/\bfetch\s*\(/);
     expect(pageSource).not.toContain("useEffect(");
-    // MS3 shell copy: layout.tsx must use updated MS3 strings with no MS2 remnants
-    expect(layoutSource).toContain("Milestone 3 Content Platform");
-    expect(layoutSource).toContain("Built for the Milestone 3 content launch baseline.");
+    // MS4 shell copy: layout.tsx chrome must use updated MS4 strings with no older-milestone remnants
+    expect(layoutSource).toContain("Milestone 4 Content Platform");
+    expect(layoutSource).toContain("Built for the Milestone 4 content launch baseline.");
     expect(layoutSource).toContain(
-      "Blog, standalone pages, and site navigation for the Star Frontiers US Milestone 3 content platform."
+      "Community forums, blog, standalone pages, and site navigation for the Star Frontiers US Milestone 4 content platform."
     );
+    expect(layoutSource).not.toContain("Milestone 3");
     expect(layoutSource).not.toContain("Milestone 2");
     expect(layoutSource).not.toContain("Milestone 1");
   });

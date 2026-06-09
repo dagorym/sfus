@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     template: "%s | Star Frontiers US"
   },
   description:
-    "Blog, standalone pages, and site navigation for the Star Frontiers US Milestone 3 content platform."
+    "Community forums, blog, standalone pages, and site navigation for the Star Frontiers US Milestone 4 content platform."
 };
 
 export default function RootLayout({
@@ -26,7 +26,7 @@ export default function RootLayout({
           <header className={styles.header}>
             <div className={styles.headerInner}>
               <div className={styles.brandBlock}>
-                <p className={styles.brandEyebrow}>Milestone 3 Content Platform</p>
+                <p className={styles.brandEyebrow}>Milestone 4 Content Platform</p>
                 <Link className={styles.brandLink} href="/">
                   <h1 className={styles.brandTitle}>Star Frontiers US</h1>
                 </Link>
@@ -43,7 +43,7 @@ export default function RootLayout({
           <footer className={styles.footer}>
             <div className={styles.footerInner}>
               <p className={styles.footerText}>Star Frontiers US · Public foundation shell</p>
-              <p className={styles.footerText}>Built for the Milestone 3 content launch baseline.</p>
+              <p className={styles.footerText}>Built for the Milestone 4 content launch baseline.</p>
             </div>
           </footer>
         </div>
