@@ -1,0 +1,60 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Added export keyword to escapeLikePrefix in apps/api/src/users/users.service.ts, making it a named export consistent with resolveAvatarSrc/profileProjection precedent. Function body and the suggestByPrefix call site are unchanged. Added 6 focused unit tests for escapeLikePrefix in users.service.test.ts covering %, _, backslash, multiple specials, plain prefix, and empty string inputs.
+
+Acceptance criteria validated:
+- escapeLikePrefix is a named export of users.service.ts — PASS: line 155 'export function escapeLikePrefix(q: string): string'
+- Escaping contract: %, _, and \ are escaped; plain prefixes pass through unchanged — PASS: 6 unit tests in 'escapeLikePrefix: LIKE special-character escaping' all pass
+- Function body and suggestByPrefix call site are otherwise unchanged — PASS: diff confirms only export keyword and JSDoc comment added; call site unchanged
+
+Implementation branch or worktree context:
+- Branch: ms4a-CO3-tester-20260608
+- Worktree: /home/tstephen/repos/worktrees/ms4a-CO3-tester-20260608
+- Implementer commit: ffc8e74 'feat(users): export escapeLikePrefix for unit-testability'
+- Single-keyword change: function escapeLikePrefix -> export function escapeLikePrefix plus JSDoc note
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/users/users.service.ts
+- apps/api/src/users/users.service.test.ts
+
+Test commit:
+- No Changes Made
+
+Commands executed:
+- pnpm install --frozen-lockfile (worktree setup)
+- pnpm --filter @sfus/api exec vitest run src/users/users.service.test.ts → 32/32 PASS
+- pnpm --filter @sfus/api exec tsc --noEmit → PASS (exit 0, no output)
+- pnpm --filter @sfus/api exec eslint src/users/users.service.ts src/users/users.service.test.ts --max-warnings=0 → PASS (exit 0, no output)
+- pnpm --filter @sfus/api run build → PASS (exit 0)
+- pnpm --filter @sfus/api exec vitest run (full suite) → 885 passed, 3 skipped
+
+Final test outcomes:
+- 32/32 tests in users.service.test.ts PASS (includes all 6 new escapeLikePrefix tests)
+- Full suite: 885 passed, 3 skipped (DB integration, expected)
+- TypeScript check clean (no errors)
+- ESLint clean (0 warnings/errors)
+- Build clean (exit 0)
+
+Documentation context:
+- This is a minor testability improvement — adding export keyword and unit tests to an existing private helper
+- No public API surface changed; no user-visible behavior changed
+- The change is internal to apps/api/src/users/ and unlikely to require documentation updates
+- The docs/features/ user documentation is unaffected
+- If developer documentation references users.service.ts internals, a one-line note may be appropriate
+
+Plan and diff context:
+- Plan: plans/milestone-4-forums-closeout-plan.md, subtask CO3
+- Comparison base: branch ms4a (main plan branch)
+- This is a closeout task improving testability of an existing LIKE-escaping helper
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
