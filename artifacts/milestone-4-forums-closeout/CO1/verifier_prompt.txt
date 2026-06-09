@@ -1,0 +1,56 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- CO1 — Link-limiter word-boundary guard for bare schemes. Added a word-boundary guard to scanBareUrls() in apps/api/src/common/throttle/link-limit.ts so that bare schemes (mailto:, tel:, http://, ftp://) are only counted when the preceding character is in WORD_BOUNDARY_CHARS and is not '('. This prevents embedded scheme substrings like 'hotel:', 'motel:', or 'xmailto:' from inflating the per-post link count. Tester added 16 new tests (51 total, up from 35) covering all 5 acceptance criteria. Documenter updated docs/development/api-conventions.md to reflect that bare schemes are counted at word boundaries only.
+
+Acceptance criteria to verify:
+- AC1: Bare scheme counted only when charBefore is in WORD_BOUNDARY_CHARS AND is not '(' — PASS
+- AC2: 'hotel:', 'motel:', embedded 'mailto:' inside a larger word are NOT counted — PASS
+- AC3: Boundary-anchored 'mailto:user@example.com' and 'tel:+15551234' each counted once — PASS
+- AC4: Markdown link '[x](mailto:user@example.com)' counted exactly once; skipPositions not regressed — PASS
+- AC5: Change only reduces false positives; fail-safe direction preserved — PASS
+
+Implementation branch or worktree context:
+- Branch: ms4a-CO1-documenter-20260608 (documenter worktree, built on ms4a-CO1-tester-20260608)
+- Base branch: ms4a
+- Tester worktree: /home/tstephen/repos/worktrees/ms4a-CO1-tester-20260608
+- Documenter worktree: /home/tstephen/repos/worktrees/ms4a-CO1-documenter-20260608
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/common/throttle/link-limit.ts (implementer — word-boundary guard added to scanBareUrls())
+- apps/api/src/common/throttle/link-limit.test.ts (tester — 16 new word-boundary guard tests added)
+- docs/development/api-conventions.md (documenter — per-post link limit section updated to reflect word-boundary requirement for bare schemes)
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms4a-CO1-tester-20260608 --filter @sfus/api exec vitest run src/common/throttle/link-limit.test.ts
+
+Final test outcomes:
+- 51/51 tests passing (35 pre-existing + 16 new)
+- AC1 PASS: word-boundary guard verified — charBefore must be in WORD_BOUNDARY_CHARS and not '('
+- AC2 PASS: hotel:, motel:, xmailto:, a-tel:, inlined_mailto: all return 0
+- AC3 PASS: mailto:/tel: at string start and after space/newline/tab/>/[ each return 1
+- AC4 PASS: '[x](mailto:user@example.com)' and '[call](tel:+15551234)' each return 1 (skipPositions not regressed)
+- AC5 PASS: mixed-body with 4 boundary-preceded evasion schemes returns 4; hotel: + tel: combo returns 1
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-closeout-plan.md — CO1 subtask
+- CO1 Documentation Impact: if any doc precisely describes which tokens count toward the per-post link limit, add a one-line note that bare schemes are counted only at a word boundary; otherwise no documentation change required.
+- docs/development/api-conventions.md#per-post-link-limit was found to precisely describe counted tokens and was updated accordingly.
+
+Convention-file guidance:
+- docs/development/api-conventions.md — authoritative per-post link limit section (updated this run)
+- docs/development/testing.md — test commands for the API
+
+Updated documentation files:
+- docs/development/api-conventions.md
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO1
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
