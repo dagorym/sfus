@@ -118,3 +118,51 @@ describe("navigation.tsx — safe [] fallback behavior (AC4 subtask-6)", () => {
     expect(source).not.toContain("publicNavigation.map");
   });
 });
+
+// ---------------------------------------------------------------------------
+// AC3 (CO7): Admin nav link — shown only for admin-role sessions
+// ---------------------------------------------------------------------------
+
+describe("navigation.tsx — Admin nav link visibility (AC3 CO7)", () => {
+  it("imports hasGlobalRole from auth-client", async () => {
+    // AC3: hasGlobalRole must be imported to gate the Admin link.
+    const source = await readNav();
+    expect(source).toContain("hasGlobalRole");
+    expect(source).toContain('from "../app/auth-client"');
+  });
+
+  it("renders an Admin link pointing to /admin", async () => {
+    // AC3: Admin link must href="/admin".
+    const source = await readNav();
+    expect(source).toContain('href="/admin"');
+    // The link label must include "Admin" as a text node
+    expect(source).toMatch(/href="\/admin"[\s\S]{0,200}Admin[\s\S]{0,10}<\/Link>/);
+  });
+
+  it('gates the Admin link with hasGlobalRole(session.user, "admin")', async () => {
+    // AC3: Admin link only shown when hasGlobalRole returns true for "admin".
+    const source = await readNav();
+    expect(source).toContain('hasGlobalRole(session.user, "admin")');
+  });
+
+  it("requires session to be present (non-null) for Admin link", async () => {
+    // AC3: Admin link is absent for guest (no session).
+    const source = await readNav();
+    // The conditional must reference `session` and `hasGlobalRole` together
+    expect(source).toMatch(/session\b[\s\S]{0,150}hasGlobalRole[\s\S]{0,80}"admin"/);
+  });
+
+  it("requires onboardingRequired to be false for Admin link", async () => {
+    // AC3: Admin link absent for onboarding sessions.
+    const source = await readNav();
+    // The Admin link gate must exclude onboarding sessions
+    expect(source).toMatch(/!session\.user\.onboardingRequired[\s\S]{0,200}hasGlobalRole|hasGlobalRole[\s\S]{0,200}!session\.user\.onboardingRequired/);
+  });
+
+  it("applies pathname-based active style for /admin and /admin/* paths", async () => {
+    // AC3: Active style matches /admin exactly and /admin/* prefix.
+    const source = await readNav();
+    expect(source).toContain('pathname === "/admin"');
+    expect(source).toMatch(/startsWith\(["']\/admin\/["']\)/);
+  });
+});
