@@ -1,0 +1,59 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Added export keyword to escapeLikePrefix in apps/api/src/users/users.service.ts, making it a named export consistent with resolveAvatarSrc/profileProjection precedent. Function body and the suggestByPrefix call site are unchanged. Added 6 focused unit tests for escapeLikePrefix in users.service.test.ts covering %, _, backslash, multiple specials, plain prefix, and empty string inputs.
+
+Acceptance criteria to verify:
+- escapeLikePrefix is a named export of users.service.ts — PASS: line 155 'export function escapeLikePrefix(q: string): string'
+- Escaping contract: %, _, and \ are escaped; plain prefixes pass through unchanged — PASS: 6 unit tests in 'escapeLikePrefix: LIKE special-character escaping' all pass
+- Function body and suggestByPrefix call site are otherwise unchanged — PASS: diff confirms only export keyword and JSDoc comment added; call site unchanged
+
+Implementation branch or worktree context:
+- Tester branch: ms4a-CO3-tester-20260608
+- Implementer commit: ffc8e74 — feat(users): export escapeLikePrefix for unit-testability
+- Comparison base: ms4a
+- Documenter branch: ms4a-CO3-documenter-20260608
+- Documenter commit hash (no external docs changed): 210bed656daa050944965d8aa830754a8fcfcbca
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/users/users.service.ts
+- apps/api/src/users/users.service.test.ts
+
+Commands executed:
+- pnpm install --frozen-lockfile
+- pnpm --filter @sfus/api exec vitest run src/users/users.service.test.ts → 32/32 PASS
+- pnpm --filter @sfus/api exec tsc --noEmit → PASS (exit 0, no output)
+- pnpm --filter @sfus/api exec eslint src/users/users.service.ts src/users/users.service.test.ts --max-warnings=0 → PASS
+- pnpm --filter @sfus/api run build → PASS (exit 0)
+- pnpm --filter @sfus/api exec vitest run → 885 passed, 3 skipped
+
+Final test outcomes:
+- 32/32 tests in users.service.test.ts PASS (includes all 6 new escapeLikePrefix tests)
+- Full API suite: 885 passed, 3 skipped (DB integration, expected)
+- TypeScript check clean (no errors)
+- ESLint clean (0 warnings/errors)
+- Build clean (exit 0)
+
+Plan or evaluation context guidance:
+- Plan: plans/milestone-4-forums-closeout-plan.md, subtask CO3
+- Documentation Impact: none — internal export + test; no API/behavior change (per plan CO3 section)
+- In-code JSDoc comment already updated by Implementer to note 'Exported for unit-testability'
+
+Convention-file guidance:
+- docs/development/testing.md for API test commands
+- docs/development/api-conventions.md for API patterns
+- Exported-for-unit-testability precedent: resolveAvatarSrc, profileProjection
+
+Updated documentation files:
+- None (no external documentation changes required)
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO3
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
