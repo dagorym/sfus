@@ -109,11 +109,16 @@ function scanBareUrls(body: string, skipPositions: Set<number>): number {
       if (idx === -1) break;
 
       // Skip if this URL is the destination of a Markdown link already counted.
-      // Also skip if the character immediately before is '(' — that means this
-      // URL lives inside ](...) and was (or should have been) counted already.
       if (!skipPositions.has(idx) && !counted.has(idx)) {
         const charBefore = idx > 0 ? body[idx - 1] : "";
-        if (charBefore !== "(") {
+        // Only count when the scheme appears at a word boundary (preceded by
+        // whitespace, an opening bracket, or the start of the string).  This
+        // mirrors the www. branch and prevents embedded scheme substrings
+        // (e.g. "hotel:", "motel:", an inlined "mailto:") from being
+        // counted.  The '(' exclusion keeps the existing markdown-link-
+        // destination guard: a URL inside ](...) is skipped via skipPositions,
+        // and any residual '(' prefix is rejected here as well.
+        if (WORD_BOUNDARY_CHARS.has(charBefore) && charBefore !== "(") {
           count++;
           counted.add(idx);
         }
