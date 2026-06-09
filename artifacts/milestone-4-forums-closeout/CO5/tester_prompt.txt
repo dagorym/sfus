@@ -1,0 +1,59 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Added a public, unauthenticated GET /forums/recent endpoint that returns the most-recently-active public forum topics across the site for use by the landing-page activity feed. Added RecentTopicShape, RecentTopicBoardStub, and RecentTopicsQuery types in forums.types.ts. Added listRecentTopics() method on ForumsService. Added listRecentTopics controller handler. Visibility gate uses isBoardPubliclyReadable/AuthorizationService.evaluate() with no inline re-derived predicate. Returns public-safe shape only; oracle-safe (uniform empty list when no public activity).
+
+Modified files:
+- apps/api/src/forums/forums.controller.ts
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.types.ts
+
+Acceptance criteria to validate (from Planner):
+- AC1: Returns up to 5 topics by default (hard-capped at 20); ordered lastPostAt DESC then createdAt DESC; only from publicly-readable site boards.
+- AC2: Topics in non-publicly-readable boards (members/private) and project-scoped boards are excluded. Visibility decided through isBoardPubliclyReadable (AuthorizationService.evaluate()). No oracle leak (uniform empty list).
+- AC3: Returns public-safe shape: topic title, slug, board name+slug (stub), author username+displayName, lastPostAt, createdAt. No internal fields (authorUserId, audit cols, deletedAt, body, replyCount, etc.).
+- AC4: No authentication required. Returns stable empty list when no public activity.
+
+Test file locations:
+- Controller tests: apps/api/src/forums/forums.controller.test.ts
+- Service tests: apps/api/src/forums/forums.service.test.ts
+
+Test commands:
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/api exec tsc --noEmit
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/api run build
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/api exec eslint src/forums/forums.controller.ts src/forums/forums.service.ts src/forums/forums.types.ts --max-warnings=0
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/api exec vitest run src/forums
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/sfus --filter @sfus/api exec vitest run
+
+Coverage required (add to existing test files):
+- Service: listRecentTopics returns up to limit (default 5) topics; hard-cap at 20 even when limit > 20 requested
+- Service: listRecentTopics orders by lastPostAt DESC (nulls last) then createdAt DESC
+- Service: listRecentTopics excludes non-publicly-readable boards (members, private visibility) — excluded topics must never appear
+- Service: listRecentTopics excludes project-scoped boards (scopeType !== 'site') — excluded topics must never appear
+- Service: listRecentTopics excludes soft-deleted topics (deletedAt IS NOT NULL)
+- Service: listRecentTopics returns empty array when no public boards exist (no oracle)
+- Service: listRecentTopics returns public-safe RecentTopicShape only (no authorUserId, no boardId FK, no isLocked, no isPinned, no audit cols, no deletedAt, no body, no replyCount)
+- Controller: listRecentTopics is public — resolveSession must NOT be called
+- Controller: listRecentTopics delegates to forumsService.listRecentTopics with parsed limit from query string
+- Controller: listRecentTopics returns { topics: [] } when service returns empty array
+- Controller: listRecentTopics passes undefined limit when ?limit query param is absent
+
+Implementation context:
+- listRecentTopics() in ForumsService fetches all boards, filters to publicBoardIds via isBoardPubliclyReadable(), then queries topics with QueryBuilder: LEFT JOIN author and board, WHERE boardId IN (:...boardIds) AND deletedAt IS NULL, ORDER BY lastPostAt DESC NULLS LAST, createdAt DESC, TAKE limit.
+- Hard cap constant: ForumsService.RECENT_TOPICS_MAX_LIMIT = 20. Default constant: ForumsService.RECENT_TOPICS_DEFAULT_LIMIT = 5.
+- Returns empty array immediately when publicBoardIds is empty (no oracle leak — no DB query for topics in that case).
+- Controller: GET /forums/recent, @Query('limit') limit?: string, parses with parseInt if present, returns { topics: RecentTopicShape[] }.
+- RecentTopicShape: { id, title, slug, board: { name, slug }, author: { username, displayName }, lastPostAt, createdAt }. No internal fields.
+- Security note: all visibility decisions route through isBoardPubliclyReadable (which calls AuthorizationService.evaluate() on anonymous actor). No inline re-derived predicate. Oracle safety P12: excluded boards/topics never revealed.
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Shared artifact directory:
+- artifacts/milestone-4-forums-closeout/CO5
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Do not stop after activation, directory discovery, or framework discovery when testing can proceed.
+
+Do not report success unless all required artifacts exist and all changes are committed.
