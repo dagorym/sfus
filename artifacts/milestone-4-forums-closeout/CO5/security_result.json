@@ -1,0 +1,25 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums-closeout/CO5/security_report.md",
+    "artifacts/milestone-4-forums-closeout/CO5/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4a-CO5-security-20260608",
+  "documentation_sufficiency_summary": [
+    "SUFFICIENT. docs/features/forums.md was updated (commit 27e50bb) to note the ?limit coercion behavior: 'Non-numeric or non-finite values (e.g. abc, empty string, NaN, Infinity) coerce to the default (5) and never produce an error.' This closes the pass-1 documentation recommendation and makes the 'always returns a stable list' guarantee accurate.",
+    "Controller JSDoc (forums.controller.ts:175-199) and service JSDoc (forums.service.ts:789-815) accurately document the public route, the public-safe shape, the visibility/oracle (P12) contract, ordering, default/hard-cap limits, and the new NaN-guard rationale (service comment lines 813-815).",
+    "The forums.md route table documents GET /forums/recent, its visibility/oracle contract (excluded boards never appear; uniform empty list), default 5 / hard cap 20, and the sort order \u2014 consistent with the implementation."
+  ],
+  "note_finding_count": 3,
+  "outcome": "PASS",
+  "pass_label": "PASS (pass-2 remediation re-review)",
+  "status": "completed",
+  "task_id": "CO5",
+  "test_sufficiency_summary": [
+    "SUFFICIENT. Grounding command run: npx pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms4a-CO5-security-20260608 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts src/forums/forums.controller.test.ts -> 2 files passed, 267 tests passed (149 service + 118 controller), 0 failed (up from pass-1's 262: 146+116, confirming the 5 new regression tests are present and green). (First attempt failed only because the worktree had no installed node_modules; ran pnpm install --frozen-lockfile, then the suites passed.)",
+    "Targeted run: ... exec vitest run <both forums suites> -t 'malformed' -> 9 tests passed, 258 skipped, 0 failed. This includes the 5 CO5 regression tests (3 service: limit NaN/Infinity/-Infinity each resolves without throwing and asserts take() received a finite integer == 5; 2 controller: ?limit=abc and ?limit= each returns 200 {topics:[]} without throwing and delegates {limit: NaN} to the service).",
+    "Coverage division is correct and complete: the controller regression tests mock the service (NaN-tolerance is service-layer logic) and prove the controller does not throw before delegating and passes the exact parseInt result (NaN); the SERVICE regression tests exercise the real listRecentTopics with a stubbed chainable QueryBuilder and prove take() is called with a finite integer (no take(NaN) -> 500). Together they exercise the 200/no-500 contract end to end.",
+    "Pass-1 core-property coverage remains intact: default limit 5 / in-range / hard-cap 20; ordering lastPostAt DESC NULLS LAST then createdAt DESC; exclusion of members/private/project-scoped boards with createQueryBuilder asserted NOT called (no oracle); WHERE IN includes only public board ids; deletedAt IS NULL andWhere; early-return [] for no-boards / all-boards-excluded; public-safe RecentTopicShape with explicit absence assertions for email/globalRole/id/authorUserId/boardId/isLocked/isPinned/body/replyCount/deletedAt/updatedAt and board.id/board.visibility; lastPostAt null pass-through."
+  ],
+  "warning_finding_count": 0
+}
