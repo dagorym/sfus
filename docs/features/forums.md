@@ -112,6 +112,8 @@ Stripped from the public shape (internal-only): `scopeType`, `projectId`, `categ
 
 No authentication required. Returns the most-recently-active publicly-visible topics across the site, for use by the landing-page activity feed.
 
+**Web client consumer (CO6):** `listRecentTopics(opts?)` in `apps/web/app/forums/forums-client.ts` wraps this endpoint. `RecentTopicItem` and `RecentTopicBoardStub` are the corresponding client-side types. `apps/web/components/recent-forum-activity.tsx` (`RecentForumActivity`) is the landing-page display component that calls `listRecentTopics({ limit: 5 })` and renders the result.
+
 **Query parameters:**
 
 | Parameter | Default | Constraints | Notes |

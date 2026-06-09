@@ -60,12 +60,30 @@ protected by the API, not by the page.
 
 ## Landing page
 
-`apps/web/app/page.tsx` is a server component (no fetches/effects) with four sections: hero
-(CTA to `/blog`), three highlight cards, a "What's new" section containing the
-`RecentPostsFeed` client component (first 3 published posts via `listPublishedPosts()`;
-loading / empty "No posts yet." / non-fatal "Could not load recent posts." states) plus
-explore links, and runtime notes. The `/about` link targets the top-level catch-all route; if
-no `about` page is published it resolves to a "not published" message by design.
+`apps/web/app/page.tsx` is a server component (no fetches/effects) refreshed for Milestone 4
+with five sections:
+
+1. **Hero** — primary CTA "Visit the forums" → `/forums`; secondary CTA "Read the blog" →
+   `/blog`. The hero copy describes Milestone 4: community forums, @mentions with public member
+   profiles, member avatars, and anti-spam rate limiting built on top of the earlier content
+   milestones. No "Milestone 3" text remains.
+2. **Highlights grid** — six cards: Community forums, Blog with threaded comments, Standalone
+   pages and revision history, Dynamic navigation and media uploads, Public member profiles and
+   avatars, Anti-spam and rate limiting.
+3. **"What's new in Milestone 4"** — two-column layout:
+   - _Recent forum activity_ column: `RecentForumActivity` client component
+     (`apps/web/components/recent-forum-activity.tsx`) fetches up to 5 topics via
+     `listRecentTopics({ limit: 5 })` (`GET /api/forums/recent`); loading / "No forum activity
+     yet." / non-fatal "Could not load recent forum activity." states; "View the forums →" link
+     at `/forums`. Board and topic slugs in links are `encodeURIComponent`-encoded.
+   - _Recent posts_ column: `RecentPostsFeed` client component (unchanged; loading / "No posts
+     yet." / non-fatal "Could not load recent posts." states); "View all posts →" link at `/blog`.
+4. **Explore section** — forums entry (first), blog index, about, navigation admin, and member
+   profiles. No `dangerouslySetInnerHTML` anywhere; all text is React text nodes.
+5. **Runtime notes** — two meta cards: frontend-to-API contract and current content scope.
+
+The `/about` link targets the top-level catch-all route; if no `about` page is published it
+resolves to a "not published" message by design.
 
 ## Security headers
 
