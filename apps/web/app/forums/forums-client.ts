@@ -52,7 +52,7 @@ export interface PublicTopicShape {
   slug: string;
   body: string;
   isPinned: boolean;
-  /** isLocked is included on public topic shape from the API so guest can see lock state. */
+  /** isLocked is NOT returned by the API in the public topic shape (stripped server-side); typed optional so the field is absent/undefined at runtime. */
   isLocked?: boolean;
   replyCount: number;
   lastPostAt: string | null;
