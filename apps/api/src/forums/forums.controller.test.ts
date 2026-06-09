@@ -77,6 +77,8 @@ const makeForumsService = (overrides?: Record<string, unknown>) => ({
   // ST5: post routes
   createPost: vi.fn().mockResolvedValue({ id: "post-new", body: "Reply", parentId: null, quotedPostId: null, author: { username: "u", displayName: null }, createdAt: new Date(), updatedAt: new Date() }),
   listPosts: vi.fn().mockResolvedValue({ posts: [], total: 0, page: 1, pageSize: 20 }),
+  // CO5: recent topics feed (public, no auth)
+  listRecentTopics: vi.fn().mockResolvedValue([]),
   // ST6: moderation routes
   assertModerationAccess: vi.fn(), // does not throw by default (moderator/admin session)
   setPinned: vi.fn().mockResolvedValue({ id: "topic-1", title: "T", slug: "t", isPinned: true, isLocked: false, boardId: "board-1", lockedByUserId: null, lockedAt: null, movedByUserId: null, movedAt: null, replyCount: 0, lastPostAt: null, createdAt: new Date(), updatedAt: new Date() }),
@@ -1699,5 +1701,66 @@ describe("ForumsController ST9: new-account tier differentiates by createdAt (re
     await expect(
       youngController.createTopic(makeRequest() as never, "b", { title: "T3", body: "B3" })
     ).rejects.toThrow(HttpException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CO5: listRecentTopics — public endpoint, no authentication required
+// ---------------------------------------------------------------------------
+
+describe("ForumsController.listRecentTopics (CO5: AC4 — no auth required)", () => {
+  it("does NOT call resolveSession (route is public, unauthenticated)", async () => {
+    const authService = makeAuthService();
+    const forumsService = makeForumsService();
+    const controller = makeController(forumsService, authService);
+    await controller.listRecentTopics(undefined);
+    expect(authService.resolveSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("ForumsController.listRecentTopics (CO5: AC1 — delegates to service with parsed limit)", () => {
+  it("calls forumsService.listRecentTopics with parsed limit when ?limit is present", async () => {
+    const forumsService = makeForumsService();
+    const controller = makeController(forumsService);
+    await controller.listRecentTopics("7");
+    expect(forumsService.listRecentTopics).toHaveBeenCalledWith({ limit: 7 });
+  });
+
+  it("passes undefined limit when ?limit query param is absent", async () => {
+    const forumsService = makeForumsService();
+    const controller = makeController(forumsService);
+    await controller.listRecentTopics(undefined);
+    expect(forumsService.listRecentTopics).toHaveBeenCalledWith({ limit: undefined });
+  });
+});
+
+describe("ForumsController.listRecentTopics (CO5: AC4 — stable empty list when no public activity)", () => {
+  it("returns { topics: [] } when service returns empty array", async () => {
+    const forumsService = makeForumsService({
+      listRecentTopics: vi.fn().mockResolvedValue([])
+    });
+    const controller = makeController(forumsService);
+    const result = await controller.listRecentTopics(undefined);
+    expect(result).toEqual({ topics: [] });
+  });
+
+  it("wraps service result in { topics } envelope", async () => {
+    const topics = [
+      {
+        id: "t1",
+        title: "Hello",
+        slug: "hello",
+        board: { name: "General", slug: "general" },
+        author: { username: "alice", displayName: "Alice" },
+        lastPostAt: new Date("2024-03-01"),
+        createdAt: new Date("2024-01-10")
+      }
+    ];
+    const forumsService = makeForumsService({
+      listRecentTopics: vi.fn().mockResolvedValue(topics)
+    });
+    const controller = makeController(forumsService);
+    const result = await controller.listRecentTopics("5");
+    expect(result).toEqual({ topics });
   });
 });

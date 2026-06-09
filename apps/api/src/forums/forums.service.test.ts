@@ -30,16 +30,27 @@ interface MinimalRepo {
   save: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
+  createQueryBuilder: ReturnType<typeof vi.fn>;
 }
 
-const createMinimalRepository = (): MinimalRepo => ({
-  find: vi.fn().mockResolvedValue([]),
-  findOne: vi.fn().mockResolvedValue(null),
-  findAndCount: vi.fn().mockResolvedValue([[], 0]),
-  save: vi.fn().mockImplementation(async (e: unknown) => e),
-  remove: vi.fn().mockResolvedValue(undefined),
-  create: vi.fn().mockImplementation((partial?: unknown) => ({ ...(partial as object) }))
-});
+const createMinimalRepository = (): MinimalRepo => {
+  // Chainable QueryBuilder stub: every method returns the same object.
+  const qbStub: Record<string, ReturnType<typeof vi.fn>> = {};
+  const chainMethods = ["leftJoinAndSelect", "where", "andWhere", "orderBy", "addOrderBy", "take"];
+  for (const m of chainMethods) {
+    qbStub[m] = vi.fn().mockReturnValue(qbStub);
+  }
+  qbStub["getMany"] = vi.fn().mockResolvedValue([]);
+  return {
+    find: vi.fn().mockResolvedValue([]),
+    findOne: vi.fn().mockResolvedValue(null),
+    findAndCount: vi.fn().mockResolvedValue([[], 0]),
+    save: vi.fn().mockImplementation(async (e: unknown) => e),
+    remove: vi.fn().mockResolvedValue(undefined),
+    create: vi.fn().mockImplementation((partial?: unknown) => ({ ...(partial as object) })),
+    createQueryBuilder: vi.fn().mockReturnValue(qbStub)
+  };
+};
 
 const makeForumsService = (
   categoryRepo?: Partial<MinimalRepo>,
@@ -2376,5 +2387,325 @@ describe("ForumsService.createTopic (TEST B: WARNING-1 type-guard regression)", 
       service.createTopic("user-1", { boardId: "board-pub", title: 99 as never, body: "World" })
     ).rejects.toThrow(BadRequestException);
     expect(topicSaveSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CO5: listRecentTopics — public recent-topics feed
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a minimal public site board stub (scopeType=site, visibility=public).
+ * isBoardPubliclyReadable returns true for these boards.
+ */
+const makePublicSiteBoard = (id: string, name = "Board", slug = "board") => ({
+  id,
+  name,
+  slug,
+  scopeType: "site" as const,
+  visibility: "public" as const,
+  projectId: null,
+  categoryId: "cat-1",
+  description: null,
+  sortOrder: 0,
+  createdAt: new Date("2024-01-01"),
+  updatedAt: new Date("2024-01-01")
+});
+
+/**
+ * Builds a minimal members-only board stub (scopeType=site, visibility=members).
+ * isBoardPubliclyReadable returns false for these boards.
+ */
+const makeMembersBoard = (id: string) => ({
+  ...makePublicSiteBoard(id),
+  visibility: "members" as const
+});
+
+/**
+ * Builds a minimal private board stub (scopeType=site, visibility=private).
+ */
+const makePrivateBoard = (id: string) => ({
+  ...makePublicSiteBoard(id),
+  visibility: "private" as const
+});
+
+/**
+ * Builds a project-scoped board stub (scopeType=project).
+ * isBoardPubliclyReadable returns false because scopeType !== 'site'.
+ */
+const makeProjectBoard = (id: string) => ({
+  ...makePublicSiteBoard(id),
+  scopeType: "project" as const,
+  visibility: "public" as const
+});
+
+/**
+ * Builds a minimal topic stub suitable for a RecentTopicShape result.
+ * Includes author and board as loaded relations.
+ */
+const makeTopicStub = (id: string, overrides?: Record<string, unknown>) => ({
+  id,
+  title: `Topic ${id}`,
+  slug: `topic-${id}`,
+  body: "Body text",
+  isPinned: false,
+  isLocked: false,
+  replyCount: 0,
+  deletedAt: null,
+  lastPostAt: new Date("2024-03-01"),
+  createdAt: new Date("2024-01-15"),
+  updatedAt: new Date("2024-03-01"),
+  authorUserId: "user-1",
+  boardId: "board-pub-1",
+  author: { username: "alice", displayName: "Alice" },
+  board: { id: "board-pub-1", name: "General", slug: "general" },
+  ...overrides
+});
+
+/**
+ * Creates a chainable QueryBuilder stub whose getMany returns the provided topics.
+ * Captures the `take` argument so tests can assert on it.
+ */
+const makeQbWithTopics = (topics: unknown[]) => {
+  const qb: Record<string, ReturnType<typeof vi.fn>> = {};
+  const chainMethods = ["leftJoinAndSelect", "where", "andWhere", "orderBy", "addOrderBy"];
+  for (const m of chainMethods) {
+    qb[m] = vi.fn().mockReturnValue(qb);
+  }
+  qb["take"] = vi.fn().mockReturnValue(qb);
+  qb["getMany"] = vi.fn().mockResolvedValue(topics);
+  return qb;
+};
+
+describe("ForumsService.listRecentTopics (CO5: AC1 — default limit 5, hard cap 20)", () => {
+  it("defaults to RECENT_TOPICS_DEFAULT_LIMIT=5 when query.limit is undefined", async () => {
+    const publicBoard = makePublicSiteBoard("board-pub-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([publicBoard]);
+    const qb = makeQbWithTopics([makeTopicStub("t1")]);
+    const createQbSpy = vi.fn().mockReturnValue(qb);
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    await service.listRecentTopics({});
+    expect(qb["take"]).toHaveBeenCalledWith(5);
+  });
+
+  it("uses the provided limit when within the hard cap", async () => {
+    const publicBoard = makePublicSiteBoard("board-pub-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([publicBoard]);
+    const qb = makeQbWithTopics([]);
+    const createQbSpy = vi.fn().mockReturnValue(qb);
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    await service.listRecentTopics({ limit: 10 });
+    expect(qb["take"]).toHaveBeenCalledWith(10);
+  });
+
+  it("hard-caps at RECENT_TOPICS_MAX_LIMIT=20 even when limit > 20 is requested", async () => {
+    const publicBoard = makePublicSiteBoard("board-pub-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([publicBoard]);
+    const qb = makeQbWithTopics([]);
+    const createQbSpy = vi.fn().mockReturnValue(qb);
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    await service.listRecentTopics({ limit: 999 });
+    expect(qb["take"]).toHaveBeenCalledWith(20);
+  });
+});
+
+describe("ForumsService.listRecentTopics (CO5: AC1 — ordering lastPostAt DESC NULLS LAST then createdAt DESC)", () => {
+  it("passes ORDER BY lastPostAt DESC NULLS LAST to the query builder", async () => {
+    const publicBoard = makePublicSiteBoard("board-pub-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([publicBoard]);
+    const qb = makeQbWithTopics([]);
+    const createQbSpy = vi.fn().mockReturnValue(qb);
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    await service.listRecentTopics({});
+    expect(qb["orderBy"]).toHaveBeenCalledWith("topic.lastPostAt", "DESC", "NULLS LAST");
+    expect(qb["addOrderBy"]).toHaveBeenCalledWith("topic.createdAt", "DESC");
+  });
+});
+
+describe("ForumsService.listRecentTopics (CO5: AC2 — excludes non-public boards)", () => {
+  it("excludes topics from members-visibility boards (no oracle: empty list returned)", async () => {
+    // Only board is members-only — publicBoardIds will be empty → early return []
+    const membersBoard = makeMembersBoard("board-members-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([membersBoard]);
+    const createQbSpy = vi.fn(); // must NOT be called
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    const result = await service.listRecentTopics({});
+    expect(result).toEqual([]);
+    expect(createQbSpy).not.toHaveBeenCalled();
+  });
+
+  it("excludes topics from private boards (no oracle: empty list returned)", async () => {
+    const privateBoard = makePrivateBoard("board-priv-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([privateBoard]);
+    const createQbSpy = vi.fn();
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    const result = await service.listRecentTopics({});
+    expect(result).toEqual([]);
+    expect(createQbSpy).not.toHaveBeenCalled();
+  });
+
+  it("excludes topics from project-scoped boards (no oracle: empty list returned)", async () => {
+    const projectBoard = makeProjectBoard("board-project-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([projectBoard]);
+    const createQbSpy = vi.fn();
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    const result = await service.listRecentTopics({});
+    expect(result).toEqual([]);
+    expect(createQbSpy).not.toHaveBeenCalled();
+  });
+
+  it("only passes public board ids to the WHERE IN clause (excludes members boards from boardIds)", async () => {
+    const publicBoard = makePublicSiteBoard("board-pub-1");
+    const membersBoard = makeMembersBoard("board-members-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([publicBoard, membersBoard]);
+    const qb = makeQbWithTopics([]);
+    const createQbSpy = vi.fn().mockReturnValue(qb);
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    await service.listRecentTopics({});
+    // WHERE clause must only include the public board id, not the members board id
+    expect(qb["where"]).toHaveBeenCalledWith(
+      "topic.boardId IN (:...boardIds)",
+      expect.objectContaining({ boardIds: ["board-pub-1"] })
+    );
+  });
+});
+
+describe("ForumsService.listRecentTopics (CO5: AC2 — excludes soft-deleted topics)", () => {
+  it("passes andWhere deletedAt IS NULL to the query builder", async () => {
+    const publicBoard = makePublicSiteBoard("board-pub-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([publicBoard]);
+    const qb = makeQbWithTopics([]);
+    const createQbSpy = vi.fn().mockReturnValue(qb);
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    await service.listRecentTopics({});
+    expect(qb["andWhere"]).toHaveBeenCalledWith("topic.deletedAt IS NULL");
+  });
+});
+
+describe("ForumsService.listRecentTopics (CO5: AC2+AC4 — empty array when no public boards)", () => {
+  it("returns empty array immediately when no boards exist (no oracle — createQueryBuilder NOT called)", async () => {
+    const boardFindSpy = vi.fn().mockResolvedValue([]);
+    const createQbSpy = vi.fn();
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    const result = await service.listRecentTopics({});
+    expect(result).toEqual([]);
+    expect(createQbSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns empty array when all boards fail isBoardPubliclyReadable (no oracle)", async () => {
+    const boardFindSpy = vi.fn().mockResolvedValue([makeMembersBoard("b1"), makeProjectBoard("b2")]);
+    const createQbSpy = vi.fn();
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    const result = await service.listRecentTopics({});
+    expect(result).toEqual([]);
+    expect(createQbSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("ForumsService.listRecentTopics (CO5: AC3 — public-safe RecentTopicShape only)", () => {
+  it("returns RecentTopicShape with id, title, slug, board stub, author stub, lastPostAt, createdAt — no internal fields", async () => {
+    const publicBoard = makePublicSiteBoard("board-pub-1", "General", "general");
+    const boardFindSpy = vi.fn().mockResolvedValue([publicBoard]);
+    const topic = makeTopicStub("t1", {
+      lastPostAt: new Date("2024-03-15"),
+      createdAt: new Date("2024-01-20"),
+      author: { username: "alice", displayName: "Alice Doe", email: "alice@example.com", globalRole: "user" },
+      board: { id: "board-pub-1", name: "General", slug: "general", visibility: "public" }
+    });
+    const qb = makeQbWithTopics([topic]);
+    const createQbSpy = vi.fn().mockReturnValue(qb);
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    const result = await service.listRecentTopics({});
+    expect(result).toHaveLength(1);
+    const shape = result[0];
+
+    // Required public fields must be present
+    expect(shape.id).toBe("t1");
+    expect(shape.title).toBe("Topic t1");
+    expect(shape.slug).toBe("topic-t1");
+    expect(shape.board).toEqual({ name: "General", slug: "general" });
+    expect(shape.author).toEqual({ username: "alice", displayName: "Alice Doe" });
+    expect(shape.lastPostAt).toEqual(new Date("2024-03-15"));
+    expect(shape.createdAt).toEqual(new Date("2024-01-20"));
+
+    // Internal fields must NOT be present on the shape
+    expect(shape).not.toHaveProperty("authorUserId");
+    expect(shape).not.toHaveProperty("boardId");
+    expect(shape).not.toHaveProperty("isLocked");
+    expect(shape).not.toHaveProperty("isPinned");
+    expect(shape).not.toHaveProperty("body");
+    expect(shape).not.toHaveProperty("replyCount");
+    expect(shape).not.toHaveProperty("deletedAt");
+    expect(shape).not.toHaveProperty("updatedAt");
+    // Board stub must not include internal fields
+    expect(shape.board).not.toHaveProperty("id");
+    expect(shape.board).not.toHaveProperty("visibility");
+    // Author stub must not include internal fields
+    expect(shape.author).not.toHaveProperty("email");
+    expect(shape.author).not.toHaveProperty("globalRole");
+    expect(shape.author).not.toHaveProperty("id");
+  });
+
+  it("returns topic with lastPostAt null when topic has never received a post", async () => {
+    const publicBoard = makePublicSiteBoard("board-pub-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([publicBoard]);
+    const topic = makeTopicStub("t2", { lastPostAt: null });
+    const qb = makeQbWithTopics([topic]);
+    const createQbSpy = vi.fn().mockReturnValue(qb);
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    const result = await service.listRecentTopics({});
+    expect(result[0].lastPostAt).toBeNull();
   });
 });
