@@ -165,8 +165,9 @@ Redis, implement `IThrottleStore` and replace the `THROTTLE_STORE` provider in
 without double-counting. The following are counted:
 
 - Markdown-syntax links `[text](destination)` — destination may use any scheme.
-- Bare `http://` and `https://` URLs outside Markdown link syntax.
-- Bare `ftp://`, `mailto:`, and `tel:` URIs (evasion-scheme detection).
+- Bare `http://` and `https://` URLs at a word boundary outside Markdown link syntax.
+- Bare `ftp://`, `mailto:`, and `tel:` URIs at a word boundary (evasion-scheme detection;
+  scheme substrings inside larger words such as `hotel:` or `motel:` are not counted).
 - Bare `www.`-prefixed hosts at a word boundary.
 
 The scanner is linear-time (indexOf-based, no backtracking regex on
