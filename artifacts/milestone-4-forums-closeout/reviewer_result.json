@@ -1,0 +1,18 @@
+{
+  "artifact_file_paths": [
+    "artifacts/milestone-4-forums-closeout/reviewer_report.md",
+    "artifacts/milestone-4-forums-closeout/reviewer_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms4a",
+  "final_outcome": "CONDITIONAL PASS",
+  "follow_up_feature_requests": [
+    "Refresh the global site chrome to Milestone 4: update apps/web/app/layout.tsx so the header brand eyebrow ('Milestone 3 Content Platform'), the root metadata.description ('...Star Frontiers US Milestone 3 content platform.'), and the footer text ('Built for the Milestone 3 content launch baseline.') reflect the Milestone 4 feature set, consistent with the already-refreshed landing page (apps/web/app/page.tsx) and docs/features/web-shell.md. Include a layout/public-shell spec assertion that no 'Milestone 3' string remains in user-visible chrome, and update web-shell.md's header/layout description (currently still 'Milestone 3 Content Platform') to match. Scope: branding/copy only; no behavior change. Traceable to closeout WARNING (layout.tsx not in any CO allowed-files list).",
+    "(Optional, low priority) Forums recent-feed query hardening: as a defense-in-depth second layer, push the public-board predicate into the listRecentTopics JOIN/WHERE in addition to the existing public-board-id allow-list, per the two informational NOTES carried out of CO5. The current allow-list already prevents any leak, so this is a hardening preference, not a defect fix.",
+    "(Bookkeeping, planner only) On the next planning cycle, mark plans/milestone-4-forums-closeout-plan.md COMPLETE and relocate it under plans/completed/ alongside the other finished milestones, per the documented plan-lifecycle convention."
+  ],
+  "note_finding_count": 3,
+  "status": "completed",
+  "task_id": "milestone-4-forums-closeout",
+  "warning_finding_count": 1
+}
