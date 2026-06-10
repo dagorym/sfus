@@ -112,6 +112,9 @@ export interface PublicAuthorShape {
  * Public-safe topic shape returned from topic list and topic detail.
  * Omits authorUserId (internal FK), boardId (implicit from URL), isLocked,
  * movedByUserId, movedAt, lockedByUserId, lockedAt, deletedAt.
+ *
+ * lastPostAuthor: the author of the most recent non-deleted reply to this topic,
+ * or null when the topic has no non-deleted replies. Resolved at query time.
  */
 export interface PublicTopicShape {
   id: string;
@@ -122,6 +125,7 @@ export interface PublicTopicShape {
   replyCount: number;
   lastPostAt: Date | null;
   author: PublicAuthorShape;
+  lastPostAuthor: PublicAuthorShape | null;
   createdAt: Date;
   updatedAt: Date;
 }

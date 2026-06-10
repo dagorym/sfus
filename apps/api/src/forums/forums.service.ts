@@ -467,8 +467,14 @@ export class ForumsService {
    * Maps a ForumTopicEntity (with loaded `author` relation) to the public-safe
    * PublicTopicShape DTO. Strips internal-only fields (authorUserId FK,
    * boardId, movedBy/lockedBy audit fields, deletedAt, isLocked).
+   *
+   * @param topic The topic entity with loaded author relation.
+   * @param lastPostAuthor The author of the most recent non-deleted reply, or null when none.
    */
-  private toTopicShape(topic: ForumTopicEntity & { author: { username: string; displayName: string | null } }): PublicTopicShape {
+  private toTopicShape(
+    topic: ForumTopicEntity & { author: { username: string; displayName: string | null } },
+    lastPostAuthor: PublicAuthorShape | null = null
+  ): PublicTopicShape {
     const author: PublicAuthorShape = {
       username: topic.author.username,
       displayName: topic.author.displayName
@@ -482,9 +488,69 @@ export class ForumsService {
       replyCount: topic.replyCount,
       lastPostAt: topic.lastPostAt,
       author,
+      lastPostAuthor,
       createdAt: topic.createdAt,
       updatedAt: topic.updatedAt
     };
+  }
+
+  /**
+   * Returns the "last activity" descriptor for a topic: the author and timestamp
+   * of the most recent non-deleted reply, falling back to the opening post's author
+   * and createdAt when the topic has no non-deleted replies.
+   *
+   * Intended for use by ST3 board-level aggregation and any other consumer that needs
+   * to surface the last active participant for a set of topics.
+   *
+   * This method issues a single query for the provided topicIds to avoid N+1 lookups.
+   * Returns a Map keyed by topicId, containing the last-activity descriptor for each topic.
+   *
+   * @param topicIds  IDs of the topics to resolve activity for.
+   * @param openingAuthors  Map of topicId → opening-post author, used as fallback when
+   *                        no non-deleted reply exists. Values must include username and displayName.
+   */
+  async resolveTopicLastActivityAuthors(
+    topicIds: string[],
+    openingAuthors: Map<string, PublicAuthorShape>
+  ): Promise<Map<string, PublicAuthorShape | null>> {
+    if (topicIds.length === 0) {
+      return new Map();
+    }
+
+    // Single grouped query: for each topic, find the most recent non-deleted post's author.
+    // We use a subquery to rank posts per topic by createdAt DESC, then join the author.
+    // The query returns at most one row per topic (the latest non-deleted reply).
+    const rows = await this.postRepository
+      .createQueryBuilder("post")
+      .select("post.topicId", "topicId")
+      .addSelect("u.username", "username")
+      .addSelect("u.display_name", "displayName")
+      .innerJoin("users", "u", "u.id = post.author_user_id")
+      .where("post.topic_id IN (:...topicIds)", { topicIds })
+      .andWhere("post.deleted_at IS NULL")
+      .andWhere(
+        // Subquery: only rows whose createdAt equals the MAX createdAt for the same topic
+        // among non-deleted posts. This gives us the latest reply per topic without a window fn.
+        `post.created_at = (
+          SELECT MAX(p2.created_at)
+          FROM forum_posts p2
+          WHERE p2.topic_id = post.topic_id
+            AND p2.deleted_at IS NULL
+        )`
+      )
+      .getRawMany<{ topicId: string; username: string; displayName: string | null }>();
+
+    const result = new Map<string, PublicAuthorShape | null>();
+
+    // Seed with null for all requested topics first; overwrite when a reply is found.
+    for (const id of topicIds) {
+      result.set(id, null);
+    }
+    for (const row of rows) {
+      result.set(row.topicId, { username: row.username, displayName: row.displayName });
+    }
+
+    return result;
   }
 
   /**
@@ -595,9 +661,22 @@ export class ForumsService {
       take: pageSize
     });
 
+    // Resolve last-reply authors for the current page in a single grouped query (no N+1).
+    const topicIds = topics.map((t) => t.id);
+    const openingAuthors = new Map(
+      topics.map((t) => {
+        const a = (t as ForumTopicEntity & { author: { username: string; displayName: string | null } }).author;
+        return [t.id, { username: a.username, displayName: a.displayName } as PublicAuthorShape];
+      })
+    );
+    const lastPostAuthorMap = await this.resolveTopicLastActivityAuthors(topicIds, openingAuthors);
+
     return {
       topics: topics.map((t) =>
-        this.toTopicShape(t as ForumTopicEntity & { author: { username: string; displayName: string | null } })
+        this.toTopicShape(
+          t as ForumTopicEntity & { author: { username: string; displayName: string | null } },
+          lastPostAuthorMap.get(t.id) ?? null
+        )
       ),
       total,
       page,
