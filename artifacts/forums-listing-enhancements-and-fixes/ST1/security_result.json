@@ -1,0 +1,27 @@
+{
+  "artifact_file_paths": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST1/security_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST1/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "forums-listing-st1-security-20260610",
+  "documentation_sufficiency_summary": [
+    "SUFFICIENT.",
+    "docs/features/forums.md now states the sort order as `lastPostAt DESC` then `createdAt DESC`, explicitly notes MySQL orders NULLs last natively under DESC, and explains that `NULLS LAST` is a PostgreSQL extension that causes a MySQL 1064 parse error \u2014 accurately capturing the root cause and the fix.",
+    "The doc adds an explicit Defense-in-depth bullet describing the boardId IN (...) predicate as supplementing the isBoardPubliclyReadable allow-list (both gates must pass), and retains the oracle-parity statement that the no-public-boards path returns [] without issuing a query so callers cannot infer excluded boards/topics.",
+    "In-code comments at ~lines 806 and 837-840 were corrected to match (removing the stale '(NULLS LAST)' wording). No operational/runbook gap relevant to this change."
+  ],
+  "note_finding_count": 2,
+  "outcome": "PASS",
+  "pass_label": "PASS",
+  "status": "complete",
+  "task_id": "forums-listing-enhancements-and-fixes/ST1",
+  "test_sufficiency_summary": [
+    "SUFFICIENT for the security-sensitive behavior of ST1.",
+    "Unit suite forums.service.test.ts: 150/150 pass. The diff only (a) updates the prior ordering assertion from a 3-arg .orderBy(...,\"NULLS LAST\") to the 2-arg form, and (b) adds a positive regression guard asserting orderBy/addOrderBy are each called exactly once with exactly two arguments (third arg undefined) \u2014 catching any reintroduction of a NULLS LAST/FIRST NullsOrder literal at the mocked-unit level.",
+    "The pre-existing visibility-exclusion coverage (CO5 AC2 'excludes non-public boards', empty-list/no-public-activity, public-safe shape) is untouched and was not weakened or bypassed by the diff.",
+    "New integration spec forums.service.integration.test.ts is opt-in gated by SFUS_DB_INTEGRATION=1 and skips cleanly otherwise (default `test` gate unaffected). It instantiates the real ForumsService with a real AuthorizationService and real repositories against a genuinely public site-scoped board \u2014 it does not stub or bypass isBoardPubliclyReadable. This is the correct dialect-level regression guard for the 1064 defect.",
+    "Residual gap is non-blocking (see NOTE on integration negative coverage)."
+  ],
+  "warning_finding_count": 0
+}
