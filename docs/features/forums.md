@@ -120,7 +120,7 @@ No authentication required. Returns the most-recently-active publicly-visible to
 |---|---|---|---|
 | `limit` | `5` | 1–20; hard-capped at 20 | Maximum number of topics to return. Non-numeric or non-finite values (e.g. `abc`, empty string, `NaN`, `Infinity`) coerce to the default (5) and never produce an error. |
 
-**Sort order:** `lastPostAt DESC NULLS LAST`, then `createdAt DESC`.
+**Sort order:** `lastPostAt DESC` then `createdAt DESC`. MySQL places NULL values last natively under DESC ordering; no `NULLS LAST` literal is used (it is a PostgreSQL extension that causes a MySQL 1064 parse error).
 
 Only non-deleted topics (`deletedAt IS NULL`) from site-scoped, publicly-readable boards are returned.
 
@@ -147,6 +147,7 @@ Public-safe minimal shape. All internal-only fields are stripped: `authorUserId`
 - All publicly-readable boards are determined by fetching all boards and filtering through `isBoardPubliclyReadable`, which routes every visibility decision through `AuthorizationService.evaluate()` with an anonymous actor. No inline re-derived predicate.
 - Topics in non-publicly-readable boards (`members`, `private`) and project-scoped boards are excluded.
 - When no publicly-readable boards exist, the service returns `[]` immediately **without** issuing a topic query. Callers receive a uniform empty list — they cannot infer the existence of any excluded boards or topics from the response (oracle parity, P12).
+- **Defense-in-depth:** the topic query additionally carries a `boardId IN (...)` predicate derived from the same public-board allow-list. This supplements the allow-list filter; both gates must pass for a topic to be returned.
 
 ## Topic routes (ST4)
 
