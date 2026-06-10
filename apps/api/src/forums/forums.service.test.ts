@@ -2814,3 +2814,329 @@ describe("ForumsService.listRecentTopics (CO5: AC4 — malformed limit coerces t
     expect(takeArg).toBe(5);
   });
 });
+
+// ---------------------------------------------------------------------------
+// ST2: resolveTopicLastActivityAuthors — last-reply author resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a chainable raw QueryBuilder stub for the post repository.
+ * Supports select(), addSelect(), innerJoin(), where(), andWhere(), getRawMany().
+ * getRawMany returns the provided rows.
+ */
+const makeRawQb = (rows: Array<{ topicId: string; username: string; displayName: string | null }>) => {
+  const qb: Record<string, ReturnType<typeof vi.fn>> = {};
+  const chainMethods = ["select", "addSelect", "innerJoin", "where", "andWhere"];
+  for (const m of chainMethods) {
+    qb[m] = vi.fn().mockReturnValue(qb);
+  }
+  qb["getRawMany"] = vi.fn().mockResolvedValue(rows);
+  return qb;
+};
+
+/**
+ * Creates a ForumsService with a custom post repository whose createQueryBuilder
+ * returns the given raw QueryBuilder stub.
+ */
+const makeServiceWithPostQb = (
+  rawQb: ReturnType<typeof makeRawQb>,
+  boardOverrides?: Partial<MinimalRepo>
+) => {
+  const authorizationService = new AuthorizationService();
+  const catRepo = createMinimalRepository();
+  const brdRepo = { ...createMinimalRepository(), ...boardOverrides };
+  const tpcRepo = createMinimalRepository();
+  const pstRepo = { ...createMinimalRepository(), createQueryBuilder: vi.fn().mockReturnValue(rawQb) };
+  return new ForumsService(
+    catRepo as never,
+    brdRepo as never,
+    tpcRepo as never,
+    pstRepo as never,
+    authorizationService
+  );
+};
+
+describe("ForumsService.resolveTopicLastActivityAuthors (ST2: AC5 — method signature and empty input)", () => {
+  // AC5: method exists on ForumsService and is callable with (topicIds, openingAuthors)
+  it("method exists on ForumsService and returns a Map", async () => {
+    const service = makeForumsService();
+    expect(typeof (service as unknown as Record<string, unknown>)["resolveTopicLastActivityAuthors"]).toBe("function");
+    const result = await service.resolveTopicLastActivityAuthors([], new Map());
+    expect(result).toBeInstanceOf(Map);
+  });
+
+  // Empty topicIds → returns empty Map immediately, no DB call
+  it("returns empty Map immediately for empty topicIds array (no DB query)", async () => {
+    const getRawManySpy = vi.fn();
+    const qb = makeRawQb([]);
+    qb["getRawMany"] = getRawManySpy;
+    const service = makeServiceWithPostQb(qb);
+    const result = await service.resolveTopicLastActivityAuthors([], new Map());
+    expect(result).toBeInstanceOf(Map);
+    expect(result.size).toBe(0);
+    expect(getRawManySpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("ForumsService.resolveTopicLastActivityAuthors (ST2: AC2 — non-deleted reply author)", () => {
+  // AC2: topic with one non-deleted reply → lastPostAuthor = that reply's author
+  it("returns the reply author for a topic with one non-deleted reply", async () => {
+    const rows = [{ topicId: "topic-1", username: "replyuser", displayName: "Reply User" }];
+    const qb = makeRawQb(rows);
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([["topic-1", { username: "opener", displayName: "Opener" }]]);
+    const result = await service.resolveTopicLastActivityAuthors(["topic-1"], openingAuthors);
+    expect(result.get("topic-1")).toEqual({ username: "replyuser", displayName: "Reply User" });
+  });
+
+  // AC2: most recent non-deleted reply author (multiple topics)
+  it("returns correct last-reply authors for each topic when multiple topics are queried", async () => {
+    const rows = [
+      { topicId: "topic-A", username: "userA", displayName: "User A" },
+      { topicId: "topic-B", username: "userB", displayName: null }
+    ];
+    const qb = makeRawQb(rows);
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([
+      ["topic-A", { username: "openerA", displayName: null }],
+      ["topic-B", { username: "openerB", displayName: "Opener B" }]
+    ]);
+    const result = await service.resolveTopicLastActivityAuthors(["topic-A", "topic-B"], openingAuthors);
+    expect(result.get("topic-A")).toEqual({ username: "userA", displayName: "User A" });
+    expect(result.get("topic-B")).toEqual({ username: "userB", displayName: null });
+  });
+});
+
+describe("ForumsService.resolveTopicLastActivityAuthors (ST2: AC3+AC4 — null when no non-deleted replies)", () => {
+  // AC3: topic with no replies at all → lastPostAuthor is null
+  it("returns null for a topic that has no replies (query returns no rows for that topicId)", async () => {
+    const qb = makeRawQb([]); // no rows returned
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([["topic-no-replies", { username: "opener", displayName: null }]]);
+    const result = await service.resolveTopicLastActivityAuthors(["topic-no-replies"], openingAuthors);
+    expect(result.get("topic-no-replies")).toBeNull();
+  });
+
+  // AC3+AC4: all replies soft-deleted → query returns no rows → lastPostAuthor is null
+  // (The SQL filters deleted_at IS NULL; the unit test stubs that filtered result.)
+  it("returns null when all replies are soft-deleted (query returns no rows after soft-delete filter)", async () => {
+    const qb = makeRawQb([]); // soft-deleted replies filtered out by the SQL
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([["topic-soft-deleted-replies", { username: "opener", displayName: "Opener" }]]);
+    const result = await service.resolveTopicLastActivityAuthors(["topic-soft-deleted-replies"], openingAuthors);
+    expect(result.get("topic-soft-deleted-replies")).toBeNull();
+  });
+
+  // AC4: SQL filters soft-deleted posts — verify deleted_at IS NULL appears in the andWhere call
+  it("issues andWhere with 'deleted_at IS NULL' (or equivalent) to exclude soft-deleted posts (AC4: SQL filter present)", async () => {
+    const qb = makeRawQb([]);
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([["topic-1", { username: "opener", displayName: null }]]);
+    await service.resolveTopicLastActivityAuthors(["topic-1"], openingAuthors);
+    // The implementation uses `post.deleted_at IS NULL` in the andWhere clause.
+    const andWhereCalls = (qb["andWhere"].mock.calls as unknown[][]).map((c) => String(c[0]));
+    const hasDeletedAtFilter = andWhereCalls.some((s) => s.includes("deleted_at IS NULL"));
+    expect(hasDeletedAtFilter).toBe(true);
+  });
+
+  // Mixed: some topics have replies, some do not → map contains correct mix of author/null
+  it("returns mixed map: non-null for topics with replies, null for topics without", async () => {
+    const rows = [{ topicId: "topic-with-reply", username: "replier", displayName: "Replier" }];
+    const qb = makeRawQb(rows);
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([
+      ["topic-with-reply", { username: "opener1", displayName: null }],
+      ["topic-no-reply", { username: "opener2", displayName: "Opener 2" }]
+    ]);
+    const result = await service.resolveTopicLastActivityAuthors(
+      ["topic-with-reply", "topic-no-reply"],
+      openingAuthors
+    );
+    expect(result.get("topic-with-reply")).toEqual({ username: "replier", displayName: "Replier" });
+    expect(result.get("topic-no-reply")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST2: listTopics — lastPostAuthor field enrichment
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.listTopics (ST2: AC1 — lastPostAuthor field present in topic shape)", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+
+  const makePublicBoard = () => ({
+    id: "board-pub",
+    name: "Public Board",
+    slug: "public-board",
+    description: null,
+    sortOrder: 0,
+    scopeType: "site",
+    visibility: "public",
+    projectId: null,
+    categoryId: "cat-1",
+    createdAt: now,
+    updatedAt: now
+  });
+
+  const makeTopicEntity = (id: string, authorUsername: string) => ({
+    id,
+    boardId: "board-pub",
+    authorUserId: "user-1",
+    title: `Topic ${id}`,
+    slug: `topic-${id}`,
+    body: "Body text",
+    isPinned: false,
+    isLocked: false,
+    replyCount: 1,
+    lastPostAt: now,
+    movedByUserId: null,
+    movedAt: null,
+    lockedByUserId: null,
+    lockedAt: null,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    author: { username: authorUsername, displayName: `Display ${authorUsername}` }
+  });
+
+  // AC1: lastPostAuthor field is present on all topic items in the listTopics response
+  it("topic items in listTopics response include lastPostAuthor field (AC1: field present)", async () => {
+    const topicEntity = makeTopicEntity("topic-list-1", "topicauthor");
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicFindAndCountSpy = vi.fn().mockResolvedValue([[topicEntity], 1]);
+    // Post repo: one reply author returned
+    const rawQb = makeRawQb([{ topicId: "topic-list-1", username: "replyauthor", displayName: "Reply Author" }]);
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      { ...createMinimalRepository(), findOne: boardFindOneSpy } as never,
+      { ...createMinimalRepository(), findAndCount: topicFindAndCountSpy } as never,
+      { ...createMinimalRepository(), createQueryBuilder: vi.fn().mockReturnValue(rawQb) } as never,
+      new AuthorizationService()
+    );
+    const result = await service.listTopics("board-pub", {});
+    expect(result.topics).toHaveLength(1);
+    expect(result.topics[0]).toHaveProperty("lastPostAuthor");
+  });
+
+  // AC2: lastPostAuthor = most recent non-deleted reply author when replies exist
+  it("lastPostAuthor equals the most recent non-deleted reply author (AC2: non-null value)", async () => {
+    const topicEntity = makeTopicEntity("topic-has-reply", "topicauthor");
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicFindAndCountSpy = vi.fn().mockResolvedValue([[topicEntity], 1]);
+    const rawQb = makeRawQb([{ topicId: "topic-has-reply", username: "lastreplyuser", displayName: "Last Reply" }]);
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      { ...createMinimalRepository(), findOne: boardFindOneSpy } as never,
+      { ...createMinimalRepository(), findAndCount: topicFindAndCountSpy } as never,
+      { ...createMinimalRepository(), createQueryBuilder: vi.fn().mockReturnValue(rawQb) } as never,
+      new AuthorizationService()
+    );
+    const result = await service.listTopics("board-pub", {});
+    const topic = result.topics[0];
+    expect(topic.lastPostAuthor).not.toBeNull();
+    expect(topic.lastPostAuthor?.username).toBe("lastreplyuser");
+    expect(topic.lastPostAuthor?.displayName).toBe("Last Reply");
+  });
+
+  // AC3: lastPostAuthor is null when topic has no non-deleted replies
+  it("lastPostAuthor is null when topic has no non-deleted replies (AC3: null value)", async () => {
+    const topicEntity = makeTopicEntity("topic-no-replies", "topicauthor");
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicFindAndCountSpy = vi.fn().mockResolvedValue([[topicEntity], 1]);
+    // No rows returned from query — all replies soft-deleted or no replies
+    const rawQb = makeRawQb([]);
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      { ...createMinimalRepository(), findOne: boardFindOneSpy } as never,
+      { ...createMinimalRepository(), findAndCount: topicFindAndCountSpy } as never,
+      { ...createMinimalRepository(), createQueryBuilder: vi.fn().mockReturnValue(rawQb) } as never,
+      new AuthorizationService()
+    );
+    const result = await service.listTopics("board-pub", {});
+    const topic = result.topics[0];
+    expect(topic.lastPostAuthor).toBeNull();
+  });
+
+  // AC4: soft-deleted replies are ignored — the query stub returns empty, confirming soft-delete filter
+  it("lastPostAuthor is null when latest reply is soft-deleted (AC4: soft-delete ignored)", async () => {
+    // Latest reply is soft-deleted: the SQL filter excludes it → no rows returned for this topic
+    const topicEntity = makeTopicEntity("topic-latest-soft-deleted", "topicauthor");
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicFindAndCountSpy = vi.fn().mockResolvedValue([[topicEntity], 1]);
+    // Simulates the SQL correctly filtering out the soft-deleted latest reply
+    const rawQb = makeRawQb([]);
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      { ...createMinimalRepository(), findOne: boardFindOneSpy } as never,
+      { ...createMinimalRepository(), findAndCount: topicFindAndCountSpy } as never,
+      { ...createMinimalRepository(), createQueryBuilder: vi.fn().mockReturnValue(rawQb) } as never,
+      new AuthorizationService()
+    );
+    const result = await service.listTopics("board-pub", {});
+    expect(result.topics[0].lastPostAuthor).toBeNull();
+  });
+
+  // AC1: shape check — lastPostAuthor includes username and displayName when non-null
+  it("lastPostAuthor shape includes username and displayName fields when non-null (AC1: shape)", async () => {
+    const topicEntity = makeTopicEntity("topic-shape-check", "opener");
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicFindAndCountSpy = vi.fn().mockResolvedValue([[topicEntity], 1]);
+    const rawQb = makeRawQb([{ topicId: "topic-shape-check", username: "replier", displayName: null }]);
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      { ...createMinimalRepository(), findOne: boardFindOneSpy } as never,
+      { ...createMinimalRepository(), findAndCount: topicFindAndCountSpy } as never,
+      { ...createMinimalRepository(), createQueryBuilder: vi.fn().mockReturnValue(rawQb) } as never,
+      new AuthorizationService()
+    );
+    const result = await service.listTopics("board-pub", {});
+    const lpa = result.topics[0].lastPostAuthor;
+    expect(lpa).not.toBeNull();
+    expect(lpa).toHaveProperty("username");
+    expect(lpa).toHaveProperty("displayName");
+    expect(lpa!.username).toBe("replier");
+    expect(lpa!.displayName).toBeNull();
+  });
+
+  // Empty page: no topics → no crash, empty array returned, lastPostAuthor resolution skipped
+  it("empty page: no topics → no crash, empty array returned (AC3 edge: empty page)", async () => {
+    const boardFindOneSpy = vi.fn().mockResolvedValue(makePublicBoard());
+    const topicFindAndCountSpy = vi.fn().mockResolvedValue([[], 0]);
+    const getRawManySpy = vi.fn();
+    const rawQb = makeRawQb([]);
+    rawQb["getRawMany"] = getRawManySpy;
+    const service = new ForumsService(
+      createMinimalRepository() as never,
+      { ...createMinimalRepository(), findOne: boardFindOneSpy } as never,
+      { ...createMinimalRepository(), findAndCount: topicFindAndCountSpy } as never,
+      { ...createMinimalRepository(), createQueryBuilder: vi.fn().mockReturnValue(rawQb) } as never,
+      new AuthorizationService()
+    );
+    const result = await service.listTopics("board-pub", {});
+    expect(result.topics).toHaveLength(0);
+    expect(result.total).toBe(0);
+    // When topicIds is empty, resolveTopicLastActivityAuthors returns early — getRawMany must not be called
+    expect(getRawManySpy).not.toHaveBeenCalled();
+  });
+
+  // AC6 board visibility oracle parity: nonexistent board → 404 TOPIC_NOT_FOUND_MESSAGE (unchanged)
+  it("nonexistent board → 404 with TOPIC_NOT_FOUND_MESSAGE (AC6: oracle parity unchanged)", async () => {
+    const service = makeForumsService(undefined, { findOne: vi.fn().mockResolvedValue(null) });
+    await expect(service.listTopics("board-missing", {})).rejects.toThrow(
+      ForumsService.TOPIC_NOT_FOUND_MESSAGE
+    );
+  });
+
+  // AC6: gated board (members visibility) → identical 404 oracle parity (unchanged)
+  it("gated board (members visibility) → identical TOPIC_NOT_FOUND_MESSAGE as nonexistent (AC6: oracle parity)", async () => {
+    const gatedBoard = { ...makePublicBoard(), visibility: "members" };
+    const gatedService = makeForumsService(undefined, { findOne: vi.fn().mockResolvedValue(gatedBoard) });
+    const missingService = makeForumsService(undefined, { findOne: vi.fn().mockResolvedValue(null) });
+    let gatedMsg = "";
+    let missingMsg = "";
+    try { await gatedService.listTopics("board-gated", {}); } catch (e: unknown) { gatedMsg = (e as Error).message; }
+    try { await missingService.listTopics("board-missing", {}); } catch (e: unknown) { missingMsg = (e as Error).message; }
+    expect(gatedMsg).toBe(missingMsg);
+    expect(gatedMsg).toBe(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
+  });
+});
