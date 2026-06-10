@@ -1,0 +1,62 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST3 — Add per-board aggregate stats (topicCount, postCount, lastPost) to the public categories API. Each publicly-readable board in the listPublicCategories response now includes topicCount (non-deleted topics), postCount (non-deleted topics + non-deleted replies), and lastPost (most-recent activity via resolveTopicLastActivity, or null for empty boards). Soft-deleted and non-public/project boards are excluded.
+
+Acceptance criteria validated:
+- AC1: topicCount = number of non-deleted topics in that board — PASS (listPublicCategories and getPublicBoard)
+- AC2: postCount = topicCount + non-deleted reply count — PASS (listPublicCategories and getPublicBoard)
+- AC3: Soft-delete exclusion: soft-deleted topics and replies excluded from both counts and lastPost — PASS
+- AC4: Non-public/project board exclusion: boards with visibility != public or scopeType == project are absent — PASS (existing coverage + regression guard)
+- AC5: Empty-board lastPost = null, topicCount = 0, postCount = 0 — PASS (listPublicCategories and getPublicBoard)
+- AC6: lastPost reply case: reply author is lastPost.author, lastPost.at is topic.lastPostAt ISO string — PASS
+- AC7: lastPost opening-post fallback: opening-post author and topic.createdAt ISO string when no replies — PASS
+- AC8: lastPost shape exactly { at: string, author: { username, displayName | null } } — PASS
+- AC9: lint, typecheck, and forums suite all pass (0 failures) — PASS (197 tests, 0 failures)
+
+Implementation branch or worktree context:
+- Branch: forums-listing-st3-tester-20260610 (worktree at /home/tstephen/repos/worktrees/forums-listing-st3-tester-20260610)
+- Implementer commits: 41f86c0, 02cad2e on top of 7d3e91d
+- Tester commit: 6bdde2b
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/forums/forums.types.ts (ST3: BoardLastPostShape, PublicBoardShape with topicCount/postCount/lastPost)
+- apps/api/src/forums/forums.service.ts (ST3: listPublicCategories and getPublicBoard aggregate logic)
+- apps/api/src/forums/forums.service.test.ts (Tester: 23 new ST3 aggregate tests + groupBy/getRawOne stub fix)
+
+Test commit:
+- 6bdde2b
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/forums-listing-st3-tester-20260610 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/forums-listing-st3-tester-20260610 lint
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/forums-listing-st3-tester-20260610 typecheck
+
+Final test outcomes:
+- 197 tests pass (174 pre-existing + 23 new ST3 aggregate tests), 0 failures
+- lint: 0 warnings, 0 errors across apps/api and apps/web
+- typecheck: 0 errors across apps/api and apps/web
+- AC1-AC8 covered by dedicated tests in both listPublicCategories and getPublicBoard paths
+- Minimal repo stub extended with groupBy and getRawOne chain methods for ST3 aggregate query compatibility
+
+Documentation context:
+- New PublicBoardShape fields (topicCount, postCount, lastPost) now part of the GET /forums response — may warrant API docs update
+- BoardLastPostShape type is new; describes { at: string, author: { username, displayName } }
+- docs/features/ forums documentation may need updating to reflect per-board aggregate stats
+- The lastPost field uses ISO-8601 string (not a Date) in the JSON response
+
+Plan and diff context:
+- Plan: forums-listing-enhancements-and-fixes; ST3 is the third subtask in that plan
+- Compare worktree branch against its implementer base (commit 7d3e91d or earlier plan branch head)
+- Key additions: toBoardShape second stats param; listPublicCategories batches 3 queries; getPublicBoard single-board aggregate
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/forums-listing-enhancements-and-fixes/ST3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
