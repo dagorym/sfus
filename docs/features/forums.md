@@ -242,9 +242,12 @@ Only non-deleted topics (`deletedAt IS NULL`) are returned.
 | `isPinned` | boolean | |
 | `replyCount` | number | Count of non-deleted replies |
 | `lastPostAt` | `Date \| null` | Set on first reply; null for topics with no replies |
-| `author` | `PublicAuthorShape` | `username` and `displayName` only |
+| `author` | `PublicAuthorShape` | `username` and `displayName` only; opening-post author |
+| `lastPostAuthor` | `PublicAuthorShape \| null` | Author of the most recent non-deleted reply; `null` when the topic has no non-deleted replies (i.e. `replyCount === 0` or all replies are soft-deleted). Resolved in a single batched query per page — no N+1 lookup. |
 | `createdAt` | Date | |
 | `updatedAt` | Date | |
+
+`resolveTopicLastActivityAuthors` — a reusable `ForumsService` method that accepts a list of topic IDs and an opening-author map (topicId → `PublicAuthorShape`) and returns a `Map<topicId, PublicAuthorShape | null>` indicating the last-reply author for each topic. A single grouped SQL query (no window functions) fetches the latest non-deleted post per topic, joined to the `users` table. Soft-deleted posts are excluded (`deletedAt IS NULL`). Returns `null` for topics that have no non-deleted replies. Intended as a shared primitive for the public topic list (ST2) and board-level aggregate columns (ST3).
 
 ### Oracle parity for topic routes (P12)
 
