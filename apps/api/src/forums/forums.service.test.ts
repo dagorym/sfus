@@ -2521,8 +2521,8 @@ describe("ForumsService.listRecentTopics (CO5: AC1 — default limit 5, hard cap
   });
 });
 
-describe("ForumsService.listRecentTopics (CO5: AC1 — ordering lastPostAt DESC NULLS LAST then createdAt DESC)", () => {
-  it("passes ORDER BY lastPostAt DESC NULLS LAST to the query builder", async () => {
+describe("ForumsService.listRecentTopics (CO5: AC1 — ordering lastPostAt DESC then createdAt DESC)", () => {
+  it("passes ORDER BY lastPostAt DESC to the query builder (MySQL handles NULLs last natively)", async () => {
     const publicBoard = makePublicSiteBoard("board-pub-1");
     const boardFindSpy = vi.fn().mockResolvedValue([publicBoard]);
     const qb = makeQbWithTopics([]);
@@ -2533,7 +2533,7 @@ describe("ForumsService.listRecentTopics (CO5: AC1 — ordering lastPostAt DESC 
       { createQueryBuilder: createQbSpy }
     );
     await service.listRecentTopics({});
-    expect(qb["orderBy"]).toHaveBeenCalledWith("topic.lastPostAt", "DESC", "NULLS LAST");
+    expect(qb["orderBy"]).toHaveBeenCalledWith("topic.lastPostAt", "DESC");
     expect(qb["addOrderBy"]).toHaveBeenCalledWith("topic.createdAt", "DESC");
   });
 });

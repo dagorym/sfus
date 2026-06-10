@@ -803,7 +803,7 @@ export class ForumsService {
    *   Internal-only fields (authorUserId, boardId FK, isLocked, isPinned,
    *   audit cols, deletedAt, body, replyCount) are not included.
    *
-   * Ordering: lastPostAt DESC (nulls last), then createdAt DESC.
+   * Ordering: lastPostAt DESC (MySQL orders NULLs last natively under DESC), then createdAt DESC.
    * Limit: defaults to RECENT_TOPICS_DEFAULT_LIMIT; hard-capped at RECENT_TOPICS_MAX_LIMIT.
    *
    * No authentication required. Always returns a stable list (never throws for
@@ -834,14 +834,17 @@ export class ForumsService {
     }
 
     // Query non-deleted topics in public boards, ordered most-recently-active first.
-    // lastPostAt DESC (NULLS LAST) then createdAt DESC for deterministic ordering.
+    // lastPostAt DESC (MySQL places NULLs last natively under DESC) then createdAt DESC
+    // for deterministic ordering.
+    // Defense-in-depth: boardId IN (...) on the topic row supplements the allow-list
+    // already derived from isBoardPubliclyReadable above; both gates must pass.
     const topics = await this.topicRepository
       .createQueryBuilder("topic")
       .leftJoinAndSelect("topic.author", "author")
       .leftJoinAndSelect("topic.board", "board")
       .where("topic.boardId IN (:...boardIds)", { boardIds: publicBoardIds })
       .andWhere("topic.deletedAt IS NULL")
-      .orderBy("topic.lastPostAt", "DESC", "NULLS LAST")
+      .orderBy("topic.lastPostAt", "DESC")
       .addOrderBy("topic.createdAt", "DESC")
       .take(limit)
       .getMany();
