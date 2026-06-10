@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/verifier_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "forums-listing-st2-verifier-20260610",
+  "documentation_accuracy_summary": [
+    "ACCURATE. docs/features/forums.md documents: TopicLastActivity descriptor (author, at, isReply fields with complete semantics); resolveTopicLastActivity primitive (batched single query, openingAuthors fallback, isReply flag for ST3 reuse, null only when neither reply nor opener entry exists); resolveTopicLastActivityAuthors wrapper (maps isReply:false to null, ST2 contract, directs ST3 to call the primitive directly); lastPostAuthor field on PublicTopicShape (null when replyCount===0 or all replies soft-deleted, username/displayName only \u2014 no email/globalRole, batched resolution, no N+1). The pass-1 doc/implementation gap (docs matched unimplemented null-only return rather than the plan's fallback requirement) is fully resolved \u2014 docs now accurately describe the implemented opening-post fallback behavior."
+  ],
+  "note_finding_count": 1,
+  "pass_label": "pass2",
+  "status": "success",
+  "task_id": "ST2",
+  "test_sufficiency_summary": [
+    "SUFFICIENT. 174/174 tests pass (independently verified from worktree). All six acceptance criteria are covered: (AC1/AC2) lastPostAuthor field presence and non-null reply author in listTopics; (AC3) null when no non-deleted replies; (AC4) soft-delete filter asserted on andWhere call; (AC5) resolveTopicLastActivityAuthors method signature, empty input, reply/no-reply cases, all-soft-deleted; (AC6) oracle-parity 404 for nonexistent and members-gated boards. New tester-added primitive tests (8 tests): isReply=true with reply author (AC-PRIM-1), isReply=false with opening-post fallback (AC-PRIM-2), at=null in fallback, soft-deleted latest reply falls back to opening-post author (AC-PRIM-4), soft-deleted latest reply falls back to next non-deleted reply (AC-PRIM-4), null when neither reply nor opener entry (AC-PRIM-3), empty topicIds returns empty Map with no DB call (AC-PRIM-5), mixed topics scenario. Residual non-blocking gap: the builder/raw SQL is exercised only via a chainable stub; real parameter binding, the correlated MAX subquery, and live soft-delete filtering are validated by source review rather than a live DB integration test (forums.service.integration.test.ts does not yet cover this path). Security properties hold by construction independent of that gap; integration test coverage is a hardening nice-to-have."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
