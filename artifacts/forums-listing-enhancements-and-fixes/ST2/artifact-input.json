@@ -1,0 +1,27 @@
+{
+  "status": "success",
+  "subtask": "ST2",
+  "task_summary": "ST2 remediation: fix unused openingAuthors parameter (W1 lint), extend shared qbStub with raw-query methods to unblock TC11 (W2), and add resolveTopicLastActivity primitive with isReply fallback for ST3 (W3).",
+  "branch_name": "forums-listing-st2-implementer-20260610",
+  "code_commit_hash": "fe2057c",
+  "changed_files": [
+    "apps/api/src/forums/forums.types.ts",
+    "apps/api/src/forums/forums.service.ts",
+    "apps/api/src/forums/forums.service.test.ts"
+  ],
+  "acceptance_criteria": [
+    "Topic items include lastPostAuthor (latest non-deleted reply author, or null when none)",
+    "Reusable primitive resolveTopicLastActivity provides the latest-reply-else-opening-post fallback with isReply flag, ready for ST3",
+    "Soft-deleted posts ignored",
+    "lint, typecheck, and the API forums suite ALL pass (0 failures)"
+  ],
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts",
+    "npx --yes pnpm@10.0.0 lint",
+    "npx --yes pnpm@10.0.0 typecheck"
+  ],
+  "validation_outcome": "PASS — 150/150 tests pass; lint 0 warnings; typecheck 0 errors",
+  "test_location_guidance": "apps/api/src/forums/forums.service.test.ts — existing ST2 tests; new behavioral coverage owned by Tester stage",
+  "implementation_context": "W1/W3: Added TopicLastActivity interface to forums.types.ts with {author, at, isReply}. Added resolveTopicLastActivity method that runs the same single grouped query for latest non-deleted reply authors, then for topics with no reply falls back to openingAuthors map with isReply=false. The existing resolveTopicLastActivityAuthors delegates to this new method and maps isReply?author:null to preserve the null-for-no-reply contract that existing AC3 tests require. W2: Extended the shared qbStub in createMinimalRepository() with select/addSelect/innerJoin (chainable) and getRawMany (resolves to []) — fixes TC11 which calls listTopics with a real post-repo path through the new query builder chain.",
+  "artifact_dir": "artifacts/forums-listing-enhancements-and-fixes/ST2"
+}

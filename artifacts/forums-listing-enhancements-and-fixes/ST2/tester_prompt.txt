@@ -1,0 +1,40 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary: ST2 remediation — fix unused openingAuthors parameter (W1 lint), extend shared qbStub with raw-query methods to unblock TC11 (W2), and add resolveTopicLastActivity primitive with isReply fallback for ST3 (W3).
+
+Modified files:
+- apps/api/src/forums/forums.types.ts
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.service.test.ts
+
+Acceptance criteria to validate (from Planner):
+- Topic items include lastPostAuthor (latest non-deleted reply author, or null when none).
+- Reusable primitive resolveTopicLastActivity provides the latest-reply-else-opening-post fallback with isReply flag, ready for ST3.
+- Soft-deleted posts are ignored.
+- lint, typecheck, and the API forums suite ALL pass (0 failures).
+
+Test file location:
+- apps/api/src/forums/forums.service.test.ts
+
+Implementation context for testing:
+- W1/W3: Added TopicLastActivity interface {author: PublicAuthorShape; at: Date | null; isReply: boolean} to forums.types.ts. Added resolveTopicLastActivity method that runs the same single grouped raw query for the latest non-deleted reply per topic, then for topics with no reply falls back to openingAuthors map with isReply=false. The existing resolveTopicLastActivityAuthors delegates to this new method and maps isReply?author:null to preserve the null-for-no-reply contract required by existing AC3 tests. W2: Extended the shared qbStub in createMinimalRepository() with select/addSelect/innerJoin (chainable) and getRawMany (resolves to []) — fixes TC11 which calls listTopics with the real post-repo query-builder chain.
+- New methods for Tester coverage: resolveTopicLastActivity (public method on ForumsService) with signature (topicIds: string[], openingAuthors: Map<string, PublicAuthorShape>) returning Promise<Map<string, TopicLastActivity | null>>.
+- Behavioral coverage needed: resolveTopicLastActivity opening-post fallback (isReply=false) when no non-deleted replies; resolveTopicLastActivity isReply=true when reply found; listTopics lastPostAuthor present/null; soft-deleted-latest-reply fallback in listTopics; unchanged 404 visibility oracle parity on listTopics.
+
+Suggested test commands:
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when evidence is sufficient, and label those choices as assumptions.
+
+Shared artifact directory:
+- artifacts/forums-listing-enhancements-and-fixes/ST2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
