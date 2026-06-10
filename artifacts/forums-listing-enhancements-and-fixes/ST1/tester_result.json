@@ -1,0 +1,23 @@
+{
+  "artifact_file_paths": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST1/tester_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST1/tester_result.json",
+    "artifacts/forums-listing-enhancements-and-fixes/ST1/documenter_prompt.txt"
+  ],
+  "branch_name": "forums-listing-st1-tester-20260610",
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts",
+    "npx --yes pnpm@10.0.0 lint",
+    "npx --yes pnpm@10.0.0 typecheck"
+  ],
+  "pass_fail_totals": {
+    "failed": 0,
+    "passed": 149
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST1",
+  "test_commit_hash": "No Changes Made",
+  "test_files_changed": [],
+  "unmet_acceptance_criteria": []
+}

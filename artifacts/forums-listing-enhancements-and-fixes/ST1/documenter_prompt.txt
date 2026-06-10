@@ -1,0 +1,58 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST1 — NULLS LAST fix and hardening of the forums recent-topics feed in the NestJS API. The PostgreSQL-only NULLS LAST third argument was removed from orderBy in ForumsService.listRecentTopics; MySQL orders NULLs last natively under DESC. The public-board-id boardId IN predicate was documented as defense-in-depth. Two stale JSDoc comments corrected. One stale test assertion updated by Implementer.
+
+Acceptance criteria validated:
+- GET /api/forums/recent returns 200 with topics ordered lastPostAt DESC (NULLs last) then createdAt DESC; no NULLS LAST / PostgreSQL-only literal remains in any forums query.
+- The recent-feed query carries the public-board-id predicate in WHERE/JOIN as a second layer on top of the allow-list; returned topics are unchanged.
+- Oracle safety preserved: stable empty list with no public activity; non-public/project/soft-deleted excluded.
+- lint, typecheck, and the API forums suite pass.
+
+Implementation branch or worktree context:
+- Branch: forums-listing-st1-tester-20260610
+- Worktree: /home/tstephen/repos/worktrees/forums-listing-st1-tester-20260610
+- Implementer HEAD: e9a7cfbb0cd211b9e94e722e2f3f77d8263cc246
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.service.test.ts
+
+Test commit:
+- No Changes Made
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+
+Final test outcomes:
+- 149/149 unit tests pass in apps/api/src/forums/forums.service.test.ts
+- lint: 0 errors, 0 warnings (both apps/api and apps/web)
+- typecheck: 0 errors (both apps/api and apps/web)
+- AC1 PASS: orderBy("topic.lastPostAt", "DESC") two-argument form confirmed; test at line 2536 verifies two-arg call; no NULLS LAST SQL literal in any forums orderBy call
+- AC2 PASS: boardId IN (:...boardIds) WHERE clause confirmed with defense-in-depth comment; returned topic set unchanged
+- AC3 PASS: Empty list returned when publicBoardIds.length === 0; non-public/project/soft-deleted topics excluded
+- AC4 PASS: lint, typecheck, and API forums suite all pass
+- Security: No NULLS LAST or dialect-specific SQL literals in any forums query path; two JSDoc comment references are documentation-only and not passed to TypeORM
+
+Documentation context:
+- forums.service.ts listRecentTopics now uses two-argument orderBy (MySQL-compatible); JSDoc updated to describe MySQL NULLs-last-under-DESC behavior
+- Defense-in-depth comment added to boardId IN predicate in listRecentTopics
+- docs/features/ may contain a forums feature contract describing recent-topics ordering
+- Any changelog or API documentation noting the dialect-compatibility fix
+
+Plan and diff context:
+- Plan: forums-listing-enhancements-and-fixes, ST1
+- Comparison base: main branch (assumption based on repository conventions)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/forums-listing-enhancements-and-fixes/ST1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
