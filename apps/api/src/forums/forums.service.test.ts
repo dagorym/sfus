@@ -2536,6 +2536,45 @@ describe("ForumsService.listRecentTopics (CO5: AC1 — ordering lastPostAt DESC 
     expect(qb["orderBy"]).toHaveBeenCalledWith("topic.lastPostAt", "DESC");
     expect(qb["addOrderBy"]).toHaveBeenCalledWith("topic.createdAt", "DESC");
   });
+
+  // NULLS-literal regression guard (P4 / ST1 tester mandate).
+  //
+  // WHY: The original implementation passed a "NULLS LAST" literal as a third
+  // argument to orderBy(), which produces a MySQL 1064 parse error because MySQL
+  // does not support the SQL-standard NULLS FIRST/LAST clause. MySQL naturally
+  // places NULL values last under DESC ordering — no literal is needed.
+  //
+  // This test positively asserts that neither orderBy() nor addOrderBy() is called
+  // with a third argument. If a developer reintroduces "NULLS LAST" or "NULLS FIRST"
+  // as the third argument (a NullsOrder enum value from TypeORM), these assertions
+  // will catch it at the mocked-unit level before the change reaches the CI MySQL
+  // environment (where forums.service.integration.test.ts catches dialect failures).
+  it("orderBy and addOrderBy are each called with exactly TWO arguments — no NULLS LAST/FIRST literal (MySQL dialect guard)", async () => {
+    const publicBoard = makePublicSiteBoard("board-pub-1");
+    const boardFindSpy = vi.fn().mockResolvedValue([publicBoard]);
+    const qb = makeQbWithTopics([]);
+    const createQbSpy = vi.fn().mockReturnValue(qb);
+    const service = makeForumsService(
+      undefined,
+      { find: boardFindSpy },
+      { createQueryBuilder: createQbSpy }
+    );
+    await service.listRecentTopics({});
+
+    // orderBy must have been called exactly once with exactly 2 arguments.
+    expect(qb["orderBy"]).toHaveBeenCalledTimes(1);
+    const orderByCall = qb["orderBy"].mock.calls[0] as unknown[];
+    expect(orderByCall).toHaveLength(2);
+    // The third argument, if present, would be a NullsOrder value ("NULLS LAST" / "NULLS FIRST").
+    // Asserting length === 2 guarantees no such argument was passed.
+    expect(orderByCall[2]).toBeUndefined();
+
+    // addOrderBy must have been called exactly once with exactly 2 arguments.
+    expect(qb["addOrderBy"]).toHaveBeenCalledTimes(1);
+    const addOrderByCall = qb["addOrderBy"].mock.calls[0] as unknown[];
+    expect(addOrderByCall).toHaveLength(2);
+    expect(addOrderByCall[2]).toBeUndefined();
+  });
 });
 
 describe("ForumsService.listRecentTopics (CO5: AC2 — excludes non-public boards)", () => {
