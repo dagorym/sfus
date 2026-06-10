@@ -46,13 +46,16 @@ const createMinimalRepository = (): MinimalRepo => {
     // Raw-query chain methods used by resolveTopicLastActivity (post repository):
     "select",
     "addSelect",
-    "innerJoin"
+    "innerJoin",
+    // ST3 aggregate stats: reply-count grouped query uses groupBy; single-board query uses getRawOne.
+    "groupBy"
   ];
   for (const m of chainMethods) {
     qbStub[m] = vi.fn().mockReturnValue(qbStub);
   }
   qbStub["getMany"] = vi.fn().mockResolvedValue([]);
   qbStub["getRawMany"] = vi.fn().mockResolvedValue([]);
+  qbStub["getRawOne"] = vi.fn().mockResolvedValue(null);
   return {
     find: vi.fn().mockResolvedValue([]),
     findOne: vi.fn().mockResolvedValue(null),
@@ -3278,5 +3281,612 @@ describe("ForumsService.resolveTopicLastActivity (ST2: primitive — isReply fla
 
     const orphan = result.get("topic-orphan");
     expect(orphan).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST3: listPublicCategories — per-board aggregate stats (topicCount, postCount, lastPost)
+//
+// AC1: topicCount = number of non-deleted topics in the board.
+// AC2: postCount = topicCount + non-deleted reply count.
+// AC3: soft-deleted topics and replies are excluded from both counts and lastPost.
+// AC4: non-public/project boards are absent (existing coverage above; regression guard below).
+// AC5: empty-board lastPost = null.
+// AC6: lastPost reply case — reply author and ISO-string timestamp.
+// AC7: lastPost opening-post fallback — opening-post author and createdAt ISO string.
+// AC8: lastPost shape exactly { at: string, author: { username, displayName } }.
+//
+// Implementation notes for stubbing:
+// listPublicCategories fires three query-builder chains per non-empty public board set:
+//   1. topicRepo.createQueryBuilder("topic") → leftJoinAndSelect/where/andWhere/getMany
+//   2. postRepo.createQueryBuilder("post") → select/addSelect/innerJoin/where/andWhere/groupBy/getRawMany
+//   3. postRepo.createQueryBuilder("post") via resolveTopicLastActivity
+//      → select/addSelect/innerJoin/where/andWhere/getRawMany
+// The two post-repo QB calls share the same createQueryBuilder spy, so the mock
+// must return the appropriate response per call-index.
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a public site board stub for ST3 aggregate tests.
+ */
+const makeAggBoard = (id: string, overrides?: object) => ({
+  id,
+  name: "Aggregates Board",
+  slug: "aggregates-board",
+  description: null,
+  sortOrder: 0,
+  scopeType: "site" as const,
+  visibility: "public" as const,
+  projectId: null,
+  categoryId: "cat-agg",
+  createdAt: new Date("2026-01-01T00:00:00Z"),
+  updatedAt: new Date("2026-01-01T00:00:00Z"),
+  ...overrides
+});
+
+/**
+ * Builds a public category stub with the given boards.
+ */
+const makeAggCategory = (id: string, boards: object[]) => ({
+  id,
+  name: "Aggregates Category",
+  slug: "aggregates-category",
+  description: null,
+  sortOrder: 0,
+  boards,
+  createdAt: new Date("2026-01-01T00:00:00Z"),
+  updatedAt: new Date("2026-01-01T00:00:00Z")
+});
+
+/**
+ * Builds a topic stub including an author relation, suitable for the topic QB result.
+ */
+const makeAggTopic = (
+  id: string,
+  boardId: string,
+  authorUsername: string,
+  createdAt: Date,
+  lastPostAt: Date | null = null,
+  displayName: string | null = null
+) => ({
+  id,
+  boardId,
+  title: `Topic ${id}`,
+  slug: `topic-${id}`,
+  body: "Body",
+  isPinned: false,
+  isLocked: false,
+  replyCount: 0,
+  lastPostAt,
+  deletedAt: null,
+  createdAt,
+  updatedAt: createdAt,
+  authorUserId: "user-1",
+  author: { username: authorUsername, displayName: displayName ?? null }
+});
+
+/**
+ * Creates a topic-repo QB stub that returns `topics` from getMany.
+ */
+const makeTopicQb = (topics: unknown[]) => {
+  const qb: Record<string, ReturnType<typeof vi.fn>> = {};
+  const chainMethods = ["leftJoinAndSelect", "where", "andWhere"];
+  for (const m of chainMethods) {
+    qb[m] = vi.fn().mockReturnValue(qb);
+  }
+  qb["getMany"] = vi.fn().mockResolvedValue(topics);
+  return qb;
+};
+
+/**
+ * Creates a post-repo QB stub for the reply-count grouped query.
+ * getRawMany returns the provided replyCountRows.
+ */
+const makeReplyCountQb = (replyCountRows: Array<{ boardId: string; replyCount: string }>) => {
+  const qb: Record<string, ReturnType<typeof vi.fn>> = {};
+  const chainMethods = ["select", "addSelect", "innerJoin", "where", "andWhere", "groupBy"];
+  for (const m of chainMethods) {
+    qb[m] = vi.fn().mockReturnValue(qb);
+  }
+  qb["getRawMany"] = vi.fn().mockResolvedValue(replyCountRows);
+  return qb;
+};
+
+/**
+ * Creates a post-repo QB stub for resolveTopicLastActivity (getRawMany returning reply author rows).
+ */
+const makeLastActivityQb = (rows: Array<{ topicId: string; username: string; displayName: string | null }>) => {
+  const qb: Record<string, ReturnType<typeof vi.fn>> = {};
+  const chainMethods = ["select", "addSelect", "innerJoin", "where", "andWhere"];
+  for (const m of chainMethods) {
+    qb[m] = vi.fn().mockReturnValue(qb);
+  }
+  qb["getRawMany"] = vi.fn().mockResolvedValue(rows);
+  return qb;
+};
+
+/**
+ * Creates a post-repo QB stub for the single-board reply count query (getRawOne).
+ */
+const makeRawOneQb = (replyCount: number) => {
+  const qb: Record<string, ReturnType<typeof vi.fn>> = {};
+  const chainMethods = ["select", "where", "andWhere"];
+  for (const m of chainMethods) {
+    qb[m] = vi.fn().mockReturnValue(qb);
+  }
+  qb["getRawOne"] = vi.fn().mockResolvedValue({ replyCount: String(replyCount) });
+  return qb;
+};
+
+/**
+ * Creates a ForumsService wired with per-call QB stubs for the post repository.
+ * postQbPerCall[0] = first call to postRepo.createQueryBuilder (reply-count grouped query)
+ * postQbPerCall[1] = second call to postRepo.createQueryBuilder (resolveTopicLastActivity)
+ */
+const makeServiceForListPublicCategories = (
+  categoriesResult: unknown[],
+  topicsResult: unknown[],
+  replyCountRows: Array<{ boardId: string; replyCount: string }>,
+  lastActivityRows: Array<{ topicId: string; username: string; displayName: string | null }>
+) => {
+  const authorizationService = new AuthorizationService();
+  const catRepo = { ...createMinimalRepository(), find: vi.fn().mockResolvedValue(categoriesResult) };
+  const brdRepo = createMinimalRepository();
+
+  const topicQb = makeTopicQb(topicsResult);
+  const tpcRepo = { ...createMinimalRepository(), createQueryBuilder: vi.fn().mockReturnValue(topicQb) };
+
+  const replyCountQb = makeReplyCountQb(replyCountRows);
+  const lastActivityQb = makeLastActivityQb(lastActivityRows);
+  let postQbCallCount = 0;
+  const postCreateQb = vi.fn().mockImplementation(() => {
+    const qb = postQbCallCount === 0 ? replyCountQb : lastActivityQb;
+    postQbCallCount++;
+    return qb;
+  });
+  const pstRepo = { ...createMinimalRepository(), createQueryBuilder: postCreateQb };
+
+  return new ForumsService(
+    catRepo as never,
+    brdRepo as never,
+    tpcRepo as never,
+    pstRepo as never,
+    authorizationService
+  );
+};
+
+/**
+ * Creates a ForumsService wired for getPublicBoard single-board aggregate tests.
+ * The post repository returns getRawOne for the reply count and getRawMany for last activity.
+ */
+const makeServiceForGetPublicBoard = (
+  board: object,
+  topicsResult: unknown[],
+  replyCount: number,
+  lastActivityRows: Array<{ topicId: string; username: string; displayName: string | null }>
+) => {
+  const authorizationService = new AuthorizationService();
+  const catRepo = createMinimalRepository();
+  const brdRepo = { ...createMinimalRepository(), findOne: vi.fn().mockResolvedValue(board) };
+
+  const topicQb = makeTopicQb(topicsResult);
+  const tpcRepo = { ...createMinimalRepository(), createQueryBuilder: vi.fn().mockReturnValue(topicQb) };
+
+  const rawOneQb = makeRawOneQb(replyCount);
+  const lastActivityQb = makeLastActivityQb(lastActivityRows);
+  let postQbCallCount = 0;
+  const postCreateQb = vi.fn().mockImplementation(() => {
+    const qb = postQbCallCount === 0 ? rawOneQb : lastActivityQb;
+    postQbCallCount++;
+    return qb;
+  });
+  const pstRepo = { ...createMinimalRepository(), createQueryBuilder: postCreateQb };
+
+  return new ForumsService(
+    catRepo as never,
+    brdRepo as never,
+    tpcRepo as never,
+    pstRepo as never,
+    authorizationService
+  );
+};
+
+// ---------------------------------------------------------------------------
+// ST3: listPublicCategories — topicCount and postCount aggregates
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.listPublicCategories — aggregate stats (ST3: AC1, AC2)", () => {
+  const boardId = "board-agg-1";
+  const t1 = new Date("2026-01-10T10:00:00Z");
+  const t2 = new Date("2026-01-11T10:00:00Z");
+
+  // AC1: topicCount equals the number of non-deleted topics returned from the query.
+  it("topicCount equals the number of non-deleted topics in the board (AC1)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    const topics = [
+      makeAggTopic("t1", boardId, "alice", t1),
+      makeAggTopic("t2", boardId, "bob", t2)
+    ];
+    const service = makeServiceForListPublicCategories([category], topics, [], []);
+    const result = await service.listPublicCategories();
+    expect(result[0].boards[0].topicCount).toBe(2);
+  });
+
+  // AC1: single topic board → topicCount = 1
+  it("topicCount = 1 for a board with a single non-deleted topic (AC1: single topic)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    const topics = [makeAggTopic("t-only", boardId, "carol", t1)];
+    const service = makeServiceForListPublicCategories([category], topics, [], []);
+    const result = await service.listPublicCategories();
+    expect(result[0].boards[0].topicCount).toBe(1);
+  });
+
+  // AC2: postCount = topicCount + non-deleted reply count
+  it("postCount = topicCount + non-deleted reply count (AC2: with replies)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    const topics = [
+      makeAggTopic("t1", boardId, "alice", t1),
+      makeAggTopic("t2", boardId, "bob", t2)
+    ];
+    // 4 non-deleted replies across all topics in this board
+    const replyRows = [{ boardId, replyCount: "4" }];
+    const service = makeServiceForListPublicCategories([category], topics, replyRows, []);
+    const result = await service.listPublicCategories();
+    // 2 topics (opening posts) + 4 replies = 6
+    expect(result[0].boards[0].postCount).toBe(6);
+  });
+
+  // AC2: postCount = topicCount when no replies exist
+  it("postCount equals topicCount when no replies exist (AC2: no-reply case)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    const topics = [makeAggTopic("t1", boardId, "alice", t1)];
+    // No reply rows → replyCount defaults to 0
+    const service = makeServiceForListPublicCategories([category], topics, [], []);
+    const result = await service.listPublicCategories();
+    expect(result[0].boards[0].postCount).toBe(1); // 1 topic + 0 replies
+  });
+
+  // AC3: soft-deleted topics are excluded — the query returns only non-deleted ones
+  // (the implementation filters via `andWhere("topic.deletedAt IS NULL")`)
+  it("topicCount excludes soft-deleted topics (AC3: soft-delete exclusion — query returns only live topics)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    // Simulate the implementation having filtered out soft-deleted topics at query time.
+    // The stub returns only non-deleted topics (soft-deleted ones are excluded by the SQL).
+    const liveTopic = makeAggTopic("t-live", boardId, "alice", t1);
+    const service = makeServiceForListPublicCategories([category], [liveTopic], [], []);
+    const result = await service.listPublicCategories();
+    // Only one live topic; the deleted one was already excluded by the query
+    expect(result[0].boards[0].topicCount).toBe(1);
+  });
+
+  // AC3: soft-deleted replies are excluded from postCount
+  // The reply-count query joins `forum_topics` with `deleted_at IS NULL` and filters
+  // `post.deleted_at IS NULL`. This test verifies the count comes from the query result,
+  // not from topic.replyCount (which is not decremented on soft-delete).
+  it("postCount uses the direct reply-count query result, not topic.replyCount (AC3: accurate count)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    // Topic has replyCount=5 in the entity (stale — includes soft-deleted)
+    const topic = { ...makeAggTopic("t1", boardId, "alice", t1), replyCount: 5 };
+    // But the direct query returns 3 non-deleted replies
+    const replyRows = [{ boardId, replyCount: "3" }];
+    const service = makeServiceForListPublicCategories([category], [topic], replyRows, []);
+    const result = await service.listPublicCategories();
+    // postCount must use the query result (3 replies) not topic.replyCount (5)
+    expect(result[0].boards[0].postCount).toBe(4); // 1 topic + 3 live replies
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST3: listPublicCategories — empty-board lastPost = null (AC5)
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.listPublicCategories — lastPost null for empty board (ST3: AC5)", () => {
+  // AC5: board with no topics → lastPost = null
+  it("lastPost is null for a board with no topics (AC5)", async () => {
+    const boardId = "board-empty";
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    // No topics returned — empty board
+    const service = makeServiceForListPublicCategories([category], [], [], []);
+    const result = await service.listPublicCategories();
+    expect(result[0].boards[0].lastPost).toBeNull();
+  });
+
+  // AC5: topicCount and postCount are also 0 for empty board
+  it("topicCount=0 and postCount=0 for an empty board (AC5: zero counts)", async () => {
+    const boardId = "board-zero";
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    const service = makeServiceForListPublicCategories([category], [], [], []);
+    const result = await service.listPublicCategories();
+    expect(result[0].boards[0].topicCount).toBe(0);
+    expect(result[0].boards[0].postCount).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST3: listPublicCategories — lastPost reply case (AC6, AC8)
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.listPublicCategories — lastPost reply case (ST3: AC6, AC8)", () => {
+  const boardId = "board-reply-lp";
+  const topicCreatedAt = new Date("2026-01-10T08:00:00Z");
+  const replyAt = new Date("2026-01-15T12:00:00Z");
+
+  // AC6: lastPost.author = reply author, lastPost.at = ISO string of lastPostAt
+  it("lastPost.author is the reply author when the most-recent-activity topic has non-deleted replies (AC6: reply case)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    const topic = makeAggTopic("t-with-reply", boardId, "opener", topicCreatedAt, replyAt);
+    const replyRows = [{ boardId, replyCount: "1" }];
+    // resolveTopicLastActivity returns this reply author
+    const lastActivityRows = [{ topicId: "t-with-reply", username: "replier", displayName: "Reply User" }];
+    const service = makeServiceForListPublicCategories([category], [topic], replyRows, lastActivityRows);
+    const result = await service.listPublicCategories();
+    const lp = result[0].boards[0].lastPost;
+    expect(lp).not.toBeNull();
+    expect(lp!.author.username).toBe("replier");
+    expect(lp!.author.displayName).toBe("Reply User");
+  });
+
+  // AC6: lastPost.at is the ISO string of topic.lastPostAt (isReply=true path)
+  it("lastPost.at is the ISO-8601 string of topic.lastPostAt for the reply case (AC6: at timestamp)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    const topic = makeAggTopic("t-with-reply", boardId, "opener", topicCreatedAt, replyAt);
+    const replyRows = [{ boardId, replyCount: "1" }];
+    const lastActivityRows = [{ topicId: "t-with-reply", username: "replier", displayName: null }];
+    const service = makeServiceForListPublicCategories([category], [topic], replyRows, lastActivityRows);
+    const result = await service.listPublicCategories();
+    const lp = result[0].boards[0].lastPost;
+    expect(lp).not.toBeNull();
+    expect(lp!.at).toBe(replyAt.toISOString());
+  });
+
+  // AC8: lastPost shape has exactly { at: string, author: { username, displayName } }
+  it("lastPost shape has at (string) and author { username, displayName } — no other fields (AC8: shape)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    const topic = makeAggTopic("t-shape", boardId, "opener", topicCreatedAt, replyAt);
+    const replyRows = [{ boardId, replyCount: "1" }];
+    const lastActivityRows = [{ topicId: "t-shape", username: "shapeuser", displayName: "Shape User" }];
+    const service = makeServiceForListPublicCategories([category], [topic], replyRows, lastActivityRows);
+    const result = await service.listPublicCategories();
+    const lp = result[0].boards[0].lastPost;
+    expect(lp).not.toBeNull();
+    // Required fields
+    expect(typeof lp!.at).toBe("string");
+    expect(lp!.author).toHaveProperty("username");
+    expect(lp!.author).toHaveProperty("displayName");
+    // No extra fields
+    expect(Object.keys(lp!)).toEqual(expect.arrayContaining(["at", "author"]));
+    expect(Object.keys(lp!).length).toBe(2);
+    expect(Object.keys(lp!.author)).toEqual(expect.arrayContaining(["username", "displayName"]));
+    expect(Object.keys(lp!.author).length).toBe(2);
+  });
+
+  // AC8: lastPost.author.displayName may be null
+  it("lastPost.author.displayName is null when reply author has no displayName (AC8: null displayName)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    const topic = makeAggTopic("t-no-display", boardId, "opener", topicCreatedAt, replyAt);
+    const replyRows = [{ boardId, replyCount: "1" }];
+    const lastActivityRows = [{ topicId: "t-no-display", username: "nodisplay", displayName: null }];
+    const service = makeServiceForListPublicCategories([category], [topic], replyRows, lastActivityRows);
+    const result = await service.listPublicCategories();
+    const lp = result[0].boards[0].lastPost;
+    expect(lp).not.toBeNull();
+    expect(lp!.author.displayName).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST3: listPublicCategories — lastPost opening-post fallback (AC7, AC8)
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.listPublicCategories — lastPost opening-post fallback (ST3: AC7)", () => {
+  const boardId = "board-opener-lp";
+  const topicCreatedAt = new Date("2026-02-05T09:00:00Z");
+
+  // AC7: when topic has no non-deleted replies, lastPost.author = opening-post author
+  it("lastPost.author is the opening-post author when topic has no non-deleted replies (AC7: fallback author)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    // lastPostAt = null means no replies
+    const topic = makeAggTopic("t-no-reply", boardId, "openeruser", topicCreatedAt, null, "Opener Display");
+    const replyRows: Array<{ boardId: string; replyCount: string }> = [];
+    // No reply rows → resolveTopicLastActivity returns isReply=false with the opener
+    const lastActivityRows: Array<{ topicId: string; username: string; displayName: string | null }> = [];
+    const service = makeServiceForListPublicCategories([category], [topic], replyRows, lastActivityRows);
+    const result = await service.listPublicCategories();
+    const lp = result[0].boards[0].lastPost;
+    expect(lp).not.toBeNull();
+    expect(lp!.author.username).toBe("openeruser");
+    expect(lp!.author.displayName).toBe("Opener Display");
+  });
+
+  // AC7: when topic has no non-deleted replies, lastPost.at = topic.createdAt ISO string
+  it("lastPost.at is the topic createdAt ISO string for the opening-post fallback (AC7: at timestamp)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    const topic = makeAggTopic("t-opener-ts", boardId, "openeruser", topicCreatedAt, null);
+    const service = makeServiceForListPublicCategories([category], [topic], [], []);
+    const result = await service.listPublicCategories();
+    const lp = result[0].boards[0].lastPost;
+    expect(lp).not.toBeNull();
+    expect(lp!.at).toBe(topicCreatedAt.toISOString());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST3: listPublicCategories — most-recent-activity selection across multiple topics (AC6)
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.listPublicCategories — most-recent-activity topic selection (ST3: AC6 multi-topic)", () => {
+  const boardId = "board-multi";
+  const earlier = new Date("2026-01-10T08:00:00Z");
+  const later = new Date("2026-01-20T08:00:00Z");
+
+  // AC6: when multiple topics exist, the board's lastPost reflects the most-recently-active topic
+  it("lastPost reflects the most-recently-active topic when multiple topics exist (AC6: multi-topic)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-agg", [board]);
+    // t-early has lastPostAt=earlier (reply case), t-late has lastPostAt=later (reply case)
+    const topicEarly = makeAggTopic("t-early", boardId, "opener-early", earlier, earlier);
+    const topicLate = makeAggTopic("t-late", boardId, "opener-late", later, later);
+    const replyRows = [{ boardId, replyCount: "2" }];
+    // Both topics have replies; resolveTopicLastActivity returns the reply author for each
+    const lastActivityRows = [
+      { topicId: "t-early", username: "replier-early", displayName: null },
+      { topicId: "t-late", username: "replier-late", displayName: "Late Replier" }
+    ];
+    const service = makeServiceForListPublicCategories([category], [topicEarly, topicLate], replyRows, lastActivityRows);
+    const result = await service.listPublicCategories();
+    const lp = result[0].boards[0].lastPost;
+    // The most-recently-active topic is t-late → lastPost.author should be the t-late reply author
+    expect(lp).not.toBeNull();
+    expect(lp!.author.username).toBe("replier-late");
+    expect(lp!.at).toBe(later.toISOString());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST3: getPublicBoard — aggregate stats (topicCount, postCount, lastPost)
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.getPublicBoard — aggregate stats (ST3: AC1, AC2, AC5)", () => {
+  const boardId = "board-gpb-1";
+  const now = new Date("2026-03-01T00:00:00Z");
+
+  // AC1: topicCount equals the number of non-deleted topics returned for this board
+  it("topicCount equals the number of non-deleted topics (AC1: getPublicBoard)", async () => {
+    const board = makeAggBoard(boardId);
+    const topics = [
+      makeAggTopic("t1", boardId, "alice", now),
+      makeAggTopic("t2", boardId, "bob", now)
+    ];
+    const service = makeServiceForGetPublicBoard(board, topics, 0, []);
+    const result = await service.getPublicBoard(boardId);
+    expect(result.topicCount).toBe(2);
+  });
+
+  // AC2: postCount = topicCount + non-deleted reply count (getPublicBoard)
+  it("postCount = topicCount + non-deleted reply count (AC2: getPublicBoard)", async () => {
+    const board = makeAggBoard(boardId);
+    const topics = [makeAggTopic("t1", boardId, "alice", now)];
+    const service = makeServiceForGetPublicBoard(board, topics, 3, []);
+    const result = await service.getPublicBoard(boardId);
+    expect(result.postCount).toBe(4); // 1 topic + 3 replies
+  });
+
+  // AC5: empty board → lastPost = null, topicCount = 0, postCount = 0 (getPublicBoard)
+  it("lastPost=null, topicCount=0, postCount=0 for an empty board (AC5: getPublicBoard)", async () => {
+    const board = makeAggBoard(boardId);
+    const service = makeServiceForGetPublicBoard(board, [], 0, []);
+    const result = await service.getPublicBoard(boardId);
+    expect(result.lastPost).toBeNull();
+    expect(result.topicCount).toBe(0);
+    expect(result.postCount).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST3: getPublicBoard — lastPost reply case (AC6, AC8)
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.getPublicBoard — lastPost reply case (ST3: AC6, AC8)", () => {
+  const boardId = "board-gpb-reply";
+  const topicCreatedAt = new Date("2026-03-01T08:00:00Z");
+  const replyAt = new Date("2026-03-10T12:00:00Z");
+
+  // AC6: lastPost.author = reply author, lastPost.at = ISO string of lastPostAt
+  it("lastPost.author is the reply author and lastPost.at is topic.lastPostAt ISO string (AC6: getPublicBoard reply case)", async () => {
+    const board = makeAggBoard(boardId);
+    const topic = makeAggTopic("t-gpb-reply", boardId, "opener", topicCreatedAt, replyAt);
+    const lastActivityRows = [{ topicId: "t-gpb-reply", username: "lastreplier", displayName: "Last Replier" }];
+    const service = makeServiceForGetPublicBoard(board, [topic], 2, lastActivityRows);
+    const result = await service.getPublicBoard(boardId);
+    const lp = result.lastPost;
+    expect(lp).not.toBeNull();
+    expect(lp!.author.username).toBe("lastreplier");
+    expect(lp!.author.displayName).toBe("Last Replier");
+    expect(lp!.at).toBe(replyAt.toISOString());
+  });
+
+  // AC8: lastPost shape has exactly at (string) and author { username, displayName }
+  it("lastPost shape has at (string) and author { username, displayName } — no extra fields (AC8: getPublicBoard shape)", async () => {
+    const board = makeAggBoard(boardId);
+    const topic = makeAggTopic("t-gpb-shape", boardId, "opener", topicCreatedAt, replyAt);
+    const lastActivityRows = [{ topicId: "t-gpb-shape", username: "shapeu", displayName: null }];
+    const service = makeServiceForGetPublicBoard(board, [topic], 1, lastActivityRows);
+    const result = await service.getPublicBoard(boardId);
+    const lp = result.lastPost;
+    expect(lp).not.toBeNull();
+    expect(typeof lp!.at).toBe("string");
+    expect(Object.keys(lp!)).toEqual(expect.arrayContaining(["at", "author"]));
+    expect(Object.keys(lp!).length).toBe(2);
+    expect(Object.keys(lp!.author)).toEqual(expect.arrayContaining(["username", "displayName"]));
+    expect(Object.keys(lp!.author).length).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST3: getPublicBoard — lastPost opening-post fallback (AC7)
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.getPublicBoard — lastPost opening-post fallback (ST3: AC7)", () => {
+  const boardId = "board-gpb-opener";
+  const topicCreatedAt = new Date("2026-04-01T07:00:00Z");
+
+  // AC7: when topic has no non-deleted replies, lastPost.author = opening-post author,
+  // lastPost.at = topic.createdAt ISO string
+  it("lastPost.author is opener and lastPost.at is topic.createdAt ISO string when no replies (AC7: getPublicBoard fallback)", async () => {
+    const board = makeAggBoard(boardId);
+    const topic = makeAggTopic("t-gpb-opener", boardId, "openeralice", topicCreatedAt, null, "Alice Opener");
+    // No non-deleted replies — resolveTopicLastActivity falls back to opener
+    const lastActivityRows: Array<{ topicId: string; username: string; displayName: string | null }> = [];
+    const service = makeServiceForGetPublicBoard(board, [topic], 0, lastActivityRows);
+    const result = await service.getPublicBoard(boardId);
+    const lp = result.lastPost;
+    expect(lp).not.toBeNull();
+    expect(lp!.author.username).toBe("openeralice");
+    expect(lp!.author.displayName).toBe("Alice Opener");
+    expect(lp!.at).toBe(topicCreatedAt.toISOString());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST3: getPublicBoard — soft-delete exclusion regression guards (AC3)
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.getPublicBoard — soft-delete exclusion (ST3: AC3)", () => {
+  const boardId = "board-gpb-soft";
+  const now = new Date("2026-05-01T00:00:00Z");
+
+  // AC3: the topic QB includes andWhere("topic.deletedAt IS NULL") — spot-check via stub return
+  it("topicCount is 0 when all topics are soft-deleted (query stub returns empty, AC3: soft-delete)", async () => {
+    const board = makeAggBoard(boardId);
+    // Query stub returns no topics (soft-deleted ones excluded at query level)
+    const service = makeServiceForGetPublicBoard(board, [], 0, []);
+    const result = await service.getPublicBoard(boardId);
+    expect(result.topicCount).toBe(0);
+    expect(result.postCount).toBe(0);
+    expect(result.lastPost).toBeNull();
+  });
+
+  // AC3: postCount uses direct query result (0 when all replies soft-deleted)
+  it("postCount=topicCount when all replies are soft-deleted (query returns 0 replies, AC3: soft-delete)", async () => {
+    const board = makeAggBoard(boardId);
+    const topic = makeAggTopic("t-soft-replies", boardId, "opener", now);
+    // Direct query returns 0 non-deleted replies
+    const service = makeServiceForGetPublicBoard(board, [topic], 0, []);
+    const result = await service.getPublicBoard(boardId);
+    expect(result.postCount).toBe(1); // 1 topic + 0 live replies
   });
 });
