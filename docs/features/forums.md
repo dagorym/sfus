@@ -76,10 +76,27 @@ Two unauthenticated endpoints expose forum structure to anonymous visitors. No s
 | `description` | `string \| null` | |
 | `sortOrder` | number | |
 | `visibility` | `ForumBoardVisibility` | |
+| `topicCount` | number | Count of non-deleted topics in the board. |
+| `postCount` | number | Count of non-deleted topics (opening posts) plus non-deleted replies. |
+| `lastPost` | `BoardLastPostShape \| null` | Most-recent activity across the board's topics; `null` when the board has no topics. |
 | `createdAt` | Date | |
 | `updatedAt` | Date | |
 
 Stripped from the public shape (internal-only): `scopeType`, `projectId`, `categoryId`.
+
+`BoardLastPostShape` — the most-recent-activity stub embedded in `lastPost`:
+
+| Field | Type | Notes |
+|---|---|---|
+| `at` | string (ISO-8601) | Timestamp of the latest activity. For a real reply (`isReply=true` in the primitive), this is the reply's `createdAt`. For an opening-post fallback (`isReply=false`), this is the topic's `createdAt`. |
+| `author` | `{ username: string; displayName: string \| null }` | Author of that activity post. |
+
+**Aggregate stats semantics (ST3):**
+
+- `topicCount` counts non-deleted topics (`deletedAt IS NULL`) in the board. Soft-deleted topics are excluded.
+- `postCount` equals `topicCount` (one opening post per topic) plus the count of non-deleted replies (`deletedAt IS NULL`). Soft-deleted replies are excluded.
+- `lastPost` is resolved via the ST2 `resolveTopicLastActivity` primitive: for each topic, the latest non-deleted reply's author and timestamp are used when a reply exists; otherwise the opening-post author and `createdAt` are used as a fallback. The board-level `lastPost` is the entry with the most-recent effective timestamp across all of the board's non-deleted topics. Returns `null` when the board has no topics.
+- Boards with `scopeType != 'site'` (project-scoped) and boards whose visibility is not publicly readable are excluded from all counts — they are invisible to both listing and aggregate queries.
 
 `PublicCategoryShape` — fields returned per category from `GET /forums/categories`:
 
