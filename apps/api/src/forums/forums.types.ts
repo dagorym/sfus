@@ -10,6 +10,20 @@ export type { ForumBoardScopeType, ForumBoardVisibility };
 // ---------------------------------------------------------------------------
 
 /**
+ * The most-recent-activity stub included on the public board shape.
+ * at: ISO-8601 string of the latest non-deleted reply's createdAt (isReply=true)
+ *     or the opening post's createdAt (isReply=false).
+ * author: the author of that activity post.
+ */
+export interface BoardLastPostShape {
+  at: string;
+  author: {
+    username: string;
+    displayName: string | null;
+  };
+}
+
+/**
  * Public-safe board shape returned from the main forum listing and board detail.
  * Internal-only fields (projectId, categoryId raw FK, etc.) are omitted.
  */
@@ -20,6 +34,9 @@ export interface PublicBoardShape {
   description: string | null;
   sortOrder: number;
   visibility: ForumBoardVisibility;
+  topicCount: number;
+  postCount: number;
+  lastPost: BoardLastPostShape | null;
   createdAt: Date;
   updatedAt: Date;
 }

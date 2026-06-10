@@ -19,6 +19,7 @@ import type {
   UpdateBoardInput,
   ReorderBoardInput,
   PublicBoardShape,
+  BoardLastPostShape,
   PublicCategoryShape,
   PublicTopicShape,
   PaginatedTopicsShape,
@@ -388,8 +389,13 @@ export class ForumsService {
   /**
    * Maps a ForumBoardEntity to the public-safe PublicBoardShape DTO.
    * Strips internal-only fields (scopeType, projectId, categoryId FK).
+   * The aggregate stats (topicCount, postCount, lastPost) must be pre-computed
+   * by the caller and passed in; this method does not query the database.
    */
-  private toBoardShape(board: ForumBoardEntity): PublicBoardShape {
+  private toBoardShape(
+    board: ForumBoardEntity,
+    stats: { topicCount: number; postCount: number; lastPost: BoardLastPostShape | null }
+  ): PublicBoardShape {
     return {
       id: board.id,
       name: board.name,
@@ -397,6 +403,9 @@ export class ForumsService {
       description: board.description,
       sortOrder: board.sortOrder,
       visibility: board.visibility,
+      topicCount: stats.topicCount,
+      postCount: stats.postCount,
+      lastPost: stats.lastPost,
       createdAt: board.createdAt,
       updatedAt: board.updatedAt
     };
@@ -409,6 +418,12 @@ export class ForumsService {
    *
    * Project-scoped boards and boards whose visibility is not publicly readable
    * are excluded from both the board list and the board count.
+   *
+   * Each board includes aggregate stats:
+   * - topicCount: count of non-deleted topics in the board.
+   * - postCount: non-deleted topics (opening posts) + non-deleted replies.
+   * - lastPost: latest activity across the board's topics using resolveTopicLastActivity;
+   *   null when the board has no topics.
    */
   async listPublicCategories(): Promise<PublicCategoryShape[]> {
     const categories = await this.categoryRepository.find({
@@ -416,6 +431,124 @@ export class ForumsService {
       relations: ["boards"]
     });
 
+    // Collect the ids of all publicly-readable boards across all categories.
+    const allPublicBoards: ForumBoardEntity[] = [];
+    for (const category of categories) {
+      for (const board of category.boards ?? []) {
+        if (this.isBoardPubliclyReadable(board)) {
+          allPublicBoards.push(board);
+        }
+      }
+    }
+
+    if (allPublicBoards.length === 0) {
+      // No public boards — return categories with empty board lists.
+      return categories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        description: category.description,
+        sortOrder: category.sortOrder,
+        boards: [],
+        createdAt: category.createdAt,
+        updatedAt: category.updatedAt
+      }));
+    }
+
+    const publicBoardIds = allPublicBoards.map((b) => b.id);
+
+    // --- Batch query 1: all non-deleted topics (with authors) for all public boards. ---
+    // Used for topicCount per board, opening-author map, and lastPost resolution.
+    const allTopics = await this.topicRepository
+      .createQueryBuilder("topic")
+      .leftJoinAndSelect("topic.author", "author")
+      .where("topic.boardId IN (:...boardIds)", { boardIds: publicBoardIds })
+      .andWhere("topic.deletedAt IS NULL")
+      .getMany();
+
+    // --- Batch query 2: non-deleted reply counts grouped by boardId. ---
+    // postCount = topicCount (opening post per topic) + replyCount (non-deleted replies).
+    // We query the sum of topic.replyCount for non-deleted topics per board.
+    // Note: topic.replyCount is maintained at create-post time (createPost increments it)
+    // and does not decrement on soft-delete, so it may over-count soft-deleted replies.
+    // To get an accurate count we query the posts table directly.
+    const replyCountRows = await this.postRepository
+      .createQueryBuilder("post")
+      .select("topic.board_id", "boardId")
+      .addSelect("COUNT(post.id)", "replyCount")
+      .innerJoin("forum_topics", "topic", "topic.id = post.topic_id AND topic.deleted_at IS NULL")
+      .where("post.topic_id IN (:...topicIds)", {
+        topicIds: allTopics.length > 0 ? allTopics.map((t) => t.id) : ["__none__"]
+      })
+      .andWhere("post.deleted_at IS NULL")
+      .groupBy("topic.board_id")
+      .getRawMany<{ boardId: string; replyCount: string }>();
+
+    const replyCountByBoard = new Map<string, number>();
+    for (const row of replyCountRows) {
+      replyCountByBoard.set(row.boardId, parseInt(row.replyCount, 10));
+    }
+
+    // Group topics by boardId for per-board processing.
+    const topicsByBoard = new Map<string, typeof allTopics>();
+    for (const topic of allTopics) {
+      const list = topicsByBoard.get(topic.boardId) ?? [];
+      list.push(topic);
+      topicsByBoard.set(topic.boardId, list);
+    }
+
+    // Build the opening-authors map for all topics (used by resolveTopicLastActivity).
+    const openingAuthors = new Map<string, PublicAuthorShape>();
+    for (const topic of allTopics) {
+      const a = (topic as ForumTopicEntity & { author: { username: string; displayName: string | null } }).author;
+      if (a) {
+        openingAuthors.set(topic.id, { username: a.username, displayName: a.displayName });
+      }
+    }
+
+    // Resolve last activity for all topics in one grouped query.
+    const allTopicIds = allTopics.map((t) => t.id);
+    const lastActivityMap = await this.resolveTopicLastActivity(allTopicIds, openingAuthors);
+
+    // Build per-board lastPost: find the topic with the most-recent activity timestamp.
+    // For reply activities (isReply=true): use topic.lastPostAt as the timestamp.
+    // For opening-post fallback (isReply=false): use topic.createdAt.
+    const lastPostByBoard = new Map<string, BoardLastPostShape | null>();
+    for (const boardId of publicBoardIds) {
+      const boardTopics = topicsByBoard.get(boardId) ?? [];
+      if (boardTopics.length === 0) {
+        lastPostByBoard.set(boardId, null);
+        continue;
+      }
+
+      let bestAt: Date | null = null;
+      let bestShape: BoardLastPostShape | null = null;
+
+      for (const topic of boardTopics) {
+        const activity = lastActivityMap.get(topic.id);
+        if (!activity) continue;
+
+        // Derive the effective timestamp for this topic's activity.
+        const effectiveAt: Date = activity.isReply
+          ? (topic.lastPostAt ?? topic.createdAt)
+          : topic.createdAt;
+
+        if (bestAt === null || effectiveAt > bestAt) {
+          bestAt = effectiveAt;
+          bestShape = {
+            at: effectiveAt.toISOString(),
+            author: {
+              username: activity.author.username,
+              displayName: activity.author.displayName
+            }
+          };
+        }
+      }
+
+      lastPostByBoard.set(boardId, bestShape);
+    }
+
+    // Assemble the final response.
     return categories.map((category) => {
       const visibleBoards = (category.boards ?? [])
         .filter((board) => this.isBoardPubliclyReadable(board))
@@ -427,7 +560,14 @@ export class ForumsService {
         slug: category.slug,
         description: category.description,
         sortOrder: category.sortOrder,
-        boards: visibleBoards.map((b) => this.toBoardShape(b)),
+        boards: visibleBoards.map((board) => {
+          const boardTopics = topicsByBoard.get(board.id) ?? [];
+          const topicCount = boardTopics.length;
+          const replyCount = replyCountByBoard.get(board.id) ?? 0;
+          const postCount = topicCount + replyCount;
+          const lastPost = lastPostByBoard.get(board.id) ?? null;
+          return this.toBoardShape(board, { topicCount, postCount, lastPost });
+        }),
         createdAt: category.createdAt,
         updatedAt: category.updatedAt
       };
@@ -451,7 +591,56 @@ export class ForumsService {
     if (!board || !this.isBoardPubliclyReadable(board)) {
       throw new NotFoundException(ForumsService.BOARD_NOT_FOUND_MESSAGE);
     }
-    return this.toBoardShape(board);
+
+    // Compute aggregate stats for this single board.
+    const boardTopics = await this.topicRepository
+      .createQueryBuilder("topic")
+      .leftJoinAndSelect("topic.author", "author")
+      .where("topic.boardId = :boardId", { boardId: id })
+      .andWhere("topic.deletedAt IS NULL")
+      .getMany();
+
+    const topicCount = boardTopics.length;
+    let replyCount = 0;
+    let lastPost: BoardLastPostShape | null = null;
+
+    if (topicCount > 0) {
+      const topicIds = boardTopics.map((t) => t.id);
+
+      const replyCountRows = await this.postRepository
+        .createQueryBuilder("post")
+        .select("COUNT(post.id)", "replyCount")
+        .where("post.topic_id IN (:...topicIds)", { topicIds })
+        .andWhere("post.deleted_at IS NULL")
+        .getRawOne<{ replyCount: string }>();
+      replyCount = replyCountRows ? parseInt(replyCountRows.replyCount, 10) : 0;
+
+      const openingAuthors = new Map<string, PublicAuthorShape>();
+      for (const topic of boardTopics) {
+        const a = (topic as ForumTopicEntity & { author: { username: string; displayName: string | null } }).author;
+        if (a) {
+          openingAuthors.set(topic.id, { username: a.username, displayName: a.displayName });
+        }
+      }
+
+      const lastActivityMap = await this.resolveTopicLastActivity(topicIds, openingAuthors);
+
+      let bestAt: Date | null = null;
+      for (const topic of boardTopics) {
+        const activity = lastActivityMap.get(topic.id);
+        if (!activity) continue;
+        const effectiveAt: Date = activity.isReply ? (topic.lastPostAt ?? topic.createdAt) : topic.createdAt;
+        if (bestAt === null || effectiveAt > bestAt) {
+          bestAt = effectiveAt;
+          lastPost = {
+            at: effectiveAt.toISOString(),
+            author: { username: activity.author.username, displayName: activity.author.displayName }
+          };
+        }
+      }
+    }
+
+    return this.toBoardShape(board, { topicCount, postCount: topicCount + replyCount, lastPost });
   }
 
   // ---------------------------------------------------------------------------
