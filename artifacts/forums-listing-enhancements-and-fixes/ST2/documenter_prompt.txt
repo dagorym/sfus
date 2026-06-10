@@ -1,0 +1,60 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST2 — public topic-list lastPostAuthor enrichment and reusable resolveTopicLastActivity primitive with opening-post fallback (isReply flag) for ST3 consumption.
+- The implementer added lastPostAuthor to PublicTopicShape, added TopicLastActivity interface with isReply flag, implemented resolveTopicLastActivity (primitive) and resolveTopicLastActivityAuthors (wrapper), and integrated lastPostAuthor into listTopics.
+- The tester independently verified all acceptance criteria pass (0 failures across lint, typecheck, and 174-test unit suite) and added a new resolveTopicLastActivity primitive test block with 8 behavioral tests.
+
+Acceptance criteria validated:
+- listTopics topic items include lastPostAuthor (latest non-deleted reply author, or null when 0 non-deleted replies)
+- resolveTopicLastActivity returns per-topic {author, at, isReply}: latest non-deleted reply (isReply=true) ELSE opening-post fallback (isReply=false); null only when neither available
+- resolveTopicLastActivityAuthors (wrapper) still yields null for no-reply topics
+- Soft-deleted posts are ignored (soft-deleted latest reply falls back to next non-deleted reply or opening-post fallback)
+- Board visibility oracle parity unchanged (404 TOPIC_NOT_FOUND_MESSAGE for non-readable/nonexistent boards)
+- lint, typecheck, and API forums suite ALL pass (0 failures)
+
+Implementation branch or worktree context:
+- Branch: forums-listing-st2-tester-20260610
+- Worktree: /home/tstephen/repos/worktrees/forums-listing-st2-tester-20260610
+- Comparison base: the forums-listing branch (sfus main); diff from HEAD of forums-listing-st2-tester-20260610 vs forums-listing shows ST2 changes
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/forums/forums.types.ts (added TopicLastActivity interface with author/at/isReply fields; updated PublicTopicShape to include lastPostAuthor)
+- apps/api/src/forums/forums.service.ts (added resolveTopicLastActivity, resolveTopicLastActivityAuthors methods; listTopics now enriches lastPostAuthor)
+- apps/api/src/forums/forums.service.test.ts (added resolveTopicLastActivityAuthors tests in ST2 tester pass 1; added resolveTopicLastActivity primitive tests in ST2 tester pass 2)
+
+Test commit:
+- f3fe0f8
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+
+Final test outcomes:
+- 174/174 tests pass (0 failures)
+- lint: 0 errors, 0 warnings
+- typecheck: 0 errors
+- All acceptance criteria met
+
+Documentation context:
+- Primary doc to update: docs/features/forums.md — document the lastPostAuthor field on PublicTopicShape, the resolveTopicLastActivity primitive (isReply flag, at field, opening-post fallback contract), and resolveTopicLastActivityAuthors as the listTopics-facing wrapper that returns null for no-reply topics
+- Also review docs/README.md routing table to confirm no new doc file is needed; the ST2 changes extend the existing forums feature surface documented in docs/features/forums.md
+- The TopicLastActivity type is documented in forums.types.ts JSDoc — the documenter should reflect that in feature docs
+- Important behavior: resolveTopicLastActivity is intended for direct use by ST3 board-level aggregation (needs isReply flag); listTopics uses the wrapper (resolveTopicLastActivityAuthors) which translates isReply=false → null
+
+Plan and diff context:
+- Plan: plans/forums-listing-enhancements-and-fixes-plan.md (ST2 subtask)
+- Comparison base: forums-listing branch (the main development branch for this plan); the worktree diverges from it at the ST2 implementer commit
+- If exact plan section is ambiguous, infer from the docs/features/forums.md structure and the ST2 implementer/tester report artifacts in artifacts/forums-listing-enhancements-and-fixes/ST2/
+
+Startup behavior:
+- If the tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/forums-listing-enhancements-and-fixes/ST2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
