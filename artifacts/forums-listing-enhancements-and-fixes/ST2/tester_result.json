@@ -1,0 +1,29 @@
+{
+  "status": "pass",
+  "test_commit_hash": "9a7be90eef70d92bc766b89c3e5f7e922b8086c6",
+  "test_files_changed": [
+    "apps/api/src/forums/forums.service.test.ts"
+  ],
+  "tests_total": 150,
+  "tests_added": 32,
+  "tests_passed": 150,
+  "tests_failed": 0,
+  "acceptance_criteria": {
+    "AC1_lastPostAuthor_field_present": "pass",
+    "AC2_non_deleted_reply_author": "pass",
+    "AC3_null_when_no_replies": "pass",
+    "AC4_soft_deleted_ignored": "pass",
+    "AC5_method_signature": "pass",
+    "AC6_board_visibility_oracle_parity": "pass"
+  },
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts",
+    "npx --yes pnpm@10.0.0 typecheck",
+    "npx --yes pnpm@10.0.0 lint"
+  ],
+  "artifacts_written": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/tester_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/tester_result.json",
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/documenter_prompt.txt"
+  ]
+}

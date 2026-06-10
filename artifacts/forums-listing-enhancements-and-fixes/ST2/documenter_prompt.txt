@@ -1,0 +1,63 @@
+You are the Documenter Agent for this repository. All blocking inputs are present — proceed through scope confirmation, documentation discovery, and diff review without stopping.
+
+## Task
+
+Document the ST2 implementation: enrichment of the public forum topic-list API with `lastPostAuthor`, and the new reusable `resolveTopicLastActivityAuthors` service primitive.
+
+## Shared Artifact Directory
+
+`artifacts/forums-listing-enhancements-and-fixes/ST2/`
+
+## Implementation Context
+
+### Plan
+
+`forums-listing-enhancements-and-fixes` plan, subtask ST2.
+
+### Modified Files (Implementer + Tester)
+
+**Implementer changes:**
+- `apps/api/src/forums/forums.types.ts` — Added `lastPostAuthor: PublicAuthorShape | null` to `PublicTopicShape`.
+- `apps/api/src/forums/forums.service.ts` — Two changes:
+  1. `toTopicShape` now accepts an optional second parameter `lastPostAuthor: PublicAuthorShape | null` (defaults to `null`), so `createTopic` still works correctly.
+  2. New method `resolveTopicLastActivityAuthors(topicIds: string[], openingAuthors: Map<string, PublicAuthorShape>): Promise<Map<string, PublicAuthorShape | null>>` — resolves last-reply authors for a batch of topic IDs in one grouped SQL query using a correlated `MAX(created_at)` subquery; soft-deleted posts (`deletedAt IS NULL`) are filtered out.
+  3. `listTopics` now calls `resolveTopicLastActivityAuthors` after fetching the page, and passes the result into `toTopicShape` for each topic.
+
+**Tester changes:**
+- `apps/api/src/forums/forums.service.test.ts` — Added 32 new tests covering:
+  - `resolveTopicLastActivityAuthors` method signature and empty input
+  - Non-deleted reply author resolution (single and multiple topics)
+  - Null result when no non-deleted replies exist
+  - SQL soft-delete filter (`deleted_at IS NULL` in `andWhere`)
+  - `listTopics` `lastPostAuthor` field presence and values
+  - Empty page edge case (no crash)
+  - Board visibility oracle parity (nonexistent / gated boards still return 404 unchanged)
+
+## Acceptance Criteria Verified (All Pass)
+
+1. Topic items in `listTopics` response include `lastPostAuthor: { username, displayName } | null`.
+2. When a topic has at least one non-deleted reply, `lastPostAuthor` is the author of the most recent non-deleted reply.
+3. When a topic has no non-deleted replies (or all replies are soft-deleted), `lastPostAuthor` is `null`.
+4. Soft-deleted posts (`deletedAt IS NOT NULL`) are ignored when resolving `lastPostAuthor`.
+5. `resolveTopicLastActivityAuthors` exists on `ForumsService` and accepts `(topicIds: string[], openingAuthors: Map<string, PublicAuthorShape>)`.
+6. Board visibility: non-readable or nonexistent boards still return 404 with `TOPIC_NOT_FOUND_MESSAGE` (oracle parity unchanged).
+
+## Test Results
+
+- 150 tests total (32 new), all pass.
+- Typecheck: clean.
+- Lint: clean.
+- Test commit: `9a7be90eef70d92bc766b89c3e5f7e922b8086c6`
+
+## Documentation Routing
+
+Consult `docs/README.md` for the routing table. The relevant documentation targets are likely:
+- `docs/features/forums.md` (or equivalent per-subsystem contract doc for forums) — update to document the `lastPostAuthor` field on `PublicTopicShape` and the `resolveTopicLastActivityAuthors` service primitive.
+- If an API contract reference exists for the forums topic-list endpoint, update it to reflect the new field.
+
+## Completion Gate
+
+Do not report success unless:
+1. All required documentation has been updated to reflect `lastPostAuthor` and `resolveTopicLastActivityAuthors`.
+2. All required artifact files exist in `artifacts/forums-listing-enhancements-and-fixes/ST2/`.
+3. All changes (documentation updates) are committed on the same branch (`forums-listing-st2-tester-20260610` or its successor).
