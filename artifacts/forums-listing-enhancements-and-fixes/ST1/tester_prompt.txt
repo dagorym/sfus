@@ -1,0 +1,46 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+ST1 — Verify the fix and hardening of the forums recent-topics feed in the NestJS API.
+
+Modified files:
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.service.test.ts
+
+Acceptance criteria to validate (from Planner):
+1. GET /api/forums/recent returns 200 with topics ordered lastPostAt DESC (NULLs last) then createdAt DESC; no NULLS LAST / PostgreSQL-only literal remains in any forums query.
+2. The recent-feed query carries the public-board-id predicate in WHERE/JOIN as a second layer on top of the allow-list; returned topics are unchanged.
+3. Oracle safety preserved: stable empty list with no public activity; non-public / project / soft-deleted excluded.
+4. lint, typecheck, and the API forums suite pass.
+
+Test file location:
+- Primary unit tests: apps/api/src/forums/forums.service.test.ts
+- MySQL-backed integration test needed for dialect regression guard: model on apps/api/src/pages/pages.service.integration.test.ts with SFUS_DB_INTEGRATION=1, or a smoke assertion on GET /api/forums/recent.
+
+Implementation context for testing:
+- The PostgreSQL-only "NULLS LAST" third argument was removed from .orderBy("topic.lastPostAt", "DESC") in ForumsService.listRecentTopics. MySQL orders NULLs last natively under DESC so the literal caused a runtime syntax error against MySQL.
+- The existing boardId IN (:...boardIds) WHERE clause already constrains to public-board-derived IDs; a comment now documents this as defense-in-depth (the returned topic set is unchanged).
+- Two stale JSDoc/inline comments were corrected to reflect MySQL behavior (previously said "NULLS LAST").
+- The single stale test assertion at ~line 2536 of forums.service.test.ts was updated from the three-argument to two-argument orderBy expectation. No new tests were added.
+- The dialect bug is only catchable via a MySQL-backed test. The unit suite (mocked QBuilder) confirms the removed three-arg call but cannot catch MySQL runtime errors.
+
+Suggested test commands:
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Security review: required (flagged in plan; the Tester should confirm no new NULLS LAST or dialect-specific SQL literals appear in any forums query path).
+
+Shared artifact directory:
+- artifacts/forums-listing-enhancements-and-fixes/ST1
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
