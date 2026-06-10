@@ -1,0 +1,21 @@
+{
+  "artifact_file_paths": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST3/security_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST3/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "forums-listing-st3-security-20260610",
+  "documentation_sufficiency_summary": [
+    "ADEQUATE. docs/features/forums.md documents BoardLastPostShape and the new PublicBoardShape fields, and states the security-relevant semantics explicitly: topicCount/postCount/lastPost reflect only non-deleted content; soft-deleted topics and replies are excluded; project-scoped (scopeType != 'site') and non-publicly-readable boards are excluded from all counts and from listing/aggregate queries; lastPost.author is limited to { username, displayName }."
+  ],
+  "note_finding_count": 2,
+  "outcome": "PASS",
+  "pass_label": "security-1-pass",
+  "status": "complete",
+  "task_id": "forums-listing-enhancements-and-fixes/ST3",
+  "test_sufficiency_summary": [
+    "ADEQUATE for this change. forums.service.test.ts adds AC1-AC8 coverage for both listPublicCategories and getPublicBoard: topicCount/postCount math, postCount sourced from the direct reply-count query (not the stale topic.replyCount), empty-board lastPost=null, reply-case and opening-post-fallback lastPost, most-recent-activity selection across topics, exact lastPost/author shape (no extra fields), and soft-delete-exclusion regression guards. Full suite: 197/197 passed.",
+    "Gap (non-blocking, NOTE): tests are mock-based, so soft-delete exclusion and IN-binding are validated by stub returns rather than against a real DB. SQL correctness verified by inspection. A real-DB integration test would strengthen confidence."
+  ],
+  "warning_finding_count": 0
+}
