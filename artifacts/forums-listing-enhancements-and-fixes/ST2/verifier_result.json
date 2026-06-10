@@ -1,0 +1,22 @@
+{
+  "artifact_file_paths": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/verifier_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/verifier_result.json"
+  ],
+  "blocking_finding_count": 2,
+  "branch_name": "forums-listing-st2-verifier-20260610",
+  "documentation_accuracy_summary": [
+    "ACCURATE for implemented behavior. docs/features/forums.md correctly documents lastPostAuthor field semantics (non-deleted reply author or null), null conditions (no replies or all soft-deleted), privacy contract (username/displayName only, no email/globalRole), batched resolution (no N+1), and defense-in-depth note for listRecentTopics.",
+    "Plan/doc-vs-implementation gap on W3: the plan requires the primitive to fall back to opening-post author for no-reply topics; both the implementation and the docs consistently document null return (docs match code, not plan). This is consistent with the W3 WARNING."
+  ],
+  "note_finding_count": 2,
+  "pass_label": "fail-lint-and-test-suite-failing",
+  "status": "reviewed",
+  "task_id": "forums-listing-enhancements-and-fixes/ST2",
+  "test_sufficiency_summary": [
+    "INSUFFICIENT for clean merge. 1 of 166 tests fails (TC11). The 165 passing tests \u2014 including 32 new ST2 tests covering resolveTopicLastActivityAuthors method directly and listTopics end-to-end via makeServiceWithPostQb \u2014 adequately cover the security-relevant acceptance criteria: soft-delete filter assertion, null fallback for no replies and all-soft-deleted, non-null reply author when replies exist, oracle-parity 404 for nonexistent and members-gated boards, author shape excludes email/globalRole.",
+    "The single failing test is TC11, a pre-existing listTopics shape test whose mock was not updated to stub the new select/addSelect/innerJoin/getRawMany QB methods now exercised by the resolveTopicLastActivityAuthors call path. The fix is to extend createMinimalRepository qbStub or provide a raw QB override for TC11."
+  ],
+  "verdict": "FAIL",
+  "warning_finding_count": 1
+}
