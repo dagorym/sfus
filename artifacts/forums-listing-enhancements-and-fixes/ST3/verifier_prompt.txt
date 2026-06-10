@@ -1,0 +1,48 @@
+Your role is 'verifier'. Your task is as follows:
+
+## Task Summary
+ST3 — Add per-board aggregate stats (topicCount, postCount, lastPost) to the public categories API. Each publicly-readable board in `GET /api/forums/categories` (listPublicCategories) and `GET /api/forums/boards/:id` (getPublicBoard) now includes:
+- `topicCount` — count of non-deleted topics
+- `postCount` — non-deleted topics (opening posts) + non-deleted replies
+- `lastPost` — most-recent activity via the ST2 resolveTopicLastActivity primitive, or null for empty boards
+
+Soft-deleted and non-public/project boards are excluded.
+
+## Acceptance Criteria (all must PASS)
+AC1–AC9 as defined in the plan at `plans/forums-listing-enhancements-and-fixes-plan.md` (ST3 section). Tester confirmed all pass (197 tests, lint and typecheck clean).
+
+## Branch / Worktree Context
+Branch: `forums-listing-st3-documenter-20260610`
+Comparison base: `forums-listing`
+
+## Files Modified
+**Implementer:**
+- `apps/api/src/forums/forums.types.ts` — `BoardLastPostShape` interface; `PublicBoardShape` gains `topicCount`, `postCount`, `lastPost`
+- `apps/api/src/forums/forums.service.ts` — aggregate logic in `listPublicCategories` and `getPublicBoard`; `toBoardShape` stats param
+
+**Tester:**
+- `apps/api/src/forums/forums.service.test.ts` — 23 new aggregate tests
+
+**Documenter:**
+- `docs/features/forums.md` — `PublicBoardShape` table updated; `BoardLastPostShape` shape defined; aggregate stats semantics documented
+
+## Shared Artifact Directory
+`artifacts/forums-listing-enhancements-and-fixes/ST3`
+
+## Documentation Commit
+`325e0b52b9b08e1b2cd04593ed1101783d509d0a`
+
+## Startup Behavior
+Begin verification immediately in the same run. Load your role via `myteam get role verifier` before any other action. Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+
+## Verification Scope
+Verify all three layers together: implementation, tests, and updated documentation.
+- Confirm `PublicBoardShape` in `forums.types.ts` includes `topicCount`, `postCount`, and `lastPost: BoardLastPostShape | null`.
+- Confirm `BoardLastPostShape` is defined in `forums.types.ts` with `at: string` and `author: { username; displayName | null }`.
+- Confirm `listPublicCategories` and `getPublicBoard` compute aggregate stats correctly and pass them to `toBoardShape`.
+- Confirm `docs/features/forums.md` documents `BoardLastPostShape`, the three new fields in `PublicBoardShape`, counting semantics, soft-delete exclusion, empty-board null, and the ST2 primitive usage.
+- Confirm tests cover the aggregate stats (AC1–AC9).
+- Confirm lint and typecheck are clean.
+
+## Completion Gate
+Do not report success unless all required artifacts exist and all changes are committed.
