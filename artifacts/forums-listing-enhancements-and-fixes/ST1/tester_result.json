@@ -7,17 +7,22 @@
   "branch_name": "forums-listing-st1-tester-20260610",
   "commands_run": [
     "npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.integration.test.ts (SFUS_DB_INTEGRATION unset — 2 skipped, correct)",
     "npx --yes pnpm@10.0.0 lint",
     "npx --yes pnpm@10.0.0 typecheck"
   ],
   "pass_fail_totals": {
     "failed": 0,
-    "passed": 149
+    "passed": 150,
+    "skipped": 2
   },
   "pass_label": null,
   "status": "success",
   "task_id": "ST1",
-  "test_commit_hash": "No Changes Made",
-  "test_files_changed": [],
+  "test_commit_hash": "c8aabec",
+  "test_files_changed": [
+    "apps/api/src/forums/forums.service.test.ts",
+    "apps/api/src/forums/forums.service.integration.test.ts"
+  ],
   "unmet_acceptance_criteria": []
 }

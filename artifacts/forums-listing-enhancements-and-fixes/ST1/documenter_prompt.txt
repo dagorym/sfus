@@ -15,30 +15,34 @@ Implementation branch or worktree context:
 - Implementer HEAD: e9a7cfbb0cd211b9e94e722e2f3f77d8263cc246
 
 Files modified by Implementer and Tester to inspect for documentation impact:
-- apps/api/src/forums/forums.service.ts
-- apps/api/src/forums/forums.service.test.ts
+- apps/api/src/forums/forums.service.ts (Implementer: removed NULLS LAST from orderBy, updated JSDoc)
+- apps/api/src/forums/forums.service.test.ts (Tester: added NULLS-literal regression guard assertion)
+- apps/api/src/forums/forums.service.integration.test.ts (Tester: new MySQL-backed regression guard spec)
 
 Test commit:
-- No Changes Made
+- c8aabec
 
 Commands executed:
 - npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.integration.test.ts (SFUS_DB_INTEGRATION unset — 2 tests skipped, correct)
 - npx --yes pnpm@10.0.0 lint
 - npx --yes pnpm@10.0.0 typecheck
 
 Final test outcomes:
-- 149/149 unit tests pass in apps/api/src/forums/forums.service.test.ts
+- 150/150 unit tests pass in apps/api/src/forums/forums.service.test.ts (+1 new NULLS-literal guard)
+- 2/2 integration tests skipped cleanly (forums.service.integration.test.ts, SFUS_DB_INTEGRATION=1 not set)
 - lint: 0 errors, 0 warnings (both apps/api and apps/web)
 - typecheck: 0 errors (both apps/api and apps/web)
-- AC1 PASS: orderBy("topic.lastPostAt", "DESC") two-argument form confirmed; test at line 2536 verifies two-arg call; no NULLS LAST SQL literal in any forums orderBy call
+- AC1 PASS: orderBy("topic.lastPostAt", "DESC") two-argument form confirmed; unit test positively asserts no third argument passed; integration spec exercises real MySQL ORDER BY path
 - AC2 PASS: boardId IN (:...boardIds) WHERE clause confirmed with defense-in-depth comment; returned topic set unchanged
 - AC3 PASS: Empty list returned when publicBoardIds.length === 0; non-public/project/soft-deleted topics excluded
 - AC4 PASS: lint, typecheck, and API forums suite all pass
-- Security: No NULLS LAST or dialect-specific SQL literals in any forums query path; two JSDoc comment references are documentation-only and not passed to TypeORM
+- Security: No NULLS LAST or dialect-specific SQL literals in any forums query path
 
 Documentation context:
 - forums.service.ts listRecentTopics now uses two-argument orderBy (MySQL-compatible); JSDoc updated to describe MySQL NULLs-last-under-DESC behavior
 - Defense-in-depth comment added to boardId IN predicate in listRecentTopics
+- New forums.service.integration.test.ts follows the pattern of pages.service.integration.test.ts with SFUS_DB_INTEGRATION=1 skip gate
 - docs/features/ may contain a forums feature contract describing recent-topics ordering
 - Any changelog or API documentation noting the dialect-compatibility fix
 
