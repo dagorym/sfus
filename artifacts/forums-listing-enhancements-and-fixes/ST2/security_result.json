@@ -1,0 +1,23 @@
+{
+  "artifact_file_paths": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/security_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "forums-listing-st2-security-20260610",
+  "documentation_sufficiency_summary": [
+    "docs/features/forums.md accurately documents the security-relevant semantics: lastPostAuthor exposes only username/displayName, is null when no non-deleted reply (replyCount===0 or all replies soft-deleted), excludes soft-deleted posts, and resolves in a single batched query (no N+1). Adds a defense-in-depth note for listRecentTopics.",
+    "Doc/contract mismatch: the docs describe resolveTopicLastActivityAuthors as accepting an opening-author map but (correctly, matching code) state it returns null for no-reply topics \u2014 so docs are internally consistent with the code, while the PLAN's primitive 'fallback to opening author' expectation remains unimplemented. The Verifier/ST3 should reconcile the plan reuse expectation with the as-built null-returning behavior."
+  ],
+  "note_finding_count": 5,
+  "outcome": "CONDITIONAL PASS",
+  "pass_label": "conditional-pass-security-clean-validation-gates-failing",
+  "status": "reviewed",
+  "task_id": "forums-listing-enhancements-and-fixes/ST2",
+  "test_sufficiency_summary": [
+    "Security-relevant behavior is well covered by the new ST2 unit tests: deleted_at IS NULL filter asserted; null returned for no-reply and all-soft-deleted cases; non-null reply author for present replies; oracle-parity 404 for nonexistent and gated (members/project-only) boards (AC6); author shape excludes email/globalRole (toTopicShape tests at lines 2731-2732).",
+    "Gaps: (1) the SQL string is not asserted at the binding level (makeRawQb echoes provided rows), so parameter-binding and the MAX subquery are validated by direct source review rather than tests; (2) the suite does NOT currently pass clean \u2014 TC11 fails because the shared query-builder mock was not extended for the new last-activity query path; (3) no test covers the opening-author fallback because it is unimplemented.",
+    "Direct source inspection of forums.service.ts confirms parameter-bound ids, column-only correlated subquery, and minimal projection \u2014 the security properties hold in the production code independent of the failing test."
+  ],
+  "warning_finding_count": 3
+}
