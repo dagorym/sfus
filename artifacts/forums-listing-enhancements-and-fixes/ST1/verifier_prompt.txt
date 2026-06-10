@@ -1,0 +1,70 @@
+Your role is 'verifier'. Your task is as follows:
+
+## Task Summary
+
+ST1 — NULLS LAST fix and hardening of the forums recent-topics feed in the NestJS API. The PostgreSQL-only `NULLS LAST` third argument was removed from `orderBy` in `ForumsService.listRecentTopics`; MySQL orders NULLs last natively under DESC. The public-board-id `boardId IN` predicate was documented as defense-in-depth. Two stale JSDoc comments corrected. One stale test assertion updated by Implementer.
+
+## Acceptance Criteria to Verify
+
+1. `GET /api/forums/recent` returns 200 with topics ordered `lastPostAt DESC` (NULLs last) then `createdAt DESC`; no `NULLS LAST` / PostgreSQL-only literal remains in any forums query.
+2. The recent-feed query carries the public-board-id predicate in `WHERE` / `JOIN` as a second layer on top of the allow-list; returned topics are unchanged.
+3. Oracle safety preserved: stable empty list with no public activity; non-public/project/soft-deleted excluded.
+4. lint, typecheck, and the API forums suite pass.
+
+## Branch and Worktree Context
+
+- Branch: `forums-listing-st1-documenter-20260610`
+- Worktree: `/home/tstephen/repos/worktrees/forums-listing-st1-documenter-20260610`
+- Comparison base: `main`
+- Plan: `plans/forums-listing-enhancements-and-fixes-plan.md`
+
+## Files Modified
+
+**Implementer:**
+- `apps/api/src/forums/forums.service.ts` — removed `NULLS LAST` from `orderBy`, updated JSDoc, added defense-in-depth comment on `boardId IN` predicate
+
+**Tester:**
+- `apps/api/src/forums/forums.service.test.ts` — updated stale ordering assertion; added NULLS-literal regression guard (two-argument length assertion on `orderBy` and `addOrderBy`)
+- `apps/api/src/forums/forums.service.integration.test.ts` — new MySQL-backed regression guard spec (gated on `SFUS_DB_INTEGRATION=1`)
+
+**Documenter:**
+- `docs/features/forums.md` — corrected sort-order description; added defense-in-depth `boardId IN` note in visibility filtering section
+
+**Plan (unchanged by agents):**
+- `plans/forums-listing-enhancements-and-fixes-plan.md`
+
+## Final Test Outcomes
+
+150/150 unit tests pass; 2/2 integration tests skipped cleanly (`SFUS_DB_INTEGRATION=1` not set); lint and typecheck clean.
+Documentation commit: `0ce1c336f88afc950387b7f707adda81d8c4562f`
+Tester commit: `c8aabec`
+
+## Shared Artifact Directory
+
+`artifacts/forums-listing-enhancements-and-fixes/ST1`
+
+## Convention and Guidance Files
+
+- `docs/README.md` — documentation routing table
+- `docs/features/forums.md` — feature contract for the forums subsystem
+- `docs/development/testing.md` — test commands and integration-test gate (`SFUS_DB_INTEGRATION=1`)
+- `AGENTS.md` / `.myteam/` — repository agent and workflow guidance
+
+## Verification Scope
+
+Verify implementation, tests, and updated documentation together. Confirm:
+- No `NULLS LAST` or `NULLS FIRST` literal appears in `apps/api/src/forums/forums.service.ts`.
+- The `boardId IN` predicate is present in the `listRecentTopics` query.
+- The unit test suite passes (150/150); the integration spec skips cleanly without `SFUS_DB_INTEGRATION=1`.
+- `docs/features/forums.md` accurately reflects the MySQL-compatible ordering and the defense-in-depth predicate.
+- All acceptance criteria above are satisfied.
+
+Infer missing plan-source, convention-file, or artifact-path details from repository context when safe, and label inferences as assumptions.
+
+## Startup Behavior
+
+Begin verification immediately and continue in the same run. Do not stop after activation, scope confirmation, or diff review when blocking inputs are present.
+
+## Completion Gate
+
+Do not report success unless all required artifacts exist and all changes are committed.

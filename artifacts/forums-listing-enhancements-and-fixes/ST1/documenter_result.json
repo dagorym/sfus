@@ -1,0 +1,25 @@
+{
+  "status": "pass",
+  "task_id": "ST1",
+  "branch": "forums-listing-st1-documenter-20260610",
+  "documentation_commit_hash": "0ce1c336f88afc950387b7f707adda81d8c4562f",
+  "documentation_files_modified": [
+    "docs/features/forums.md"
+  ],
+  "no_change_files": [],
+  "implementation_files_modified": [
+    "apps/api/src/forums/forums.service.ts"
+  ],
+  "test_files_modified": [
+    "apps/api/src/forums/forums.service.test.ts",
+    "apps/api/src/forums/forums.service.integration.test.ts"
+  ],
+  "shared_artifact_directory": "artifacts/forums-listing-enhancements-and-fixes/ST1",
+  "artifact_files_written": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST1/documenter_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST1/documenter_result.json",
+    "artifacts/forums-listing-enhancements-and-fixes/ST1/verifier_prompt.txt"
+  ],
+  "documentation_changes_summary": "Updated sort-order description in docs/features/forums.md to remove the PostgreSQL-only NULLS LAST literal and note MySQL native NULL-last ordering under DESC. Added defense-in-depth note documenting the boardId IN (...) predicate in listRecentTopics.",
+  "final_test_outcomes": "150/150 unit tests pass; 2/2 integration tests skipped cleanly (SFUS_DB_INTEGRATION=1 not set); lint and typecheck clean."
+}
