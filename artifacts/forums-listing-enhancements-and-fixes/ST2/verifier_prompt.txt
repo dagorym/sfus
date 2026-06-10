@@ -1,0 +1,74 @@
+Your role is 'verifier'. Your task is as follows:
+
+## Task Summary
+
+ST2 (remediation pass) — public topic-list `lastPostAuthor` enrichment and reusable `resolveTopicLastActivity` primitive with opening-post fallback (`isReply` flag) for ST3 consumption. The implementer added `lastPostAuthor` to `PublicTopicShape`, introduced a `TopicLastActivity` interface `{ author, at, isReply }`, implemented `resolveTopicLastActivity` (primitive) and `resolveTopicLastActivityAuthors` (wrapper), and integrated `lastPostAuthor` into `listTopics`. The tester verified all acceptance criteria pass (174/174 unit tests, lint and typecheck clean) and added behavioral tests for the primitive.
+
+## Acceptance Criteria to Verify
+
+1. `listTopics` topic items include `lastPostAuthor` (latest non-deleted reply author, or `null` when 0 non-deleted replies).
+2. `resolveTopicLastActivity` returns per-topic `{ author, at, isReply }`: latest non-deleted reply (`isReply=true`) ELSE opening-post fallback (`isReply=false`); `null` only when neither available.
+3. `resolveTopicLastActivityAuthors` (wrapper) yields `null` for no-reply topics (opening-post fallback entries are mapped to `null`).
+4. Soft-deleted posts are ignored throughout.
+5. Board visibility oracle parity unchanged (404 `TOPIC_NOT_FOUND_MESSAGE`).
+6. lint, typecheck, and API forums suite ALL pass (0 failures).
+
+## Branch and Worktree Context
+
+- Branch: `forums-listing-st2-documenter-20260610`
+- Worktree: `/home/tstephen/repos/worktrees/forums-listing-st2-documenter-20260610`
+- Comparison base: `forums-listing`
+- Plan: `plans/forums-listing-enhancements-and-fixes-plan.md`
+
+## Files Modified
+
+**Implementer:**
+- `apps/api/src/forums/forums.types.ts` — added `TopicLastActivity` interface; `PublicTopicShape` gains `lastPostAuthor`
+- `apps/api/src/forums/forums.service.ts` — `resolveTopicLastActivity` (primitive), `resolveTopicLastActivityAuthors` (wrapper); `listTopics` enrichment
+
+**Tester:**
+- `apps/api/src/forums/forums.service.test.ts` — behavioral tests: `isReply` flag, opening-post fallback, soft-delete fallback, mixed topics
+
+**Documenter:**
+- `docs/features/forums.md` — added `TopicLastActivity` field table; added `resolveTopicLastActivity` (primitive) paragraph; corrected `resolveTopicLastActivityAuthors` paragraph from "shared primitive" to "wrapper" with primitive/wrapper distinction and ST3 usage note
+
+**Plan (unchanged by agents):**
+- `plans/forums-listing-enhancements-and-fixes-plan.md`
+
+## Final Test Outcomes
+
+174/174 unit tests pass; lint and typecheck clean (from tester artifacts).
+Documentation commit: `b12db29`
+
+## Shared Artifact Directory
+
+`artifacts/forums-listing-enhancements-and-fixes/ST2`
+
+## Convention and Guidance Files
+
+- `docs/README.md` — documentation routing table
+- `docs/features/forums.md` — feature contract for the forums subsystem
+- `docs/development/testing.md` — test commands and validation
+- `AGENTS.md` / `.myteam/` — repository agent and workflow guidance
+
+## Verification Scope
+
+Verify implementation, tests, and updated documentation together. Confirm:
+- `PublicTopicShape` in `forums.types.ts` includes `lastPostAuthor: PublicAuthorShape | null`.
+- `TopicLastActivity` interface exists with `author`, `at`, and `isReply` fields.
+- `resolveTopicLastActivity` issues a single batched query, handles the opening-post fallback, and sets `isReply` correctly.
+- `resolveTopicLastActivityAuthors` delegates to the primitive and returns `null` for `isReply: false` entries.
+- `listTopics` calls `resolveTopicLastActivityAuthors` and passes the result to `toTopicShape`.
+- `docs/features/forums.md` accurately documents: `TopicLastActivity` fields, the primitive (single SQL query, opening-post fallback, `isReply` flag, ST3 usage note), and the wrapper (ST2 contract, null for no-reply, delegates to primitive).
+- The `lastPostAuthor` row in `PublicTopicShape` table is accurate.
+- All acceptance criteria above are satisfied.
+
+Infer missing plan-source, convention-file, or artifact-path details from repository context when safe, and label inferences as assumptions.
+
+## Startup Behavior
+
+Begin verification immediately and continue in the same run. Do not stop after activation, scope confirmation, or diff review when blocking inputs are present.
+
+## Completion Gate
+
+Do not report success unless all required artifacts exist and all changes are committed.
