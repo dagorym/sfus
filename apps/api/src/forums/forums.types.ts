@@ -6,6 +6,16 @@ export { forumBoardScopeTypes, forumBoardVisibilities };
 export type { ForumBoardScopeType, ForumBoardVisibility };
 
 // ---------------------------------------------------------------------------
+// Input length limits for category and board fields.
+// ---------------------------------------------------------------------------
+
+/** Maximum allowed length for a forum category or board description. */
+export const FORUM_DESCRIPTION_MAX_LENGTH = 512;
+
+/** Maximum allowed length for a forum category or board name. */
+export const FORUM_NAME_MAX_LENGTH = 128;
+
+// ---------------------------------------------------------------------------
 // Public read shapes (ST3) — safe, server-mapped DTOs exposed to unauthenticated callers.
 // ---------------------------------------------------------------------------
 

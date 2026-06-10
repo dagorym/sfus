@@ -10,7 +10,7 @@ import { ForumCategoryEntity } from "./entities/forum-category.entity";
 import { ForumBoardEntity } from "./entities/forum-board.entity";
 import { ForumTopicEntity } from "./entities/forum-topic.entity";
 import { ForumPostEntity } from "./entities/forum-post.entity";
-import { forumBoardScopeTypes, forumBoardVisibilities } from "./forums.types";
+import { forumBoardScopeTypes, forumBoardVisibilities, FORUM_DESCRIPTION_MAX_LENGTH, FORUM_NAME_MAX_LENGTH } from "./forums.types";
 import type {
   CreateCategoryInput,
   UpdateCategoryInput,
@@ -100,7 +100,11 @@ export class ForumsService {
    */
   async createCategory(input: CreateCategoryInput): Promise<ForumCategoryEntity> {
     this.assertCategoryNameValid(input.name);
+    this.assertFieldLengthValid(input.name, FORUM_NAME_MAX_LENGTH, "Category name");
     this.assertSlugValid(input.slug);
+    if (input.description != null) {
+      this.assertFieldLengthValid(input.description, FORUM_DESCRIPTION_MAX_LENGTH, "Description");
+    }
 
     const id = crypto.randomUUID();
     const category = this.categoryRepository.create({
@@ -126,6 +130,7 @@ export class ForumsService {
 
     if (input.name !== undefined) {
       this.assertCategoryNameValid(input.name);
+      this.assertFieldLengthValid(input.name, FORUM_NAME_MAX_LENGTH, "Category name");
       category.name = input.name.trim();
     }
     if (input.slug !== undefined) {
@@ -133,6 +138,9 @@ export class ForumsService {
       category.slug = input.slug.trim();
     }
     if (input.description !== undefined) {
+      if (input.description != null) {
+        this.assertFieldLengthValid(input.description, FORUM_DESCRIPTION_MAX_LENGTH, "Description");
+      }
       category.description = input.description;
     }
     if (input.sortOrder !== undefined) {
@@ -218,7 +226,11 @@ export class ForumsService {
    */
   async createBoard(input: CreateBoardInput): Promise<ForumBoardEntity> {
     this.assertBoardNameValid(input.name);
+    this.assertFieldLengthValid(input.name, FORUM_NAME_MAX_LENGTH, "Board name");
     this.assertSlugValid(input.slug);
+    if (input.description != null) {
+      this.assertFieldLengthValid(input.description, FORUM_DESCRIPTION_MAX_LENGTH, "Description");
+    }
 
     // Validate enum values explicitly so invalid values return 400 before persistence.
     const scopeType = input.scopeType ?? "site";
@@ -268,6 +280,7 @@ export class ForumsService {
     }
     if (input.name !== undefined) {
       this.assertBoardNameValid(input.name);
+      this.assertFieldLengthValid(input.name, FORUM_NAME_MAX_LENGTH, "Board name");
       board.name = input.name.trim();
     }
     if (input.slug !== undefined) {
@@ -275,6 +288,9 @@ export class ForumsService {
       board.slug = input.slug.trim();
     }
     if (input.description !== undefined) {
+      if (input.description != null) {
+        this.assertFieldLengthValid(input.description, FORUM_DESCRIPTION_MAX_LENGTH, "Description");
+      }
       board.description = input.description;
     }
     if (input.sortOrder !== undefined) {
@@ -1340,6 +1356,12 @@ export class ForumsService {
   // ---------------------------------------------------------------------------
   // Private validation helpers
   // ---------------------------------------------------------------------------
+
+  private assertFieldLengthValid(value: string, max: number, label: string): void {
+    if (value.length > max) {
+      throw new BadRequestException(`${label} must be ${max} characters or fewer.`);
+    }
+  }
 
   private assertCategoryNameValid(name: string): void {
     if (!name || name.trim().length === 0) {
