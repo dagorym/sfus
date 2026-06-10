@@ -1,0 +1,55 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary: ST3 — Add per-board aggregate stats (topicCount, postCount, lastPost) to the public categories API. Each publicly-readable board in the listPublicCategories response now includes topicCount (non-deleted topics), postCount (non-deleted topics + non-deleted replies), and lastPost (most-recent activity stub via resolveTopicLastActivity, or null for empty boards). Soft-deleted and non-public/project boards are excluded.
+
+Modified files:
+- apps/api/src/forums/forums.types.ts
+- apps/api/src/forums/forums.service.ts
+
+Acceptance criteria to validate (from Planner):
+1. topicCount correctness: the topicCount field on each board equals the number of non-deleted topics in that board.
+2. postCount correctness: postCount = topicCount (opening posts) + non-deleted reply count for the board.
+3. Soft-delete exclusion: soft-deleted topics and soft-deleted replies are excluded from both topicCount and postCount, and do not influence lastPost.
+4. Non-public/project board exclusion: boards with visibility != 'public' or scopeType == 'project' are absent from the response (existing behavior unchanged).
+5. Empty-board lastPost=null: a board with no non-deleted topics yields lastPost=null.
+6. lastPost author and timestamp correctness (reply case): when the board's most-recently-active topic has a non-deleted reply, lastPost.author is the reply author and lastPost.at is an ISO-8601 string derived from the topic's lastPostAt (or createdAt if lastPostAt is null).
+7. lastPost author and timestamp correctness (opening-post fallback): when the board's most-recently-active topic has NO non-deleted replies, lastPost.author is the topic's opening-post author (via the ST2 resolveTopicLastActivity isReply=false fallback) and lastPost.at is the topic's createdAt as ISO-8601.
+8. BoardLastPostShape shape: lastPost (when non-null) has exactly {at: string, author: {username: string, displayName: string | null}}.
+9. lint, typecheck, and the API forums suite ALL pass (0 failures).
+
+Test file location:
+- apps/api/src/forums/forums.service.test.ts
+
+Implementation context for testing:
+- New type in forums.types.ts: BoardLastPostShape {at: string; author: {username: string; displayName: string | null}}.
+- PublicBoardShape gains: topicCount: number, postCount: number, lastPost: BoardLastPostShape | null.
+- listPublicCategories collects all public board ids, then issues two batch DB queries: (1) all non-deleted topics with authors for those boards; (2) non-deleted reply count from the posts table grouped by board_id (joined only to non-deleted topics). Groups topics by board, builds replyCountByBoard map. Calls resolveTopicLastActivity for all topics, then selects the most-recent-activity topic per board using effectiveAt = lastPostAt when isReply=true, or createdAt when isReply=false. Boards with no topics get lastPost=null. postCount = topicCount + replyCount.
+- toBoardShape now takes a second stats argument {topicCount, postCount, lastPost}; it does not query the DB.
+- The same aggregate logic is applied in getPublicBoard (single-board detail path).
+- The ST2 resolveTopicLastActivity primitive (already tested in ST2) is the source of truth for the isReply flag and author fallback.
+
+Behavioral coverage the Tester must add or confirm:
+- topicCount=0, postCount=0, lastPost=null for a board with no topics.
+- topicCount=N (soft-deleted topics excluded), postCount counts only non-deleted replies.
+- lastPost.author is the reply author when isReply=true.
+- lastPost.author is the opening-post author when isReply=false (no non-deleted replies).
+- lastPost.at is topic.lastPostAt.toISOString() (or topic.createdAt.toISOString() when lastPostAt is null and isReply=true, and always createdAt.toISOString() when isReply=false).
+- Board with visibility='members' or scopeType='project' is absent from listPublicCategories output.
+
+Suggested test commands:
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when evidence is sufficient, and label those choices as assumptions.
+
+Shared artifact directory:
+- artifacts/forums-listing-enhancements-and-fixes/ST3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
