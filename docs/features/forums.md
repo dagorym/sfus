@@ -247,7 +247,17 @@ Only non-deleted topics (`deletedAt IS NULL`) are returned.
 | `createdAt` | Date | |
 | `updatedAt` | Date | |
 
-`resolveTopicLastActivityAuthors` — a reusable `ForumsService` method that accepts a list of topic IDs and an opening-author map (topicId → `PublicAuthorShape`) and returns a `Map<topicId, PublicAuthorShape | null>` indicating the last-reply author for each topic. A single grouped SQL query (no window functions) fetches the latest non-deleted post per topic, joined to the `users` table. Soft-deleted posts are excluded (`deletedAt IS NULL`). Returns `null` for topics that have no non-deleted replies. Intended as a shared primitive for the public topic list (ST2) and board-level aggregate columns (ST3).
+`TopicLastActivity` — a per-topic descriptor produced by the primitive below.
+
+| Field | Type | Notes |
+|---|---|---|
+| `author` | `PublicAuthorShape` | Reply author when `isReply` is true; opening-post author when `isReply` is false |
+| `at` | `Date \| null` | `createdAt` of the latest non-deleted reply when `isReply` is true; `null` when the fallback is the opening post |
+| `isReply` | boolean | `true` when the last activity is a real non-deleted reply; `false` when the activity falls back to the opening post |
+
+`resolveTopicLastActivity` (primitive) — accepts a list of topic IDs and an `openingAuthors` map (topicId → `PublicAuthorShape`) and returns `Map<topicId, TopicLastActivity | null>`. Issues a single grouped SQL query (no window functions) to find the latest non-deleted post per topic, joined to the `users` table. When no non-deleted reply exists for a topic, falls back to the matching entry in `openingAuthors` and sets `isReply: false`. Returns `null` only when neither a reply nor an opening-author entry is available. Intended for direct consumption by ST3 board-level aggregation, which needs the `isReply` flag to distinguish a real reply from an opening-post fallback.
+
+`resolveTopicLastActivityAuthors` (wrapper) — accepts the same arguments and delegates to `resolveTopicLastActivity`, then maps each result to `PublicAuthorShape | null`: `isReply: true` entries yield the reply author; `isReply: false` (opening-post fallback) entries yield `null`. This is the ST2 contract for `listTopics`: `lastPostAuthor` is `null` whenever the topic has no non-deleted replies, regardless of the opening post. ST3 should call `resolveTopicLastActivity` directly to obtain the full descriptor including the fallback author and `isReply` flag.
 
 ### Oracle parity for topic routes (P12)
 
