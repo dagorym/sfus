@@ -109,6 +109,28 @@ export interface PublicAuthorShape {
 }
 
 /**
+ * Per-topic "last activity" descriptor returned by resolveTopicLastActivity.
+ *
+ * author     — the most recent non-deleted reply's author when isReply is true,
+ *              or the opening post's author (from the openingAuthors map) when isReply is false.
+ * at         — the createdAt of the most recent non-deleted reply when isReply is true,
+ *              or null when the fallback is the opening post (timestamp not carried
+ *              through the raw query; callers needing the opening createdAt should
+ *              read it from the topic entity directly).
+ * isReply    — true when the activity is a real non-deleted reply; false when the
+ *              activity falls back to the opening post (no non-deleted replies exist).
+ *
+ * Intended for use by ST3 board-level aggregation, which needs author+timestamp
+ * across all topics in a board regardless of whether they have replies.
+ * ST2's listTopics derives lastPostAuthor = isReply ? author : null from this.
+ */
+export interface TopicLastActivity {
+  author: PublicAuthorShape;
+  at: Date | null;
+  isReply: boolean;
+}
+
+/**
  * Public-safe topic shape returned from topic list and topic detail.
  * Omits authorUserId (internal FK), boardId (implicit from URL), isLocked,
  * movedByUserId, movedAt, lockedByUserId, lockedAt, deletedAt.

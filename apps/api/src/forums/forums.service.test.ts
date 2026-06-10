@@ -36,11 +36,23 @@ interface MinimalRepo {
 const createMinimalRepository = (): MinimalRepo => {
   // Chainable QueryBuilder stub: every method returns the same object.
   const qbStub: Record<string, ReturnType<typeof vi.fn>> = {};
-  const chainMethods = ["leftJoinAndSelect", "where", "andWhere", "orderBy", "addOrderBy", "take"];
+  const chainMethods = [
+    "leftJoinAndSelect",
+    "where",
+    "andWhere",
+    "orderBy",
+    "addOrderBy",
+    "take",
+    // Raw-query chain methods used by resolveTopicLastActivity (post repository):
+    "select",
+    "addSelect",
+    "innerJoin"
+  ];
   for (const m of chainMethods) {
     qbStub[m] = vi.fn().mockReturnValue(qbStub);
   }
   qbStub["getMany"] = vi.fn().mockResolvedValue([]);
+  qbStub["getRawMany"] = vi.fn().mockResolvedValue([]);
   return {
     find: vi.fn().mockResolvedValue([]),
     findOne: vi.fn().mockResolvedValue(null),

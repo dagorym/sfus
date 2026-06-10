@@ -25,6 +25,7 @@ import type {
   CreateTopicInput,
   TopicListQuery,
   PublicAuthorShape,
+  TopicLastActivity,
   PublicPostShape,
   PaginatedPostsShape,
   CreatePostInput,
@@ -495,24 +496,26 @@ export class ForumsService {
   }
 
   /**
-   * Returns the "last activity" descriptor for a topic: the author and timestamp
-   * of the most recent non-deleted reply, falling back to the opening post's author
-   * and createdAt when the topic has no non-deleted replies.
+   * Core last-activity resolver: returns a full TopicLastActivity descriptor for each
+   * topic, using the most recent non-deleted reply when one exists, or falling back to
+   * the opening post's author from `openingAuthors` when the topic has no non-deleted replies.
    *
-   * Intended for use by ST3 board-level aggregation and any other consumer that needs
-   * to surface the last active participant for a set of topics.
+   * Returns null for a topic only when it has neither a non-deleted reply nor an entry
+   * in `openingAuthors` (callers should always provide a populated openingAuthors map).
    *
-   * This method issues a single query for the provided topicIds to avoid N+1 lookups.
-   * Returns a Map keyed by topicId, containing the last-activity descriptor for each topic.
+   * Issues a single query for all provided topicIds to avoid N+1 lookups.
+   * Intended for direct use by ST3 board-level aggregation and other consumers that
+   * need both the author and the `isReply` flag (so they can distinguish a reply from
+   * an opening-post fallback).
    *
-   * @param topicIds  IDs of the topics to resolve activity for.
-   * @param openingAuthors  Map of topicId → opening-post author, used as fallback when
-   *                        no non-deleted reply exists. Values must include username and displayName.
+   * @param topicIds      IDs of the topics to resolve activity for.
+   * @param openingAuthors  Map of topicId → opening-post author; used as fallback when
+   *                        no non-deleted reply exists for a topic.
    */
-  async resolveTopicLastActivityAuthors(
+  async resolveTopicLastActivity(
     topicIds: string[],
     openingAuthors: Map<string, PublicAuthorShape>
-  ): Promise<Map<string, PublicAuthorShape | null>> {
+  ): Promise<Map<string, TopicLastActivity | null>> {
     if (topicIds.length === 0) {
       return new Map();
     }
@@ -540,16 +543,56 @@ export class ForumsService {
       )
       .getRawMany<{ topicId: string; username: string; displayName: string | null }>();
 
-    const result = new Map<string, PublicAuthorShape | null>();
-
-    // Seed with null for all requested topics first; overwrite when a reply is found.
-    for (const id of topicIds) {
-      result.set(id, null);
-    }
+    // Build a lookup of reply authors from the query rows.
+    const replyAuthorByTopic = new Map<string, { username: string; displayName: string | null }>();
     for (const row of rows) {
-      result.set(row.topicId, { username: row.username, displayName: row.displayName });
+      replyAuthorByTopic.set(row.topicId, { username: row.username, displayName: row.displayName });
     }
 
+    const result = new Map<string, TopicLastActivity | null>();
+    for (const id of topicIds) {
+      const replyAuthor = replyAuthorByTopic.get(id);
+      if (replyAuthor) {
+        // Latest non-deleted reply exists — isReply = true.
+        result.set(id, { author: replyAuthor, at: null, isReply: true });
+      } else {
+        // No non-deleted reply — fall back to the opening post's author.
+        const openingAuthor = openingAuthors.get(id);
+        result.set(id, openingAuthor ? { author: openingAuthor, at: null, isReply: false } : null);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Returns the author of the most recent non-deleted reply for each topic, or null
+   * when a topic has no non-deleted replies.
+   *
+   * This is the ST2-compatible public contract: `lastPostAuthor` on the topic list
+   * is null when there are no replies, regardless of the opening post. Internally
+   * delegates to resolveTopicLastActivity and extracts the reply author (isReply true)
+   * or null (isReply false / fallback), so `openingAuthors` is used for the fallback
+   * lookup even though the null result is what callers of this method receive.
+   *
+   * Intended for use by listTopics. ST3 should call resolveTopicLastActivity directly
+   * to obtain the full descriptor (including the opening-post fallback author and the
+   * isReply flag needed for board-level aggregation).
+   *
+   * @param topicIds      IDs of the topics to resolve activity for.
+   * @param openingAuthors  Map of topicId → opening-post author; passed through to
+   *                        resolveTopicLastActivity for the fallback lookup.
+   */
+  async resolveTopicLastActivityAuthors(
+    topicIds: string[],
+    openingAuthors: Map<string, PublicAuthorShape>
+  ): Promise<Map<string, PublicAuthorShape | null>> {
+    const activity = await this.resolveTopicLastActivity(topicIds, openingAuthors);
+    const result = new Map<string, PublicAuthorShape | null>();
+    for (const [id, entry] of activity) {
+      // Expose only the reply author; null when the activity falls back to the opening post.
+      result.set(id, entry?.isReply ? entry.author : null);
+    }
     return result;
   }
 
