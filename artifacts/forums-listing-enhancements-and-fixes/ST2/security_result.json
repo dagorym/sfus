@@ -1,0 +1,24 @@
+{
+  "artifact_file_paths": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/security_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "forums-listing-st2-security-20260610",
+  "documentation_sufficiency_summary": [
+    "docs/features/forums.md accurately documents the security-relevant semantics: lastPostAuthor exposes only username/displayName, is null when there is no non-deleted reply (replyCount===0 or all replies soft-deleted), excludes soft-deleted posts, and resolves in a single batched query (no N+1).",
+    "It also documents the TopicLastActivity descriptor and both functions, and explicitly distinguishes the ST2 wrapper (null for opening-post fallback) from the full primitive (opening-post fallback author + isReply flag) intended for ST3 reuse \u2014 resolving the pass-1 doc/contract mismatch.",
+    "No operational/runbook changes are required for this read-path enrichment."
+  ],
+  "note_finding_count": 7,
+  "outcome": "PASS",
+  "pass_label": "remediation-pass-2",
+  "status": "complete",
+  "task_id": "ST2",
+  "test_sufficiency_summary": [
+    "Adequate for the security-relevant behavior. New ST2 unit tests assert: the deleted_at IS NULL filter is present in the query; null is returned for no-reply and all-soft-deleted topics; the reply author is returned when a non-deleted reply exists; the opening-post fallback yields isReply:false (and null via the wrapper); empty topicIds short-circuits with no DB call; the projected author shape carries only username/displayName; and AC6 oracle-parity 404 is identical for nonexistent and gated (members) boards.",
+    "Re-verified on a clean worktree install: 174/174 pass; the prior pass's single failing test (topic-shape test hitting the unstubbed query builder) is resolved by the extended qbStub.",
+    "Residual (non-blocking) gap: the new builder/raw SQL is exercised only via a chainable stub (makeRawQb echoes provided rows); the real parameter binding, the correlated MAX(created_at) subquery, and the live soft-delete filtering are validated by direct source review rather than an executed DB integration test (forums.service.integration.test.ts is DB_INTEGRATION_ENABLED-gated and does not yet cover this path). The security properties hold by construction independent of that gap; an integration assertion is a hardening nice-to-have, not a blocker."
+  ],
+  "warning_finding_count": 0
+}
