@@ -1,0 +1,59 @@
+Your role is 'tester'. Your task is as follows:
+
+## ST2 — Topic last-reply author + primitive (API)
+
+Test the enrichment of the public forum topic-list API with `lastPostAuthor`, as implemented in ST2.
+
+## Shared Artifact Directory
+
+`artifacts/forums-listing-enhancements-and-fixes/ST2/`
+
+## Modified Files
+
+- `apps/api/src/forums/forums.types.ts`
+- `apps/api/src/forums/forums.service.ts`
+
+## Acceptance Criteria to Verify
+
+1. Topic items in the `listTopics` response include `lastPostAuthor: { username, displayName } | null`.
+2. When a topic has at least one non-deleted reply, `lastPostAuthor` is the author of the most recent non-deleted reply.
+3. When a topic has no non-deleted replies (or all replies are soft-deleted), `lastPostAuthor` is `null`.
+4. Soft-deleted posts (`deletedAt IS NOT NULL`) are ignored when resolving `lastPostAuthor`.
+5. The reusable `resolveTopicLastActivityAuthors` method exists on `ForumsService` and accepts `(topicIds: string[], openingAuthors: Map<string, PublicAuthorShape>)`.
+6. Board visibility: non-readable or nonexistent boards still return 404 with `TOPIC_NOT_FOUND_MESSAGE` (unchanged oracle parity).
+
+## Test File Location
+
+`apps/api/src/forums/forums.service.test.ts`
+
+## Implementation Context
+
+- `PublicTopicShape` in `forums.types.ts` now has `lastPostAuthor: PublicAuthorShape | null`.
+- `ForumsService.toTopicShape` now accepts a second optional `lastPostAuthor` parameter (defaults to `null`), so `createTopic` still works correctly.
+- `ForumsService.resolveTopicLastActivityAuthors(topicIds, openingAuthors)` resolves last-reply authors for a batch of topic IDs in one grouped SQL query using a correlated `MAX(created_at)` subquery; soft-deleted posts are filtered out. Returns `Map<topicId, PublicAuthorShape | null>`.
+- `ForumsService.listTopics` now calls `resolveTopicLastActivityAuthors` after fetching the page, and passes the result into `toTopicShape` for each topic.
+
+## Edge Cases to Cover
+
+- Topic with one or more non-deleted replies: `lastPostAuthor` equals the most recent reply author.
+- Topic with replies where the latest is soft-deleted: `lastPostAuthor` reflects the most recent NON-deleted reply.
+- Topic with all replies soft-deleted: `lastPostAuthor` is `null`.
+- Topic with no replies at all: `lastPostAuthor` is `null`.
+- Empty page (no topics): no crash, empty array returned.
+- Nonexistent board ID: 404 with `TOPIC_NOT_FOUND_MESSAGE`.
+- Gated board (e.g., visibility='members'): identical 404 oracle parity.
+
+## Validation Commands
+
+```
+npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts
+npx --yes pnpm@10.0.0 typecheck
+npx --yes pnpm@10.0.0 lint
+```
+
+## Security Review Required
+
+Yes — this subtask is marked as requiring a security review. The security reviewer should check:
+- The raw SQL query in `resolveTopicLastActivityAuthors` uses parameterized `topicIds` via TypeORM `.where("post.topic_id IN (:...topicIds)", { topicIds })` — confirm no injection risk.
+- The method is only called from `listTopics` after the board visibility gate has already passed — confirm no bypass path.
+- The returned shape (`PublicAuthorShape`) exposes only `username` and `displayName` — confirm no PII leakage (no email, no userId, no globalRole).

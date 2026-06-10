@@ -1,0 +1,28 @@
+{
+  "status": "PASS",
+  "subtask": "ST2",
+  "plan": "forums-listing-enhancements-and-fixes",
+  "branch": "forums-listing-st2-implementer-20260610",
+  "implementation_commit": "dbc246f",
+  "changed_files": [
+    "apps/api/src/forums/forums.types.ts",
+    "apps/api/src/forums/forums.service.ts"
+  ],
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts",
+    "npx --yes pnpm@10.0.0 typecheck",
+    "npx --yes pnpm@10.0.0 lint"
+  ],
+  "validation_outcome": "PASS — 150/150 tests pass, typecheck clean, lint clean",
+  "acceptance_criteria": {
+    "lastPostAuthor_present_or_null": true,
+    "soft_deleted_posts_ignored": true,
+    "reusable_primitive_for_ST3": true,
+    "board_visibility_404_unchanged": true
+  },
+  "artifact_files": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/implementer_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/implementer_result.json",
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/tester_prompt.txt"
+  ]
+}
