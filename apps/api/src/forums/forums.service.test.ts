@@ -3152,3 +3152,131 @@ describe("ForumsService.listTopics (ST2: AC1 — lastPostAuthor field present in
     expect(gatedMsg).toBe(ForumsService.TOPIC_NOT_FOUND_MESSAGE);
   });
 });
+
+// ---------------------------------------------------------------------------
+// ST2: resolveTopicLastActivity — reusable primitive (isReply flag + opening-post fallback)
+//
+// Acceptance criteria validated:
+// AC-PRIM-1: isReply=true + reply author when a non-deleted reply exists.
+// AC-PRIM-2: isReply=false + opening-post author (from openingAuthors map) when
+//            no non-deleted replies exist — opening-post fallback.
+// AC-PRIM-3: null when neither a non-deleted reply nor an openingAuthors entry exists.
+// AC-PRIM-4: soft-deleted latest reply falls back to next non-deleted reply author
+//            (isReply=true), or to opening-post fallback (isReply=false) when all
+//            replies are soft-deleted — confirmed via the filtered SQL result.
+// AC-PRIM-5: empty topicIds → returns empty Map, no DB query.
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.resolveTopicLastActivity (ST2: primitive — isReply flag and opening-post fallback)", () => {
+  // AC-PRIM-5: empty topicIds → empty Map, no DB call
+  it("returns empty Map immediately for empty topicIds (AC-PRIM-5: no DB call)", async () => {
+    const getRawManySpy = vi.fn();
+    const qb = makeRawQb([]);
+    qb["getRawMany"] = getRawManySpy;
+    const service = makeServiceWithPostQb(qb);
+    const result = await service.resolveTopicLastActivity([], new Map());
+    expect(result).toBeInstanceOf(Map);
+    expect(result.size).toBe(0);
+    expect(getRawManySpy).not.toHaveBeenCalled();
+  });
+
+  // AC-PRIM-1: non-deleted reply exists → isReply=true, author = reply author
+  it("returns isReply=true and reply author when a non-deleted reply exists (AC-PRIM-1)", async () => {
+    const rows = [{ topicId: "topic-1", username: "replier", displayName: "Replier" }];
+    const qb = makeRawQb(rows);
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([["topic-1", { username: "opener", displayName: "Opener" }]]);
+    const result = await service.resolveTopicLastActivity(["topic-1"], openingAuthors);
+    const activity = result.get("topic-1");
+    expect(activity).not.toBeNull();
+    expect(activity!.isReply).toBe(true);
+    expect(activity!.author.username).toBe("replier");
+    expect(activity!.author.displayName).toBe("Replier");
+  });
+
+  // AC-PRIM-2: no non-deleted replies → isReply=false, author = openingAuthors entry
+  it("returns isReply=false with opening-post author when no non-deleted replies exist (AC-PRIM-2: opening-post fallback)", async () => {
+    const qb = makeRawQb([]); // no reply rows — all replies filtered or topic has none
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([["topic-no-replies", { username: "openeralice", displayName: "Alice" }]]);
+    const result = await service.resolveTopicLastActivity(["topic-no-replies"], openingAuthors);
+    const activity = result.get("topic-no-replies");
+    expect(activity).not.toBeNull();
+    expect(activity!.isReply).toBe(false);
+    expect(activity!.author.username).toBe("openeralice");
+    expect(activity!.author.displayName).toBe("Alice");
+  });
+
+  // AC-PRIM-2: at field is null for opening-post fallback (timestamp not available in raw query)
+  it("at field is null when activity falls back to opening post (AC-PRIM-2: at=null for fallback)", async () => {
+    const qb = makeRawQb([]);
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([["topic-1", { username: "opener", displayName: null }]]);
+    const result = await service.resolveTopicLastActivity(["topic-1"], openingAuthors);
+    const activity = result.get("topic-1");
+    expect(activity!.at).toBeNull();
+  });
+
+  // AC-PRIM-4: soft-deleted latest reply falls back to opening-post author (isReply=false)
+  // The SQL already filters deleted_at IS NULL; unit stub simulates the filtered result (empty rows).
+  it("soft-deleted latest reply falls back to opening-post author with isReply=false (AC-PRIM-4: soft-delete fallback)", async () => {
+    // Simulates: only reply was soft-deleted, SQL filter returns no rows for this topic.
+    const qb = makeRawQb([]);
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([["topic-soft-deleted", { username: "origauthor", displayName: "Orig Author" }]]);
+    const result = await service.resolveTopicLastActivity(["topic-soft-deleted"], openingAuthors);
+    const activity = result.get("topic-soft-deleted");
+    expect(activity).not.toBeNull();
+    expect(activity!.isReply).toBe(false);
+    expect(activity!.author.username).toBe("origauthor");
+  });
+
+  // AC-PRIM-4: soft-deleted latest reply — next non-deleted reply (isReply=true) when other replies remain
+  it("soft-deleted latest reply returns next non-deleted reply with isReply=true when other replies exist (AC-PRIM-4: next reply)", async () => {
+    // SQL returns the next-most-recent non-deleted reply (the soft-deleted one was filtered).
+    const rows = [{ topicId: "topic-has-other-reply", username: "secondreplier", displayName: "Second" }];
+    const qb = makeRawQb(rows);
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([["topic-has-other-reply", { username: "opener", displayName: "Opener" }]]);
+    const result = await service.resolveTopicLastActivity(["topic-has-other-reply"], openingAuthors);
+    const activity = result.get("topic-has-other-reply");
+    expect(activity!.isReply).toBe(true);
+    expect(activity!.author.username).toBe("secondreplier");
+  });
+
+  // AC-PRIM-3: no reply and no openingAuthors entry → null
+  it("returns null when no non-deleted replies and no openingAuthors entry exists (AC-PRIM-3: null)", async () => {
+    const qb = makeRawQb([]);
+    const service = makeServiceWithPostQb(qb);
+    // Empty opening authors map — no entry for this topic
+    const result = await service.resolveTopicLastActivity(["topic-orphan"], new Map());
+    expect(result.get("topic-orphan")).toBeNull();
+  });
+
+  // Mixed topics: one with reply (isReply=true), one without (isReply=false with opener), one without opener (null)
+  it("handles mixed topics: reply, no-reply-with-opener, no-reply-no-opener in a single call", async () => {
+    const rows = [{ topicId: "topic-with-reply", username: "replier", displayName: "Replier" }];
+    const qb = makeRawQb(rows);
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([
+      ["topic-with-reply", { username: "opener1", displayName: null }],
+      ["topic-no-reply", { username: "opener2", displayName: "Opener 2" }]
+      // topic-orphan intentionally omitted
+    ]);
+    const result = await service.resolveTopicLastActivity(
+      ["topic-with-reply", "topic-no-reply", "topic-orphan"],
+      openingAuthors
+    );
+
+    const withReply = result.get("topic-with-reply");
+    expect(withReply!.isReply).toBe(true);
+    expect(withReply!.author.username).toBe("replier");
+
+    const noReply = result.get("topic-no-reply");
+    expect(noReply!.isReply).toBe(false);
+    expect(noReply!.author.username).toBe("opener2");
+
+    const orphan = result.get("topic-orphan");
+    expect(orphan).toBeNull();
+  });
+});
