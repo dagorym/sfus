@@ -1,0 +1,58 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST2 — Enrich the public forum topic-list API (listTopics) with lastPostAuthor: the author of the most recent non-deleted reply per topic, or null when no non-deleted replies exist. Introduce the reusable resolveTopicLastActivityAuthors(topicIds, openingAuthors) service primitive that resolves last-reply authors for a batch of topic IDs in a single grouped SQL query (no N+1), filtering soft-deleted posts. 32 new unit tests cover resolution, null cases, soft-delete filtering, and oracle parity.
+
+Acceptance criteria to verify:
+- Topic items in listTopics response include lastPostAuthor: { username, displayName } | null.
+- lastPostAuthor = author of the most recent non-deleted reply when one exists.
+- null when no non-deleted replies (or all soft-deleted).
+- Soft-deleted posts ignored.
+- resolveTopicLastActivityAuthors exists on ForumsService.
+- Board visibility oracle parity unchanged (404 TOPIC_NOT_FOUND_MESSAGE).
+
+Implementation branch or worktree context:
+- Implementer + Tester changes on branch forums-listing-st2-documenter-20260610 (worktree /home/tstephen/repos/worktrees/forums-listing-st2-documenter-20260610)
+- Base branch: main
+- forums.types.ts: added lastPostAuthor: PublicAuthorShape | null to PublicTopicShape
+- forums.service.ts: toTopicShape now accepts optional lastPostAuthor param (defaults to null)
+- forums.service.ts: new resolveTopicLastActivityAuthors(topicIds, openingAuthors) — single grouped SQL query, no N+1, soft-deleted posts excluded
+- forums.service.ts: listTopics calls resolveTopicLastActivityAuthors and threads result into toTopicShape
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/forums/forums.types.ts
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.service.test.ts
+- docs/features/forums.md
+
+Commands executed:
+- pnpm --filter @sfus/api test --run (32 new tests — all pass)
+- pnpm typecheck
+- pnpm lint
+
+Final test outcomes:
+- 32 new tests pass covering resolveTopicLastActivityAuthors resolution, null-case topics, soft-delete filtering, and oracle parity (TOPIC_NOT_FOUND_MESSAGE unchanged).
+
+Plan or evaluation context guidance:
+- Plan: plans/forums-listing-enhancements-and-fixes-plan.md (subtask ST2)
+- Base branch: main
+- Documentation impact per plan: docs/features/forums.md — public topic-list shape gains lastPostAuthor (semantics + null case)
+
+Convention-file guidance:
+- Repository documentation lives under docs/ organized by type (features/, operations/, architecture/)
+- One fact, one home — no duplication across docs
+- Do not document planned behavior not present in the implemented diff
+
+Updated documentation files:
+- docs/features/forums.md
+
+Shared artifact directory:
+- artifacts/forums-listing-enhancements-and-fixes/ST2
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

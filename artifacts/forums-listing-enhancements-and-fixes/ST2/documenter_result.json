@@ -1,0 +1,15 @@
+{
+  "artifact_file_paths": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/documenter_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/documenter_result.json",
+    "artifacts/forums-listing-enhancements-and-fixes/ST2/verifier_prompt.txt"
+  ],
+  "branch_name": "forums-listing-st2-documenter-20260610",
+  "documentation_commit_hash": "6ae58c0",
+  "documentation_files_changed": [
+    "docs/features/forums.md"
+  ],
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST2"
+}
