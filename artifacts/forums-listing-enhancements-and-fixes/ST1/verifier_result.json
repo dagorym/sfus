@@ -1,0 +1,26 @@
+{
+  "artifact_file_paths": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST1/verifier_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST1/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "forums-listing-st1-verifier-20260610",
+  "documentation_accuracy_summary": [
+    "ACCURATE. docs/features/forums.md line 123 now correctly states 'lastPostAt DESC then createdAt DESC; MySQL places NULL values last natively under DESC ordering; no NULLS LAST literal is used (PostgreSQL extension that causes MySQL 1064 parse error)' \u2014 accurately captures both the fix and the root cause.",
+    "Line 150 adds explicit 'Defense-in-depth: boardId IN (...)' bullet describing the predicate as supplementing the isBoardPubliclyReadable allow-list \u2014 both gates must pass.",
+    "In-code JSDoc at forums.service.ts:806 and comment at lines 837-840 are corrected to remove stale '(NULLS LAST)' wording and now accurately describe MySQL's native NULL ordering behaviour.",
+    "No contradictions, duplications, or missing operational guidance identified relative to the implemented and tested behavior."
+  ],
+  "note_finding_count": 3,
+  "pass_label": "PASS",
+  "status": "complete",
+  "task_id": "forums-listing-enhancements-and-fixes/ST1",
+  "test_sufficiency_summary": [
+    "SUFFICIENT. Unit suite forums.service.test.ts: 149 tests pass (0 fail). The updated ordering assertion (2-arg form) and the new NULLS-literal regression guard (asserting .length === 2 and third arg undefined for both orderBy and addOrderBy) together provide strong regression coverage for the defect.",
+    "Pre-existing visibility-exclusion coverage (CO5 AC2: excludes non-public/members/private/project boards, empty-list/no-public-activity, public-safe shape, NaN/Infinity limit coercion) is untouched and was not weakened by the diff.",
+    "New integration spec (forums.service.integration.test.ts) is opt-in gated by SFUS_DB_INTEGRATION=1 and skips cleanly in the default test run. It exercises listRecentTopics against a real MySQL-compatible DB to guard against dialect regression at the actual SQL generation level.",
+    "Overall test run: 908 pass, 3 skip (integration gate), 0 fail across all API test files."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
