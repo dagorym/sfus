@@ -1,0 +1,66 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST-2 (Documents read API) — REMEDIATION PASS 1. The breadcrumb ancestry visibility leak in DocsService.buildBreadcrumbs has been fixed. Project-scoped, deleted, and private/members ancestors are now silently truncated from the breadcrumbs chain at the first gated ancestor (chain cut, not per-item skip). Three negative breadcrumb ancestor tests were added to confirm truncation behavior. All prior AC1–AC5 tests continue to pass. docs/features/documents.md breadcrumb section updated by the Implementer in the fix commit to describe the truncation behavior accurately.
+
+Acceptance criteria to verify:
+- AC1: GET /api/docs/*path resolves published site page, returns current revision body and ordered breadcrumb ancestry. Non-readable ancestors are now filtered; chain is truncated at the first gated ancestor.
+- AC2: Oracle parity (P12) preserved. Nonexistent, deleted, and non-readable pages all return identical NotFoundException(PAGE_NOT_FOUND_MESSAGE). Non-readable ancestors in breadcrumbs are silently truncated, not distinguished.
+- AC3: GET /api/docs tree/children returns only site-scoped, published, publicly-readable pages. Project-scoped pages excluded.
+- AC4: GET /api/docs/recent returns recent publicly-readable site-scope non-deleted edits. Limit default=5, max=20.
+- AC5: Every visibility decision routes through AuthorizationService.evaluate() with anonymous actor. No inline re-derived predicates.
+- NEW: Negative breadcrumb ancestor test validated: public page with project-scoped, deleted, or private ancestor returns empty breadcrumbs — no error, no id/title leakage.
+
+Implementation branch or worktree context:
+- Branch: ms5-st2-documenter-20260610
+- Base comparison branch: ms5
+- Fix commit: c955074 (fix(docs): gate breadcrumb ancestors through isPagePubliclyReadable)
+- Tester commit: bc26d32 (test(docs): add negative breadcrumb ancestor tests for ST-2 remediation)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/docs/docs.service.ts (Implementer — buildBreadcrumbs now checks status==='published' AND isPagePubliclyReadable for each ancestor; truncates at first gated ancestor)
+- docs/features/documents.md (Implementer — breadcrumb ancestor filtering behavior described in fix commit c955074)
+- apps/api/src/docs/docs.service.test.ts (Tester — 3 negative breadcrumb ancestor tests added)
+
+Commands executed:
+- python .myteam/documenter/preflight/resolve_preflight.py
+- python .myteam/documenter/diff-review/analyze_doc_impact.py --base ms5
+- python .myteam/documenter/commit-flow/validate_documenter_state.py --phase docs
+- git diff ms5 -- docs/features/documents.md docs/README.md (verified accuracy of existing doc changes)
+
+Final test outcomes:
+- 1068 API tests passed, 0 failed, 11 skipped (DB integration, gated on SFUS_DB_INTEGRATION=1)
+- 626 web tests passed
+- docs.service.test.ts: 45 tests passed (3 new negative breadcrumb ancestor tests + expanded variants)
+- docs.controller.test.ts: 20 tests passed (no changes)
+- AC1: PASS
+- AC2: PASS
+- AC3: PASS
+- AC4: PASS
+- AC5: PASS
+- NEW breadcrumb ancestor truncation: PASS (project-scoped, deleted, private ancestor cases)
+
+Plan or evaluation context guidance:
+- Plan: plans/ms5-documents-wiki-plan.md, subtask ST-2
+- Documentation Impact: docs/features/documents.md read-contract section + routing table row in docs/README.md
+- Key behavioral change: buildBreadcrumbs truncates the chain at the first non-readable ancestor (chain cut, not per-item skip); no error thrown; preserves oracle parity (gated ancestor === absent ancestor in the response)
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table; read only docs matching the task
+- One fact, one home; no duplication across docs
+- Docs describe current state only — no milestone/subtask history
+- api-conventions.md for error envelope contract; authorization.md for AuthorizationService contract
+
+Updated documentation files:
+- docs/features/documents.md
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-2
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

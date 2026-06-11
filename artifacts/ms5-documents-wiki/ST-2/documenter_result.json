@@ -1,0 +1,15 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-2/documenter_report.md",
+    "artifacts/ms5-documents-wiki/ST-2/documenter_result.json",
+    "artifacts/ms5-documents-wiki/ST-2/verifier_prompt.txt"
+  ],
+  "branch_name": "ms5-st2-documenter-20260610",
+  "documentation_commit_hash": "c955074685f0df55456ada5cd69d80f596ee6952",
+  "documentation_files_changed": [
+    "docs/features/documents.md"
+  ],
+  "pass_label": "remediation-1",
+  "status": "success",
+  "task_id": "ST-2"
+}
