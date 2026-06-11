@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository } from "typeorm";
 
@@ -12,7 +12,10 @@ import type {
   DocsPageShape,
   DocsTreeItem,
   DocsRecentEditShape,
-  DocsRecentQuery
+  DocsRecentQuery,
+  CreateDocPageInput,
+  AddDocRevisionInput,
+  DocWriteResultShape
 } from "./docs.types";
 
 /**
@@ -322,6 +325,303 @@ export class DocsService {
       createdAt: page.createdAt,
       updatedAt: page.updatedAt
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Authorization seam (ST-3) — single gate for all write paths
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Scope-aware authorization seam for all Documents write operations.
+   *
+   * Security contract (AC5):
+   * - This is the SINGLE authorization gate for every write path. No inline
+   *   role checks are permitted at call sites.
+   * - For scope_type='site' the caller must have at least the 'moderator' global role.
+   * - The seam's signature accepts either a full DocsPageEntity (when the page already
+   *   exists) or a bare scopeType string (for creates before the page row exists).
+   *   This keeps call sites unchanged when a future project scope adds project-role
+   *   rules inside this method.
+   *
+   * @param actorGlobalRole The resolved session user's globalRole string.
+   * @param scopeTypeOrPage Either a scope-type string or a DocsPageEntity whose
+   *                        scopeType determines the access rule.
+   * @throws ForbiddenException (403) when the actor does not have write access.
+   */
+  assertDocWriteAccess(
+    actorGlobalRole: string | null | undefined,
+    scopeTypeOrPage: string | DocsPageEntity
+  ): void {
+    const scopeType =
+      typeof scopeTypeOrPage === "string" ? scopeTypeOrPage : scopeTypeOrPage.scopeType;
+
+    if (scopeType === "site") {
+      // Site-scoped docs require moderator or admin.
+      if (!this.authorizationService.hasGlobalRole(actorGlobalRole, "moderator")) {
+        throw new ForbiddenException("Write access requires moderator or admin role.");
+      }
+      return;
+    }
+
+    // Future: project-scoped rules branch here (no call-site change required).
+    // For now, any unrecognised scope type is denied.
+    throw new ForbiddenException(`Unsupported scope type: ${scopeType}.`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Page create — POST /api/docs
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Creates a new wiki page under an optional parent, with an initial revision #1,
+   * and sets current_revision_id — all in a single transaction.
+   *
+   * Security contract:
+   * - Caller MUST call assertDocWriteAccess before calling this method.
+   * - No inline role check is present here (AC5).
+   *
+   * Atomicity (P10):
+   * - The page row, revision row, and the current_revision_id pointer update are
+   *   all written inside a single repository.manager.transaction.
+   * - A mid-sequence failure leaves no orphaned page row and no dangling pointer.
+   *
+   * @param actorUserId The authenticated user's UUID.
+   * @param input       CreateDocPageInput DTO.
+   * @returns DocWriteResultShape with the new page and revision identifiers.
+   * @throws BadRequestException (400) for invalid slug/title or missing parent.
+   * @throws ConflictException   (409) for path_hash collision (duplicate full path).
+   */
+  async createPage(
+    actorUserId: string,
+    input: CreateDocPageInput
+  ): Promise<DocWriteResultShape> {
+    // --- Input validation ---
+    this.validateSlug(input.slug);
+    this.validateTitle(input.title);
+
+    // --- Parent resolution ---
+    let parentId: string | null = null;
+    let parentDepth = -1;
+    let parentPath = "";
+
+    if (input.parentId !== undefined || input.parentPath !== undefined) {
+      const parent = await this.resolveParent(input.parentId, input.parentPath);
+      if (!parent) {
+        throw new BadRequestException("Parent page does not exist.");
+      }
+      parentId = parent.id;
+      parentDepth = parent.depth;
+      parentPath = parent.path;
+    }
+
+    // --- Derive path, depth, path_hash ---
+    const depth = parentDepth + 1;
+    const derivedPath = parentPath ? `${parentPath}/${input.slug}` : input.slug;
+    const pathHash = this.computePathHash("site", null, derivedPath);
+
+    // --- Transactional write (P10): page + revision + pointer ---
+    const pageId = crypto.randomUUID();
+    const revisionId = crypto.randomUUID();
+
+    return this.pageRepository.manager.transaction(async (em) => {
+      // Check path_hash collision inside the transaction.
+      const existing = await em.findOne(DocsPageEntity, {
+        where: { scopeType: "site", scopeId: IsNull(), pathHash }
+      });
+      if (existing) {
+        throw new ConflictException("A page with this path already exists in this scope.");
+      }
+
+      // 1. Insert page row (current_revision_id still NULL at this point).
+      const page = em.create(DocsPageEntity, {
+        id: pageId,
+        scopeType: "site" as const,
+        scopeId: null,
+        title: input.title,
+        slug: input.slug,
+        path: derivedPath,
+        pathHash,
+        parentId,
+        depth,
+        visibility: "public" as const,
+        status: "published" as const,
+        isLocked: 0,
+        lockedByUserId: null,
+        lockedAt: null,
+        lockExpiresAt: null,
+        currentRevisionId: null,
+        createdByUserId: actorUserId
+      });
+      await em.save(DocsPageEntity, page);
+
+      // 2. Insert revision #1.
+      const revision = em.create(DocsRevisionEntity, {
+        id: revisionId,
+        pageId,
+        authorUserId: actorUserId,
+        editorUserId: null,
+        title: input.title,
+        body: input.body,
+        summary: input.summary ?? null,
+        revisionNumber: 1
+      });
+      await em.save(DocsRevisionEntity, revision);
+
+      // 3. Set current_revision_id pointer.
+      await em.update(DocsPageEntity, { id: pageId }, { currentRevisionId: revisionId });
+
+      return {
+        id: pageId,
+        title: input.title,
+        path: derivedPath,
+        depth,
+        parentId,
+        currentRevisionId: revisionId,
+        revisionNumber: 1,
+        createdAt: page.createdAt,
+        updatedAt: page.updatedAt
+      };
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Add revision — POST /api/docs/:id/revisions
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Appends a new revision to an existing page, bumps revision_number, and
+   * updates current_revision_id, title, and updated_at — in a single transaction.
+   *
+   * Security contract:
+   * - Caller MUST call assertDocWriteAccess before calling this method.
+   *
+   * Atomicity (P10):
+   * - The new revision row and the pointer update are written inside a single
+   *   repository.manager.transaction.
+   * - A mid-sequence failure leaves no dangling current_revision_id.
+   *
+   * @param actorUserId The authenticated user's UUID.
+   * @param pageId      Target page UUID.
+   * @param input       AddDocRevisionInput DTO.
+   * @returns DocWriteResultShape with the updated page and new revision identifiers.
+   * @throws NotFoundException (404) when the page does not exist (oracle parity).
+   * @throws BadRequestException (400) for invalid title.
+   */
+  async addRevision(
+    actorUserId: string,
+    pageId: string,
+    input: AddDocRevisionInput
+  ): Promise<DocWriteResultShape> {
+    this.validateTitle(input.title);
+
+    return this.pageRepository.manager.transaction(async (em) => {
+      // Load the page for-update inside the transaction.
+      const page = await em.findOne(DocsPageEntity, { where: { id: pageId } });
+      if (!page || page.status !== "published") {
+        throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+      }
+
+      // Determine the next revision number.
+      const lastRevision = await em.findOne(DocsRevisionEntity, {
+        where: { pageId },
+        order: { revisionNumber: "DESC" }
+      });
+      const nextRevisionNumber = lastRevision ? lastRevision.revisionNumber + 1 : 1;
+      const revisionId = crypto.randomUUID();
+
+      // 1. Insert the new revision.
+      const revision = em.create(DocsRevisionEntity, {
+        id: revisionId,
+        pageId,
+        authorUserId: actorUserId,
+        editorUserId: actorUserId,
+        title: input.title,
+        body: input.body,
+        summary: input.summary ?? null,
+        revisionNumber: nextRevisionNumber
+      });
+      await em.save(DocsRevisionEntity, revision);
+
+      // 2. Update current_revision_id, title, and updated_at on the page.
+      await em.update(DocsPageEntity, { id: pageId }, {
+        currentRevisionId: revisionId,
+        title: input.title
+      });
+
+      // Re-load to get the db-refreshed updatedAt timestamp.
+      const updatedPage = await em.findOne(DocsPageEntity, { where: { id: pageId } });
+
+      return {
+        id: pageId,
+        title: input.title,
+        path: page.path,
+        depth: page.depth,
+        parentId: page.parentId,
+        currentRevisionId: revisionId,
+        revisionNumber: nextRevisionNumber,
+        createdAt: page.createdAt,
+        updatedAt: updatedPage?.updatedAt ?? page.updatedAt
+      };
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Write-path validation helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Validates that a slug uses only allowed characters and falls within length limits.
+   * Allowed: lowercase a-z, digits 0-9, hyphens. Length: 1–255 chars.
+   *
+   * @throws BadRequestException (400) when the slug is invalid.
+   */
+  private validateSlug(slug: string): void {
+    if (typeof slug !== "string" || slug.length === 0) {
+      throw new BadRequestException("slug must be a non-empty string.");
+    }
+    if (slug.length > 255) {
+      throw new BadRequestException("slug must not exceed 255 characters.");
+    }
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      throw new BadRequestException(
+        "slug may only contain lowercase letters (a-z), digits (0-9), and hyphens (-)."
+      );
+    }
+  }
+
+  /**
+   * Validates title length.
+   *
+   * @throws BadRequestException (400) when the title is empty or exceeds the column limit.
+   */
+  private validateTitle(title: string): void {
+    if (typeof title !== "string" || title.trim().length === 0) {
+      throw new BadRequestException("title must be a non-empty string.");
+    }
+    if (title.length > 255) {
+      throw new BadRequestException("title must not exceed 255 characters.");
+    }
+  }
+
+  /**
+   * Resolves a parent page by id or path, returning null when neither is provided
+   * or when the page cannot be located.
+   */
+  private async resolveParent(
+    parentId?: string,
+    parentPath?: string
+  ): Promise<DocsPageEntity | null> {
+    if (parentId !== undefined) {
+      return this.pageRepository.findOne({ where: { id: parentId, scopeType: "site" } });
+    }
+    if (parentPath !== undefined) {
+      const normalizedParentPath = this.normalizePath(parentPath);
+      const parentHash = this.computePathHash("site", null, normalizedParentPath);
+      return this.pageRepository.findOne({
+        where: { scopeType: "site", scopeId: IsNull(), pathHash: parentHash, status: "published" }
+      });
+    }
+    return null;
   }
 
   /**

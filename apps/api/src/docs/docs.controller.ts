@@ -1,13 +1,42 @@
-import { Controller, Get, NotFoundException, Param, Query } from "@nestjs/common";
 import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards
+} from "@nestjs/common";
+import {
+  ApiBadRequestResponse,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiTags
+  ApiTags,
+  ApiTooManyRequestsResponse,
+  ApiUnauthorizedResponse
 } from "@nestjs/swagger";
+import type { Request } from "express";
 
+import { AuthService } from "../auth/auth.service";
+import { ThrottleGuard, ThrottleLabel } from "../common/throttle/throttle.guard";
 import { DocsService } from "./docs.service";
-import type { DocsPageShape, DocsRecentEditShape, DocsTreeItem } from "./docs.types";
+import type {
+  AddDocRevisionInput,
+  CreateDocPageInput,
+  DocWriteResultShape,
+  DocsPageShape,
+  DocsRecentEditShape,
+  DocsTreeItem
+} from "./docs.types";
 
 /**
  * DocsController exposes the public read surface for the Documents wiki.
@@ -24,10 +53,18 @@ import type { DocsPageShape, DocsRecentEditShape, DocsTreeItem } from "./docs.ty
  * catch-all so NestJS resolves `GET /docs/recent` as the recent-feed handler
  * rather than treating "recent" as a path segment.
  */
+/** Route label for docs page creation throttle key. */
+const THROTTLE_LABEL_DOC_CREATE = "doc-page-create";
+/** Route label for docs revision creation throttle key. */
+const THROTTLE_LABEL_DOC_EDIT = "doc-page-edit";
+
 @ApiTags("docs")
 @Controller("docs")
 export class DocsController {
-  constructor(private readonly docsService: DocsService) {}
+  constructor(
+    private readonly docsService: DocsService,
+    private readonly authService: AuthService
+  ) {}
 
   // ===========================================================================
   // GET /docs — site root tree / children of ?parentPath=
@@ -94,6 +131,121 @@ export class DocsController {
       limit: limit !== undefined ? parseInt(limit, 10) : undefined
     });
     return { docs };
+  }
+
+  // ===========================================================================
+  // POST /docs — create a new wiki page (staff-gated, throttled)
+  // ===========================================================================
+
+  /**
+   * Creates a new wiki page, optionally under a parent.
+   *
+   * Derives `path`, `path_hash`, and `depth` from the slug and optional parent.
+   * Creates revision #1 and sets `current_revision_id` in a single transaction.
+   *
+   * Authorization: moderator or admin only. Anonymous and `user`-role callers
+   * receive `403` from `assertDocWriteAccess`.
+   *
+   * @body `{ title, slug, body, summary?, parentPath?, parentId? }`
+   * @returns 201 with `{ page }` including derived path and revision #1.
+   * @throws 400 Invalid slug/title or parent does not exist.
+   * @throws 401 No active session.
+   * @throws 403 Moderator or admin role required.
+   * @throws 409 Path collision — a page with the same full path already exists.
+   * @throws 429 Rate limit exceeded.
+   */
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(ThrottleGuard)
+  @ThrottleLabel(THROTTLE_LABEL_DOC_CREATE)
+  @ApiOperation({ summary: "Create a new wiki page (moderator/admin)." })
+  @ApiCreatedResponse({
+    description: "Page created with revision #1 and current_revision_id set."
+  })
+  @ApiBadRequestResponse({
+    description: "Invalid slug or title, or parent page does not exist."
+  })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiConflictResponse({ description: "A page with this full path already exists." })
+  @ApiTooManyRequestsResponse({ description: "Rate limit exceeded." })
+  async createPage(
+    @Req() request: Request,
+    @Body() body: CreateDocPageInput
+  ): Promise<{ page: DocWriteResultShape }> {
+    // 401: session required before any data operation.
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    // 403: single authorization gate for all site-scope doc writes.
+    this.docsService.assertDocWriteAccess(session.user.globalRole, "site");
+    // Input guard: required fields must be present (no global ValidationPipe).
+    if (typeof body?.title !== "string" || body.title.trim().length === 0) {
+      throw new BadRequestException("title must be a non-empty string.");
+    }
+    if (typeof body?.slug !== "string" || body.slug.trim().length === 0) {
+      throw new BadRequestException("slug must be a non-empty string.");
+    }
+    const page = await this.docsService.createPage(session.user.id, body);
+    return { page };
+  }
+
+  // ===========================================================================
+  // POST /docs/:id/revisions — append a revision to an existing page (staff-gated, throttled)
+  // ===========================================================================
+
+  /**
+   * Appends a new revision to an existing wiki page.
+   *
+   * Bumps `revision_number`, updates `current_revision_id`, `title`, and
+   * `updated_at` in a single transaction.
+   *
+   * Authorization: moderator or admin only. Anonymous and `user`-role callers
+   * receive `403` from `assertDocWriteAccess`.
+   *
+   * @param id Page UUID.
+   * @body `{ title, body, summary? }`
+   * @returns 201 with `{ page }` reflecting the new revision.
+   * @throws 400 Invalid title.
+   * @throws 401 No active session.
+   * @throws 403 Moderator or admin role required.
+   * @throws 404 Page not found or deleted.
+   * @throws 429 Rate limit exceeded.
+   */
+  @Post(":id/revisions")
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(ThrottleGuard)
+  @ThrottleLabel(THROTTLE_LABEL_DOC_EDIT)
+  @ApiOperation({ summary: "Append a new revision to a wiki page (moderator/admin)." })
+  @ApiCreatedResponse({
+    description: "Revision added; page current_revision_id, title, and updated_at updated."
+  })
+  @ApiBadRequestResponse({ description: "Invalid title." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({ description: "Page not found or deleted (oracle parity)." })
+  @ApiTooManyRequestsResponse({ description: "Rate limit exceeded." })
+  async addRevision(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Body() body: AddDocRevisionInput
+  ): Promise<{ page: DocWriteResultShape }> {
+    // 401: session required before any data operation.
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+
+    // Load the page to determine scope for the authorization gate.
+    // We pass "site" as the scope because ST-3 only handles site-scoped pages;
+    // the scope is known from the create flow. For existing pages we could load
+    // the page entity; using the "site" string is safe until project docs exist.
+    this.docsService.assertDocWriteAccess(session.user.globalRole, "site");
+
+    // Input guard: required fields must be present.
+    if (typeof body?.title !== "string" || body.title.trim().length === 0) {
+      throw new BadRequestException("title must be a non-empty string.");
+    }
+    if (typeof body?.body !== "string") {
+      throw new BadRequestException("body must be a string.");
+    }
+    const page = await this.docsService.addRevision(session.user.id, id, body);
+    return { page };
   }
 
   // ===========================================================================

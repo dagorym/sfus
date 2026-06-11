@@ -1,7 +1,9 @@
 import { DynamicModule, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
+import { AuthModule } from "../auth/auth.module";
 import { AuthorizationModule } from "../authorization/authorization.module";
+import { ThrottleModule } from "../common/throttle/throttle.module";
 import type { ApplicationEnvironment } from "../config/environment";
 import { DocsPageEntity } from "./entities/docs-page.entity";
 import { DocsRevisionEntity } from "./entities/docs-revision.entity";
@@ -10,13 +12,14 @@ import { DocsService } from "./docs.service";
 
 @Module({})
 export class DocsModule {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  static register(_environment: ApplicationEnvironment): DynamicModule {
+  static register(environment: ApplicationEnvironment): DynamicModule {
     return {
       module: DocsModule,
       imports: [
         TypeOrmModule.forFeature([DocsPageEntity, DocsRevisionEntity]),
-        AuthorizationModule
+        AuthorizationModule,
+        AuthModule.register(environment),
+        ThrottleModule.register(environment)
       ],
       controllers: [DocsController],
       providers: [DocsService],

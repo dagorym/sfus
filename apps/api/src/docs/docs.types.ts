@@ -97,3 +97,46 @@ export interface DocsRecentEditShape {
 export interface DocsRecentQuery {
   limit?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Write API shapes (ST-3)
+// ---------------------------------------------------------------------------
+
+/** Input for POST /api/docs — create a new docs page. */
+export interface CreateDocPageInput {
+  /** Page title (1–255 chars). */
+  title: string;
+  /** URL slug (1–255 chars, a-z 0-9 hyphen only). */
+  slug: string;
+  /** Initial Markdown body (may be empty string). */
+  body: string;
+  /** Optional edit summary for revision #1. */
+  summary?: string;
+  /** Optional full path of the parent page (resolved to parentId). */
+  parentPath?: string;
+  /** Optional UUID of the parent page (alternative to parentPath). */
+  parentId?: string;
+}
+
+/** Input for POST /api/docs/:id/revisions — append a new revision to a page. */
+export interface AddDocRevisionInput {
+  /** Updated page title (1–255 chars). */
+  title: string;
+  /** Full Markdown body for this revision. */
+  body: string;
+  /** Optional edit summary. */
+  summary?: string;
+}
+
+/** Response shape for page-write operations (create / add revision). */
+export interface DocWriteResultShape {
+  id: string;
+  title: string;
+  path: string;
+  depth: number;
+  parentId: string | null;
+  currentRevisionId: string | null;
+  revisionNumber: number;
+  createdAt: Date;
+  updatedAt: Date;
+}

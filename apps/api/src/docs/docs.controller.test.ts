@@ -55,8 +55,10 @@ const makeDocsService = (overrides?: Record<string, unknown>) => ({
   ...overrides
 });
 
+// ST-3 added AuthService as a second constructor parameter (required for write routes).
+// Read-route tests pass null for authService — the read handlers never invoke it.
 const makeController = (docsService?: ReturnType<typeof makeDocsService>) =>
-  new DocsController((docsService ?? makeDocsService()) as never);
+  new DocsController((docsService ?? makeDocsService()) as never, null as never);
 
 // ---------------------------------------------------------------------------
 // GET /docs — listPageTree (AC3)
@@ -351,8 +353,10 @@ describe("DocsController AC5: routes require no authentication (public, anonymou
     expect(result).toHaveProperty("page");
   });
 
-  it("DocsController constructor requires only DocsService (no AuthService dependency)", () => {
-    // DocsController should be constructable with only DocsService
-    expect(() => new DocsController(makeDocsService() as never)).not.toThrow();
+  it("DocsController constructor is constructable with DocsService and a null AuthService (read routes use no auth)", () => {
+    // ST-3 added AuthService as a required constructor param (for write-route session resolution).
+    // Read routes (listPageTree, listRecentEdits, getPageByPath) do not invoke AuthService,
+    // so passing null for test purposes is safe for read-only test scenarios.
+    expect(() => new DocsController(makeDocsService() as never, null as never)).not.toThrow();
   });
 });
