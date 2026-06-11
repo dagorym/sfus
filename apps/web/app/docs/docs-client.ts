@@ -412,12 +412,8 @@ export async function getDocDiff(
   const response = await fetch(url, { cache: "no-store" });
   if (response.status === 404) return null;
   if (response.status === 400) {
-    const payload = (await response.json().catch(() => null)) as ErrorEnvelope;
     throw new Error(
-      extractErrorMessage(
-        payload,
-        "This diff is unavailable because one or more revisions are too large to compare."
-      )
+      "This diff is unavailable because one or more revisions are too large to compare."
     );
   }
   if (!response.ok) {
