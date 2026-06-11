@@ -129,6 +129,117 @@ Returns recent publicly-readable site-doc edits for use by the landing-page acti
 | `editor` | `{ username, displayName } \| null` | Last editor; falls back to original author |
 | `editedAt` | Date | Revision `createdAt` |
 
+## Write API
+
+Both write routes require an active session (401 without one) and moderator or admin
+global role (403 for `user` role). Both are rate-limited via `ThrottleGuard`.
+
+### Authentication and authorization
+
+`DocsService.assertDocWriteAccess(actorGlobalRole, scopeTypeOrPage)` is the **single
+authorization gate** for all Documents write operations. No inline role checks exist at
+call sites.
+
+- For `scopeType='site'` the actor must have at least the `moderator` global role
+  (`AuthorizationService.hasGlobalRole`). `user`-role and unauthenticated callers receive
+  `403`.
+- The method accepts either a `DocsPageEntity` or a bare scope-type string, so call sites
+  remain unchanged when future project-scope rules are added inside the method.
+
+Session resolution happens before `assertDocWriteAccess` is called: a missing or invalid
+session throws `401` before the role gate is evaluated.
+
+### Oracle parity on write paths
+
+`addRevision` returns the same `404` (`PAGE_NOT_FOUND_MESSAGE`) for nonexistent or deleted
+pages that the read paths return. There is no separate `403` vs `404` distinction for
+write-path lookups.
+
+### POST /api/docs — create a new wiki page
+
+Creates a new page with revision #1 and sets `current_revision_id` in a single
+transaction (P10 atomicity). A mid-sequence failure leaves no orphaned page row and no
+dangling pointer.
+
+Throttle label: `doc-page-create`.
+
+**Request body:**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `title` | string | yes | 1–255 chars |
+| `slug` | string | yes | 1–255 chars; `[a-z0-9-]` only |
+| `body` | string | yes | Markdown content (may be empty) |
+| `summary` | string | no | Edit summary for revision #1 |
+| `parentPath` | string | no | Full path of the parent page |
+| `parentId` | string (UUID) | no | UUID of the parent page (alternative to `parentPath`) |
+
+**Response:** `201` with `{ page: DocWriteResultShape }`.
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| 400 | Invalid slug or title; or parent specified but does not exist |
+| 401 | No active session |
+| 403 | Actor does not have moderator or admin role |
+| 409 | `path_hash` collision — a page with the same full path already exists in this scope |
+| 429 | Rate limit exceeded |
+
+### POST /api/docs/:id/revisions — append a revision to an existing page
+
+Appends a new revision, bumps `revision_number`, and updates `current_revision_id`,
+`title`, and `updated_at` in a single transaction.
+
+Throttle label: `doc-page-edit`.
+
+**Request body:**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `title` | string | yes | 1–255 chars |
+| `body` | string | yes | Full Markdown body for this revision |
+| `summary` | string | no | Edit summary |
+
+**Response:** `201` with `{ page: DocWriteResultShape }`.
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| 400 | Invalid title |
+| 401 | No active session |
+| 403 | Actor does not have moderator or admin role |
+| 404 | Page not found or deleted (oracle parity — same message as read 404) |
+| 429 | Rate limit exceeded |
+
+### DocWriteResultShape (write response)
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string (UUID) | Page UUID |
+| `title` | string | |
+| `path` | string | Derived full slash-joined path |
+| `depth` | number | 0 = root |
+| `parentId` | `string \| null` | |
+| `currentRevisionId` | `string \| null` | Points to the latest revision |
+| `revisionNumber` | number | Revision number of the newly created revision |
+| `createdAt` | Date | |
+| `updatedAt` | Date | |
+
+### Slug and title validation
+
+`validateSlug` enforces: non-empty string, 1–255 chars, pattern `[a-z0-9-]` only.
+`validateTitle` enforces: non-empty string, 1–255 chars.
+Both throw `400 BadRequestException` on failure.
+
+### Module wiring
+
+`DocsModule.register(environment)` imports `AuthModule.register(environment)` and
+`ThrottleModule.register(environment)` in addition to the `AuthorizationModule` already
+present from ST-2. This wires session resolution and rate limiting into the module
+without requiring changes to the app-level module imports.
+
 ## Shared utilities
 
 ### DocsService.computePathHash(scopeType, scopeId, path)

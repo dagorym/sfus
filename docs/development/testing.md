@@ -84,6 +84,24 @@ Note: migration *inspection* commands (`migration:show`) use the API env contrac
 reachable MySQL; without a running `mysql` service they fail at the connection step, which is
 expected.
 
+## 6. DocsService DB integration spec (opt-in, direct vitest)
+
+`apps/api/src/docs/docs.service.integration.test.ts` tests `DocsService.createPage` and
+`DocsService.addRevision` against a real MySQL schema — specifically the unique
+`(scope_type, scope_id, path_hash)` index collision and transactional atomicity (P10).
+
+Unlike section 5, this file is **not** included in the `test:integration` npm script
+(which targets only `pages.service.integration.test.ts`). Run it directly via vitest:
+
+```bash
+SFUS_DB_INTEGRATION=1 \
+DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=sfus \
+DB_USER=sfus DB_PASSWORD=changeme-app \
+npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/docs/docs.service.integration.test.ts
+```
+
+The spec is gated on `SFUS_DB_INTEGRATION=1` and skips cleanly without it.
+
 ## Recommended full local verification order
 
 ```bash
