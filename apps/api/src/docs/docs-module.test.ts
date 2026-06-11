@@ -24,19 +24,22 @@ describe("DocsModule", () => {
     expect(Array.isArray(result.exports)).toBe(true);
   });
 
-  it("skeleton has empty controllers array — no routes introduced in ST-1", () => {
-    // Acceptance criterion: API tsc build passes with no new routes.
+  it("registers DocsController — routes introduced in ST-2", () => {
+    // ST-1 expected empty controllers; ST-2 wires up DocsController and DocsService.
+    // This test is updated to reflect the intentional ST-2 behavior change.
     const fakeEnvironment = {} as never;
     const result = DocsModule.register(fakeEnvironment);
 
-    expect(result.controllers!.length).toBe(0);
+    expect(result.controllers!.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("skeleton has empty providers array — service wiring deferred to later subtasks", () => {
+  it("registers DocsService as a provider — service wiring added in ST-2", () => {
+    // ST-1 expected empty providers; ST-2 adds DocsService provider and export.
+    // This test is updated to reflect the intentional ST-2 behavior change.
     const fakeEnvironment = {} as never;
     const result = DocsModule.register(fakeEnvironment);
 
-    expect(result.providers!.length).toBe(0);
+    expect(result.providers!.length).toBeGreaterThanOrEqual(1);
   });
 
   it("imports TypeOrmModule.forFeature with docs entity registrations", () => {
