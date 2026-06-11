@@ -1,0 +1,48 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- REMEDIATION PASS (attempt 1) for ST-2 (Documents read API). The breadcrumb ancestry visibility leak in DocsService.buildBreadcrumbs has been fixed. Add the required negative breadcrumb ancestor test and re-verify oracle parity. All prior ST-2 service and controller tests must continue to pass.
+
+Modified files:
+- apps/api/src/docs/docs.service.ts
+- docs/features/documents.md
+
+Acceptance criteria to validate (from Planner):
+- AC1: GET /api/docs/*path resolves published site page, returns current revision body and ordered breadcrumb ancestry. Breadcrumb ancestors are now filtered through isPagePubliclyReadable; non-readable ancestors are omitted and the chain is truncated at the first gated ancestor.
+- AC2: Oracle parity (P12) preserved. Nonexistent, deleted, and non-readable pages all return identical NotFoundException(PAGE_NOT_FOUND_MESSAGE). Non-readable ancestors in breadcrumbs are silently truncated, not distinguished.
+- AC3: GET /api/docs tree/children returns only site-scoped, published, publicly-readable pages. Project-scoped pages excluded.
+- AC4: GET /api/docs/recent returns recent publicly-readable site-scope non-deleted edits. Limit default=5, max=20.
+- AC5: Every visibility decision routes through AuthorizationService.evaluate() with anonymous actor. No inline re-derived predicates.
+- NEW: Negative breadcrumb ancestor test required: a public page with a non-readable ancestor (project-scoped, members, private, or deleted) must NOT include that ancestor's id or title in the breadcrumbs array. The chain must be truncated at the first non-readable ancestor.
+
+Create test files in:
+- apps/api/src/docs/docs.service.test.ts (existing — add negative breadcrumb ancestor test case)
+- apps/api/src/docs/docs.controller.test.ts (existing — verify no changes needed for the breadcrumb fix)
+
+Implementation context for testing:
+- buildBreadcrumbs in apps/api/src/docs/docs.service.ts now checks ancestor.status === 'published' AND isPagePubliclyReadable(ancestor) before adding to the chain. If either check fails, it breaks immediately (chain truncation, not per-item skip).
+- Chain truncation avoids a positional existence side channel: a gated ancestor is indistinguishable from a missing ancestor in the response.
+- A public page with a project-scoped, private/members, or deleted ancestor returns a shorter (possibly empty) breadcrumb array. No error is thrown; the page response is returned normally.
+- The negative breadcrumb test must mock a setup where the target page has a parentId pointing to a non-readable ancestor (e.g. scopeType='project' or visibility='private' or status='deleted'), and assert that breadcrumbs is empty (or excludes that ancestor's id and title).
+- Oracle parity for the breadcrumb truncation: the page is returned successfully with shorter breadcrumbs. This is separate from AC2 page-level oracle parity (which concerns the page itself, not ancestors).
+- Existing positive breadcrumb tests (docs.service.test.ts around line 231-260) must still pass after the fix.
+- docs/features/documents.md line 63 area now describes ancestor filtering behavior (updated from 'Non-readable ancestors are included' to truncation description).
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
