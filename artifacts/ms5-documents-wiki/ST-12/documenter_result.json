@@ -1,0 +1,14 @@
+{
+  "status": "pass",
+  "subtask": "ST-12",
+  "plan": "ms5-documents-wiki",
+  "branch": "ms5-st12-documenter-20260611",
+  "documentation_commit": "0fdbac981cab3b1daac9b50759c7f94db6af11b6",
+  "files_changed": [
+    "docs/features/web-shell.md"
+  ],
+  "summary": "Corrected highlights grid description from 'five cards' to 'six cards' and added the missing 'Dynamic navigation and media uploads' card to match the six-entry highlights array in apps/web/app/page.tsx.",
+  "out_of_scope_noted": [
+    "layout.tsx shell-title discrepancy (tracked separately, coordinator-excluded)"
+  ]
+}

@@ -1,0 +1,71 @@
+You are the Verifier Agent for this project. Your assigned role is 'verifier'.
+
+Run `myteam get role verifier` before doing any other work and follow those instructions completely.
+
+## Task
+
+Verify the ST-12 (Landing Page Refresh to MS5) remediation documenter pass on branch
+`ms5-st12-documenter-20260611`.
+
+## What was changed
+
+The Documenter fixed a single P1 accuracy mismatch in `docs/features/web-shell.md`.
+
+**Change:** The landing page highlights grid description was corrected from "five cards" to
+"six cards", and the missing "Dynamic navigation and media uploads" card was added to the
+list in position 5. The six cards now listed match the `highlights` array in
+`apps/web/app/page.tsx` exactly:
+1. Documents wiki
+2. Community forums
+3. Blog with threaded comments
+4. Standalone pages and revision history
+5. Dynamic navigation and media uploads
+6. Public member profiles and avatars
+
+**Documentation commit:** `0fdbac981cab3b1daac9b50759c7f94db6af11b6`
+
+## Full modified-file review surface
+
+Files changed across the Implementer, Tester, and Documenter stages for ST-12 include:
+
+- `apps/web/app/page.tsx` — implementation (Implementer)
+- `apps/web/app/page.module.css` — styling (Implementer)
+- `apps/web/components/recent-doc-activity.tsx` — new component (Implementer)
+- `apps/web/components/recent-doc-activity.module.css` — component styles (Implementer)
+- `apps/web/app/public-shell.spec.ts` — tests (Tester)
+- `apps/web/components/recent-doc-activity.spec.ts` — tests (Tester, if present)
+- `docs/features/web-shell.md` — documentation fix (Documenter)
+- `artifacts/ms5-documents-wiki/ST-12/documenter_report.md` — this run's report
+- `artifacts/ms5-documents-wiki/ST-12/documenter_result.json` — this run's result
+- `artifacts/ms5-documents-wiki/ST-12/verifier_prompt.txt` — this file
+
+## Verification focus
+
+1. Confirm `docs/features/web-shell.md` now states "six cards" (not "five").
+2. Confirm the listed cards (in order) exactly match the `highlights` array in
+   `apps/web/app/page.tsx`: Documents wiki, Community forums, Blog with threaded
+   comments, Standalone pages and revision history, Dynamic navigation and media uploads,
+   Public member profiles and avatars.
+3. Confirm no other content in `web-shell.md` was changed (diff should be minimal and
+   localized to the highlights grid sentence).
+4. Confirm `layout.tsx` was NOT touched (the shell-title discrepancy is out of scope).
+5. Confirm all three documenter artifacts exist and are committed:
+   - `artifacts/ms5-documents-wiki/ST-12/documenter_report.md`
+   - `artifacts/ms5-documents-wiki/ST-12/documenter_result.json`
+   - `artifacts/ms5-documents-wiki/ST-12/verifier_prompt.txt`
+6. Confirm `documenter_result.json` records the actual documentation commit hash
+   (`0fdbac981cab3b1daac9b50759c7f94db6af11b6`), not a placeholder.
+
+## Shared artifact directory
+
+`artifacts/ms5-documents-wiki/ST-12`
+
+## Completion gate
+
+Do not report success unless:
+- The `web-shell.md` correction is committed and matches `page.tsx` exactly.
+- All three documenter artifacts exist and are committed on `ms5-st12-documenter-20260611`.
+- Your verifier artifacts (`verifier_report.md`, `verifier_result.json`) are written and
+  committed in the same branch.
+
+Continue in the same run — do not stop after loading your role or after reviewing scope.
