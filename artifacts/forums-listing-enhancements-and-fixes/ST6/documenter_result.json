@@ -1,0 +1,23 @@
+{
+  "status": "pass",
+  "story": "ST6",
+  "plan": "plans/forums-listing-enhancements-and-fixes-plan.md",
+  "branch": "forums-listing-st6-documenter-20260610",
+  "documentation_commit": "f97fd23795bfbd56b3cdaf9bc9dddf60d2cfeee9",
+  "documentation_commit_hash": "f97fd23795bfbd56b3cdaf9bc9dddf60d2cfeee9",
+  "docs_updated": [
+    "docs/features/forums.md",
+    "docs/features/web-shell.md"
+  ],
+  "no_change": [
+    "AGENTS.md",
+    ".myteam/ files",
+    "docs/README.md"
+  ],
+  "artifacts": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST6/documenter_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST6/documenter_result.json",
+    "artifacts/forums-listing-enhancements-and-fixes/ST6/verifier_prompt.txt"
+  ],
+  "notes": "Board view description updated: semantic 4-column table (Topic/Replies/Created/Last reply), encodeURIComponent profile links, absolute dates via toLocaleDateString(), dash when replyCount===0 or lastPostAuthor===null. web-shell.md route map entry updated to name the 4-column layout."
+}

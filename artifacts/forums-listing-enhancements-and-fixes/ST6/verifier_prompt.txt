@@ -1,0 +1,85 @@
+Your role is 'verifier'. Your task is as follows:
+
+Verify the ST6 implementation for plan forums-listing-enhancements-and-fixes-plan.md.
+
+## Context
+
+ST6 reorganizes the /forums/[boardSlug] board page topic list from a flat
+meta-line into a semantic <table> with four columns: Topic, Replies, Created,
+and Last reply. PublicTopicShape in forums-client.ts gained lastPostAuthor:
+{ username: string; displayName: string | null } | null. Profile links use
+encodeURIComponent; dates are absolute via toLocaleDateString(). The Last reply
+column shows a dash when replyCount === 0 or lastPostAuthor === null. Existing
+behaviors (pagination, new-topic CTA / sign-in prompt, breadcrumb, moderator
+note, empty state) are preserved. No dangerouslySetInnerHTML is used.
+
+## Comparison base
+
+Branch: forums-listing (the plan's base branch for this story).
+
+## Files to verify
+
+Implementer and Tester:
+- apps/web/app/forums/forums-client.ts
+- apps/web/app/forums/[boardSlug]/page.tsx
+- apps/web/app/forums/forums.module.css
+- apps/web/app/forums/forums.spec.ts
+
+Documenter (documentation commit f97fd23795bfbd56b3cdaf9bc9dddf60d2cfeee9 on
+branch forums-listing-st6-documenter-20260610):
+- docs/features/forums.md
+- docs/features/web-shell.md
+
+Artifacts:
+- artifacts/forums-listing-enhancements-and-fixes/ST6/documenter_report.md
+- artifacts/forums-listing-enhancements-and-fixes/ST6/documenter_result.json
+- artifacts/forums-listing-enhancements-and-fixes/ST6/verifier_prompt.txt
+
+## Acceptance criteria to verify
+
+AC1: The board topic list renders a semantic <table> with exactly four columns
+     — Topic, Replies, Created, and Last reply. The Topic column includes the
+     title link (encodeURIComponent-encoded boardSlug and topicSlug) and inline
+     Pinned/Locked badges when applicable.
+
+AC2: The Created column shows the author profile link (displayName ?? username,
+     username encodeURIComponent-encoded) to /users/<username> and the absolute
+     createdAt date via toLocaleDateString().
+
+AC3: The Last reply column shows the lastPostAuthor profile link and absolute
+     lastPostAt date when replyCount > 0 and lastPostAuthor is non-null; a dash
+     ("—") otherwise. The condition is replyCount === 0 OR lastPostAuthor === null.
+
+AC4: No dangerouslySetInnerHTML is used in the board page. Existing behaviors
+     (pagination, new-topic CTA, sign-in prompt, breadcrumb, moderator note,
+     empty-state message) are intact.
+
+AC5: lint, typecheck, and web suite (62/62 tests) pass.
+
+Documentation AC:
+- docs/features/forums.md "Web Surfaces (ST16)" board view entry describes the
+  4-column semantic table with Topic/Replies/Created/Last reply columns,
+  encodeURIComponent-encoded profile links, absolute dates via
+  toLocaleDateString(), and the dash condition for Last reply.
+- docs/features/web-shell.md route map entry for /forums/[boardSlug] names the
+  4-column topic table layout.
+
+## Shared artifact directory
+
+artifacts/forums-listing-enhancements-and-fixes/ST6
+
+Infer missing plan-source, convention-file, or artifact-path details from
+repository context when safe.
+
+## Startup behavior
+
+Begin verification immediately. Do not stop after activation, scope
+confirmation, or diff inspection when blocking inputs are present. Continue
+through the full verification workflow in the same run.
+
+## Completion gate
+
+Do not report success unless all required artifacts exist
+(verifier_report.md and verifier_result.json in
+artifacts/forums-listing-enhancements-and-fixes/ST6/) and all changes are
+committed with a clean branch.
