@@ -96,7 +96,7 @@ Sign in with an `admin` account and go to `/admin/forums`. The page lists all fo
 **Create a category**
 
 1. Click **New category**.
-2. Fill in **Name** (required), **Slug** (required — lowercase hyphenated, e.g. `general-discussion`), optional **Description**, and optional **Sort Order** (lower numbers appear first; omit to append).
+2. Fill in **Name** (required, max 128 characters), **Slug** (required — lowercase hyphenated, e.g. `general-discussion`), optional **Description** (max 512 characters), and optional **Sort Order** (lower numbers appear first; omit to append).
 3. Click **Create category**.
 
 **Edit a category**
@@ -114,7 +114,7 @@ Use the **↑** / **↓** arrows on each category card to move it one position u
 **Create a board inside a category**
 
 1. On the category card, click **+ Add board**.
-2. Fill in **Name** (required), **Slug** (required), optional **Description** and **Sort Order**.
+2. Fill in **Name** (required, max 128 characters), **Slug** (required), optional **Description** (max 512 characters) and **Sort Order**.
 3. Choose **Scope Type**: `Site` (default — standard site-wide board) or `Project` (forward-scaffolding for M7/M8).
 4. Choose **Visibility**: `Public` (default), `Unlisted`, `Members only`, `Project only`, or `Private`. Only `Public` and `Unlisted` boards appear in the public forum index.
 5. Optionally fill in **Project ID** (leave blank for site-scoped boards).

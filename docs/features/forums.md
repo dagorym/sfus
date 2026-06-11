@@ -297,8 +297,8 @@ All under `/api/forums`. All admin routes require `401`/`403` gate as described 
 |---|---|---|---|
 | GET | `/api/forums/admin/categories` | 200 | `{ categories }` ordered by `sortOrder ASC`. Each category includes its boards. |
 | GET | `/api/forums/admin/categories/:id` | 200 / 404 | `{ category }` with boards; `404` unknown id. |
-| POST | `/api/forums/admin/categories` | 201 / 400 | `{ category }`. Body: `{ name, slug, description?, sortOrder? }`. `400` empty name/slug or invalid slug format. |
-| PATCH | `/api/forums/admin/categories/:id` | 200 / 400 / 404 | Partial update. Same field validation as create. |
+| POST | `/api/forums/admin/categories` | 201 / 400 | `{ category }`. Body: `{ name, slug, description?, sortOrder? }`. `400` empty name/slug, invalid slug format, name > 128 chars, or description > 512 chars. |
+| PATCH | `/api/forums/admin/categories/:id` | 200 / 400 / 404 | Partial update. Same field validation as create; only supplied fields are validated (omitted `description` is not checked). |
 | DELETE | `/api/forums/admin/categories/:id` | 204 / 400 / 404 | `400` if the category still has boards (must delete or move boards first). |
 | PUT | `/api/forums/admin/categories/reorder` | 200 / 400 | Body: `{ orderedIds: string[] }`. All existing category ids must be present; position in the array becomes `sortOrder` (0-indexed). `400` on count or id mismatch. Returns `{ categories }` in new order. |
 
@@ -308,8 +308,8 @@ All under `/api/forums`. All admin routes require `401`/`403` gate as described 
 |---|---|---|---|
 | GET | `/api/forums/admin/categories/:categoryId/boards` | 200 / 404 | `{ boards }` ordered by `sortOrder ASC`; `404` unknown categoryId. |
 | GET | `/api/forums/admin/boards/:id` | 200 / 404 | `{ board }`; `404` unknown id. |
-| POST | `/api/forums/admin/boards` | 201 / 400 / 404 | `{ board }`. Body: `{ categoryId, name, slug, description?, sortOrder?, scopeType?, visibility?, projectId? }`. `400` invalid input or unrecognised scopeType/visibility. `404` unknown categoryId. |
-| PATCH | `/api/forums/admin/boards/:id` | 200 / 400 / 404 | Partial update. Same validation as create for supplied fields. `404` board or (when categoryId is supplied) category not found. |
+| POST | `/api/forums/admin/boards` | 201 / 400 / 404 | `{ board }`. Body: `{ categoryId, name, slug, description?, sortOrder?, scopeType?, visibility?, projectId? }`. `400` invalid input, unrecognised scopeType/visibility, name > 128 chars, or description > 512 chars. `404` unknown categoryId. |
+| PATCH | `/api/forums/admin/boards/:id` | 200 / 400 / 404 | Partial update. Same validation as create for supplied fields; omitted `description` is not validated. `404` board or (when categoryId is supplied) category not found. |
 | DELETE | `/api/forums/admin/boards/:id` | 204 / 404 | `404` unknown id. |
 | PUT | `/api/forums/admin/categories/:categoryId/boards/reorder` | 200 / 400 / 404 | Body: `{ orderedIds: string[] }`. All board ids in the category must be present; position becomes `sortOrder` (0-indexed). `400` on count or id mismatch. `404` unknown categoryId. Returns `{ boards }` in new order. |
 
@@ -324,11 +324,14 @@ Both `reorderCategories` and `reorderBoards` are fully deterministic:
 
 ## Validation rules
 
-- **name:** must be a non-empty string after trimming.
+- **name:** must be a non-empty string after trimming. Maximum length is **128 characters**; exceeding this returns `400` (`"Category name must be 128 characters or fewer."` / `"Board name must be 128 characters or fewer."`).
+- **description:** optional. Maximum length is **512 characters**; exceeding this returns `400` (`"Description must be 512 characters or fewer."`). `null` and `undefined` are accepted and skip validation (partial updates never validate an omitted description).
 - **slug:** must match `^[a-z0-9]+(?:-[a-z0-9]+)*$` after trimming. Slugs are unique at the DB level (`uq_forum_categories_slug`, `uq_forum_boards_slug`); duplicate slugs produce a DB constraint error (not explicitly caught — callers see the raw error in development; production logs will surface it).
 - **scopeType:** must be `site` or `project`. Invalid values return `400`.
 - **visibility:** must be one of `public`, `unlisted`, `members`, `project-only`, `private`. Invalid values return `400`.
 - **deleteCategory:** the category must have no boards. Returns `400` with a message directing the caller to delete or move boards first.
+
+The length constants are exported from `forums.types.ts` as `FORUM_DESCRIPTION_MAX_LENGTH` (512) and `FORUM_NAME_MAX_LENGTH` (128). These limits are enforced by `ForumsService.assertFieldLengthValid()` before any DB write in `createCategory`, `updateCategory`, `createBoard`, and `updateBoard`.
 
 ## Swagger / JSDoc
 
