@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-9-followup/implementer_report.md",
+    "artifacts/ms5-documents-wiki/ST-9-followup/tester_prompt.txt",
+    "artifacts/ms5-documents-wiki/ST-9-followup/implementer_result.json"
+  ],
+  "branch_name": "ms5-st9fix-implementer-20260611",
+  "changed_files": [
+    "apps/web/app/docs/docs-client.ts"
+  ],
+  "code_commit_hash": "9eda14b",
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST-9-followup",
+  "validation_commands": [
+    "vitest run --root apps/web apps/web/app/docs/docs-client-history.spec.ts",
+    "vitest run --root apps/web apps/web/app/docs/"
+  ],
+  "validation_outcome": "36/36 tests passed. Previously-red test 'throws a too large to compare error on 400' now GREEN."
+}
