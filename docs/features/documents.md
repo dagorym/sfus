@@ -614,9 +614,11 @@ The public web surface for the Documents wiki lives in `apps/web/app/docs/`.
 | `/docs/<path>` | public (catch-all) | `DocsPageView` (`apps/web/app/docs/[...path]/page.tsx`) |
 | `/docs/new` | staff-gated | `DocsNewPage` (`apps/web/app/docs/new/page.tsx`) |
 | `/docs/edit/<path>` | staff-gated | `DocsEditPage` (`apps/web/app/docs/edit/[...path]/page.tsx`) |
+| `/docs/history/<path>` | public (catch-all) | `DocsHistoryPage` (`apps/web/app/docs/history/[...path]/page.tsx`) |
 
-The edit route is `/docs/edit/<path>` (not `/docs/<path>/edit`). App Router forbids a
-static segment after a catch-all, so the edit prefix must come before the path catch-all.
+The edit and history routes use a leading static segment before the catch-all
+(`/docs/edit/<path>` and `/docs/history/<path>`). App Router forbids a static segment
+after a catch-all, so the prefix must come before the path catch-all.
 
 ### DocsIndexPage (`/docs`)
 
@@ -640,8 +642,7 @@ fetches the page via `getDocPageByPath(fullPath)`, and renders:
 
 Staff (moderator/admin) see Edit, "Acquire lock", and History affordances as a
 client-side defense-in-depth gate. Edit and "Acquire lock" link to `/docs/edit/<path>`;
-History links to `/docs/<path>/history` (ST-9, not yet built). The API is the real
-enforcement boundary.
+History links to `/docs/history/<path>`. The API is the real enforcement boundary.
 
 **Not-found state:** when `getDocPageByPath` returns `null` (a `404` from the API), the
 page renders "Document not found." without distinguishing existence from visibility
@@ -689,6 +690,39 @@ page URL and all descendant paths.
 - The Save button is disabled while a foreign active lock is detected on the loaded page.
   The server still enforces the lock — a forced save attempt returns 409.
 
+### DocsHistoryPage (`/docs/history/<path>`) — ST-9
+
+`apps/web/app/docs/history/[...path]/page.tsx`
+
+Revision history, side-by-side diff, and rollback for a wiki page.
+
+On load, the page resolves the full path to its page ID via `getDocPageByPath`, then
+fetches the full revision history via `getDocHistory`. Revision metadata includes author
+or editor display name, edit summary, and timestamp.
+
+**Not-found state:** when `getDocPageByPath` returns `null`, the page renders
+"Document not found." without distinguishing existence from visibility (oracle parity).
+
+**Side-by-side diff:** above the history list a "Compare Revisions" panel lets the user
+pick a "From (older)" and "To (newer)" revision via dropdowns. The diff is fetched via
+`getDocDiff` and rendered as a side-by-side table with line numbers; hunks are coloured
+by type (added, removed, unchanged). When two or more revisions are present, the page
+pre-selects the two most recent. When both selectors resolve to the same revision number,
+the diff is still fetched and the API returns an appropriate response.
+
+**Diff size cap:** when the server returns `400` because a revision body exceeds
+`DOCS_DIFF_MAX_BODY_BYTES` (512 KB) or `DOCS_DIFF_MAX_LINES` (5,000 lines), the UI
+shows a friendly "too large to compare" message rather than crashing.
+
+**Rollback affordance (staff only):** each revision row shows a "Roll back" button for
+moderators and admins (tested via `hasGlobalRole(session.user, "moderator")`). Clicking
+it calls `rollbackDocPage`, which posts to `POST /api/docs/:id/rollback`. Rollback is
+non-destructive: the server creates a new highest-numbered revision and preserves all
+existing revisions. After a successful rollback the history list is reloaded and the diff
+selectors are updated to show the rolled-back result. Non-staff users see the history and
+diff but no rollback button. The server is the authoritative authorization boundary;
+client gating is defense-in-depth only.
+
 ### docs-client.ts
 
 `apps/web/app/docs/docs-client.ts` provides public read helpers and staff write helpers.
@@ -700,8 +734,11 @@ page URL and all descendant paths.
 | `getDocPageTree(parentPath?)` | `GET /api/docs` or `GET /api/docs?parentPath=` | Returns `DocsTreeItem[] \| null`; null on 404 |
 | `getDocPageByPath(path)` | `GET /api/docs/<path>` | Returns `DocsPageShape \| null`; null on 404 |
 | `getRecentDocEdits(limit?)` | `GET /api/docs/recent` | Returns `DocsRecentEditShape[]`; never null |
+| `getDocHistory(pageId)` | `GET /api/docs/:id/history` | Returns `DocsRevisionMetaShape[] \| null`; null on 404 |
+| `getDocRevision(pageId, revisionNumber)` | `GET /api/docs/:id/revisions/:revisionNumber` | Returns `DocsSingleRevisionShape \| null`; null on 404 |
+| `getDocDiff(pageId, from, to)` | `GET /api/docs/:id/diff?from=&to=` | Returns `DocsDiffShape \| null`; null on 404; throws on 400 (size cap) with a friendly message |
 
-All three use the shared error-envelope read pattern (`payload.error.message` →
+All six use the shared error-envelope read pattern (`payload.error.message` →
 `payload.message` → fallback string).
 
 **Write helpers (moderator/admin session required):**
@@ -713,6 +750,7 @@ All three use the shared error-envelope read pattern (`payload.error.message` �
 | `renameDocPage(pageId, input)` | `PATCH /api/docs/:id` | Throws on 403, 409 |
 | `acquireDocLock(pageId)` | `POST /api/docs/:id/lock` | Throws `LockConflictError` on 409 with holder details |
 | `releaseDocLock(pageId)` | `DELETE /api/docs/:id/lock` | Throws on 403 |
+| `rollbackDocPage(pageId, revisionNumber)` | `POST /api/docs/:id/rollback` | Returns updated `DocsPageShape`; throws on 403, 404, 409 |
 
 **Lock-conflict error handling:** `acquireDocLock` and `addDocRevision` parse a `409`
 response and throw a `LockConflictError` (an `Error` with `lockConflict:
