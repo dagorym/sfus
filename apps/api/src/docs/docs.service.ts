@@ -16,7 +16,12 @@ import type {
   CreateDocPageInput,
   AddDocRevisionInput,
   DocWriteResultShape,
-  RenameDocPageInput
+  RenameDocPageInput,
+  DocsHistoryShape,
+  DocsSingleRevisionShape,
+  DocsDiffShape,
+  DocsDiffHunk,
+  DocRollbackInput
 } from "./docs.types";
 
 /**
@@ -734,6 +739,317 @@ export class DocsService {
   }
 
   // ---------------------------------------------------------------------------
+  // History — GET /api/docs/:id/history
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns ordered revision metadata for a page (ascending revision number).
+   *
+   * Security contract (oracle parity, P12):
+   * - A non-readable, deleted, or nonexistent page returns the same 404 as ST-2.
+   *   No distinction between hidden and nonexistent.
+   *
+   * @param pageId Target page UUID.
+   * @returns DocsHistoryShape with revisions ordered by revision_number ASC.
+   * @throws NotFoundException (404) when the page is not found or not publicly readable.
+   */
+  async getPageHistory(pageId: string): Promise<DocsHistoryShape> {
+    const page = await this.pageRepository.findOne({ where: { id: pageId } });
+    if (!page || page.status !== "published" || !this.isPagePubliclyReadable(page)) {
+      throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+    }
+
+    const revisions = await this.revisionRepository.find({
+      where: { pageId },
+      relations: ["author", "editorUser"],
+      order: { revisionNumber: "ASC" }
+    });
+
+    return {
+      revisions: revisions.map((rev) => this.toRevisionMetaShape(rev))
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Single revision — GET /api/docs/:id/revisions/:revisionNumber
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns the full body of a specific revision.
+   *
+   * Security contract (oracle parity, P12):
+   * - A non-readable, deleted, or nonexistent page returns the same 404 as ST-2.
+   *
+   * @param pageId         Target page UUID.
+   * @param revisionNumber Revision number (1-based).
+   * @returns DocsSingleRevisionShape with the full revision body.
+   * @throws NotFoundException (404) when the page or revision is not found.
+   */
+  async getRevisionByNumber(
+    pageId: string,
+    revisionNumber: number
+  ): Promise<DocsSingleRevisionShape> {
+    const page = await this.pageRepository.findOne({ where: { id: pageId } });
+    if (!page || page.status !== "published" || !this.isPagePubliclyReadable(page)) {
+      throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+    }
+
+    const revision = await this.revisionRepository.findOne({
+      where: { pageId, revisionNumber },
+      relations: ["author", "editorUser"]
+    });
+    if (!revision) {
+      throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+    }
+
+    return {
+      revisionNumber: revision.revisionNumber,
+      title: revision.title,
+      body: revision.body,
+      summary: revision.summary,
+      author: revision.author
+        ? {
+            username: (revision.author as { username: string; displayName: string | null }).username,
+            displayName: (revision.author as { username: string; displayName: string | null }).displayName
+          }
+        : null,
+      editorUsername: revision.editorUser
+        ? (revision.editorUser as { username: string }).username
+        : null,
+      createdAt: revision.createdAt
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Diff — GET /api/docs/:id/diff?from=&to=
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns a deterministic line-level diff between two revisions of a page.
+   *
+   * The diff is computed using the Myers diff algorithm (patience/linear variant)
+   * in a deterministic, pure-TypeScript implementation — no external libraries.
+   * Lines are split on "\n"; empty trailing lines from the split are included
+   * (consistent trailing-newline behaviour).
+   *
+   * Security contract (oracle parity, P12):
+   * - A non-readable, deleted, or nonexistent page returns the same 404 as ST-2.
+   *
+   * @param pageId         Target page UUID.
+   * @param fromRevNumber  Source revision number.
+   * @param toRevNumber    Target revision number.
+   * @returns DocsDiffShape with ordered hunks (unchanged/added/removed).
+   * @throws NotFoundException (404) when page or either revision is not found.
+   * @throws BadRequestException (400) when from/to are equal or not positive integers.
+   */
+  async getDiff(
+    pageId: string,
+    fromRevNumber: number,
+    toRevNumber: number
+  ): Promise<DocsDiffShape> {
+    // Input validation: must be positive integers and must differ.
+    if (!Number.isInteger(fromRevNumber) || fromRevNumber < 1) {
+      throw new BadRequestException("'from' must be a positive integer revision number.");
+    }
+    if (!Number.isInteger(toRevNumber) || toRevNumber < 1) {
+      throw new BadRequestException("'to' must be a positive integer revision number.");
+    }
+    if (fromRevNumber === toRevNumber) {
+      throw new BadRequestException("'from' and 'to' must be different revision numbers.");
+    }
+
+    const page = await this.pageRepository.findOne({ where: { id: pageId } });
+    if (!page || page.status !== "published" || !this.isPagePubliclyReadable(page)) {
+      throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+    }
+
+    const [fromRev, toRev] = await Promise.all([
+      this.revisionRepository.findOne({ where: { pageId, revisionNumber: fromRevNumber } }),
+      this.revisionRepository.findOne({ where: { pageId, revisionNumber: toRevNumber } })
+    ]);
+
+    if (!fromRev) {
+      throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+    }
+    if (!toRev) {
+      throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+    }
+
+    const fromLines = fromRev.body.split("\n");
+    const toLines = toRev.body.split("\n");
+
+    const hunks = DocsService.computeLineDiff(fromLines, toLines);
+
+    return {
+      fromRevisionNumber: fromRevNumber,
+      toRevisionNumber: toRevNumber,
+      hunks
+    };
+  }
+
+  /**
+   * Pure, deterministic line-level diff using the Myers/LCS algorithm.
+   *
+   * Returns a sequence of hunks: each hunk has a `type` ("unchanged" | "added" | "removed")
+   * and an array of `lines`. Adjacent lines of the same type are merged into a single hunk.
+   *
+   * This method is `static` so it can be called from tests with fixed inputs to pin the
+   * output deterministically (tester requirement).
+   *
+   * Algorithm: compute the longest common subsequence (LCS) of `fromLines` and `toLines`
+   * using standard DP, then produce the ordered diff by scanning the edit script.
+   *
+   * @param fromLines Lines of the "from" revision.
+   * @param toLines   Lines of the "to" revision.
+   * @returns Ordered array of DocsDiffHunk entries.
+   */
+  static computeLineDiff(fromLines: string[], toLines: string[]): DocsDiffHunk[] {
+    const m = fromLines.length;
+    const n = toLines.length;
+
+    // Build LCS length table.
+    // dp[i][j] = LCS length for fromLines[0..i-1] vs toLines[0..j-1].
+    const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0) as number[]);
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (fromLines[i - 1] === toLines[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+
+    // Backtrack to produce the edit script.
+    const ops: Array<{ type: "unchanged" | "added" | "removed"; line: string }> = [];
+    let i = m;
+    let j = n;
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && fromLines[i - 1] === toLines[j - 1]) {
+        ops.push({ type: "unchanged", line: fromLines[i - 1] });
+        i--;
+        j--;
+      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+        ops.push({ type: "added", line: toLines[j - 1] });
+        j--;
+      } else {
+        ops.push({ type: "removed", line: fromLines[i - 1] });
+        i--;
+      }
+    }
+
+    // Ops are in reverse order; reverse to get correct document order.
+    ops.reverse();
+
+    // Merge consecutive same-type operations into hunks.
+    const hunks: DocsDiffHunk[] = [];
+    for (const op of ops) {
+      const last = hunks[hunks.length - 1];
+      if (last && last.type === op.type) {
+        last.lines.push(op.line);
+      } else {
+        hunks.push({ type: op.type, lines: [op.line] });
+      }
+    }
+
+    return hunks;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rollback — POST /api/docs/:id/rollback
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Creates a new revision whose content equals the target revision (non-destructive
+   * rollback), updates current_revision_id, and preserves all existing revisions.
+   *
+   * Security contract:
+   * - Caller MUST call assertDocWriteAccess before calling this method.
+   *
+   * Atomicity (P10):
+   * - The new revision row and the pointer update are written inside a single
+   *   repository.manager.transaction. A failure leaves no dangling pointer.
+   *
+   * Non-destructive (AC3):
+   * - The target revision and all intermediate revisions are preserved unchanged.
+   * - A new revision is appended as the highest revision_number.
+   *
+   * @param actorUserId The authenticated user's UUID.
+   * @param pageId      Target page UUID.
+   * @param input       DocRollbackInput with the target revisionNumber.
+   * @returns DocWriteResultShape reflecting the new rollback revision.
+   * @throws NotFoundException   (404) when the page or target revision is not found.
+   * @throws BadRequestException (400) when revisionNumber is not a positive integer.
+   */
+  async rollbackPage(
+    actorUserId: string,
+    pageId: string,
+    input: DocRollbackInput
+  ): Promise<DocWriteResultShape> {
+    if (!Number.isInteger(input.revisionNumber) || input.revisionNumber < 1) {
+      throw new BadRequestException("revisionNumber must be a positive integer.");
+    }
+
+    return this.pageRepository.manager.transaction(async (em) => {
+      const page = await em.findOne(DocsPageEntity, { where: { id: pageId } });
+      if (!page || page.status !== "published") {
+        throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+      }
+
+      // Load the target revision to roll back to.
+      const targetRevision = await em.findOne(DocsRevisionEntity, {
+        where: { pageId, revisionNumber: input.revisionNumber }
+      });
+      if (!targetRevision) {
+        throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+      }
+
+      // Determine the next (highest) revision number.
+      const lastRevision = await em.findOne(DocsRevisionEntity, {
+        where: { pageId },
+        order: { revisionNumber: "DESC" }
+      });
+      const nextRevisionNumber = lastRevision ? lastRevision.revisionNumber + 1 : 1;
+      const newRevisionId = crypto.randomUUID();
+
+      // 1. Insert the new revision with the target's content (non-destructive).
+      const newRevision = em.create(DocsRevisionEntity, {
+        id: newRevisionId,
+        pageId,
+        authorUserId: actorUserId,
+        editorUserId: actorUserId,
+        title: targetRevision.title,
+        body: targetRevision.body,
+        summary: `Rolled back to revision ${input.revisionNumber}`,
+        revisionNumber: nextRevisionNumber
+      });
+      await em.save(DocsRevisionEntity, newRevision);
+
+      // 2. Update current_revision_id and title on the page.
+      await em.update(DocsPageEntity, { id: pageId }, {
+        currentRevisionId: newRevisionId,
+        title: targetRevision.title
+      });
+
+      // Re-load for db-refreshed updatedAt.
+      const updatedPage = await em.findOne(DocsPageEntity, { where: { id: pageId } });
+
+      return {
+        id: pageId,
+        title: targetRevision.title,
+        path: page.path,
+        depth: page.depth,
+        parentId: page.parentId,
+        currentRevisionId: newRevisionId,
+        revisionNumber: nextRevisionNumber,
+        createdAt: page.createdAt,
+        updatedAt: updatedPage?.updatedAt ?? page.updatedAt
+      };
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // Write-path validation helpers
   // ---------------------------------------------------------------------------
 
@@ -794,6 +1110,21 @@ export class DocsService {
       });
     }
     return null;
+  }
+
+  /**
+   * Maps a DocsRevisionEntity (with loaded users) to DocsRevisionMetaShape for history.
+   */
+  private toRevisionMetaShape(revision: DocsRevisionEntity): import("./docs.types").DocsRevisionMetaShape {
+    const authorUser = revision.author as { username: string; displayName: string | null } | null;
+    const editorUser = revision.editorUser as { username: string } | null;
+    return {
+      revisionNumber: revision.revisionNumber,
+      author: authorUser ? { username: authorUser.username, displayName: authorUser.displayName } : null,
+      editorUsername: editorUser ? editorUser.username : null,
+      summary: revision.summary,
+      createdAt: revision.createdAt
+    };
   }
 
   /**

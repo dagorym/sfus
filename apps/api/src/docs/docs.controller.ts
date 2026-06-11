@@ -35,7 +35,11 @@ import { DocsService } from "./docs.service";
 import type {
   AddDocRevisionInput,
   CreateDocPageInput,
+  DocRollbackInput,
   DocWriteResultShape,
+  DocsDiffShape,
+  DocsHistoryShape,
+  DocsSingleRevisionShape,
   DocsPageShape,
   DocsRecentEditShape,
   DocsTreeItem,
@@ -360,6 +364,182 @@ export class DocsController {
     // 403: single authorization gate for all site-scope doc writes.
     this.docsService.assertDocWriteAccess(session.user.globalRole, "site");
     await this.docsService.softDeletePage(id);
+  }
+
+  // ===========================================================================
+  // GET /docs/:id/history — ordered revision metadata (ST-5)
+  // ===========================================================================
+
+  /**
+   * Returns ordered revision metadata for a wiki page (ascending revision number).
+   *
+   * Oracle parity (P12): a non-readable, deleted, or nonexistent page returns the
+   * same 404 as GET /docs/*path. No 403 vs 404 distinction.
+   *
+   * No authentication required.
+   *
+   * @param id Page UUID.
+   * @returns 200 with `{ history }` (revisions ordered by revision_number ASC).
+   * @throws 404 Page not found or not publicly accessible (oracle parity).
+   */
+  @Get(":id/history")
+  @ApiOperation({ summary: "List ordered revision metadata for a wiki page." })
+  @ApiOkResponse({
+    description: "Revision metadata returned ordered by revision_number ASC."
+  })
+  @ApiNotFoundResponse({
+    description: "Page not found or not publicly accessible (oracle parity; P12)."
+  })
+  async getPageHistory(@Param("id") id: string): Promise<{ history: DocsHistoryShape }> {
+    const history = await this.docsService.getPageHistory(id);
+    return { history };
+  }
+
+  // ===========================================================================
+  // GET /docs/:id/revisions/:revisionNumber — single revision body (ST-5)
+  // ===========================================================================
+
+  /**
+   * Returns the full body of a specific revision for a wiki page.
+   *
+   * Oracle parity (P12): a non-readable, deleted, or nonexistent page (or a missing
+   * revision number) returns the same 404 as ST-2.
+   *
+   * No authentication required.
+   *
+   * @param id             Page UUID.
+   * @param revisionNumber Revision number (positive integer, 1-based).
+   * @returns 200 with `{ revision }` including body, title, author, and timestamp.
+   * @throws 400 Invalid revision number.
+   * @throws 404 Page or revision not found (oracle parity).
+   */
+  @Get(":id/revisions/:revisionNumber")
+  @ApiOperation({ summary: "Retrieve a single revision body for a wiki page." })
+  @ApiOkResponse({
+    description: "Single revision body returned."
+  })
+  @ApiBadRequestResponse({ description: "Invalid revision number." })
+  @ApiNotFoundResponse({
+    description: "Page or revision not found (oracle parity; P12)."
+  })
+  async getRevisionByNumber(
+    @Param("id") id: string,
+    @Param("revisionNumber") revisionNumberStr: string
+  ): Promise<{ revision: DocsSingleRevisionShape }> {
+    const revisionNumber = parseInt(revisionNumberStr, 10);
+    if (!Number.isFinite(revisionNumber) || revisionNumber < 1) {
+      throw new BadRequestException("revisionNumber must be a positive integer.");
+    }
+    const revision = await this.docsService.getRevisionByNumber(id, revisionNumber);
+    return { revision };
+  }
+
+  // ===========================================================================
+  // GET /docs/:id/diff?from=&to= — deterministic line-level diff (ST-5)
+  // ===========================================================================
+
+  /**
+   * Returns a deterministic line-level diff between two revisions of a wiki page.
+   *
+   * The diff is computed server-side using the LCS algorithm and returns ordered
+   * hunks of type "unchanged" | "added" | "removed".
+   *
+   * Oracle parity (P12): a non-readable, deleted, or nonexistent page returns the
+   * same 404 as ST-2.
+   *
+   * No authentication required.
+   *
+   * @param id   Page UUID.
+   * @param from Revision number of the "from" (base) revision.
+   * @param to   Revision number of the "to" (target) revision.
+   * @returns 200 with `{ diff }` containing ordered hunks.
+   * @throws 400 Invalid or equal from/to revision numbers.
+   * @throws 404 Page or either revision not found (oracle parity).
+   */
+  @Get(":id/diff")
+  @ApiOperation({ summary: "Compute a deterministic line-level diff between two revisions." })
+  @ApiOkResponse({
+    description: "Line-level diff returned as ordered hunks (unchanged/added/removed)."
+  })
+  @ApiBadRequestResponse({
+    description: "Invalid or equal from/to revision numbers."
+  })
+  @ApiNotFoundResponse({
+    description: "Page or either revision not found (oracle parity; P12)."
+  })
+  async getDiff(
+    @Param("id") id: string,
+    @Query("from") fromStr?: string,
+    @Query("to") toStr?: string
+  ): Promise<{ diff: DocsDiffShape }> {
+    if (fromStr === undefined || toStr === undefined) {
+      throw new BadRequestException("Both 'from' and 'to' query parameters are required.");
+    }
+    const fromRevNumber = parseInt(fromStr, 10);
+    const toRevNumber = parseInt(toStr, 10);
+    if (!Number.isFinite(fromRevNumber) || fromRevNumber < 1) {
+      throw new BadRequestException("'from' must be a positive integer revision number.");
+    }
+    if (!Number.isFinite(toRevNumber) || toRevNumber < 1) {
+      throw new BadRequestException("'to' must be a positive integer revision number.");
+    }
+    const diff = await this.docsService.getDiff(id, fromRevNumber, toRevNumber);
+    return { diff };
+  }
+
+  // ===========================================================================
+  // POST /docs/:id/rollback — non-destructive rollback (ST-5, staff-gated, throttled)
+  // ===========================================================================
+
+  /**
+   * Creates a new highest-numbered revision whose content equals the target revision
+   * (non-destructive rollback), updates `current_revision_id`, and preserves all
+   * existing revisions.
+   *
+   * Authorization: moderator or admin only. Anonymous and `user`-role callers
+   * receive `403` from `assertDocWriteAccess`.
+   *
+   * @param id   Page UUID.
+   * @body `{ revisionNumber }` — the revision number to roll back to.
+   * @returns 201 with `{ page }` reflecting the new rollback revision.
+   * @throws 400 Invalid revisionNumber.
+   * @throws 401 No active session.
+   * @throws 403 Moderator or admin role required.
+   * @throws 404 Page or target revision not found.
+   * @throws 429 Rate limit exceeded.
+   */
+  @Post(":id/rollback")
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(ThrottleGuard)
+  @ThrottleLabel(THROTTLE_LABEL_DOC_EDIT)
+  @ApiOperation({ summary: "Non-destructive rollback: create a new revision equal to the target (moderator/admin)." })
+  @ApiCreatedResponse({
+    description:
+      "New revision created with content equal to the target; current_revision_id updated. " +
+      "All existing revisions preserved (non-destructive)."
+  })
+  @ApiBadRequestResponse({ description: "Invalid revisionNumber." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({
+    description: "Page or target revision not found."
+  })
+  @ApiTooManyRequestsResponse({ description: "Rate limit exceeded." })
+  async rollbackPage(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Body() body: DocRollbackInput
+  ): Promise<{ page: DocWriteResultShape }> {
+    // 401: session required before any data operation.
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    // 403: single authorization gate for all site-scope doc writes.
+    this.docsService.assertDocWriteAccess(session.user.globalRole, "site");
+    // Input guard.
+    if (typeof body?.revisionNumber !== "number" || !Number.isInteger(body.revisionNumber) || body.revisionNumber < 1) {
+      throw new BadRequestException("revisionNumber must be a positive integer.");
+    }
+    const page = await this.docsService.rollbackPage(session.user.id, id, body);
+    return { page };
   }
 
   // ===========================================================================

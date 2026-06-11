@@ -157,3 +157,61 @@ export interface DocWriteResultShape {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// ---------------------------------------------------------------------------
+// History / diff / rollback shapes (ST-5)
+// ---------------------------------------------------------------------------
+
+/** Metadata for a single revision in the history list. */
+export interface DocsRevisionMetaShape {
+  revisionNumber: number;
+  author: DocsAuthorShape | null;
+  /** Editor username (the actor who saved this revision), or null if same as author. */
+  editorUsername: string | null;
+  summary: string | null;
+  createdAt: Date;
+}
+
+/** Response shape for GET /api/docs/:id/history. */
+export interface DocsHistoryShape {
+  revisions: DocsRevisionMetaShape[];
+}
+
+/** A single revision body returned by GET /api/docs/:id/revisions/:revisionNumber. */
+export interface DocsSingleRevisionShape {
+  revisionNumber: number;
+  title: string;
+  body: string;
+  summary: string | null;
+  author: DocsAuthorShape | null;
+  editorUsername: string | null;
+  createdAt: Date;
+}
+
+/**
+ * A single hunk in a line-level diff.
+ *
+ * type:
+ *   "unchanged" — lines present in both revisions
+ *   "added"     — lines only in the "to" revision
+ *   "removed"   — lines only in the "from" revision
+ *
+ * lines: the text content of each line in this hunk (without trailing newline).
+ */
+export interface DocsDiffHunk {
+  type: "unchanged" | "added" | "removed";
+  lines: string[];
+}
+
+/** Response shape for GET /api/docs/:id/diff?from=&to=. */
+export interface DocsDiffShape {
+  fromRevisionNumber: number;
+  toRevisionNumber: number;
+  hunks: DocsDiffHunk[];
+}
+
+/** Input for POST /api/docs/:id/rollback. */
+export interface DocRollbackInput {
+  /** Revision number of the target revision to roll back to. */
+  revisionNumber: number;
+}
