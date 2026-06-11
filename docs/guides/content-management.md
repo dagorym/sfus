@@ -134,6 +134,8 @@ Use the **↑** / **↓** arrows on each board row to move it within its categor
 
 All changes appear in the public forum index (`/forums`) immediately after the API call succeeds.
 
+**Form-level length enforcement:** The Name and Description inputs on both the category and board forms carry browser-level `maxLength` constraints (128 and 512 characters respectively). A "max 512 characters" hint is displayed below each Description field. These constraints are UX aids — the server (ST4) is the enforcement boundary and returns a friendly `400` error if a value exceeds the limit. Any server validation message is surfaced directly in the form.
+
 Full API contract details live in [features/forums.md — Admin API routes](../features/forums.md#admin-api-routes).
 
 ### Moderation from the web UI (moderator/admin)

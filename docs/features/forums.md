@@ -536,8 +536,8 @@ On mount the page calls `resolveProtectedSession('/admin/forums')`. If no active
 
 | Action | Trigger | Notes |
 |---|---|---|
-| Create | **New category** button | Requires name and slug (client validates before calling API). Optional description and sort order. Success message: "Category created." |
-| Edit | **Edit** button on category card | Inline form pre-populated from current values. Success message: "Category updated." |
+| Create | **New category** button | Requires name and slug (client validates before calling API). Optional description and sort order. Name input carries `maxLength={128}`; description input carries `maxLength={512}` with a visible "max 512 characters" hint. Server 400 messages are surfaced verbatim in the form. Success message: "Category created." |
+| Edit | **Edit** button on category card | Inline form pre-populated from current values. Same `maxLength` constraints and "max 512 characters" hint as the create form. Success message: "Category updated." |
 | Delete | **Delete** button on category card | Client checks `boardCount > 0` first and shows "Cannot delete this category because it still has boards." without calling the API. If the API returns a 400 matching `/board\|must be empty\|not empty/i`, the same friendly message is shown. Confirm dialog required. Success message: "Category deleted." |
 | Reorder (up) | **↑** arrow on category card | Calls `adminReorderCategories` with the complete ordered id list after swapping the category one position earlier. Disabled at the top position. |
 | Reorder (down) | **↓** arrow on category card | Calls `adminReorderCategories` after swapping the category one position later. Disabled at the last position. |
@@ -548,8 +548,8 @@ Each category card renders a board table with Edit, Delete, and reorder arrows p
 
 | Action | Trigger | Notes |
 |---|---|---|
-| Create | **+ Add board** button | Requires name and slug. Optional description, sort order, scopeType (`site`\|`project`), visibility (all five values), projectId. Success message: "Board created." |
-| Edit | **Edit** button on board row | Inline form pre-populated from current values (all board fields). Success message: "Board updated." |
+| Create | **+ Add board** button | Requires name and slug. Optional description, sort order, scopeType (`site`\|`project`), visibility (all five values), projectId. Name input carries `maxLength={128}`; description input carries `maxLength={512}` with a visible "max 512 characters" hint. Server 400 messages are surfaced verbatim in the form. Success message: "Board created." |
+| Edit | **Edit** button on board row | Inline form pre-populated from current values (all board fields). Same `maxLength` constraints and "max 512 characters" hint as the create form. Success message: "Board updated." |
 | Delete | **Delete** button on board row | Confirm dialog required. Success message: "Board deleted." |
 | Reorder (up/down) | **↑** / **↓** arrows on board row | Calls `adminReorderBoards(categoryId, { orderedIds })` with siblings from the same category. |
 
