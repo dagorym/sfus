@@ -2839,7 +2839,7 @@ describe("ForumsService.listRecentTopics (CO5: AC4 — malformed limit coerces t
  * Supports select(), addSelect(), innerJoin(), where(), andWhere(), getRawMany().
  * getRawMany returns the provided rows.
  */
-const makeRawQb = (rows: Array<{ topicId: string; username: string; displayName: string | null }>) => {
+const makeRawQb = (rows: Array<{ topicId: string; username: string; displayName: string | null; createdAt?: Date | string | null }>) => {
   const qb: Record<string, ReturnType<typeof vi.fn>> = {};
   const chainMethods = ["select", "addSelect", "innerJoin", "where", "andWhere"];
   for (const m of chainMethods) {
@@ -3395,7 +3395,7 @@ const makeReplyCountQb = (replyCountRows: Array<{ boardId: string; replyCount: s
 /**
  * Creates a post-repo QB stub for resolveTopicLastActivity (getRawMany returning reply author rows).
  */
-const makeLastActivityQb = (rows: Array<{ topicId: string; username: string; displayName: string | null }>) => {
+const makeLastActivityQb = (rows: Array<{ topicId: string; username: string; displayName: string | null; createdAt?: Date | string | null }>) => {
   const qb: Record<string, ReturnType<typeof vi.fn>> = {};
   const chainMethods = ["select", "addSelect", "innerJoin", "where", "andWhere"];
   for (const m of chainMethods) {
@@ -4323,5 +4323,182 @@ describe("ForumsService.updateBoard — partial-update field isolation (ST4: AC3
     await expect(
       service.updateBoard("brd-upd", { name: name128 })
     ).resolves.toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-11: Forums last-activity cleanup
+//
+// Acceptance criteria validated:
+// AC1: Board lastPost activity reflects the latest non-deleted reply; a soft-deleted
+//      latest reply no longer drives the displayed last-activity date.
+// AC2: TopicLastActivity.at is consistently populated (non-null) in the reply case
+//      and used by effectiveAt; null only for the opening-post fallback.
+// AC3: The full @sfus/api suite stays green (no regressions — see run output).
+//
+// Implementation notes:
+// resolveTopicLastActivity now selects post.created_at as "createdAt" and sets
+// activity.at = reply createdAt (Date) when isReply=true, null for opening-post fallback.
+// effectiveAt = activity.at ?? topic.lastPostAt ?? topic.createdAt.
+// When activity rows include `createdAt`, activity.at is non-null and takes priority over
+// topic.lastPostAt. The existing lastPostAt-based tests still pass because those stubs
+// do not include createdAt in the raw row — activity.at falls back to null, effectiveAt
+// falls back to topic.lastPostAt.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// AC2: resolveTopicLastActivity — activity.at is populated (non-null) for the reply case
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.resolveTopicLastActivity (ST-11: AC2 — activity.at non-null for reply case)", () => {
+  // AC2: when a reply row includes createdAt, activity.at is a Date (non-null)
+  it("activity.at is a Date when the reply row includes a createdAt timestamp (AC2: at populated)", async () => {
+    const replyCreatedAt = new Date("2026-05-10T14:00:00Z");
+    const rows = [{ topicId: "topic-1", username: "replier", displayName: "R", createdAt: replyCreatedAt }];
+    const qb = makeRawQb(rows);
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([["topic-1", { username: "opener", displayName: null }]]);
+    const result = await service.resolveTopicLastActivity(["topic-1"], openingAuthors);
+    const activity = result.get("topic-1");
+    expect(activity).not.toBeNull();
+    expect(activity!.isReply).toBe(true);
+    // activity.at must be a non-null Date, not null
+    expect(activity!.at).not.toBeNull();
+    expect(activity!.at).toBeInstanceOf(Date);
+    expect(activity!.at!.toISOString()).toBe(replyCreatedAt.toISOString());
+  });
+
+  // AC2: activity.at as ISO string (string form of createdAt) is also coerced to a Date
+  it("activity.at is coerced from ISO string to Date when createdAt is a string (AC2: string coercion)", async () => {
+    const replyCreatedAtStr = "2026-06-01T09:30:00.000Z";
+    const rows = [{ topicId: "topic-str", username: "replier2", displayName: null, createdAt: replyCreatedAtStr }];
+    const qb = makeRawQb(rows);
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([["topic-str", { username: "opener2", displayName: null }]]);
+    const result = await service.resolveTopicLastActivity(["topic-str"], openingAuthors);
+    const activity = result.get("topic-str");
+    expect(activity!.at).not.toBeNull();
+    expect(activity!.at).toBeInstanceOf(Date);
+    expect(activity!.at!.toISOString()).toBe(replyCreatedAtStr);
+  });
+
+  // AC2: activity.at is null for opening-post fallback (unchanged from prior behavior)
+  it("activity.at remains null for opening-post fallback — no regression (AC2: null for fallback)", async () => {
+    const qb = makeRawQb([]); // no replies — fallback to opening post
+    const service = makeServiceWithPostQb(qb);
+    const openingAuthors = new Map([["topic-fallback", { username: "opener", displayName: null }]]);
+    const result = await service.resolveTopicLastActivity(["topic-fallback"], openingAuthors);
+    const activity = result.get("topic-fallback");
+    expect(activity!.isReply).toBe(false);
+    expect(activity!.at).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC1+AC2: listPublicCategories — lastPost.at reflects activity.at (reply createdAt),
+// not topic.lastPostAt, when activity row includes createdAt (ST-11)
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.listPublicCategories — lastPost.at from activity.at (ST-11: AC1, AC2)", () => {
+  const boardId = "board-st11-lpc";
+  const topicCreatedAt = new Date("2026-01-01T08:00:00Z");
+  // topic.lastPostAt is the stale timestamp from topic entity (set at createPost time)
+  const topicLastPostAt = new Date("2026-05-10T00:00:00Z");
+  // replyCreatedAt is the actual reply timestamp from the posts table (what ST-11 now resolves)
+  const replyCreatedAt = new Date("2026-05-10T14:30:00Z");
+
+  // AC2: lastPost.at reflects activity.at (non-null reply createdAt from posts table),
+  // not topic.lastPostAt, when the raw row includes createdAt.
+  it("lastPost.at is the reply createdAt from the posts table (activity.at), not topic.lastPostAt (AC2: effectiveAt priority)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-st11", [board]);
+    const topic = makeAggTopic("t-st11-a", boardId, "opener", topicCreatedAt, topicLastPostAt);
+    const replyRows = [{ boardId, replyCount: "1" }];
+    // lastActivityRows includes createdAt — activity.at will be populated
+    const lastActivityRows = [{ topicId: "t-st11-a", username: "replier", displayName: "Replier", createdAt: replyCreatedAt }];
+    const service = makeServiceForListPublicCategories([category], [topic], replyRows, lastActivityRows);
+    const result = await service.listPublicCategories();
+    const lp = result[0].boards[0].lastPost;
+    expect(lp).not.toBeNull();
+    // lastPost.at must be replyCreatedAt, not topicLastPostAt
+    expect(lp!.at).toBe(replyCreatedAt.toISOString());
+    expect(lp!.at).not.toBe(topicLastPostAt.toISOString());
+  });
+
+  // AC1: soft-deleted latest reply no longer drives the date — when all replies are
+  // soft-deleted, the activity row is absent (SQL filter), so isReply=false and
+  // effectiveAt falls back to topic.createdAt (not the stale topic.lastPostAt
+  // that was set by the now-deleted reply).
+  it("lastPost.at is topic.createdAt when all replies are soft-deleted (AC1: stale lastPostAt not used)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-st11", [board]);
+    // topic.lastPostAt is set (stale — reflects the now-deleted reply)
+    const topic = makeAggTopic("t-st11-b", boardId, "opener", topicCreatedAt, topicLastPostAt);
+    const replyRows: Array<{ boardId: string; replyCount: string }> = [];
+    // No activity rows — soft-deleted reply filtered out by SQL; fallback is opening post
+    const lastActivityRows: Array<{ topicId: string; username: string; displayName: string | null }> = [];
+    const service = makeServiceForListPublicCategories([category], [topic], replyRows, lastActivityRows);
+    const result = await service.listPublicCategories();
+    const lp = result[0].boards[0].lastPost;
+    expect(lp).not.toBeNull();
+    // effectiveAt = opening-post fallback → topic.createdAt, NOT stale topicLastPostAt
+    expect(lp!.at).toBe(topicCreatedAt.toISOString());
+    expect(lp!.at).not.toBe(topicLastPostAt.toISOString());
+  });
+
+  // AC2: when activity.at is present on the reply row, it propagates to lastPost.at
+  // and the reply author is set correctly (regression guard for the full shape).
+  it("lastPost shape has correct author and at when activity.at is populated (AC2: full shape guard)", async () => {
+    const board = makeAggBoard(boardId);
+    const category = makeAggCategory("cat-st11", [board]);
+    const topic = makeAggTopic("t-st11-c", boardId, "opener", topicCreatedAt, topicLastPostAt);
+    const replyRows = [{ boardId, replyCount: "2" }];
+    const lastActivityRows = [{ topicId: "t-st11-c", username: "st11replier", displayName: "ST11 Replier", createdAt: replyCreatedAt }];
+    const service = makeServiceForListPublicCategories([category], [topic], replyRows, lastActivityRows);
+    const result = await service.listPublicCategories();
+    const lp = result[0].boards[0].lastPost;
+    expect(lp).not.toBeNull();
+    expect(lp!.at).toBe(replyCreatedAt.toISOString());
+    expect(lp!.author.username).toBe("st11replier");
+    expect(lp!.author.displayName).toBe("ST11 Replier");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC1+AC2: getPublicBoard — lastPost.at reflects activity.at (reply createdAt) (ST-11)
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.getPublicBoard — lastPost.at from activity.at (ST-11: AC1, AC2)", () => {
+  const boardId = "board-st11-gpb";
+  const topicCreatedAt = new Date("2026-02-01T08:00:00Z");
+  const topicLastPostAt = new Date("2026-06-01T00:00:00Z");
+  const replyCreatedAt = new Date("2026-06-01T12:45:00Z");
+
+  // AC2: lastPost.at is activity.at (from posts table), not topic.lastPostAt
+  it("lastPost.at is the reply createdAt from the posts table, not topic.lastPostAt (AC2: getPublicBoard)", async () => {
+    const board = makeAggBoard(boardId);
+    const topic = makeAggTopic("t-gpb-st11-a", boardId, "opener", topicCreatedAt, topicLastPostAt);
+    const lastActivityRows = [{ topicId: "t-gpb-st11-a", username: "replierX", displayName: null, createdAt: replyCreatedAt }];
+    const service = makeServiceForGetPublicBoard(board, [topic], 1, lastActivityRows);
+    const result = await service.getPublicBoard(boardId);
+    const lp = result.lastPost;
+    expect(lp).not.toBeNull();
+    expect(lp!.at).toBe(replyCreatedAt.toISOString());
+    expect(lp!.at).not.toBe(topicLastPostAt.toISOString());
+  });
+
+  // AC1: soft-deleted latest reply — all replies gone, fallback to opening post createdAt
+  it("lastPost.at is topic.createdAt when latest reply is soft-deleted (AC1: getPublicBoard, stale lastPostAt not used)", async () => {
+    const board = makeAggBoard(boardId);
+    const topic = makeAggTopic("t-gpb-st11-b", boardId, "opener", topicCreatedAt, topicLastPostAt);
+    // No activity rows (deleted reply filtered by SQL)
+    const lastActivityRows: Array<{ topicId: string; username: string; displayName: string | null }> = [];
+    const service = makeServiceForGetPublicBoard(board, [topic], 0, lastActivityRows);
+    const result = await service.getPublicBoard(boardId);
+    const lp = result.lastPost;
+    expect(lp).not.toBeNull();
+    // Fallback: isReply=false → effectiveAt = topic.createdAt
+    expect(lp!.at).toBe(topicCreatedAt.toISOString());
+    expect(lp!.at).not.toBe(topicLastPostAt.toISOString());
   });
 });
