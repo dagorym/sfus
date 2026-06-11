@@ -527,7 +527,10 @@ export class ForumsService {
     const lastActivityMap = await this.resolveTopicLastActivity(allTopicIds, openingAuthors);
 
     // Build per-board lastPost: find the topic with the most-recent activity timestamp.
-    // For reply activities (isReply=true): use topic.lastPostAt as the timestamp.
+    // For reply activities (isReply=true): use activity.at (the latest non-deleted reply's
+    // createdAt, resolved directly from the posts table) — falling back to topic.lastPostAt
+    // only when activity.at is null (e.g. legacy or stub context), then to topic.createdAt.
+    // Using activity.at prevents a soft-deleted latest reply from leaving a stale date.
     // For opening-post fallback (isReply=false): use topic.createdAt.
     const lastPostByBoard = new Map<string, BoardLastPostShape | null>();
     for (const boardId of publicBoardIds) {
@@ -545,8 +548,10 @@ export class ForumsService {
         if (!activity) continue;
 
         // Derive the effective timestamp for this topic's activity.
+        // Reply case: use the resolved non-deleted reply timestamp (activity.at), falling back
+        // to topic.lastPostAt only when activity.at is unavailable.
         const effectiveAt: Date = activity.isReply
-          ? (topic.lastPostAt ?? topic.createdAt)
+          ? (activity.at ?? topic.lastPostAt ?? topic.createdAt)
           : topic.createdAt;
 
         if (bestAt === null || effectiveAt > bestAt) {
@@ -645,7 +650,12 @@ export class ForumsService {
       for (const topic of boardTopics) {
         const activity = lastActivityMap.get(topic.id);
         if (!activity) continue;
-        const effectiveAt: Date = activity.isReply ? (topic.lastPostAt ?? topic.createdAt) : topic.createdAt;
+        // Reply case: use the resolved non-deleted reply timestamp (activity.at), falling back
+        // to topic.lastPostAt only when activity.at is unavailable, preventing a soft-deleted
+        // latest reply from leaving a stale last-activity date.
+        const effectiveAt: Date = activity.isReply
+          ? (activity.at ?? topic.lastPostAt ?? topic.createdAt)
+          : topic.createdAt;
         if (bestAt === null || effectiveAt > bestAt) {
           bestAt = effectiveAt;
           lastPost = {
@@ -725,14 +735,15 @@ export class ForumsService {
       return new Map();
     }
 
-    // Single grouped query: for each topic, find the most recent non-deleted post's author.
-    // We use a subquery to rank posts per topic by createdAt DESC, then join the author.
-    // The query returns at most one row per topic (the latest non-deleted reply).
+    // Single grouped query: for each topic, find the most recent non-deleted post's author
+    // and createdAt. We use a subquery to rank posts per topic by createdAt DESC, then join
+    // the author. The query returns at most one row per topic (the latest non-deleted reply).
     const rows = await this.postRepository
       .createQueryBuilder("post")
       .select("post.topicId", "topicId")
       .addSelect("u.username", "username")
       .addSelect("u.display_name", "displayName")
+      .addSelect("post.created_at", "createdAt")
       .innerJoin("users", "u", "u.id = post.author_user_id")
       .where("post.topic_id IN (:...topicIds)", { topicIds })
       .andWhere("post.deleted_at IS NULL")
@@ -746,20 +757,21 @@ export class ForumsService {
             AND p2.deleted_at IS NULL
         )`
       )
-      .getRawMany<{ topicId: string; username: string; displayName: string | null }>();
+      .getRawMany<{ topicId: string; username: string; displayName: string | null; createdAt: Date | string | null }>();
 
-    // Build a lookup of reply authors from the query rows.
-    const replyAuthorByTopic = new Map<string, { username: string; displayName: string | null }>();
+    // Build a lookup of reply authors and timestamps from the query rows.
+    const replyByTopic = new Map<string, { username: string; displayName: string | null; createdAt: Date | null }>();
     for (const row of rows) {
-      replyAuthorByTopic.set(row.topicId, { username: row.username, displayName: row.displayName });
+      const createdAt = row.createdAt instanceof Date ? row.createdAt : (row.createdAt ? new Date(row.createdAt) : null);
+      replyByTopic.set(row.topicId, { username: row.username, displayName: row.displayName, createdAt });
     }
 
     const result = new Map<string, TopicLastActivity | null>();
     for (const id of topicIds) {
-      const replyAuthor = replyAuthorByTopic.get(id);
-      if (replyAuthor) {
-        // Latest non-deleted reply exists — isReply = true.
-        result.set(id, { author: replyAuthor, at: null, isReply: true });
+      const reply = replyByTopic.get(id);
+      if (reply) {
+        // Latest non-deleted reply exists — isReply = true; at = reply's createdAt.
+        result.set(id, { author: { username: reply.username, displayName: reply.displayName }, at: reply.createdAt, isReply: true });
       } else {
         // No non-deleted reply — fall back to the opening post's author.
         const openingAuthor = openingAuthors.get(id);

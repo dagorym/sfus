@@ -21,8 +21,9 @@ export const FORUM_NAME_MAX_LENGTH = 128;
 
 /**
  * The most-recent-activity stub included on the public board shape.
- * at: ISO-8601 string of the latest non-deleted reply's createdAt (isReply=true)
- *     or the opening post's createdAt (isReply=false).
+ * at: ISO-8601 string of the latest NON-DELETED reply's createdAt when a reply exists
+ *     (derived from the posts table so a soft-deleted latest reply cannot leave a stale
+ *     date), or the opening post's createdAt when no non-deleted replies exist.
  * author: the author of that activity post.
  */
 export interface BoardLastPostShape {
@@ -140,10 +141,11 @@ export interface PublicAuthorShape {
  *
  * author     — the most recent non-deleted reply's author when isReply is true,
  *              or the opening post's author (from the openingAuthors map) when isReply is false.
- * at         — the createdAt of the most recent non-deleted reply when isReply is true,
- *              or null when the fallback is the opening post (timestamp not carried
- *              through the raw query; callers needing the opening createdAt should
- *              read it from the topic entity directly).
+ * at         — when isReply is true: the createdAt of the most recent NON-DELETED reply,
+ *              resolved directly from the posts table so a soft-deleted latest reply cannot
+ *              produce a stale last-activity date. Null when the fallback is the opening post
+ *              (isReply=false); callers needing the opening createdAt should read it from the
+ *              topic entity directly.
  * isReply    — true when the activity is a real non-deleted reply; false when the
  *              activity falls back to the opening post (no non-deleted replies exist).
  *
