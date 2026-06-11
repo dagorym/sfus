@@ -269,6 +269,100 @@ describe("DocsService.getPageByPath (AC1: path resolution and breadcrumbs)", () 
     // Should still call findOne (path was normalized correctly)
     expect(findOneSpy).toHaveBeenCalled();
   });
+
+  // NEW: Negative breadcrumb ancestor test (AC1 truncation / oracle parity)
+  it("returns empty breadcrumbs when the immediate ancestor is not publicly readable (truncation, not error)", async () => {
+    // A public child page whose parentId points to a project-scoped (non-readable) ancestor.
+    const nonReadableAncestor = makeSitePage({
+      id: "ancestor-project",
+      title: "Private Project Page",
+      path: "project-section",
+      scopeType: "project",
+      scopeId: "proj-1",
+      parentId: null
+    });
+    const childPage = makeSitePage({
+      id: "page-child",
+      title: "Child",
+      path: "project-section/child",
+      parentId: "ancestor-project"
+    });
+
+    // findOne: first call resolves the target page, second resolves the non-readable ancestor
+    const findOneSpy = vi
+      .fn()
+      .mockResolvedValueOnce(childPage) // page lookup
+      .mockResolvedValueOnce(nonReadableAncestor); // ancestor lookup
+
+    const service = makeDocsService({ findOne: findOneSpy });
+    const result = await service.getPageByPath("project-section/child");
+
+    // The page itself is returned normally (no error).
+    expect(result.id).toBe("page-child");
+    // The non-readable ancestor must NOT appear in breadcrumbs (chain truncated at first gate).
+    expect(result.breadcrumbs).toHaveLength(0);
+    expect(result.breadcrumbs.map((b) => b.id)).not.toContain("ancestor-project");
+    expect(result.breadcrumbs.map((b) => b.title)).not.toContain("Private Project Page");
+  });
+
+  it("returns empty breadcrumbs when the ancestor has status='deleted' (truncation, oracle parity)", async () => {
+    const deletedAncestor = makeSitePage({
+      id: "ancestor-deleted",
+      title: "Deleted Page",
+      path: "deleted-section",
+      status: "deleted",
+      parentId: null
+    });
+    const childPage = makeSitePage({
+      id: "page-child-of-deleted",
+      title: "Child of Deleted",
+      path: "deleted-section/child",
+      parentId: "ancestor-deleted"
+    });
+
+    const findOneSpy = vi
+      .fn()
+      .mockResolvedValueOnce(childPage)
+      .mockResolvedValueOnce(deletedAncestor);
+
+    const service = makeDocsService({ findOne: findOneSpy });
+    const result = await service.getPageByPath("deleted-section/child");
+
+    // Page is returned without error; deleted ancestor is silently omitted.
+    expect(result.id).toBe("page-child-of-deleted");
+    expect(result.breadcrumbs).toHaveLength(0);
+    expect(result.breadcrumbs.map((b) => b.id)).not.toContain("ancestor-deleted");
+  });
+
+  it("returns empty breadcrumbs when the ancestor has visibility='private' (truncation, oracle parity)", async () => {
+    const privateAncestor = makeSitePage({
+      id: "ancestor-private",
+      title: "Private Section",
+      path: "private-section",
+      visibility: "private",
+      parentId: null
+    });
+    const childPage = makeSitePage({
+      id: "page-child-of-private",
+      title: "Child of Private",
+      path: "private-section/child",
+      parentId: "ancestor-private"
+    });
+
+    const findOneSpy = vi
+      .fn()
+      .mockResolvedValueOnce(childPage)
+      .mockResolvedValueOnce(privateAncestor);
+
+    const service = makeDocsService({ findOne: findOneSpy });
+    const result = await service.getPageByPath("private-section/child");
+
+    // Page is returned without error; private ancestor is silently omitted.
+    expect(result.id).toBe("page-child-of-private");
+    expect(result.breadcrumbs).toHaveLength(0);
+    expect(result.breadcrumbs.map((b) => b.id)).not.toContain("ancestor-private");
+    expect(result.breadcrumbs.map((b) => b.title)).not.toContain("Private Section");
+  });
 });
 
 // ---------------------------------------------------------------------------
