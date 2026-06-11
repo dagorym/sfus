@@ -1,0 +1,58 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+ST4 widens forum_categories.description and forum_boards.description from varchar(255) to varchar(512) via a new TypeORM migration (1780893000000-forum-description-length.ts). ForumsService gains an assertFieldLengthValid() helper wired into createCategory, updateCategory, createBoard, and updateBoard, throwing BadRequestException (400) before any DB write when description exceeds 512 characters or name exceeds 128 characters. FORUM_DESCRIPTION_MAX_LENGTH=512 and FORUM_NAME_MAX_LENGTH=128 are exported from forums.types.ts. Tester added boundary coverage (255/256/512 accepted, 513 rejected; name 128 accepted, 129 rejected), partial-update isolation tests (name-only update does not trip description validation), and a MySQL migration up/down check gated on SFUS_DB_INTEGRATION=1.
+
+Acceptance criteria validated:
+- AC1: Migration widens both description columns to varchar(512) with a working down() that reverts to varchar(255); registered last in reviewedMigrationClasses with timestamp 1780893000000 > 1780892561355.
+- AC2: createCategory, updateCategory, createBoard, updateBoard reject description > 512 and name > 128 with BadRequestException (400) BEFORE persistence; the error message is clear and friendly.
+- AC3: update methods validate ONLY supplied fields; updating name alone does not trip description validation; null/undefined description is accepted.
+- AC4: 256-512 char description persists without error (no 500); a > 512 char description returns 400 (not 500).
+- AC5: lint, typecheck, and API forums suite all pass — 197 tests, 0 failures.
+
+Implementation branch or worktree context:
+- Worktree branch: forums-listing-st4-tester-20260610
+- Base coordination branch: forums-listing
+- Comparison base for diff: main branch or forums-listing coordination branch (label as assumption if not certain)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/database/migrations/1780893000000-forum-description-length.ts (new migration: up widening, down revert)
+- apps/api/src/database/database.config.ts (migration registered at last position)
+- apps/api/src/forums/forums.service.ts (assertFieldLengthValid() helper; wired into createCategory, updateCategory, createBoard, updateBoard)
+- apps/api/src/forums/forums.types.ts (FORUM_DESCRIPTION_MAX_LENGTH=512, FORUM_NAME_MAX_LENGTH=128 exported)
+- apps/api/src/forums/forums.service.test.ts (tester: boundary and isolation tests added)
+- apps/api/src/forums/forums.service.integration.test.ts (tester: migration up/down check added, gated on SFUS_DB_INTEGRATION=1)
+
+Test commit:
+- 97b9320ed86927b5acee064bd163716e133682e9
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec vitest run src/forums/forums.service.test.ts
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+
+Final test outcomes:
+- 197 tests passed, 0 failures
+- Lint: 0 warnings (both apps/api and apps/web)
+- Typecheck: clean (both apps/api and apps/web)
+- All 5 acceptance criteria validated
+
+Documentation context:
+- Primary doc to update: docs/features/forums.md — should document the new description length limit (512 chars) and name length limit (128 chars) for categories and boards, and note that the API returns 400 on violation.
+- The FORUM_DESCRIPTION_MAX_LENGTH and FORUM_NAME_MAX_LENGTH constants from forums.types.ts are the authoritative source of truth for these limits.
+- The migration introduces a schema change that may be worth noting in any schema-change changelog or migration history section if one exists.
+
+Plan and diff context:
+- Plan path: plans/forums-listing-enhancements-and-fixes-plan.md, subtask ST4
+- Comparison base: main branch or the forums-listing coordination branch (infer from repository context if exact base is not certain; label as assumption)
+
+Startup behavior:
+- If worktree context and diff/story context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/forums-listing-enhancements-and-fixes/ST4
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
