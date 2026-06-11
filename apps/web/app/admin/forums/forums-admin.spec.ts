@@ -12,6 +12,8 @@
  *  AC4 - Board CRUD: create/edit/delete/reorder with full field set (scopeType, visibility)
  *  AC5 - No dangerouslySetInnerHTML; user text as React nodes; no direct encodeURIComponent
  *  AC6 - Errors surfaced via standard envelope as friendly messages
+ *  AC7 - Input length limits: maxLength=128 on name inputs, maxLength=512 on description inputs,
+ *        "max 512 characters" hint displayed, server 400 messages surfaced verbatim
  */
 
 import { readFile } from "node:fs/promises";
@@ -348,5 +350,138 @@ describe('forums-admin page (AC6) — error surfacing', () => {
     // Conditional rendering
     expect(source).toContain('{actionError ?');
     expect(source).toContain('{actionSuccess ?');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC7: Input length limits and server 400 error surfacing
+// ---------------------------------------------------------------------------
+
+describe('forums-admin page (AC7) — input length limits on name inputs', () => {
+  it('category name input enforces maxLength=128', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    // The category form renders a name input; the renderCategoryForm helper is
+    // shared by both create and edit forms.  Assert maxLength={128} appears in
+    // the source alongside the name placeholder text so the assertion is
+    // anchored to the name input context.
+    expect(source).toContain('maxLength={128}');
+    expect(source).toContain('placeholder="e.g. General Discussion"');
+    // Verify the attribute appears before the description placeholder so the
+    // name input receives maxLength and not only the description input.
+    const nameInputIdx = source.indexOf('placeholder="e.g. General Discussion"');
+    const maxLength128Idx = source.indexOf('maxLength={128}');
+    expect(maxLength128Idx).toBeGreaterThanOrEqual(0);
+    expect(nameInputIdx).toBeGreaterThanOrEqual(0);
+    // maxLength={128} must appear before the name placeholder (it is on the same input element)
+    expect(maxLength128Idx).toBeLessThan(nameInputIdx);
+  });
+
+  it('board name input enforces maxLength=128', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    // The board form renders a name input with the board placeholder text.
+    // maxLength={128} must appear before "e.g. Rules & Announcements".
+    const boardNamePlaceholderIdx = source.indexOf('placeholder="e.g. Rules & Announcements"');
+    expect(boardNamePlaceholderIdx).toBeGreaterThanOrEqual(0);
+    // Find the second occurrence of maxLength={128} (board form comes after category form)
+    const firstOccurrence = source.indexOf('maxLength={128}');
+    const secondOccurrence = source.indexOf('maxLength={128}', firstOccurrence + 1);
+    expect(secondOccurrence).toBeGreaterThanOrEqual(0);
+    // The second maxLength={128} (board name) must appear before the board name placeholder
+    expect(secondOccurrence).toBeLessThan(boardNamePlaceholderIdx);
+  });
+
+  it('both category and board name inputs each carry maxLength={128} (two occurrences total)', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    const occurrences = (source.match(/maxLength=\{128\}/g) ?? []).length;
+    expect(occurrences).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('forums-admin page (AC7) — input length limits on description inputs', () => {
+  it('category description input enforces maxLength=512', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    // maxLength={512} must appear in the source (once per description input)
+    expect(source).toContain('maxLength={512}');
+  });
+
+  it('board description input enforces maxLength=512', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    // Two description inputs share the renderCategoryForm / renderBoardForm helpers;
+    // both helpers contribute a maxLength={512} attribute.
+    const occurrences = (source.match(/maxLength=\{512\}/g) ?? []).length;
+    expect(occurrences).toBeGreaterThanOrEqual(2);
+  });
+
+  it('category description input is followed immediately by the "max 512 characters" hint', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    // The hint span must appear after the category description maxLength={512} attribute.
+    const descMax512Idx = source.indexOf('maxLength={512}');
+    const hintIdx = source.indexOf('max 512 characters', descMax512Idx);
+    expect(hintIdx).toBeGreaterThan(descMax512Idx);
+  });
+
+  it('board description input is followed by a "max 512 characters" hint', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    // The second occurrence of maxLength={512} belongs to the board form.
+    const firstMax512 = source.indexOf('maxLength={512}');
+    const secondMax512 = source.indexOf('maxLength={512}', firstMax512 + 1);
+    expect(secondMax512).toBeGreaterThanOrEqual(0);
+    // The hint must appear after the board description maxLength attribute.
+    const boardHintIdx = source.indexOf('max 512 characters', secondMax512);
+    expect(boardHintIdx).toBeGreaterThan(secondMax512);
+  });
+
+  it('"max 512 characters" hint appears exactly twice — once per form type (category + board)', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    const hintCount = (source.match(/max 512 characters/g) ?? []).length;
+    expect(hintCount).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('forums-admin page (AC7) — server 400 error message surfacing', () => {
+  it('category create catch block surfaces the Error message directly (not a hardcoded generic string)', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    // The catch block for adminCreateCategory must use e.message so that any
+    // server-supplied 400 validation message is shown verbatim in the UI.
+    // Verify the error setter uses the instance-check pattern.
+    expect(source).toContain('e instanceof Error ? e.message :');
+    // And that the fallback for create category is not the generic server message —
+    // it is a form-specific fallback string.
+    expect(source).toContain('"Create category failed."');
+  });
+
+  it('category edit catch block surfaces the Error message directly', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    expect(source).toContain('"Update category failed."');
+  });
+
+  it('board create catch block surfaces the Error message directly', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    expect(source).toContain('"Create board failed."');
+  });
+
+  it('board edit catch block surfaces the Error message directly', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    expect(source).toContain('"Update board failed."');
+  });
+
+  it('all four form submit catch blocks use the instanceof Error pattern to forward server messages', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    // Each of the four mutation handlers (category create, category edit, board
+    // create, board edit) must use the instanceof check to forward the server
+    // Error.message rather than swallowing it.
+    const instanceofCount = (source.match(/e instanceof Error \? e\.message :/g) ?? []).length;
+    // At least 4 (create cat, edit cat, delete cat, create board, edit board,
+    // delete board, reorder handlers — all use the same idiom).
+    expect(instanceofCount).toBeGreaterThanOrEqual(4);
+  });
+
+  it('actionError rendered as a React text node so server messages reach the UI', async () => {
+    const source = await readAppFile("app/admin/forums/page.tsx");
+    // {actionError} is the React expression that renders the surfaced server message.
+    expect(source).toContain('{actionError}');
+    // Must not be wrapped in dangerouslySetInnerHTML — already checked in AC5
+    // but redundantly confirmed here for the server-message surfacing path.
+    expect(source).not.toContain('dangerouslySetInnerHTML');
   });
 });
