@@ -1,0 +1,62 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST-5 remediation documenter pass: document the DoS size guard added to the diff endpoint (DOCS_DIFF_MAX_BODY_BYTES = 512 KB, DOCS_DIFF_MAX_LINES = 5000) and the resulting new 400 error cases in docs/features/documents.md. Verify the rest of the ST-5 revision history/diff/rollback documentation remains accurate.
+
+Acceptance criteria to verify:
+- GET /api/docs/:id/diff section documents DOCS_DIFF_MAX_BODY_BYTES = 512,000 bytes (512 KB) and DOCS_DIFF_MAX_LINES = 5,000 limits
+- GET /api/docs/:id/diff error table includes the new 400 cases for body-too-large-bytes and body-too-large-lines
+- Rationale (bounds O(m×n) LCS cost on unauthenticated public endpoint) is documented
+- DOCS_DIFF_MAX_BODY_BYTES and DOCS_DIFF_MAX_LINES appear in the DocsService constants reference table
+- Rest of ST-5 documentation (history/single-revision/rollback, oracle parity, rollback authz) verified accurate
+
+Implementation branch or worktree context:
+- Working branch: ms5-st5-documenter-20260611 (worktree at /home/tstephen/repos/worktrees/ms5-st5-documenter-20260611)
+- Base for comparison: ms5
+- Implementer commit: 8d41a96 (fix(docs): add DoS size guard to getDiff before O(m-n) LCS allocation)
+- Tester commit: 403f59f (test(docs): add ST-5 DoS size guard unit tests for getDiff)
+- Documentation commit: bfddbd5 (docs(documents): add ST-5 diff size limits and 400 DoS guard to documents.md)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/docs/docs.types.ts (new DOCS_DIFF_MAX_BODY_BYTES and DOCS_DIFF_MAX_LINES constants)
+- apps/api/src/docs/docs.service.ts (getDiff DoS guard using those constants)
+- apps/api/src/docs/docs.service.test.ts (14 new unit tests for the guard)
+- docs/features/documents.md (documenter: diff size limits, new 400 cases, constants table)
+
+Commands executed:
+- git -C /home/tstephen/repos/worktrees/ms5-st5-documenter-20260611 branch --show-current
+- myteam get role documenter
+- myteam get skill execution-start
+- myteam get skill diff-first-editing
+- myteam get skill documenter/commit-flow
+- python .myteam/documenter/commit-flow/validate_documenter_state.py --repo-root ... --phase docs
+- git add docs/features/documents.md
+- git commit -m 'docs(documents): add ST-5 diff size limits and 400 DoS guard to documents.md'
+
+Final test outcomes:
+- 14 new unit tests added by the Tester (commit 403f59f) covering DOCS_DIFF_MAX_BODY_BYTES and DOCS_DIFF_MAX_LINES guard paths — all pass
+- No documentation changes touch executable behavior
+
+Plan or evaluation context guidance:
+- Plan: plans/ms5-documents-wiki-plan.md (ST-5: revision history, diff, rollback)
+- Shared artifact directory: artifacts/ms5-documents-wiki/ST-5
+- This is a remediation pass addressing a DoS guard omission flagged after the first ST-5 verifier pass
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table; docs/features/documents.md is the canonical Documents feature doc
+- docs/development/api-conventions.md covers error envelope conventions referenced by documents.md
+- No env-var documentation required (no new env var added in this remediation)
+
+Updated documentation files:
+- docs/features/documents.md
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-5
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
