@@ -1,0 +1,15 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-1/documenter_report.md",
+    "artifacts/ms5-documents-wiki/ST-1/documenter_result.json",
+    "artifacts/ms5-documents-wiki/ST-1/verifier_prompt.txt"
+  ],
+  "branch_name": "ms5-st1-documenter-20260610",
+  "documentation_commit_hash": "e145468bf1158474704f990f47f5c6861faefa78",
+  "documentation_files_changed": [
+    "docs/development/api-conventions.md"
+  ],
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST-1"
+}
