@@ -50,6 +50,8 @@
  * Keep this file colocated with docs.service.ts per the plan contract.
  */
 
+import crypto from "node:crypto";
+
 import { ForbiddenException } from "@nestjs/common";
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import type { DataSource } from "typeorm";
@@ -222,96 +224,98 @@ describe.skipIf(!DB_INTEGRATION_ENABLED)(
     });
 
     // -------------------------------------------------------------------------
-    // ST-3 AC3 / P10: Transactional atomicity — mid-sequence failure injection
+    // ST-3 AC3 / P10: Transactional atomicity — real-DB constraint-violation proof
     //
-    // Strategy: construct a service whose entity manager's `save` throws on the
-    // second call (the revision row insert), AFTER the page row has been saved.
-    // Verify that no page row or revision row with the test page_id is persisted
-    // (the transaction must roll back both writes).
+    // Strategy: open a test-local transaction via pageRepo.manager.transaction()
+    // that mirrors the DocsService.createPage() write sequence, then intentionally
+    // violates uq_docs_revisions_page_revision_number (page_id, revision_number)
+    // by inserting a second docs_revisions row with the same revision_number=1.
+    // The DB-level constraint error rolls back the entire transaction (including
+    // the docs_pages row), proving that the real SAVEPOINT mechanism works.
     //
-    // NOTE: This test patches the TypeORM manager on the real DataSource's page
-    // repository to intercept the second `em.save` call inside the transaction
-    // callback.  Because TypeORM wraps all three statements (page insert, revision
-    // insert, pointer update) in one SAVEPOINT inside the outer transaction, a
-    // throw from `em.save` triggers a rollback before any commit reaches the DB.
+    // This mirrors the pattern in pages.service.integration.test.ts lines 241-318.
     // -------------------------------------------------------------------------
 
-    it("createPage leaves no orphaned rows when mid-sequence failure is injected (P10 atomicity)", async () => {
-      const testSlug = `atomicity-test-${Date.now()}`;
-      let capturedPageId: string | undefined;
+    it(
+      "a mid-transaction revision-insert failure rolls back the docs_pages row (DB atomicity proof)",
+      async () => {
+        const slug = `it-orphan-${crypto.randomUUID().slice(0, 8)}`;
+        const fakePageId = crypto.randomUUID();
+        const pathHash = crypto.createHash("sha256").update(`site::${slug}`).digest("hex");
 
-      // Build a service with a patched manager that throws on the second em.save
-      // call (the revision row insert). The page row insert is the first call.
-      const patchedManager = {
-        transaction: async (callback: (em: unknown) => Promise<unknown>) => {
-          let saveCallCount = 0;
-          const em = {
-            findOne: async (...args: unknown[]) =>
-              (pageRepo.manager as unknown as Record<string, (...a: unknown[]) => unknown>).transaction
-                ? // Use the real entity manager for findOne
-                  (await ds.getRepository(DocsPageEntity).findOne(args[1] as never))
-                : null,
-            create: (EntityClass: unknown, data: Record<string, unknown>) => {
-              // Capture the page id so we can verify absence after rollback
-              if (data["id"] && !capturedPageId) {
-                capturedPageId = data["id"] as string;
-              }
-              return ds.getRepository(EntityClass as never).create(data as never);
-            },
-            save: async (_EntityClass: unknown, entity: unknown) => {
-              saveCallCount++;
-              if (saveCallCount === 2) {
-                // Throw after the page row has been "saved" (simulated) but before
-                // the revision row would be committed.
-                throw new Error("Injected mid-sequence failure for atomicity test");
-              }
-              // For the first call we don't actually save to the DB so there's no
-              // orphaned row to clean up — the test verifies the page_id is absent.
-              return entity;
-            },
-            update: async () => {/* never reached */}
-          };
-          return callback(em);
+        // Attempt a transaction that mirrors DocsService.createPage()'s write
+        // sequence but intentionally violates uq_docs_revisions_page_revision_number
+        // to force a DB-level rollback.
+        let transactionError: unknown = null;
+
+        try {
+          await pageRepo.manager.transaction(async (em) => {
+            const txPageRepo = em.getRepository(DocsPageEntity);
+            const txRevisionRepo = em.getRepository(DocsRevisionEntity);
+
+            // Step 1: Insert docs_pages row (mirrors createPage()'s first write).
+            await txPageRepo.save(
+              txPageRepo.create({
+                id: fakePageId,
+                createdByUserId: authorUserId,
+                title: "Rollback Test",
+                slug,
+                path: slug,
+                pathHash,
+                parentId: null,
+                depth: 0,
+                scopeType: "site",
+                scopeId: null,
+                visibility: "public",
+                status: "published",
+                currentRevisionId: null
+              })
+            );
+
+            // Step 2a: Insert revision 1 (mirrors createPage()'s second write).
+            const rev1Id = crypto.randomUUID();
+            await txRevisionRepo.save(
+              txRevisionRepo.create({
+                id: rev1Id,
+                pageId: fakePageId,
+                authorUserId,
+                title: "Rev 1",
+                body: "body",
+                summary: null,
+                revisionNumber: 1
+              })
+            );
+
+            // Step 2b: Insert a second revision with the SAME revision_number
+            // to violate uq_docs_revisions_page_revision_number and force
+            // a DB error inside the transaction.
+            await txRevisionRepo.save(
+              txRevisionRepo.create({
+                id: crypto.randomUUID(),
+                pageId: fakePageId,
+                authorUserId,
+                title: "Rev 1 duplicate",
+                body: "body",
+                summary: null,
+                revisionNumber: 1 // Intentional duplicate — forces constraint violation.
+              })
+            );
+          });
+        } catch (err) {
+          transactionError = err;
         }
-      };
 
-      // Construct a service with the patched manager (not connected to the real DB
-      // for writes, but using the real DB for read verification).
-      const isolatedService = new DocsService(
-        { ...pageRepo, manager: patchedManager } as never,
-        revisionRepo,
-        new AuthorizationService()
-      );
+        // The transaction must have thrown due to the constraint violation.
+        expect(transactionError).not.toBeNull();
 
-      // The createPage call should throw the injected error
-      await expect(
-        isolatedService.createPage(authorUserId, {
-          title: "Atomicity Test Page",
-          slug: testSlug,
-          body: "# Should not persist"
-        })
-      ).rejects.toThrow("Injected mid-sequence failure for atomicity test");
-
-      // Verify: no page row with the captured id should exist in the real DB
-      if (capturedPageId) {
-        const orphanedPage = await pageRepo.findOne({ where: { id: capturedPageId } });
+        // After rollback, no docs_pages row with fakePageId must exist.
+        const orphanedPage = await pageRepo.findOne({ where: { id: fakePageId } });
         expect(orphanedPage).toBeNull();
 
-        // Verify: no revision rows for this page_id
-        const orphanedRevisions = await revisionRepo.find({
-          where: { pageId: capturedPageId } as never
-        });
+        // No docs_revisions rows referencing fakePageId must exist either.
+        const orphanedRevisions = await revisionRepo.find({ where: { pageId: fakePageId } });
         expect(orphanedRevisions).toHaveLength(0);
-      } else {
-        // capturedPageId is set before the first save; if it's undefined the
-        // transaction callback threw before any id was generated — still valid.
-        // Verify by slug that no page exists.
-        const orphanedBySlug = await ds.query(
-          "SELECT id FROM docs_pages WHERE slug = ? AND scope_type = 'site'",
-          [testSlug]
-        );
-        expect(orphanedBySlug).toHaveLength(0);
       }
-    });
+    );
   }
 );
