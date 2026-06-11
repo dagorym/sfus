@@ -5,13 +5,16 @@
  *
  * Acceptance criteria covered:
  *  AC1 - Error envelope extraction: payload?.error?.message || payload?.message || fallback
+ *  AC1 (new) - getDocPageByPath uses literal '/' separators for multi-segment paths
+ *  AC2 - Single-segment root-level paths continue to work
+ *  AC3 - Reserved characters within a path segment are percent-encoded
  *  AC4 - lint/build pass; no non-allowlisted exports
  */
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -154,16 +157,98 @@ describe("docs-client.ts — getDocPageByPath (AC1)", () => {
     expect(block).toContain("data.page");
   });
 
-  it("URL-encodes the path when fetching", async () => {
+  it("uses per-segment encodeURIComponent (split/map/join) for path encoding", async () => {
     const source = await readAppFile("app/docs/docs-client.ts");
     const block = extractFn(source, "getDocPageByPath");
-    expect(block).toContain("encodeURIComponent");
+    // The fix: path.split("/").map(encodeURIComponent).join("/")
+    // Must use split + map(encodeURIComponent) + join, NOT a bare encodeURIComponent(path)
+    expect(block).toContain('split("/")');
+    expect(block).toContain("map(encodeURIComponent)");
+    expect(block).toContain('join("/")');
   });
 
   it("uses no-store cache policy (always fresh data)", async () => {
     const source = await readAppFile("app/docs/docs-client.ts");
     const block = extractFn(source, "getDocPageByPath");
     expect(block).toContain('cache: "no-store"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC1/AC2/AC3: getDocPageByPath — behavioral URL-encoding tests (mock-fetch)
+//
+// These tests mock globalThis.fetch and assert on the actual URL passed to it.
+// They replace the prior source-text-only "encodeURIComponent" assertion that
+// allowed the %2F-encoding bug to pass undetected.
+// ---------------------------------------------------------------------------
+
+describe("docs-client.ts — getDocPageByPath URL encoding (AC1/AC2/AC3)", () => {
+  let capturedUrl: string | undefined;
+
+  // Minimal page response shape to satisfy the happy path
+  const mockPage = {
+    page: {
+      id: "1", title: "Test", path: "test", depth: 0,
+      parentId: null, visibility: "public", breadcrumbs: [],
+      currentRevision: null,
+      lock: { isLocked: false, lockedByUserId: null, lockedAt: null, lockExpiresAt: null },
+      createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z",
+    },
+  };
+
+  beforeEach(() => {
+    capturedUrl = undefined;
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      capturedUrl = url;
+      return {
+        status: 200,
+        ok: true,
+        json: async () => mockPage,
+      };
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("AC1: multi-segment path uses literal '/' separators (not %2F)", async () => {
+    // Import dynamically after stub is in place so Node's module cache does not matter —
+    // the function itself calls globalThis.fetch at runtime, which is already stubbed.
+    const { getDocPageByPath } = await import("./docs-client");
+    await getDocPageByPath("getting-started/installation");
+    expect(capturedUrl).toBeDefined();
+    // Literal slash must be present between segments
+    expect(capturedUrl).toContain("getting-started/installation");
+    // The %2F encoding (wrong) must NOT appear
+    expect(capturedUrl).not.toContain("%2F");
+  });
+
+  it("AC2: single-segment root-level path is fetched without modification", async () => {
+    const { getDocPageByPath } = await import("./docs-client");
+    await getDocPageByPath("introduction");
+    expect(capturedUrl).toBeDefined();
+    expect(capturedUrl).toContain("/docs/introduction");
+    expect(capturedUrl).not.toContain("%2F");
+  });
+
+  it("AC3: reserved characters within a single segment are percent-encoded", async () => {
+    const { getDocPageByPath } = await import("./docs-client");
+    await getDocPageByPath("my page?v=1");
+    expect(capturedUrl).toBeDefined();
+    // Space and '?' inside the segment must be encoded
+    expect(capturedUrl).toContain("my%20page%3Fv%3D1");
+    // No literal space or '?' in the segment
+    expect(capturedUrl).not.toMatch(/\/my page/);
+  });
+
+  it("AC3: reserved characters within a segment of a nested path are encoded, slashes preserved", async () => {
+    const { getDocPageByPath } = await import("./docs-client");
+    await getDocPageByPath("section one/sub page?v=2");
+    expect(capturedUrl).toBeDefined();
+    // Segments encoded individually; the '/' between them is a literal slash
+    expect(capturedUrl).toContain("section%20one/sub%20page%3Fv%3D2");
+    expect(capturedUrl).not.toContain("%2F");
   });
 });
 
