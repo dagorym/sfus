@@ -1,0 +1,115 @@
+Your role is 'documenter'. Your task is as follows:
+
+## Context
+
+ST-6 (Documents soft-lock) remediation pass 1 is complete. The implementer
+(commit c914da4) and tester (commit 9481932) have resolved all BLOCKING and
+WARNING findings from Verifier-1. All validations are green.
+
+Branch: ms5-st6-tester-20260611
+
+Before doing anything, run: myteam get role documenter
+
+## What changed (implementation facts — update docs to match these)
+
+### 1. acquireLock 200 response shape (BLOCKING-2 fix)
+
+The controller method `acquireLock` (POST /api/docs/:id/lock) now returns the
+flat `DocsLockResultShape` directly:
+
+```json
+{
+  "pageId": "<page-id>",
+  "lock": {
+    "isLocked": true,
+    "lockedByUserId": "<user-id>",
+    "lockedAt": "<ISO timestamp>",
+    "lockExpiresAt": "<ISO timestamp>"
+  }
+}
+```
+
+There is NO wrapper object (the previous code had an extra `result:` envelope
+at this endpoint). The lock state fields are directly under the `lock` key.
+
+### 2. acquireLock 409 error response shape (BLOCKING-1 fix)
+
+When the page is already locked by another user, the API returns 409 with:
+
+```json
+{
+  "error": {
+    "statusCode": 409,
+    "code": "CONFLICT",
+    "message": "This page is currently locked by another user.",
+    "details": {
+      "lockedByUserId": "<holder-user-id>",
+      "lockExpiresAt": "<ISO timestamp>"
+    }
+  },
+  "request": { ... }
+}
+```
+
+The lock holder metadata is under `error.details`, NOT at a top-level `lock`
+key. `error.details.lockedByUserId` and `error.details.lockExpiresAt` are the
+canonical field paths.
+
+### 3. softDeletePage is now transactional (WARNING-1 fix)
+
+The `DELETE /api/docs/:id` endpoint now runs the entire delete operation
+(page lookup, foreign lock check, child count check, status update) inside a
+single database transaction. The in-transaction lock check ensures that an
+active foreign lock on the page will cause the soft-delete to throw 409
+(ConflictException) even under concurrent writes.
+
+### 4. JsonExceptionFilter now forwards `error.details` (BLOCKING-1 fix)
+
+The global `JsonExceptionFilter` has been updated to extract the optional
+`details` field from an HttpException response body and emit it at
+`error.details` in the JSON error envelope. This is now part of the API
+error shape contract:
+
+- If the exception body is an object with a `details` key, that value is
+  included as `error.details` in the response.
+- If the exception body has no `details` key (or is a plain string), there
+  is no `error.details` field in the response (backward compatible).
+
+## Files to update
+
+### docs/features/documents.md
+
+1. In the section describing `POST /api/docs/:id/lock` (acquireLock):
+   - Update the 200 response example to show the flat `{ pageId, lock }` shape
+     (no extra wrapper).
+   - Update the 409 response example to show `error.details.lockedByUserId`
+     and `error.details.lockExpiresAt` (not a top-level `lock` key).
+
+2. In the section describing `DELETE /api/docs/:id` (softDeletePage):
+   - Add a note that the operation is fully transactional: the lock check,
+     child count check, and status update all run in the same transaction.
+   - Clarify that a 409 is returned if the page is actively locked by another
+     user (foreign lock check is part of the delete flow).
+
+### docs/development/api-conventions.md
+
+Add a note to the error envelope section documenting the optional `error.details`
+field:
+
+- `error.details` (optional): an object providing structured context for
+  the error. Present only when the exception handler has domain-specific
+  metadata to expose (e.g. lock conflict metadata). Absent when not applicable.
+
+Use the lock-conflict 409 as the canonical example.
+
+## Completion
+
+After updating the docs, write and commit your documenter artifacts per the
+standard two-commit artifact flow, then hand off to the verifier.
+
+The verifier should check:
+- docs/features/documents.md acquireLock 200 shape matches flat { pageId, lock }
+- docs/features/documents.md acquireLock 409 shape shows error.details.lockedByUserId
+  and error.details.lockExpiresAt (not a top-level lock key)
+- docs/development/api-conventions.md mentions optional error.details field
+- No other documented behavior has been changed or removed
