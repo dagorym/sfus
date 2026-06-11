@@ -26,3 +26,74 @@ export type DocsVisibility = (typeof docsVisibilities)[number];
 
 /** Default soft-lock TTL in minutes (overridden by DOCS_LOCK_TTL_MINUTES env var in ST-6). */
 export const DOCS_LOCK_TTL_MINUTES_DEFAULT = 30;
+
+// ---------------------------------------------------------------------------
+// Read API shapes (ST-2)
+// ---------------------------------------------------------------------------
+
+/** Public author stub exposed in read responses. */
+export interface DocsAuthorShape {
+  username: string;
+  displayName: string | null;
+}
+
+/** Breadcrumb item: a single ancestor in the page's ancestry chain. */
+export interface DocsBreadcrumbItem {
+  id: string;
+  title: string;
+  path: string;
+}
+
+/** Current-revision stub included in page read responses. */
+export interface DocsRevisionShape {
+  id: string;
+  title: string;
+  body: string;
+  summary: string | null;
+  revisionNumber: number;
+  author: DocsAuthorShape | null;
+  /** Username of the editor (last saved-by user), or null if same as original author. */
+  editorUsername: string | null;
+  createdAt: Date;
+}
+
+/** Full page response shape returned by GET /api/docs/*path. */
+export interface DocsPageShape {
+  id: string;
+  title: string;
+  path: string;
+  depth: number;
+  parentId: string | null;
+  visibility: DocsVisibility;
+  breadcrumbs: DocsBreadcrumbItem[];
+  currentRevision: DocsRevisionShape | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Lightweight tree item returned by GET /api/docs (index/children). */
+export interface DocsTreeItem {
+  id: string;
+  title: string;
+  path: string;
+  depth: number;
+  parentId: string | null;
+  /** Whether this page has any published, publicly-readable children. */
+  hasChildren: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Recent-edit item returned by GET /api/docs/recent. */
+export interface DocsRecentEditShape {
+  pageId: string;
+  title: string;
+  path: string;
+  editor: DocsAuthorShape | null;
+  editedAt: Date;
+}
+
+/** Query parameters for the recent-edits feed. */
+export interface DocsRecentQuery {
+  limit?: number;
+}
