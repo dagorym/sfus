@@ -1,0 +1,50 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+ST-10 adds a Documents entry (href /docs, label "Documents", description "Manage wiki pages: create, edit, lock, and roll back pages in the public docs area.") to the adminSections array in apps/web/app/admin/page.tsx. The admin dashboard now renders five labelled section links instead of four.
+
+Acceptance criteria to verify:
+- adminSections in apps/web/app/admin/page.tsx includes a Documents entry with href /docs
+- Documents entry description accurately describes wiki management (create, edit, lock, roll back)
+- docs/features/web-shell.md route map note updated from "four" to "five" admin sections and the admin dashboard section list includes the Documents entry
+- docs/guides/content-management.md "Accessing the admin dashboard" area list updated to include Documents -> /docs
+- No duplicate facts introduced across documentation files
+- Documentation changes are minimal and localized
+
+Implementation branch:
+- Branch: ms5-st10-documenter-20260611 (worktree at /home/tstephen/repos/worktrees/ms5-st10-documenter-20260611)
+- Base branch for diff: ms5
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/admin/page.tsx (implementation: added Documents entry to adminSections)
+- apps/web/app/admin/admin-dashboard.spec.ts (tests: Documents link assertions)
+- docs/features/web-shell.md (documentation: updated admin dashboard section count and list)
+- docs/guides/content-management.md (documentation: updated admin dashboard area list)
+
+Commands executed:
+- None
+
+Final test outcomes:
+- Tester passed. admin-dashboard.spec.ts verifies the Documents link renders with correct href and description.
+
+Plan or evaluation context guidance:
+- ST-10 in plans/ms5-documents-wiki-plan.md: add Documents admin dashboard link to /docs.
+- Documentation impact: update admin sections listing in docs/features/web-shell.md and admin how-to in docs/guides/content-management.md.
+
+Convention-file guidance:
+- docs/README.md routing table; feature docs in docs/features/; admin how-tos in docs/guides/content-management.md
+
+Updated documentation files:
+- docs/features/web-shell.md
+- docs/guides/content-management.md
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-10
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
