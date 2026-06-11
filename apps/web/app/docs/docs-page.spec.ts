@@ -165,10 +165,13 @@ describe("DocsPageView (app/docs/[...path]/page.tsx) — staff affordances (AC2)
     expect(source).toContain("Edit");
   });
 
-  it("History link points to /docs/<path>/history (staff-only)", async () => {
+  it("History link points to /docs/history/<path> (not /docs/<path>/history) (staff-only)", async () => {
     const source = await readAppFile("app/docs/[...path]/page.tsx");
-    expect(source).toContain("/history");
+    // ST-9 fix: link must use /docs/history/<path> pattern
+    expect(source).toContain("/docs/history/${page.path}");
     expect(source).toContain("History");
+    // Must NOT use the old /docs/<path>/history pattern
+    expect(source).not.toContain("/docs/${page.path}/history");
   });
 
   it("staff affordances block is conditional on isStaff", async () => {
