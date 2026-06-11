@@ -57,6 +57,12 @@ All other helmet defaults apply (e.g. `X-Content-Type-Options: nosniff`,
 
 - `code` comes from the exception body's `error` field when present, else the HTTP status
   name; normalized to `UPPER_SNAKE_CASE`.
+- `details` (optional): a structured object providing domain-specific context for the
+  error. Present only when the throwing code sets a `details` key on the exception body
+  (e.g. lock-conflict metadata). Absent on all other errors — no `details` key in the
+  response (backward-compatible). Example: the 409 lock-conflict from
+  `POST /api/docs/:id/lock` includes `error.details.lockedByUserId` and
+  `error.details.lockExpiresAt`.
 - Non-`HttpException` errors always become
   `{ code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred.", statusCode: 500 }`.
 - Web clients should read `payload.error.message` first, then `payload.message`, then fall

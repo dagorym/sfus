@@ -252,6 +252,14 @@ Throttle label: `doc-page-edit`.
 Soft-deletes a page by setting its `status` to `'deleted'`. Revision rows are preserved.
 The page disappears from all public reads immediately (oracle parity: deleted === nonexistent).
 
+The entire operation (page lookup, foreign-lock check, child count check, and status
+update) runs inside a single database transaction. This ensures that a concurrent acquire
+cannot race past the lock check between the read and the write.
+
+- **Foreign-lock guard:** a `409 ConflictException` is thrown when the page is actively
+  locked by a different non-expired holder. The response uses `error.details` with
+  `lockedByUserId` and `lockExpiresAt` (same shape as the POST lock 409 — see above).
+  Staff-role actors (admin/moderator) are never blocked by a foreign lock.
 - **Children guard:** a `409 ConflictException` is thrown when the page has any children
   with `status='published'`. Children must be deleted or moved before the parent can be
   deleted.
@@ -268,7 +276,7 @@ Throttle label: `doc-page-edit`.
 | 401 | No active session |
 | 403 | Actor does not have moderator or admin role |
 | 404 | Page not found or already deleted |
-| 409 | Page has non-deleted children |
+| 409 | Page is actively locked by a different non-expired holder; or page has non-deleted children |
 | 429 | Rate limit exceeded |
 
 ### DocWriteResultShape (write response)
@@ -472,7 +480,7 @@ Authorization: moderator or admin only (`assertDocWriteAccess` with `scopeType='
 
 Throttle label: `doc-page-edit`.
 
-**Response:** `200` with `{ lock: DocsLockResultShape }` containing the new lock state.
+**Response:** `200` with `{ pageId, lock: DocsLockState }` containing the new lock state.
 
 `DocsLockResultShape` fields:
 
@@ -492,12 +500,27 @@ Throttle label: `doc-page-edit`.
 | 429 | Rate limit exceeded |
 
 **409 conflict body:** when a non-expired foreign lock blocks acquisition, the response
-includes `DocsLockConflictInfo` under a `lock` key:
+uses the standard error envelope with `DocsLockConflictInfo` under `error.details`:
+
+```json
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "This page is currently locked by another user.",
+    "statusCode": 409,
+    "details": {
+      "lockedByUserId": "<holder-user-uuid>",
+      "lockExpiresAt": "<ISO 8601 timestamp>"
+    }
+  },
+  "request": { ... }
+}
+```
 
 | Field | Type | Notes |
 |---|---|---|
-| `lockedByUserId` | string (UUID) | UUID of the current lock holder |
-| `lockExpiresAt` | Date | Expiry time of the current lock |
+| `error.details.lockedByUserId` | string (UUID) | UUID of the current lock holder |
+| `error.details.lockExpiresAt` | Date (ISO 8601) | Expiry time of the current lock |
 
 **Staff override:** actors with admin or moderator role can always acquire or release any
 lock, even a non-expired foreign lock.
@@ -534,7 +557,8 @@ the transaction of every mutating operation:
 - `rollbackPage` (rollback)
 
 When an active foreign lock exists, each of these paths throws `409 ConflictException`
-with the same `DocsLockConflictInfo` holder metadata as the acquire endpoint.
+with `DocsLockConflictInfo` holder metadata surfaced under `error.details` (same envelope
+shape as the POST lock 409 — see above).
 
 An **expired lock** (lockExpiresAt ≤ now) is treated as free: `assertNotForeignLocked`
 returns without error and the write proceeds. Actors with admin or moderator role are never
