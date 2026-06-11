@@ -1,0 +1,38 @@
+{
+  "status": "pass",
+  "subtask": "ST-8",
+  "branch": "ms5-st8-tester-20260611",
+  "test_commit_hash": "3e24a8a",
+  "test_files_added": [
+    "apps/web/app/docs/docs-new-page.spec.ts",
+    "apps/web/app/docs/docs-edit-page.spec.ts"
+  ],
+  "test_files_modified": [
+    "apps/web/app/docs/docs-client.spec.ts"
+  ],
+  "commands_run": [
+    "/home/tstephen/repos/sfus/node_modules/.bin/vitest run --root /home/tstephen/repos/worktrees/ms5-st8-tester-20260611/apps/web",
+    "npx --yes pnpm@10.0.0 lint (main repo)"
+  ],
+  "tests_passed": 772,
+  "tests_failed": 0,
+  "test_files_passed": 19,
+  "test_files_blocked_by_env": 2,
+  "env_blocked_files": [
+    "components/authoring-components.spec.ts",
+    "components/user-avatar.spec.ts"
+  ],
+  "env_block_reason": "ERR_MODULE_NOT_FOUND: Cannot find package 'react' — worktree has no node_modules installed; not an ST-8 defect",
+  "acceptance_criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "pass"
+  },
+  "unmet_acceptance_criteria": [],
+  "artifact_files_written": [
+    "artifacts/ms5-documents-wiki/ST-8/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-8/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-8/documenter_prompt.txt"
+  ]
+}
