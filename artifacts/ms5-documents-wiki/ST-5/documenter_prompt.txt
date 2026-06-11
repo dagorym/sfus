@@ -1,0 +1,48 @@
+You are the Documenter Agent. Your task is to document the ST-5 implementation for the MS5 Documents Wiki milestone.
+
+## Context
+
+You are picking up from a completed Tester pass. All tests pass. Continue directly into documentation work — do not stop after scope confirmation or diff review.
+
+## Task
+
+ST-5 implements revision history (GET /api/docs/:id/history), single-revision fetch (GET /api/docs/:id/revisions/:revisionNumber), deterministic line-level diff (GET /api/docs/:id/diff?from=&to=), and non-destructive rollback (POST /api/docs/:id/rollback) for the Documents wiki.
+
+## Shared Artifact Directory
+
+`artifacts/ms5-documents-wiki/ST-5` (repository-root-relative)
+
+## Modified Files (Implementer + Tester)
+
+### Implementer changes:
+- `apps/api/src/docs/docs.service.ts` — added getPageHistory, getRevisionByNumber, getDiff (with static computeLineDiff), rollbackPage, and toRevisionMetaShape private helper
+- `apps/api/src/docs/docs.controller.ts` — added GET :id/history, GET :id/revisions/:revisionNumber, GET :id/diff, POST :id/rollback routes (all before the *path catch-all to prevent shadowing)
+- `apps/api/src/docs/docs.types.ts` — added DocsRevisionMetaShape, DocsHistoryShape, DocsSingleRevisionShape, DocsDiffHunk, DocsDiffShape, DocRollbackInput
+
+### Tester changes:
+- `apps/api/src/docs/docs.service.test.ts` — added unit tests for all four ST-5 service methods including static computeLineDiff fixed-input pinning
+- `apps/api/src/docs/docs.controller.test.ts` — added unit tests for all four ST-5 controller routes
+- `apps/api/src/docs/docs.service.integration.test.ts` — added 3 DB-gated integration tests (rollback non-destructive proof, history 404-parity, history ordering)
+
+## Acceptance Criteria (all validated as passing)
+
+- AC1: GET /api/docs/:id/history returns revisions ordered by revision_number ASC with author/editor/summary/timestamp; non-readable page returns same 404 as ST-2 (oracle parity via DocsService.PAGE_NOT_FOUND_MESSAGE).
+- AC2: GET /api/docs/:id/diff returns deterministic line-level diff (added/removed/unchanged hunks) via static DocsService.computeLineDiff() — tested against fixed inputs with no DB.
+- AC3: POST /api/docs/:id/rollback creates new highest-numbered revision equal to target content; updates current_revision_id; all prior revisions preserved (non-destructive); wrapped in transaction (P10).
+- AC4: Rollback gated by assertDocWriteAccess (staff-only for site scope); user-role caller receives 403.
+
+## Test Results
+
+- Unit tests: 1149 passed / 23 skipped (integration DB-gated) / 0 failed
+- Typecheck: clean
+- Lint: clean
+- Integration: skipped (SFUS_DB_INTEGRATION=1 not set; skip is correct)
+- Test commit: 26009f9
+
+## Documentation Routing
+
+Before writing docs, consult `docs/README.md` (documentation routing table) to find which doc(s) own the docs API surface. The relevant scope is the docs/wiki API feature — look under `docs/features/` for the authoritative docs feature contract. Update that doc to reflect the new ST-5 endpoints, types, and security contracts. Do not create new doc files unless the routing table directs you to.
+
+## Completion Gate
+
+Do not report success unless all required artifacts exist and all changes are committed. Required artifacts: `documenter_report.md`, `documenter_result.json`.
