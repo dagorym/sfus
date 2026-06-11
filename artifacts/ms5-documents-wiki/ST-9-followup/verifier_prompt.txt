@@ -1,45 +1,51 @@
 Your role is 'verifier'. Your task is as follows:
 
-Task summary:
-- ST-9 carry-over defect fix (ms5 plan): getDocDiff in apps/web/app/docs/docs-client.ts was fixed so that a 400 response from the diff endpoint surfaces the friendly message ("This diff is unavailable because one or more revisions are too large to compare.") directly, instead of delegating to extractErrorMessage which would return the raw API error string. The tester confirmed the previously-red test now passes and no other specs regressed.
+Original task summary:
+- ST-9 carry-over defect fix (ms5-documents-wiki): getDocDiff in apps/web/app/docs/docs-client.ts now surfaces the friendly 'too large to compare' message directly when the diff endpoint returns 400, instead of the raw API message. Documentation was already accurate — docs/features/documents.md already described the friendly diff-size-cap message behavior.
 
-Acceptance criteria verified by tester:
-- AC1: docs-client-history.spec.ts 'throws a too large to compare error on 400' PASSES (was previously RED)
-- AC2: No docs web spec regressions — 7 files / 298 tests all pass
-- AC3: Lint passes with 0 warnings/errors
-- AC4: next build completes successfully
+Acceptance criteria to verify:
+- getDocDiff throws a friendly 'too large to compare' message (not a raw API error) when the server returns 400
+- docs/features/documents.md accurately reflects this behavior
+- All docs web tests pass including the previously-red ST-9 test
 
-Implementation branch:
-- ms5-st9fix-implementer-20260611 (implementation commit: 9eda14b)
+Implementation branch or worktree context:
+- Branch: ms5-st9fix-documenter-20260611 (carries implementer commit 9eda14b and tester artifacts)
+- Implementer branch: ms5-st9fix-implementer-20260611 (code commit 9eda14b)
+- Tester branch: ms5-st9fix-tester-20260611 (no test changes — existing tests already covered the behavior)
 
-Tester branch (worktree):
-- ms5-st9fix-tester-20260611
-- Tester made no test changes (existing tests already covered AC1; no test commit was made)
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/docs/docs-client.ts (implementer: getDocDiff 400 branch now throws hardcoded friendly message)
 
-Files changed by implementer:
-- apps/web/app/docs/docs-client.ts (getDocDiff 400 branch only — 5-line change, removed extractErrorMessage call, now throws hardcoded friendly string)
+Commands executed:
+- Read docs/features/documents.md — verified diff-size-cap friendly-message behavior already documented
+- Read apps/web/app/docs/docs-client.ts — confirmed getDocDiff 400 branch now throws hardcoded friendly message matching documentation
+- Diff analysis: implementer commit 9eda14b is an internal behavior correction aligning code to already-documented intent
 
-Test commands run by tester:
-- npx --yes pnpm@10.0.0 --dir <worktree>/apps/web exec vitest run app/docs/docs-client-history.spec.ts (36/36 PASS)
-- npx --yes pnpm@10.0.0 --dir <worktree>/apps/web exec vitest run app/docs/ (298/298 PASS)
-- npx --yes pnpm@10.0.0 --dir <worktree>/apps/web exec vitest run (856/856 PASS; 2 worktree-env failures confirmed pre-existing)
-- npx --yes pnpm@10.0.0 --filter @sfus/web lint (PASS)
-- npx --yes pnpm@10.0.0 --filter @sfus/web exec next build (PASS)
+Final test outcomes:
+- PASS: docs-client-history.spec.ts 36/36 (tester verified: 'throws a too large to compare error on 400' now GREEN)
+- PASS: docs web suite 7 files / 298 tests — no regressions
+- PASS: broader web suite 856 tests pass
+- PASS: lint and next build clean
 
-Verifier scope:
-- Confirm that the implementer branch (ms5-st9fix-implementer-20260611) merges cleanly into ms5.
-- Confirm that after merge, the full web spec suite is green and no docs spec regressions exist.
-- Confirm lint and next build pass on the merged state.
-- Confirm the fix is correct: getDocDiff 400 branch should throw the hardcoded friendly string, not the raw API error.
-- No documentation review is required — this is a pure defect fix with no user-visible feature changes.
+Plan or evaluation context guidance:
+- Plan: plans/ms5-documents-wiki-plan.md (ST-9 carry-over defect fix)
+- Fix: internal behavior correction — code now matches the already-documented intent in docs/features/documents.md
+- No new feature — no new documentation required
 
-Startup behavior:
-- Begin verification immediately if the implementation branch, tester branch, and acceptance criteria context are present.
-- Do not stop after activation, scope confirmation, or branch inspection when verification can proceed.
-- Infer missing comparison-base or artifact-path details from repository context when safe, and label those choices as assumptions.
+Convention-file guidance:
+- docs/README.md routing table: per-subsystem contracts live in docs/features/; Documents wiki covered by docs/features/documents.md
+- docs/features/documents.md was already accurate; no update needed
+
+Updated documentation files:
+- None
 
 Shared artifact directory:
 - artifacts/ms5-documents-wiki/ST-9-followup
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
 
 Completion gate:
 - Do not report success unless all required artifacts exist and all changes are committed.
