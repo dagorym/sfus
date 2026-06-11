@@ -807,3 +807,352 @@ describe("DocsController: softDeletePage (ST-4 AC3, AC4, AC5)", () => {
     ).rejects.toThrow(UnauthorizedException);
   });
 });
+
+// ---------------------------------------------------------------------------
+// ST-5: GET /docs/:id/history — getPageHistory (AC1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Shared history fixture used by controller history tests.
+ */
+const makeHistoryResult = () => ({
+  revisions: [
+    {
+      revisionNumber: 1,
+      author: { username: "alice", displayName: "Alice" },
+      editorUsername: null,
+      summary: "initial",
+      createdAt: now
+    },
+    {
+      revisionNumber: 2,
+      author: { username: "alice", displayName: "Alice" },
+      editorUsername: "bob",
+      summary: "second edit",
+      createdAt: now
+    }
+  ]
+});
+
+describe("DocsController: getPageHistory (ST-5 AC1: history endpoint delegation)", () => {
+  it("returns { history } from docsService.getPageHistory", async () => {
+    const historyResult = makeHistoryResult();
+    const getPageHistorySpy = vi.fn().mockResolvedValue(historyResult);
+    const docsService = makeDocsService({ getPageHistory: getPageHistorySpy });
+    const controller = makeController(docsService);
+
+    const result = await controller.getPageHistory("page-1");
+
+    expect(result).toEqual({ history: historyResult });
+    expect(getPageHistorySpy).toHaveBeenCalledWith("page-1");
+  });
+
+  it("propagates NotFoundException (404) from service (oracle parity — AC1)", async () => {
+    const getPageHistorySpy = vi.fn().mockRejectedValue(
+      new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE)
+    );
+    const docsService = makeDocsService({ getPageHistory: getPageHistorySpy });
+    const controller = makeController(docsService);
+
+    await expect(controller.getPageHistory("nonexistent")).rejects.toThrow(NotFoundException);
+    await expect(controller.getPageHistory("nonexistent")).rejects.toThrow(
+      DocsService.PAGE_NOT_FOUND_MESSAGE
+    );
+  });
+
+  it("returns { history: { revisions: [] } } when no revisions exist", async () => {
+    const docsService = makeDocsService({
+      getPageHistory: vi.fn().mockResolvedValue({ revisions: [] })
+    });
+    const controller = makeController(docsService);
+
+    const result = await controller.getPageHistory("page-1");
+
+    expect(result).toEqual({ history: { revisions: [] } });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-5: GET /docs/:id/revisions/:n — getRevisionByNumber (AC1)
+// ---------------------------------------------------------------------------
+
+const makeRevisionResult = () => ({
+  revisionNumber: 2,
+  title: "Getting Started",
+  body: "# Getting Started\n\nUpdated",
+  summary: "second edit",
+  author: { username: "alice", displayName: "Alice" },
+  editorUsername: "bob",
+  createdAt: now
+});
+
+describe("DocsController: getRevisionByNumber (ST-5 AC1: single revision endpoint)", () => {
+  it("returns { revision } from docsService.getRevisionByNumber with parsed revisionNumber", async () => {
+    const revResult = makeRevisionResult();
+    const getRevSpy = vi.fn().mockResolvedValue(revResult);
+    const docsService = makeDocsService({ getRevisionByNumber: getRevSpy });
+    const controller = makeController(docsService);
+
+    const result = await controller.getRevisionByNumber("page-1", "2");
+
+    expect(result).toEqual({ revision: revResult });
+    expect(getRevSpy).toHaveBeenCalledWith("page-1", 2);
+  });
+
+  it("throws BadRequestException (400) when revisionNumber is not a positive integer string", async () => {
+    const docsService = makeDocsService({ getRevisionByNumber: vi.fn() });
+    const controller = makeController(docsService);
+
+    await expect(controller.getRevisionByNumber("page-1", "0")).rejects.toThrow(BadRequestException);
+    await expect(controller.getRevisionByNumber("page-1", "-1")).rejects.toThrow(BadRequestException);
+    await expect(controller.getRevisionByNumber("page-1", "abc")).rejects.toThrow(BadRequestException);
+  });
+
+  it("propagates NotFoundException (404) from service for nonexistent page (oracle parity)", async () => {
+    const docsService = makeDocsService({
+      getRevisionByNumber: vi.fn().mockRejectedValue(
+        new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE)
+      )
+    });
+    const controller = makeController(docsService);
+
+    await expect(controller.getRevisionByNumber("nonexistent", "1")).rejects.toThrow(NotFoundException);
+  });
+
+  it("propagates NotFoundException (404) from service for missing revision number (oracle parity)", async () => {
+    const docsService = makeDocsService({
+      getRevisionByNumber: vi.fn().mockRejectedValue(
+        new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE)
+      )
+    });
+    const controller = makeController(docsService);
+
+    await expect(controller.getRevisionByNumber("page-1", "999")).rejects.toThrow(
+      DocsService.PAGE_NOT_FOUND_MESSAGE
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-5: GET /docs/:id/diff — getDiff (AC2)
+// ---------------------------------------------------------------------------
+
+const makeDiffResult = () => ({
+  fromRevisionNumber: 1,
+  toRevisionNumber: 2,
+  hunks: [
+    { type: "unchanged" as const, lines: ["hello"] },
+    { type: "removed" as const, lines: ["world"] },
+    { type: "added" as const, lines: ["universe"] }
+  ]
+});
+
+describe("DocsController: getDiff (ST-5 AC2: diff endpoint delegation + validation)", () => {
+  it("returns { diff } from docsService.getDiff with parsed from/to", async () => {
+    const diffResult = makeDiffResult();
+    const getDiffSpy = vi.fn().mockResolvedValue(diffResult);
+    const docsService = makeDocsService({ getDiff: getDiffSpy });
+    const controller = makeController(docsService);
+
+    const result = await controller.getDiff("page-1", "1", "2");
+
+    expect(result).toEqual({ diff: diffResult });
+    expect(getDiffSpy).toHaveBeenCalledWith("page-1", 1, 2);
+  });
+
+  it("throws BadRequestException (400) when 'from' query param is missing", async () => {
+    const docsService = makeDocsService({ getDiff: vi.fn() });
+    const controller = makeController(docsService);
+
+    await expect(controller.getDiff("page-1", undefined, "2")).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) when 'to' query param is missing", async () => {
+    const docsService = makeDocsService({ getDiff: vi.fn() });
+    const controller = makeController(docsService);
+
+    await expect(controller.getDiff("page-1", "1", undefined)).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) when 'from' is not a positive integer string", async () => {
+    const docsService = makeDocsService({ getDiff: vi.fn() });
+    const controller = makeController(docsService);
+
+    await expect(controller.getDiff("page-1", "0", "2")).rejects.toThrow(BadRequestException);
+    await expect(controller.getDiff("page-1", "-1", "2")).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) when 'to' is not a positive integer string", async () => {
+    const docsService = makeDocsService({ getDiff: vi.fn() });
+    const controller = makeController(docsService);
+
+    await expect(controller.getDiff("page-1", "1", "0")).rejects.toThrow(BadRequestException);
+  });
+
+  it("propagates NotFoundException (404) from service (oracle parity — AC2)", async () => {
+    const docsService = makeDocsService({
+      getDiff: vi.fn().mockRejectedValue(
+        new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE)
+      )
+    });
+    const controller = makeController(docsService);
+
+    await expect(controller.getDiff("nonexistent", "1", "2")).rejects.toThrow(NotFoundException);
+  });
+
+  it("propagates BadRequestException (400) from service when from === to (AC2)", async () => {
+    const docsService = makeDocsService({
+      getDiff: vi.fn().mockRejectedValue(
+        new BadRequestException("'from' and 'to' must be different revision numbers.")
+      )
+    });
+    const controller = makeController(docsService);
+
+    await expect(controller.getDiff("page-1", "2", "2")).rejects.toThrow(BadRequestException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-5: POST /docs/:id/rollback — rollbackPage (AC3, AC4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a rollback-capable write controller stub.
+ */
+const makeRollbackController = (
+  docsServiceOverrides?: Record<string, unknown>,
+  authServiceOverrides?: Record<string, unknown>
+) => {
+  const docsService = {
+    ...makeDocsService(),
+    assertDocWriteAccess: vi.fn(),
+    rollbackPage: vi.fn().mockResolvedValue({
+      id: "page-1",
+      title: "Original Title",
+      path: "getting-started",
+      depth: 0,
+      parentId: null,
+      currentRevisionId: "rev-new",
+      revisionNumber: 3,
+      createdAt: now,
+      updatedAt: now
+    }),
+    ...docsServiceOverrides
+  };
+  const authService = {
+    resolveSession: vi.fn().mockResolvedValue({
+      user: { id: "user-1", globalRole: "moderator" }
+    }),
+    ...authServiceOverrides
+  };
+  return new DocsController(docsService as never, authService as never);
+};
+
+describe("DocsController: rollbackPage (ST-5 AC3, AC4: rollback delegation + auth gate)", () => {
+  it("returns { page } from docsService.rollbackPage for a valid rollback request (AC3)", async () => {
+    const controller = makeRollbackController();
+    const result = await controller.rollbackPage(makeFakeRequest(), "page-1", { revisionNumber: 1 });
+
+    expect(result).toHaveProperty("page");
+    expect(result.page.revisionNumber).toBe(3);
+  });
+
+  it("delegates to docsService.rollbackPage with actorUserId, pageId, and body (AC3)", async () => {
+    const rollbackSpy = vi.fn().mockResolvedValue({
+      id: "page-1", title: "T", path: "p", depth: 0, parentId: null,
+      currentRevisionId: "r", revisionNumber: 2, createdAt: now, updatedAt: now
+    });
+    const controller = makeRollbackController({ rollbackPage: rollbackSpy });
+
+    await controller.rollbackPage(makeFakeRequest(), "page-1", { revisionNumber: 1 });
+
+    expect(rollbackSpy).toHaveBeenCalledWith("user-1", "page-1", { revisionNumber: 1 });
+  });
+
+  it("calls assertDocWriteAccess with actor globalRole and 'site' before rollbackPage (AC4)", async () => {
+    const assertSpy = vi.fn();
+    const rollbackSpy = vi.fn().mockResolvedValue({
+      id: "page-1", title: "T", path: "p", depth: 0, parentId: null,
+      currentRevisionId: "r", revisionNumber: 2, createdAt: now, updatedAt: now
+    });
+    const controller = makeRollbackController({
+      assertDocWriteAccess: assertSpy,
+      rollbackPage: rollbackSpy
+    });
+
+    await controller.rollbackPage(makeFakeRequest(), "page-1", { revisionNumber: 1 });
+
+    expect(assertSpy).toHaveBeenCalledWith("moderator", "site");
+    const assertOrder = assertSpy.mock.invocationCallOrder[0];
+    const rollbackOrder = rollbackSpy.mock.invocationCallOrder[0];
+    expect(assertOrder).toBeLessThan(rollbackOrder!);
+  });
+
+  it("propagates ForbiddenException (403) when assertDocWriteAccess throws (AC4: user role denied)", async () => {
+    const controller = makeRollbackController(
+      {
+        assertDocWriteAccess: vi.fn().mockImplementation(() => {
+          throw new ForbiddenException("Write access requires moderator or admin role.");
+        })
+      },
+      {
+        resolveSession: vi.fn().mockResolvedValue({ user: { id: "user-1", globalRole: "user" } })
+      }
+    );
+
+    await expect(
+      controller.rollbackPage(makeFakeRequest(), "page-1", { revisionNumber: 1 })
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("throws BadRequestException (400) for non-integer revisionNumber body guard", async () => {
+    const controller = makeRollbackController();
+
+    await expect(
+      controller.rollbackPage(makeFakeRequest(), "page-1", { revisionNumber: 0 })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) for non-number revisionNumber (body guard: string coercion)", async () => {
+    const controller = makeRollbackController();
+
+    await expect(
+      controller.rollbackPage(makeFakeRequest(), "page-1", { revisionNumber: "1" as never })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("propagates UnauthorizedException (401) when resolveSession throws (AC4)", async () => {
+    const controller = makeRollbackController(
+      {},
+      { resolveSession: vi.fn().mockRejectedValue(new UnauthorizedException("No active session.")) }
+    );
+
+    await expect(
+      controller.rollbackPage(makeFakeRequest(), "page-1", { revisionNumber: 1 })
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("propagates NotFoundException (404) from service for nonexistent page (AC3)", async () => {
+    const controller = makeRollbackController({
+      rollbackPage: vi.fn().mockRejectedValue(
+        new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE)
+      )
+    });
+
+    await expect(
+      controller.rollbackPage(makeFakeRequest(), "page-1", { revisionNumber: 1 })
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("propagates NotFoundException (404) from service for nonexistent target revision (AC3)", async () => {
+    const controller = makeRollbackController({
+      rollbackPage: vi.fn().mockRejectedValue(
+        new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE)
+      )
+    });
+
+    await expect(
+      controller.rollbackPage(makeFakeRequest(), "page-1", { revisionNumber: 99 })
+    ).rejects.toThrow(DocsService.PAGE_NOT_FOUND_MESSAGE);
+  });
+});

@@ -499,5 +499,135 @@ describe.skipIf(!DB_INTEGRATION_ENABLED)(
         expect(revisions[0].revisionNumber).toBe(1);
       }
     );
+
+    // -------------------------------------------------------------------------
+    // ST-5 AC3 / P10: rollbackPage — non-destructive proof
+    //
+    // Creates a page with two revisions, then rolls back to revision 1.
+    // Verifies:
+    //  - A new revision #3 is created with content equal to revision #1.
+    //  - current_revision_id is updated to the new revision.
+    //  - All prior revisions (1 and 2) are still present (non-destructive).
+    //  - The rollback is wrapped in a transaction (P10: pointer and new row both commit).
+    // -------------------------------------------------------------------------
+
+    it(
+      "rollbackPage creates new revision equal to target and preserves all prior revisions (ST-5 AC3 / P10)",
+      async () => {
+        const slug = `rollback-test-${Date.now()}`;
+        const originalBody = "# Original body — revision 1";
+        const editedBody = "# Edited body — revision 2";
+
+        // Create the page with revision #1.
+        const created = await service.createPage(authorUserId, {
+          title: "Rollback Test Page",
+          slug,
+          body: originalBody,
+          summary: "initial"
+        });
+        createdPageIds.push(created.id);
+
+        // Add revision #2 to get two distinct revisions in history.
+        await service.addRevision(authorUserId, created.id, {
+          title: "Rollback Test Page",
+          body: editedBody,
+          summary: "edit"
+        });
+
+        // Roll back to revision 1.
+        const rollbackResult = await service.rollbackPage(authorUserId, created.id, {
+          revisionNumber: 1
+        });
+
+        // The returned revisionNumber must be 3 (next highest).
+        expect(rollbackResult.revisionNumber).toBe(3);
+
+        // current_revision_id on the page must be updated.
+        const pageAfter = await pageRepo.findOne({ where: { id: created.id } });
+        expect(pageAfter!.currentRevisionId).toBe(rollbackResult.currentRevisionId);
+
+        // The new revision (rev #3) must have the same body as revision #1.
+        const newRevision = await revisionRepo.findOne({
+          where: { id: rollbackResult.currentRevisionId! }
+        });
+        expect(newRevision).toBeTruthy();
+        expect(newRevision!.body).toBe(originalBody);
+        expect(newRevision!.revisionNumber).toBe(3);
+        expect(newRevision!.summary).toBe("Rolled back to revision 1");
+
+        // Non-destructive: revisions 1 and 2 must still exist.
+        const allRevisions = await revisionRepo.find({
+          where: { pageId: created.id },
+          order: { revisionNumber: "ASC" }
+        });
+        expect(allRevisions).toHaveLength(3);
+        expect(allRevisions[0].revisionNumber).toBe(1);
+        expect(allRevisions[0].body).toBe(originalBody);
+        expect(allRevisions[1].revisionNumber).toBe(2);
+        expect(allRevisions[1].body).toBe(editedBody);
+        expect(allRevisions[2].revisionNumber).toBe(3);
+        expect(allRevisions[2].body).toBe(originalBody);
+      }
+    );
+
+    // -------------------------------------------------------------------------
+    // ST-5 AC1: getPageHistory oracle parity — deleted page returns same 404
+    // -------------------------------------------------------------------------
+
+    it(
+      "getPageHistory throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) for a deleted page (ST-5 AC1 oracle parity)",
+      async () => {
+        const slug = `history-404-${Date.now()}`;
+
+        // Create and then soft-delete a leaf page.
+        const created = await service.createPage(authorUserId, {
+          title: "History 404 Test",
+          slug,
+          body: "body"
+        });
+        createdPageIds.push(created.id);
+        await service.softDeletePage(created.id);
+
+        // getPageHistory on a deleted page must return the same 404 as ST-2.
+        await expect(service.getPageHistory(created.id)).rejects.toThrow(
+          DocsService.PAGE_NOT_FOUND_MESSAGE
+        );
+      }
+    );
+
+    // -------------------------------------------------------------------------
+    // ST-5 AC1: getPageHistory returns revisions ordered by revision_number ASC
+    // -------------------------------------------------------------------------
+
+    it(
+      "getPageHistory returns revisions ordered by revisionNumber ASC (ST-5 AC1)",
+      async () => {
+        const slug = `history-order-${Date.now()}`;
+
+        const created = await service.createPage(authorUserId, {
+          title: "History Order Test",
+          slug,
+          body: "rev 1 body",
+          summary: "first"
+        });
+        createdPageIds.push(created.id);
+
+        await service.addRevision(authorUserId, created.id, {
+          title: "History Order Test",
+          body: "rev 2 body",
+          summary: "second"
+        });
+
+        // For this test we need a page that is publicly readable.
+        // The page was created with visibility='public' and status='published'.
+        const history = await service.getPageHistory(created.id);
+
+        expect(history.revisions).toHaveLength(2);
+        expect(history.revisions[0].revisionNumber).toBe(1);
+        expect(history.revisions[1].revisionNumber).toBe(2);
+        expect(history.revisions[0].summary).toBe("first");
+        expect(history.revisions[1].summary).toBe("second");
+      }
+    );
   }
 );

@@ -1446,6 +1446,621 @@ describe("DocsService.createPage resolveParent fix (ST-4: parentId branch filter
 });
 
 // ---------------------------------------------------------------------------
+// ST-5: DocsService.computeLineDiff — static method, deterministic (AC2)
+// ---------------------------------------------------------------------------
+
+describe("DocsService.computeLineDiff (ST-5 AC2: static, deterministic line-level diff)", () => {
+  it("returns empty hunks array for two identical inputs", () => {
+    const result = DocsService.computeLineDiff(["a", "b", "c"], ["a", "b", "c"]);
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe("unchanged");
+    expect(result[0].lines).toEqual(["a", "b", "c"]);
+  });
+
+  it("returns a single added hunk when a line is appended", () => {
+    const result = DocsService.computeLineDiff(["a", "b"], ["a", "b", "c"]);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ type: "unchanged", lines: ["a", "b"] });
+    expect(result[1]).toEqual({ type: "added", lines: ["c"] });
+  });
+
+  it("returns a single removed hunk when a line is deleted", () => {
+    const result = DocsService.computeLineDiff(["a", "b", "c"], ["a", "b"]);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ type: "unchanged", lines: ["a", "b"] });
+    expect(result[1]).toEqual({ type: "removed", lines: ["c"] });
+  });
+
+  it("returns removed + added hunks when a middle line is replaced", () => {
+    const result = DocsService.computeLineDiff(["a", "b", "c"], ["a", "x", "c"]);
+    // The LCS is ["a", "c"]; "b" is removed, "x" is added.
+    expect(result.some((h) => h.type === "removed" && h.lines.includes("b"))).toBe(true);
+    expect(result.some((h) => h.type === "added" && h.lines.includes("x"))).toBe(true);
+    expect(result.some((h) => h.type === "unchanged" && h.lines.includes("a"))).toBe(true);
+  });
+
+  it("returns single added hunk when toLines has all lines added (fromLines empty)", () => {
+    const result = DocsService.computeLineDiff([], ["a", "b", "c"]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({ type: "added", lines: ["a", "b", "c"] });
+  });
+
+  it("returns single removed hunk when toLines is empty (all lines removed)", () => {
+    const result = DocsService.computeLineDiff(["a", "b"], []);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({ type: "removed", lines: ["a", "b"] });
+  });
+
+  it("returns empty array for two empty inputs", () => {
+    const result = DocsService.computeLineDiff([], []);
+    expect(result).toHaveLength(0);
+  });
+
+  it("is deterministic — same inputs always produce same output", () => {
+    const from = ["line 1", "line 2", "line 3"];
+    const to = ["line 1", "modified line 2", "line 3", "line 4"];
+    const r1 = DocsService.computeLineDiff(from, to);
+    const r2 = DocsService.computeLineDiff(from, to);
+    expect(r1).toEqual(r2);
+  });
+
+  it("merges adjacent same-type ops into a single hunk", () => {
+    // All lines from->to are different (no common lines), so we get two merged hunks.
+    const result = DocsService.computeLineDiff(["a", "b"], ["c", "d"]);
+    // All a,b removed (merged), all c,d added (merged)
+    const removed = result.find((h) => h.type === "removed");
+    const added = result.find((h) => h.type === "added");
+    expect(removed?.lines).toHaveLength(2);
+    expect(added?.lines).toHaveLength(2);
+  });
+
+  it("produces hunks with correct types: only 'unchanged', 'added', or 'removed'", () => {
+    const result = DocsService.computeLineDiff(["x", "y"], ["x", "z"]);
+    for (const hunk of result) {
+      expect(["unchanged", "added", "removed"]).toContain(hunk.type);
+    }
+  });
+
+  it("fixed-input pinning: ['hello','world'] vs ['hello','universe'] produces correct diff", () => {
+    const result = DocsService.computeLineDiff(["hello", "world"], ["hello", "universe"]);
+    expect(result[0]).toEqual({ type: "unchanged", lines: ["hello"] });
+    // "world" removed, "universe" added — may be in either order depending on LCS scan,
+    // but both must appear.
+    expect(result.some((h) => h.type === "removed" && h.lines.includes("world"))).toBe(true);
+    expect(result.some((h) => h.type === "added" && h.lines.includes("universe"))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-5: DocsService.getPageHistory — AC1: history endpoint
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a history-capable DocsService stub.
+ */
+const makeHistoryDocsService = (
+  pageStub: unknown,
+  revisionsStub: unknown[] = []
+) => {
+  const auth = new AuthorizationService();
+  const pRepo = {
+    ...createMinimalRepo(),
+    findOne: vi.fn().mockResolvedValue(pageStub)
+  };
+  const rRepo = {
+    ...createMinimalRepo(),
+    find: vi.fn().mockResolvedValue(revisionsStub)
+  };
+  return new DocsService(pRepo as never, rRepo as never, auth);
+};
+
+describe("DocsService.getPageHistory (ST-5 AC1: ordered history, oracle-parity 404)", () => {
+  it("returns { revisions } ordered by revisionNumber ASC for a readable page", async () => {
+    const page = makeSitePage({ id: "p1", visibility: "public" });
+    const rev1 = {
+      id: "rev-1", revisionNumber: 1, pageId: "p1",
+      author: { username: "alice", displayName: "Alice" }, editorUser: null,
+      summary: "initial", createdAt: now
+    };
+    const rev2 = {
+      id: "rev-2", revisionNumber: 2, pageId: "p1",
+      author: { username: "alice", displayName: "Alice" },
+      editorUser: { username: "bob" },
+      summary: "second", createdAt: now
+    };
+    const service = makeHistoryDocsService(page, [rev1, rev2]);
+    const result = await service.getPageHistory("p1");
+
+    expect(result.revisions).toHaveLength(2);
+    expect(result.revisions[0].revisionNumber).toBe(1);
+    expect(result.revisions[1].revisionNumber).toBe(2);
+    expect(result.revisions[0].author).toEqual({ username: "alice", displayName: "Alice" });
+    expect(result.revisions[1].editorUsername).toBe("bob");
+  });
+
+  it("returns an empty revisions array when the page has no revisions", async () => {
+    const page = makeSitePage({ id: "p1" });
+    const service = makeHistoryDocsService(page, []);
+    const result = await service.getPageHistory("p1");
+
+    expect(result.revisions).toEqual([]);
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) for nonexistent page (AC1: oracle parity)", async () => {
+    const service = makeHistoryDocsService(null);
+    await expect(service.getPageHistory("nonexistent")).rejects.toThrow(NotFoundException);
+    await expect(service.getPageHistory("nonexistent")).rejects.toThrow(
+      DocsService.PAGE_NOT_FOUND_MESSAGE
+    );
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) for deleted page (AC1: oracle parity)", async () => {
+    const deletedPage = makeSitePage({ id: "p1", status: "deleted" });
+    const service = makeHistoryDocsService(deletedPage);
+    await expect(service.getPageHistory("p1")).rejects.toThrow(DocsService.PAGE_NOT_FOUND_MESSAGE);
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) for non-readable page (members, AC1: oracle parity)", async () => {
+    const membersPage = makeSitePage({ id: "p1", visibility: "members" });
+    const service = makeHistoryDocsService(membersPage);
+    await expect(service.getPageHistory("p1")).rejects.toThrow(DocsService.PAGE_NOT_FOUND_MESSAGE);
+  });
+
+  it("error message is identical for all non-readable paths (AC1: no oracle leak)", async () => {
+    const nonexistentService = makeHistoryDocsService(null);
+    const deletedService = makeHistoryDocsService(makeSitePage({ status: "deleted" }));
+    const hiddenService = makeHistoryDocsService(makeSitePage({ visibility: "members" }));
+
+    const msgs: string[] = [];
+    for (const svc of [nonexistentService, deletedService, hiddenService]) {
+      try {
+        await svc.getPageHistory("p1");
+      } catch (e: unknown) {
+        msgs.push((e as Error).message);
+      }
+    }
+    expect(msgs).toHaveLength(3);
+    expect(new Set(msgs).size).toBe(1);
+    expect(msgs[0]).toBe(DocsService.PAGE_NOT_FOUND_MESSAGE);
+  });
+
+  it("maps each revision to DocsRevisionMetaShape (revisionNumber, author, editorUsername, summary, createdAt)", async () => {
+    const page = makeSitePage({ id: "p1" });
+    const rev = {
+      id: "rev-1", revisionNumber: 3, pageId: "p1",
+      author: { username: "carol", displayName: null }, editorUser: { username: "dave" },
+      summary: "edit summary", createdAt: now
+    };
+    const service = makeHistoryDocsService(page, [rev]);
+    const result = await service.getPageHistory("p1");
+
+    expect(result.revisions[0]).toEqual({
+      revisionNumber: 3,
+      author: { username: "carol", displayName: null },
+      editorUsername: "dave",
+      summary: "edit summary",
+      createdAt: now
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-5: DocsService.getRevisionByNumber — single revision body
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a getRevisionByNumber-capable DocsService stub.
+ */
+const makeRevisionByNumberService = (
+  pageStub: unknown,
+  revisionStub: unknown
+) => {
+  const auth = new AuthorizationService();
+  const pRepo = {
+    ...createMinimalRepo(),
+    findOne: vi.fn().mockResolvedValue(pageStub)
+  };
+  const rRepo = {
+    ...createMinimalRepo(),
+    findOne: vi.fn().mockResolvedValue(revisionStub)
+  };
+  return new DocsService(pRepo as never, rRepo as never, auth);
+};
+
+describe("DocsService.getRevisionByNumber (ST-5 AC1: single revision, oracle parity)", () => {
+  const makeRevision = (overrides?: Partial<Record<string, unknown>>) => ({
+    id: "rev-1",
+    revisionNumber: 1,
+    pageId: "p1",
+    title: "Getting Started",
+    body: "# Getting Started\n\nContent here",
+    summary: "initial",
+    author: { username: "alice", displayName: "Alice" },
+    editorUser: null,
+    createdAt: now,
+    ...overrides
+  });
+
+  it("returns DocsSingleRevisionShape for an existing revision", async () => {
+    const page = makeSitePage({ id: "p1" });
+    const rev = makeRevision();
+    const service = makeRevisionByNumberService(page, rev);
+
+    const result = await service.getRevisionByNumber("p1", 1);
+
+    expect(result.revisionNumber).toBe(1);
+    expect(result.title).toBe("Getting Started");
+    expect(result.body).toBe("# Getting Started\n\nContent here");
+    expect(result.author).toEqual({ username: "alice", displayName: "Alice" });
+    expect(result.editorUsername).toBeNull();
+    expect(result.summary).toBe("initial");
+    expect(result.createdAt).toBe(now);
+  });
+
+  it("returns editorUsername from editorUser relation when present", async () => {
+    const page = makeSitePage({ id: "p1" });
+    const rev = makeRevision({ editorUser: { username: "bob" } });
+    const service = makeRevisionByNumberService(page, rev);
+
+    const result = await service.getRevisionByNumber("p1", 1);
+
+    expect(result.editorUsername).toBe("bob");
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) for nonexistent page (oracle parity)", async () => {
+    const service = makeRevisionByNumberService(null, null);
+    await expect(service.getRevisionByNumber("nonexistent", 1)).rejects.toThrow(
+      DocsService.PAGE_NOT_FOUND_MESSAGE
+    );
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) for deleted page (oracle parity)", async () => {
+    const deletedPage = makeSitePage({ id: "p1", status: "deleted" });
+    const service = makeRevisionByNumberService(deletedPage, null);
+    await expect(service.getRevisionByNumber("p1", 1)).rejects.toThrow(
+      DocsService.PAGE_NOT_FOUND_MESSAGE
+    );
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) for non-readable page (oracle parity)", async () => {
+    const membersPage = makeSitePage({ id: "p1", visibility: "members" });
+    const service = makeRevisionByNumberService(membersPage, null);
+    await expect(service.getRevisionByNumber("p1", 1)).rejects.toThrow(
+      DocsService.PAGE_NOT_FOUND_MESSAGE
+    );
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) when revision number does not exist", async () => {
+    const page = makeSitePage({ id: "p1" });
+    const service = makeRevisionByNumberService(page, null); // revision findOne returns null
+    await expect(service.getRevisionByNumber("p1", 999)).rejects.toThrow(
+      DocsService.PAGE_NOT_FOUND_MESSAGE
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-5: DocsService.getDiff — validation + oracle parity (AC2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a getDiff-capable DocsService stub.
+ */
+const makeDiffDocsService = (
+  pageStub: unknown,
+  fromRevStub: unknown,
+  toRevStub: unknown
+) => {
+  const auth = new AuthorizationService();
+  const pRepo = {
+    ...createMinimalRepo(),
+    findOne: vi.fn().mockResolvedValue(pageStub)
+  };
+  const rRepo = {
+    ...createMinimalRepo(),
+    findOne: vi.fn()
+      .mockResolvedValueOnce(fromRevStub)
+      .mockResolvedValueOnce(toRevStub)
+  };
+  return new DocsService(pRepo as never, rRepo as never, auth);
+};
+
+describe("DocsService.getDiff (ST-5 AC2: validation + diff computation + oracle parity)", () => {
+  it("throws BadRequestException when from === to (AC2: equal revisions)", async () => {
+    const page = makeSitePage({ id: "p1" });
+    const service = makeDiffDocsService(page, null, null);
+    await expect(service.getDiff("p1", 1, 1)).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException when from is not a positive integer (AC2: validation)", async () => {
+    const page = makeSitePage({ id: "p1" });
+    const service = makeDiffDocsService(page, null, null);
+    await expect(service.getDiff("p1", 0, 2)).rejects.toThrow(BadRequestException);
+    await expect(service.getDiff("p1", -1, 2)).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException when to is not a positive integer (AC2: validation)", async () => {
+    const page = makeSitePage({ id: "p1" });
+    const service = makeDiffDocsService(page, null, null);
+    await expect(service.getDiff("p1", 1, 0)).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) for nonexistent page (AC2: oracle parity)", async () => {
+    const service = makeDiffDocsService(null, null, null);
+    await expect(service.getDiff("nonexistent", 1, 2)).rejects.toThrow(
+      DocsService.PAGE_NOT_FOUND_MESSAGE
+    );
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) for deleted page (AC2: oracle parity)", async () => {
+    const deletedPage = makeSitePage({ status: "deleted" });
+    const service = makeDiffDocsService(deletedPage, null, null);
+    await expect(service.getDiff("p1", 1, 2)).rejects.toThrow(DocsService.PAGE_NOT_FOUND_MESSAGE);
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) for non-readable page (AC2: oracle parity)", async () => {
+    const membersPage = makeSitePage({ visibility: "members" });
+    const service = makeDiffDocsService(membersPage, null, null);
+    await expect(service.getDiff("p1", 1, 2)).rejects.toThrow(DocsService.PAGE_NOT_FOUND_MESSAGE);
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) when fromRevision is missing (AC2)", async () => {
+    const page = makeSitePage({ id: "p1" });
+    // fromRev = null (not found), toRev irrelevant
+    const service = makeDiffDocsService(page, null, { id: "rev-2", body: "v2", revisionNumber: 2 });
+    await expect(service.getDiff("p1", 1, 2)).rejects.toThrow(DocsService.PAGE_NOT_FOUND_MESSAGE);
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) when toRevision is missing (AC2)", async () => {
+    const page = makeSitePage({ id: "p1" });
+    const service = makeDiffDocsService(
+      page,
+      { id: "rev-1", body: "v1", revisionNumber: 1 },
+      null
+    );
+    await expect(service.getDiff("p1", 1, 2)).rejects.toThrow(DocsService.PAGE_NOT_FOUND_MESSAGE);
+  });
+
+  it("returns DocsDiffShape with fromRevisionNumber, toRevisionNumber, and hunks (AC2)", async () => {
+    const page = makeSitePage({ id: "p1" });
+    const auth = new AuthorizationService();
+    const pRepo = {
+      ...createMinimalRepo(),
+      findOne: vi.fn().mockResolvedValue(page)
+    };
+    // Both revisions resolved via Promise.all — need two calls to return both
+    const fromRev = { id: "rev-1", body: "hello\nworld", revisionNumber: 1, pageId: "p1" };
+    const toRev = { id: "rev-2", body: "hello\nuniverse", revisionNumber: 2, pageId: "p1" };
+    const rRepo = {
+      ...createMinimalRepo(),
+      findOne: vi.fn()
+        .mockResolvedValueOnce(fromRev)
+        .mockResolvedValueOnce(toRev)
+    };
+    const service = new DocsService(pRepo as never, rRepo as never, auth);
+
+    const result = await service.getDiff("p1", 1, 2);
+
+    expect(result.fromRevisionNumber).toBe(1);
+    expect(result.toRevisionNumber).toBe(2);
+    expect(Array.isArray(result.hunks)).toBe(true);
+    expect(result.hunks.length).toBeGreaterThan(0);
+    // Verify the unchanged line "hello" appears
+    expect(result.hunks.some((h) => h.type === "unchanged" && h.lines.includes("hello"))).toBe(true);
+    // Verify "world" is removed and "universe" is added
+    expect(result.hunks.some((h) => h.type === "removed" && h.lines.includes("world"))).toBe(true);
+    expect(result.hunks.some((h) => h.type === "added" && h.lines.includes("universe"))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-5: DocsService.rollbackPage — AC3 (non-destructive), AC4 (access gate via assertDocWriteAccess)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a rollback-capable DocsService stub.
+ * The transaction callback receives a fake entity manager.
+ */
+const makeRollbackDocsService = (
+  pageStub: unknown,
+  targetRevStub: unknown,
+  lastRevStub?: unknown,
+  overrideTransactionBehavior?: (callback: (em: unknown) => Promise<unknown>) => Promise<unknown>
+) => {
+  const defaultTransactionBehavior = async (
+    callback: (em: unknown) => Promise<unknown>
+  ) => {
+    const em = {
+      findOne: vi.fn()
+        .mockResolvedValueOnce(pageStub)          // page load
+        .mockResolvedValueOnce(targetRevStub)     // target revision load
+        .mockResolvedValueOnce(lastRevStub ?? targetRevStub) // last revision (highest revNum)
+        .mockResolvedValue(pageStub),              // re-load for updatedAt
+      create: vi.fn().mockImplementation((_entity: unknown, data: unknown) => ({
+        ...data as object, createdAt: now, updatedAt: now
+      })),
+      save: vi.fn().mockResolvedValue({}),
+      update: vi.fn().mockResolvedValue({})
+    };
+    return callback(em);
+  };
+
+  const auth = new AuthorizationService();
+  const pRepo = {
+    ...createMinimalRepo(),
+    manager: { transaction: overrideTransactionBehavior ?? defaultTransactionBehavior }
+  };
+  const rRepo = createMinimalRepo();
+  return new DocsService(pRepo as never, rRepo as never, auth);
+};
+
+describe("DocsService.rollbackPage (ST-5 AC3: non-destructive, creates new revision)", () => {
+  const makeTargetRevision = (overrides?: Partial<Record<string, unknown>>) => ({
+    id: "rev-1",
+    revisionNumber: 1,
+    pageId: "p1",
+    title: "Original Title",
+    body: "# Original content",
+    summary: "initial",
+    createdAt: now,
+    ...overrides
+  });
+
+  it("returns DocWriteResultShape with new revisionNumber > target's revisionNumber (AC3)", async () => {
+    const page = makeSitePage({ id: "p1", status: "published" });
+    const targetRev = makeTargetRevision({ revisionNumber: 1 });
+    // lastRev has revisionNumber=3, so the new rollback should be #4
+    const lastRev = makeTargetRevision({ revisionNumber: 3 });
+    const service = makeRollbackDocsService(page, targetRev, lastRev);
+
+    const result = await service.rollbackPage("user-1", "p1", { revisionNumber: 1 });
+
+    expect(result.revisionNumber).toBe(4);
+    expect(result.title).toBe("Original Title");
+    expect(result.id).toBe("p1");
+  });
+
+  it("creates a new revision with summary='Rolled back to revision N' (AC3)", async () => {
+    const page = makeSitePage({ id: "p1", status: "published" });
+    const targetRev = makeTargetRevision({ revisionNumber: 2 });
+
+    let capturedRevisionData: Record<string, unknown> | null = null;
+
+    const txBehavior = async (callback: (em: unknown) => Promise<unknown>) => {
+      const em = {
+        findOne: vi.fn()
+          .mockResolvedValueOnce(page)
+          .mockResolvedValueOnce(targetRev)
+          .mockResolvedValueOnce({ revisionNumber: 3 })
+          .mockResolvedValue(page),
+        create: vi.fn().mockImplementation((_entity: unknown, data: unknown) => {
+          capturedRevisionData = data as Record<string, unknown>;
+          return { ...data as object, createdAt: now };
+        }),
+        save: vi.fn().mockResolvedValue({}),
+        update: vi.fn().mockResolvedValue({})
+      };
+      return callback(em);
+    };
+
+    const auth = new AuthorizationService();
+    const pRepo = { ...createMinimalRepo(), manager: { transaction: txBehavior } };
+    const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth);
+
+    await service.rollbackPage("user-1", "p1", { revisionNumber: 2 });
+
+    // The second create call should be the DocsRevisionEntity (not the page).
+    // We check the last create call data.
+    expect(capturedRevisionData?.summary).toBe("Rolled back to revision 2");
+  });
+
+  it("throws BadRequestException (400) for non-positive revisionNumber input (AC3: validation)", async () => {
+    const page = makeSitePage({ id: "p1", status: "published" });
+    const service = makeRollbackDocsService(page, null);
+
+    await expect(service.rollbackPage("user-1", "p1", { revisionNumber: 0 })).rejects.toThrow(
+      BadRequestException
+    );
+    await expect(service.rollbackPage("user-1", "p1", { revisionNumber: -1 })).rejects.toThrow(
+      BadRequestException
+    );
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) when page does not exist (AC3: oracle parity)", async () => {
+    const service = makeRollbackDocsService(null, null);
+    await expect(service.rollbackPage("user-1", "nonexistent", { revisionNumber: 1 })).rejects.toThrow(
+      DocsService.PAGE_NOT_FOUND_MESSAGE
+    );
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) for deleted page (AC3: oracle parity)", async () => {
+    const deletedPage = makeSitePage({ id: "p1", status: "deleted" });
+    const service = makeRollbackDocsService(deletedPage, null);
+    await expect(service.rollbackPage("user-1", "p1", { revisionNumber: 1 })).rejects.toThrow(
+      DocsService.PAGE_NOT_FOUND_MESSAGE
+    );
+  });
+
+  it("throws NotFoundException(PAGE_NOT_FOUND_MESSAGE) when target revision does not exist (AC3)", async () => {
+    const page = makeSitePage({ id: "p1", status: "published" });
+    // targetRev null → revision not found
+    const service = makeRollbackDocsService(page, null);
+    await expect(service.rollbackPage("user-1", "p1", { revisionNumber: 99 })).rejects.toThrow(
+      DocsService.PAGE_NOT_FOUND_MESSAGE
+    );
+  });
+
+  it("sets the new revision's body to the target revision's body (non-destructive, AC3)", async () => {
+    const page = makeSitePage({ id: "p1", status: "published" });
+    const targetRev = makeTargetRevision({ body: "# Original content from rev 1" });
+
+    const capturedCreates: Array<Record<string, unknown>> = [];
+
+    const txBehavior = async (callback: (em: unknown) => Promise<unknown>) => {
+      const em = {
+        findOne: vi.fn()
+          .mockResolvedValueOnce(page)
+          .mockResolvedValueOnce(targetRev)
+          .mockResolvedValueOnce({ revisionNumber: 1 })
+          .mockResolvedValue(page),
+        create: vi.fn().mockImplementation((_entity: unknown, data: unknown) => {
+          capturedCreates.push(data as Record<string, unknown>);
+          return { ...data as object, createdAt: now };
+        }),
+        save: vi.fn().mockResolvedValue({}),
+        update: vi.fn().mockResolvedValue({})
+      };
+      return callback(em);
+    };
+
+    const auth = new AuthorizationService();
+    const pRepo = { ...createMinimalRepo(), manager: { transaction: txBehavior } };
+    const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth);
+
+    await service.rollbackPage("user-1", "p1", { revisionNumber: 1 });
+
+    // At least one create call should have the target body (the revision create)
+    const revCreate = capturedCreates.find((c) => c.body === "# Original content from rev 1");
+    expect(revCreate).toBeDefined();
+  });
+
+  it("calls em.save and em.update inside the transaction (P10: transactional, AC3)", async () => {
+    const page = makeSitePage({ id: "p1", status: "published" });
+    const targetRev = makeTargetRevision({ revisionNumber: 1 });
+
+    const saveSpy = vi.fn().mockResolvedValue({});
+    const updateSpy = vi.fn().mockResolvedValue({});
+
+    const txBehavior = async (callback: (em: unknown) => Promise<unknown>) => {
+      const em = {
+        findOne: vi.fn()
+          .mockResolvedValueOnce(page)
+          .mockResolvedValueOnce(targetRev)
+          .mockResolvedValueOnce({ revisionNumber: 1 })
+          .mockResolvedValue(page),
+        create: vi.fn().mockImplementation((_entity: unknown, data: unknown) => ({
+          ...data as object, createdAt: now
+        })),
+        save: saveSpy,
+        update: updateSpy
+      };
+      return callback(em);
+    };
+
+    const auth = new AuthorizationService();
+    const pRepo = { ...createMinimalRepo(), manager: { transaction: txBehavior } };
+    const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth);
+
+    await service.rollbackPage("user-1", "p1", { revisionNumber: 1 });
+
+    // save: the new revision row
+    expect(saveSpy).toHaveBeenCalledTimes(1);
+    // update: current_revision_id pointer + title on the page
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // DocsService — AC5: every path routes through AuthorizationService.evaluate()
 // ---------------------------------------------------------------------------
 
