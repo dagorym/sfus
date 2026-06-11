@@ -1,9 +1,9 @@
 /**
  * docs.service.test.ts
  *
- * Unit tests for DocsService (ST-2).
+ * Unit tests for DocsService (ST-2 and ST-3).
  *
- * Acceptance criteria validated:
+ * ST-2 acceptance criteria validated:
  * AC1: getPageByPath resolves a published site page by full path, returns current revision
  *      content plus ordered breadcrumb ancestry.
  * AC2: Nonexistent path, deleted page, and non-publicly-readable page all return the same
@@ -13,9 +13,16 @@
  *      project pages, respects limit. Default=5, max=20.
  * AC5: Every read path routes visibility through AuthorizationService.evaluate() with no inline
  *      re-derived predicate.
+ *
+ * ST-3 acceptance criteria validated:
+ * AC1: createPage creates page + revision #1 + sets current_revision_id in a single transaction.
+ * AC2: addRevision bumps revision_number, updates current_revision_id, title, updated_at.
+ * AC3: ConflictException (409) on path_hash collision; BadRequestException (400) on invalid
+ *      slug/title or missing parent.
+ * AC5: assertDocWriteAccess is the SINGLE authorization gate; site scope requires moderator/admin.
  */
 
-import { NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { IsNull } from "typeorm";
 import { describe, expect, it, vi } from "vitest";
 
@@ -716,6 +723,346 @@ describe("DocsService.listRecentEdits (AC4: recent feed with limit and exclusion
     const result = await service.listRecentEdits({ limit: 10 });
     expect(result).toEqual([]);
     expect(Array.isArray(result)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-3: assertDocWriteAccess — AC5: single authorization gate
+// ---------------------------------------------------------------------------
+
+describe("DocsService.assertDocWriteAccess (ST-3 AC5: single authorization gate)", () => {
+  it("throws ForbiddenException for null/anonymous actor on site scope", () => {
+    const service = makeDocsService();
+    expect(() => service.assertDocWriteAccess(null, "site")).toThrow(ForbiddenException);
+  });
+
+  it("throws ForbiddenException for undefined actor on site scope", () => {
+    const service = makeDocsService();
+    expect(() => service.assertDocWriteAccess(undefined, "site")).toThrow(ForbiddenException);
+  });
+
+  it("throws ForbiddenException for 'user' role on site scope", () => {
+    const service = makeDocsService();
+    expect(() => service.assertDocWriteAccess("user", "site")).toThrow(ForbiddenException);
+  });
+
+  it("does NOT throw for 'moderator' role on site scope (AC5: moderator clears gate)", () => {
+    const service = makeDocsService();
+    expect(() => service.assertDocWriteAccess("moderator", "site")).not.toThrow();
+  });
+
+  it("does NOT throw for 'admin' role on site scope (AC5: admin clears gate)", () => {
+    const service = makeDocsService();
+    expect(() => service.assertDocWriteAccess("admin", "site")).not.toThrow();
+  });
+
+  it("throws ForbiddenException for unrecognised scope type (AC5: deny-by-default)", () => {
+    const service = makeDocsService();
+    expect(() => service.assertDocWriteAccess("moderator", "unknown-scope")).toThrow(ForbiddenException);
+  });
+
+  it("accepts a DocsPageEntity with scopeType='site' as the second argument (AC5: entity overload)", () => {
+    const service = makeDocsService();
+    const sitePageEntity = makeSitePage() as never;
+    expect(() => service.assertDocWriteAccess("moderator", sitePageEntity)).not.toThrow();
+  });
+
+  it("rejects a DocsPageEntity with scopeType='site' when actor has 'user' role (AC5: entity overload gate)", () => {
+    const service = makeDocsService();
+    const sitePageEntity = makeSitePage() as never;
+    expect(() => service.assertDocWriteAccess("user", sitePageEntity)).toThrow(ForbiddenException);
+  });
+
+  it("calls AuthorizationService.hasGlobalRole for site scope (AC5: routed through auth service)", () => {
+    const authorizationService = new AuthorizationService();
+    const hasGlobalRoleSpy = vi.spyOn(authorizationService, "hasGlobalRole");
+    const service = makeDocsService(undefined, undefined, authorizationService);
+    try {
+      service.assertDocWriteAccess("moderator", "site");
+    } catch {
+      // ignore
+    }
+    expect(hasGlobalRoleSpy).toHaveBeenCalledWith("moderator", "moderator");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-3: createPage — AC1 (transaction) and AC3 (validation / collision)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a write-capable DocsService stub with transaction manager support.
+ * The `transaction` callback is called immediately with a fake entity manager.
+ */
+const makeWriteDocsService = (
+  transactionBehavior?: (callback: (em: unknown) => Promise<unknown>) => Promise<unknown>,
+  pageRepo?: Partial<MinimalRepo>,
+  revisionRepo?: Partial<MinimalRepo>
+) => {
+  const defaultTransactionBehavior = async (
+    callback: (em: unknown) => Promise<unknown>
+  ) => {
+    const em = {
+      findOne: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockImplementation((_entity: unknown, data: unknown) => ({ ...data as object, createdAt: now, updatedAt: now })),
+      save: vi.fn().mockResolvedValue({}),
+      update: vi.fn().mockResolvedValue({}),
+    };
+    return callback(em);
+  };
+
+  const auth = new AuthorizationService();
+  const pRepo = {
+    ...createMinimalRepo(),
+    ...pageRepo,
+    manager: {
+      transaction: transactionBehavior ?? defaultTransactionBehavior
+    }
+  };
+  const rRepo = { ...createMinimalRepo(), ...revisionRepo };
+  return new DocsService(pRepo as never, rRepo as never, auth);
+};
+
+describe("DocsService.createPage (ST-3 AC1: page + revision #1 + pointer in transaction)", () => {
+  it("returns DocWriteResultShape with revisionNumber=1 and truthy currentRevisionId", async () => {
+    const service = makeWriteDocsService();
+    const result = await service.createPage("user-1", {
+      title: "My Page",
+      slug: "my-page",
+      body: "# Hello"
+    });
+    expect(result.revisionNumber).toBe(1);
+    expect(result.currentRevisionId).toBeTruthy();
+    expect(result.title).toBe("My Page");
+    expect(result.path).toBe("my-page");
+    expect(result.depth).toBe(0);
+    expect(result.parentId).toBeNull();
+  });
+
+  it("derives the full path by joining parentPath and slug for a nested page (AC1)", async () => {
+    // Simulate parent page found by resolveParent
+    const parentPage = makeSitePage({ id: "parent-1", path: "getting-started", depth: 0 });
+    const findOneSpy = vi.fn().mockResolvedValue(parentPage);
+    const service = makeWriteDocsService(undefined, { findOne: findOneSpy });
+
+    const result = await service.createPage("user-1", {
+      title: "Install",
+      slug: "install",
+      body: "Install body",
+      parentId: "parent-1"
+    });
+
+    expect(result.path).toBe("getting-started/install");
+    expect(result.depth).toBe(1);
+    expect(result.parentId).toBe("parent-1");
+  });
+
+  it("stores revision #1 and sets current_revision_id via em.update (AC1: transaction integrity)", async () => {
+    const saveSpy = vi.fn().mockResolvedValue({});
+    const updateSpy = vi.fn().mockResolvedValue({});
+    const createSpy = vi.fn().mockImplementation((_entity: unknown, data: unknown) => ({
+      ...data as object, createdAt: now, updatedAt: now
+    }));
+    const emFindOneSpy = vi.fn().mockResolvedValue(null);
+
+    const txBehavior = async (callback: (em: unknown) => Promise<unknown>) => {
+      const em = {
+        findOne: emFindOneSpy,
+        create: createSpy,
+        save: saveSpy,
+        update: updateSpy,
+      };
+      return callback(em);
+    };
+
+    const service = makeWriteDocsService(txBehavior);
+    await service.createPage("user-1", { title: "T", slug: "t", body: "b" });
+
+    // save should be called twice: once for the page row, once for the revision
+    expect(saveSpy).toHaveBeenCalledTimes(2);
+    // update should be called once: to set current_revision_id
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("DocsService.createPage (ST-3 AC3: validation and collision errors)", () => {
+  it("throws BadRequestException (400) for empty slug", async () => {
+    const service = makeWriteDocsService();
+    await expect(
+      service.createPage("user-1", { title: "T", slug: "", body: "b" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) for slug with invalid characters (uppercase)", async () => {
+    const service = makeWriteDocsService();
+    await expect(
+      service.createPage("user-1", { title: "T", slug: "My-Page", body: "b" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) for slug exceeding 255 characters", async () => {
+    const service = makeWriteDocsService();
+    const longSlug = "a".repeat(256);
+    await expect(
+      service.createPage("user-1", { title: "T", slug: longSlug, body: "b" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) for empty title", async () => {
+    const service = makeWriteDocsService();
+    await expect(
+      service.createPage("user-1", { title: "   ", slug: "my-page", body: "b" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) for title exceeding 255 characters", async () => {
+    const service = makeWriteDocsService();
+    const longTitle = "A".repeat(256);
+    await expect(
+      service.createPage("user-1", { title: longTitle, slug: "my-page", body: "b" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) when parentId is provided but parent does not exist", async () => {
+    const findOneSpy = vi.fn().mockResolvedValue(null);
+    const service = makeWriteDocsService(undefined, { findOne: findOneSpy });
+    await expect(
+      service.createPage("user-1", { title: "T", slug: "t", body: "b", parentId: "nonexistent-id" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws ConflictException (409) when path_hash already exists in the transaction", async () => {
+    // Simulate the em.findOne inside the transaction returning an existing page (collision)
+    const txBehavior = async (callback: (em: unknown) => Promise<unknown>) => {
+      const em = {
+        findOne: vi.fn().mockResolvedValue(makeSitePage()), // collision found
+        create: vi.fn(),
+        save: vi.fn(),
+        update: vi.fn(),
+      };
+      return callback(em);
+    };
+
+    const service = makeWriteDocsService(txBehavior);
+    await expect(
+      service.createPage("user-1", { title: "T", slug: "getting-started", body: "b" })
+    ).rejects.toThrow(ConflictException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-3: addRevision — AC2 (transaction) and AC3 (validation / 404)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a write-capable DocsService stub for addRevision tests.
+ * The transaction manager's em.findOne returns `pageStub` for the page lookup
+ * and the last revision lookup returns `lastRevisionStub`.
+ */
+const makeAddRevisionService = (
+  pageStub: unknown,
+  lastRevisionStub: unknown = null
+) => {
+  const txBehavior = async (callback: (em: unknown) => Promise<unknown>) => {
+    const findOneSpy = vi.fn()
+      .mockResolvedValueOnce(pageStub)   // page load
+      .mockResolvedValueOnce(lastRevisionStub) // last revision load
+      .mockResolvedValue(pageStub); // re-load for updatedAt
+    const em = {
+      findOne: findOneSpy,
+      create: vi.fn().mockImplementation((_entity: unknown, data: unknown) => ({ ...data as object })),
+      save: vi.fn().mockResolvedValue({}),
+      update: vi.fn().mockResolvedValue({})
+    };
+    return callback(em);
+  };
+  const auth = new AuthorizationService();
+  const pRepo = {
+    ...createMinimalRepo(),
+    manager: { transaction: txBehavior }
+  };
+  const rRepo = createMinimalRepo();
+  return new DocsService(pRepo as never, rRepo as never, auth);
+};
+
+describe("DocsService.addRevision (ST-3 AC2: revision bump + pointer update)", () => {
+  it("returns revisionNumber=2 when page has one existing revision (AC2)", async () => {
+    const page = makeSitePage({ id: "p1", status: "published" });
+    const lastRevision = { id: "rev-1", revisionNumber: 1, pageId: "p1" };
+    const service = makeAddRevisionService(page, lastRevision);
+
+    const result = await service.addRevision("user-1", "p1", {
+      title: "Updated Title",
+      body: "new body"
+    });
+
+    expect(result.revisionNumber).toBe(2);
+    expect(result.title).toBe("Updated Title");
+    expect(result.id).toBe("p1");
+  });
+
+  it("returns revisionNumber=1 when page has no prior revisions (defensive: last revision null)", async () => {
+    const page = makeSitePage({ id: "p2", status: "published" });
+    // null lastRevision → nextRevisionNumber = 1
+    const service = makeAddRevisionService(page, null);
+
+    const result = await service.addRevision("user-1", "p2", {
+      title: "First Edit",
+      body: "body"
+    });
+
+    expect(result.revisionNumber).toBe(1);
+  });
+
+  it("sets a new currentRevisionId (different from the page's old one) (AC2)", async () => {
+    const page = makeSitePage({ id: "p3", status: "published", currentRevisionId: "rev-old" });
+    const lastRevision = { id: "rev-old", revisionNumber: 1, pageId: "p3" };
+    const service = makeAddRevisionService(page, lastRevision);
+
+    const result = await service.addRevision("user-1", "p3", {
+      title: "New Title",
+      body: "body"
+    });
+
+    expect(result.currentRevisionId).toBeTruthy();
+    expect(result.currentRevisionId).not.toBe("rev-old");
+  });
+
+  it("throws NotFoundException (404) when page does not exist (AC2: oracle parity)", async () => {
+    const service = makeAddRevisionService(null); // page lookup returns null
+    await expect(
+      service.addRevision("user-1", "nonexistent", { title: "T", body: "b" })
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("throws NotFoundException (404) with PAGE_NOT_FOUND_MESSAGE for nonexistent page", async () => {
+    const service = makeAddRevisionService(null);
+    await expect(
+      service.addRevision("user-1", "nonexistent", { title: "T", body: "b" })
+    ).rejects.toThrow(DocsService.PAGE_NOT_FOUND_MESSAGE);
+  });
+
+  it("throws NotFoundException (404) for deleted page (status='deleted', oracle parity)", async () => {
+    const deletedPage = makeSitePage({ id: "p-del", status: "deleted" });
+    const service = makeAddRevisionService(deletedPage);
+    await expect(
+      service.addRevision("user-1", "p-del", { title: "T", body: "b" })
+    ).rejects.toThrow(DocsService.PAGE_NOT_FOUND_MESSAGE);
+  });
+
+  it("throws BadRequestException (400) for empty title (AC3: input validation)", async () => {
+    // Validation runs BEFORE the transaction — use empty transaction behavior
+    const service = makeWriteDocsService();
+    await expect(
+      service.addRevision("user-1", "some-id", { title: "   ", body: "b" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) for title exceeding 255 characters", async () => {
+    const service = makeWriteDocsService();
+    await expect(
+      service.addRevision("user-1", "some-id", { title: "A".repeat(256), body: "b" })
+    ).rejects.toThrow(BadRequestException);
   });
 });
 

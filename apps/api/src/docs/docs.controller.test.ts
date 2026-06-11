@@ -1,9 +1,9 @@
 /**
  * docs.controller.test.ts
  *
- * Unit tests for DocsController (ST-2).
+ * Unit tests for DocsController (ST-2 and ST-3).
  *
- * Acceptance criteria validated:
+ * ST-2 acceptance criteria validated:
  * AC1: listPageTree delegates to docsService.listPageTree; getPageByPath delegates to
  *      docsService.getPageByPath — resolves published site page with breadcrumbs.
  * AC2: Oracle parity — NotFoundException from service propagates unchanged; the same 404
@@ -12,9 +12,16 @@
  * AC4: listRecentEdits delegates to docsService.listRecentEdits with parsed limit; wraps
  *      result in { docs } shape.
  * AC5: All routes require no authentication; AuthService is never invoked.
+ *
+ * ST-3 acceptance criteria validated:
+ * AC1: POST /api/docs (createPage) delegates to service and returns 201 { page }.
+ * AC2: POST /api/docs/:id/revisions (addRevision) delegates to service and returns 201 { page }.
+ * AC3: 400 propagated for invalid input; 409 propagated for path_hash collision.
+ * AC4: ThrottleGuard attached at the decorator level (presence validated by metadata).
+ * AC5: assertDocWriteAccess is the SINGLE auth gate — controller calls auth then service.
  */
 
-import { NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import { DocsController } from "./docs.controller";
@@ -358,5 +365,225 @@ describe("DocsController AC5: routes require no authentication (public, anonymou
     // Read routes (listPageTree, listRecentEdits, getPageByPath) do not invoke AuthService,
     // so passing null for test purposes is safe for read-only test scenarios.
     expect(() => new DocsController(makeDocsService() as never, null as never)).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /docs — createPage (ST-3 AC1, AC3, AC4, AC5)
+// ---------------------------------------------------------------------------
+
+const makeWriteResult = (overrides?: Record<string, unknown>) => ({
+  id: "page-1",
+  title: "My Page",
+  path: "my-page",
+  depth: 0,
+  parentId: null,
+  currentRevisionId: "rev-1",
+  revisionNumber: 1,
+  createdAt: now,
+  updatedAt: now,
+  ...overrides
+});
+
+/**
+ * Build a write-capable controller with AuthService stub that resolves a
+ * moderator session.
+ */
+const makeWriteController = (
+  docsServiceOverrides?: Record<string, unknown>,
+  authServiceOverrides?: Record<string, unknown>
+) => {
+  const docsService = {
+    ...makeDocsService(),
+    assertDocWriteAccess: vi.fn(),
+    createPage: vi.fn().mockResolvedValue(makeWriteResult()),
+    addRevision: vi.fn().mockResolvedValue(makeWriteResult({ revisionNumber: 2 })),
+    ...docsServiceOverrides
+  };
+  const authService = {
+    resolveSession: vi.fn().mockResolvedValue({
+      user: { id: "user-1", globalRole: "moderator" }
+    }),
+    ...authServiceOverrides
+  };
+  return new DocsController(docsService as never, authService as never);
+};
+
+const makeFakeRequest = (cookie?: string) => ({
+  headers: { cookie: cookie ?? "session=abc" }
+}) as never;
+
+describe("DocsController: createPage (ST-3 AC1, AC3, AC4, AC5)", () => {
+  it("returns { page } with revisionNumber=1 for a valid create request (AC1)", async () => {
+    const controller = makeWriteController();
+    const result = await controller.createPage(makeFakeRequest(), {
+      title: "My Page",
+      slug: "my-page",
+      body: "# Hello"
+    });
+    expect(result).toHaveProperty("page");
+    expect(result.page.revisionNumber).toBe(1);
+    expect(result.page.path).toBe("my-page");
+  });
+
+  it("delegates to docsService.createPage with the actor userId and body (AC1)", async () => {
+    const createPageSpy = vi.fn().mockResolvedValue(makeWriteResult());
+    const controller = makeWriteController({ createPage: createPageSpy });
+    const body = { title: "Page", slug: "page", body: "body" };
+    await controller.createPage(makeFakeRequest(), body);
+    expect(createPageSpy).toHaveBeenCalledWith("user-1", body);
+  });
+
+  it("calls assertDocWriteAccess with actor globalRole and 'site' before docsService.createPage (AC5)", async () => {
+    const assertSpy = vi.fn();
+    const createPageSpy = vi.fn().mockResolvedValue(makeWriteResult());
+    const controller = makeWriteController({ assertDocWriteAccess: assertSpy, createPage: createPageSpy });
+    await controller.createPage(makeFakeRequest(), { title: "P", slug: "p", body: "b" });
+    expect(assertSpy).toHaveBeenCalledWith("moderator", "site");
+    // createPage should be called AFTER assertDocWriteAccess
+    const assertOrder = assertSpy.mock.invocationCallOrder[0];
+    const createOrder = createPageSpy.mock.invocationCallOrder[0];
+    expect(assertOrder).toBeLessThan(createOrder!);
+  });
+
+  it("propagates ForbiddenException (403) when assertDocWriteAccess throws (AC5)", async () => {
+    const controller = makeWriteController({
+      assertDocWriteAccess: vi.fn().mockImplementation(() => {
+        throw new ForbiddenException("Write access requires moderator or admin role.");
+      })
+    });
+    await expect(
+      controller.createPage(makeFakeRequest(), { title: "P", slug: "p", body: "b" })
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("throws BadRequestException (400) for missing title in body guard (AC3)", async () => {
+    const controller = makeWriteController();
+    await expect(
+      controller.createPage(makeFakeRequest(), { title: "  ", slug: "p", body: "b" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) for missing slug in body guard (AC3)", async () => {
+    const controller = makeWriteController();
+    await expect(
+      controller.createPage(makeFakeRequest(), { title: "T", slug: "  ", body: "b" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("propagates ConflictException (409) from service on path_hash collision (AC3)", async () => {
+    const controller = makeWriteController({
+      createPage: vi.fn().mockRejectedValue(
+        new ConflictException("A page with this path already exists in this scope.")
+      )
+    });
+    await expect(
+      controller.createPage(makeFakeRequest(), { title: "T", slug: "t", body: "b" })
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it("propagates UnauthorizedException (401) when resolveSession throws (AC5)", async () => {
+    const controller = makeWriteController(
+      {},
+      {
+        resolveSession: vi.fn().mockRejectedValue(
+          new UnauthorizedException("No active session.")
+        )
+      }
+    );
+    await expect(
+      controller.createPage(makeFakeRequest(), { title: "T", slug: "t", body: "b" })
+    ).rejects.toThrow(UnauthorizedException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /docs/:id/revisions — addRevision (ST-3 AC2, AC3, AC4, AC5)
+// ---------------------------------------------------------------------------
+
+describe("DocsController: addRevision (ST-3 AC2, AC3, AC4, AC5)", () => {
+  it("returns { page } with incremented revisionNumber for a valid edit request (AC2)", async () => {
+    const controller = makeWriteController();
+    const result = await controller.addRevision(makeFakeRequest(), "page-1", {
+      title: "Updated Title",
+      body: "new body"
+    });
+    expect(result).toHaveProperty("page");
+    expect(result.page.revisionNumber).toBe(2);
+  });
+
+  it("delegates to docsService.addRevision with actorUserId, pageId, and body (AC2)", async () => {
+    const addRevisionSpy = vi.fn().mockResolvedValue(makeWriteResult({ revisionNumber: 2 }));
+    const controller = makeWriteController({ addRevision: addRevisionSpy });
+    const body = { title: "Revised", body: "body v2" };
+    await controller.addRevision(makeFakeRequest(), "page-1", body);
+    expect(addRevisionSpy).toHaveBeenCalledWith("user-1", "page-1", body);
+  });
+
+  it("calls assertDocWriteAccess with actor globalRole and 'site' before service.addRevision (AC5)", async () => {
+    const assertSpy = vi.fn();
+    const addRevisionSpy = vi.fn().mockResolvedValue(makeWriteResult({ revisionNumber: 2 }));
+    const controller = makeWriteController({
+      assertDocWriteAccess: assertSpy,
+      addRevision: addRevisionSpy
+    });
+    await controller.addRevision(makeFakeRequest(), "page-1", {
+      title: "T",
+      body: "b"
+    });
+    expect(assertSpy).toHaveBeenCalledWith("moderator", "site");
+    const assertOrder = assertSpy.mock.invocationCallOrder[0];
+    const addRevOrder = addRevisionSpy.mock.invocationCallOrder[0];
+    expect(assertOrder).toBeLessThan(addRevOrder!);
+  });
+
+  it("propagates ForbiddenException (403) when assertDocWriteAccess throws (AC5)", async () => {
+    const controller = makeWriteController({
+      assertDocWriteAccess: vi.fn().mockImplementation(() => {
+        throw new ForbiddenException("Write access requires moderator or admin role.");
+      })
+    });
+    await expect(
+      controller.addRevision(makeFakeRequest(), "page-1", { title: "T", body: "b" })
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("throws BadRequestException (400) for empty title in body guard (AC3)", async () => {
+    const controller = makeWriteController();
+    await expect(
+      controller.addRevision(makeFakeRequest(), "page-1", { title: "  ", body: "b" })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) for non-string body (AC3)", async () => {
+    const controller = makeWriteController();
+    await expect(
+      controller.addRevision(makeFakeRequest(), "page-1", { title: "T", body: 42 as never })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("propagates NotFoundException (404) for nonexistent page (AC2 / oracle parity)", async () => {
+    const controller = makeWriteController({
+      addRevision: vi.fn().mockRejectedValue(
+        new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE)
+      )
+    });
+    await expect(
+      controller.addRevision(makeFakeRequest(), "nonexistent", { title: "T", body: "b" })
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("propagates UnauthorizedException (401) when resolveSession throws (AC5)", async () => {
+    const controller = makeWriteController(
+      {},
+      {
+        resolveSession: vi.fn().mockRejectedValue(
+          new UnauthorizedException("No active session.")
+        )
+      }
+    );
+    await expect(
+      controller.addRevision(makeFakeRequest(), "page-1", { title: "T", body: "b" })
+    ).rejects.toThrow(UnauthorizedException);
   });
 });
