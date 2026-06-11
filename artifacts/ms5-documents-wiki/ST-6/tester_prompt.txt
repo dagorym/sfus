@@ -1,0 +1,71 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Implement Documents soft-lock system for ST-6 of Milestone 5 (Documents Wiki): POST /api/docs/:id/lock (acquire/refresh with TTL), DELETE /api/docs/:id/lock (release by holder or staff override), lock check wired into all write paths (addRevision, renamePage, softDeletePage, rollbackPage), DOCS_LOCK_TTL_MINUTES env var (range 1-1440, default 30), and lock state surfaced on page read responses.
+
+Modified files:
+- apps/api/src/docs/docs.service.ts
+- apps/api/src/docs/docs.controller.ts
+- apps/api/src/docs/docs.types.ts
+- apps/api/src/config/environment.ts
+- apps/api/src/docs/docs.module.ts
+- apps/api/src/docs/docs-module.test.ts
+- apps/api/src/docs/docs.controller.test.ts
+- apps/api/src/docs/docs.service.test.ts
+- apps/api/src/docs/docs.service.integration.test.ts
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/database/database.config.test.ts
+- apps/api/src/health/readiness.service.test.ts
+- apps/api/src/media/media.service.test.ts
+
+Acceptance criteria to validate (from Planner):
+- AC1: POST /api/docs/:id/lock acquires/refreshes soft lock for authenticated holder; same holder refreshes expiry; returns 200 with { pageId, lock: DocsLockState }
+- AC2: POST /api/docs/:id/lock returns 409 with { message, lock: { lockedByUserId, lockExpiresAt } } when active foreign lock exists
+- AC3: DELETE /api/docs/:id/lock releases lock by holder; idempotent when already unlocked (no error); returns 204
+- AC4: DELETE /api/docs/:id/lock admin/moderator staff override releases any active lock; returns 204
+- AC5: DELETE /api/docs/:id/lock returns 403 ForbiddenException for non-holder non-staff
+- AC6: addRevision, renamePage, softDeletePage, rollbackPage each call assertNotForeignLocked; active foreign lock -> 409 ConflictException
+- AC7: Expired lock (lockExpiresAt <= now) is treated as free; write proceeds without error
+- AC8: admin/moderator bypass: isActiveForeignLock returns false when actorGlobalRole satisfies hasGlobalRole(role, moderator)
+- AC9: DOCS_LOCK_TTL_MINUTES env var: absent -> default 30, valid integer 1-1440 -> used, invalid/out-of-range -> default 30 + error collected
+- AC10: DocsPageShape.lock field (isLocked, lockedByUserId, lockedAt, lockExpiresAt) present on page read responses
+- AC11: POST /api/docs/:id/lock and DELETE /api/docs/:id/lock both call assertDocWriteAccess before acting
+
+Create test files in:
+- apps/api/src/docs/docs.service.test.ts — add unit tests for acquireLock, releaseLock, assertNotForeignLocked, isActiveForeignLock, and toPageShape lock field
+- apps/api/src/docs/docs.controller.test.ts — add unit tests for POST :id/lock and DELETE :id/lock endpoints
+- apps/api/src/docs/docs.service.integration.test.ts — add integration tests for lock acquire/release/TTL behavior (requires SFUS_DB_INTEGRATION=1 and running DB)
+- apps/api/src/config/environment.test.ts — add tests for DOCS_LOCK_TTL_MINUTES parsing (missing, valid, invalid, out-of-range)
+
+Implementation context for testing:
+- New endpoints: POST /api/docs/:id/lock (acquireLock -> 200 { pageId, lock }) and DELETE /api/docs/:id/lock (releaseLock -> 204)
+- New service methods: acquireLock(actorUserId, actorGlobalRole, pageId), releaseLock(actorUserId, actorGlobalRole, pageId), assertNotForeignLocked(page, actorUserId?, actorGlobalRole?)
+- Lock entity fields used: isLocked (tinyint), lockedByUserId, lockedAt, lockExpiresAt datetime on DocsPageEntity
+- TTL: lockExpiresAt = now + (lockTtlMinutes * 60 * 1000); sourced from DOCS_CONFIG injection token (DocsConfig.lockTtlMinutes)
+- Staff bypass: AuthorizationService.hasGlobalRole(actorGlobalRole, moderator) returns true for admin and moderator roles; bypasses all foreign lock checks
+- Oracle P12: lockExpiresAt <= now means lock is expired and treated as free; write proceeds normally
+- Signature changes (all backward-compatible with optional appended params): addRevision(actorUserId, pageId, input, actorGlobalRole?), renamePage(pageId, input, actorUserId?, actorGlobalRole?), softDeletePage(pageId, actorUserId?, actorGlobalRole?), rollbackPage(actorUserId, pageId, input, actorGlobalRole?)
+- DocsPageShape.lock: { isLocked: boolean, lockedByUserId: string|null, lockedAt: Date|null, lockExpiresAt: Date|null } computed in toPageShape()
+- DOCS_CONFIG injection token defined in docs.types.ts; provider registered in docs.module.ts using environment.docs.lockTtlMinutes
+- DOCS_LOCK_TTL_MINUTES: optional env var added to environment.ts with parseOptionalInteger helper; range 1-1440; default 30; errors collected not thrown immediately
+
+Suggested test command(s):
+- pnpm --filter @sfus/api run lint
+- pnpm --filter @sfus/api run typecheck
+- pnpm --filter @sfus/api run test
+- pnpm --filter @sfus/api run build
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
