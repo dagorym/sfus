@@ -584,11 +584,10 @@ export class DocsController {
   async acquireLock(
     @Req() request: Request,
     @Param("id") id: string
-  ): Promise<{ lock: DocsLockResultShape }> {
+  ): Promise<DocsLockResultShape> {
     const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
     this.docsService.assertDocWriteAccess(session.user.globalRole, "site");
-    const lock = await this.docsService.acquireLock(session.user.id, session.user.globalRole, id);
-    return { lock };
+    return this.docsService.acquireLock(session.user.id, session.user.globalRole, id);
   }
 
   // ===========================================================================

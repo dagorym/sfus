@@ -1212,10 +1212,10 @@ const makeAcquireLockController = (
 };
 
 describe("DocsController: POST :id/lock — acquireLock (AC1, AC2, AC11)", () => {
-  it("returns 200 with { lock } containing DocsLockResultShape on success (AC1)", async () => {
+  it("returns 200 with DocsLockResultShape { pageId, lock } on success (AC1)", async () => {
     const controller = makeAcquireLockController();
     const result = await controller.acquireLock(makeFakeRequest(), "page-1");
-    expect(result).toEqual({ lock: makeLockResult() });
+    expect(result).toEqual(makeLockResult());
   });
 
   it("calls assertDocWriteAccess before acquireLock (AC11: write-access gate first)", async () => {
@@ -1249,7 +1249,7 @@ describe("DocsController: POST :id/lock — acquireLock (AC1, AC2, AC11)", () =>
   it("propagates 409 ConflictException from service when foreign lock active (AC2)", async () => {
     const controller = makeAcquireLockController({
       acquireLock: vi.fn().mockRejectedValue(
-        new ConflictException({ message: "This page is currently locked by another user.", lock: {} })
+        new ConflictException({ message: "This page is currently locked by another user.", details: {} })
       )
     });
     await expect(controller.acquireLock(makeFakeRequest(), "page-1")).rejects.toThrow(ConflictException);

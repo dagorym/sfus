@@ -15,6 +15,7 @@ interface ErrorPayload {
     code: string;
     message: string;
     statusCode: number;
+    details?: unknown;
   };
   request: {
     correlationId: string | null;
@@ -85,12 +86,14 @@ export class JsonExceptionFilter implements ExceptionFilter {
     const responseBody = exception.getResponse();
     const message = extractMessage(responseBody, defaultMessage);
     const code = extractCode(responseBody, statusCode, defaultMessage);
+    const details = extractDetails(responseBody);
 
     return {
       error: {
         code,
         message,
-        statusCode
+        statusCode,
+        ...(details !== undefined ? { details } : {})
       },
       request: {
         correlationId,
@@ -134,6 +137,21 @@ const extractCode = (
   }
 
   return normalizeCode(HttpStatus[statusCode] || fallback);
+};
+
+/**
+ * Extracts the optional structured `details` object from an HttpException response body.
+ * Returns `undefined` when absent, ensuring backward-compatible envelopes.
+ * Present only when the exception body is an object containing a `details` key.
+ */
+const extractDetails = (responseBody: string | object): unknown => {
+  if (typeof responseBody !== "string") {
+    const candidate = (responseBody as Record<string, unknown>).details;
+    if (candidate !== undefined) {
+      return candidate;
+    }
+  }
+  return undefined;
 };
 
 const normalizeCode = (value: string): string => {

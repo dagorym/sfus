@@ -454,7 +454,7 @@ export class DocsService {
     };
     throw new ConflictException({
       message: "This page is currently locked by another user. Try again after the lock expires or contact the holder.",
-      lock: conflict
+      details: conflict
     });
   }
 
@@ -513,7 +513,7 @@ export class DocsService {
         };
         throw new ConflictException({
           message: "This page is currently locked by another user.",
-          lock: conflict
+          details: conflict
         });
       }
 
@@ -957,26 +957,29 @@ export class DocsService {
     actorUserId?: string,
     actorGlobalRole?: string | null
   ): Promise<void> {
-    const page = await this.pageRepository.findOne({ where: { id: pageId } });
-    if (!page || page.status !== "published") {
-      throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
-    }
+    await this.pageRepository.manager.transaction(async (em) => {
+      const page = await em.findOne(DocsPageEntity, { where: { id: pageId } });
+      if (!page || page.status !== "published") {
+        throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+      }
 
-    // Lock check: reject if page is actively locked by another user (AC3).
-    this.assertNotForeignLocked(page, actorUserId, actorGlobalRole);
+      // Lock check: reject if page is actively locked by another user (AC3).
+      // Performed inside the transaction for consistency with other write paths.
+      this.assertNotForeignLocked(page, actorUserId, actorGlobalRole);
 
-    // Reject if the page has any non-deleted children (AC4).
-    const nonDeletedChildCount = await this.pageRepository.count({
-      where: { parentId: pageId, status: "published" }
+      // Reject if the page has any non-deleted children (AC4).
+      const nonDeletedChildCount = await em.count(DocsPageEntity, {
+        where: { parentId: pageId, status: "published" }
+      });
+      if (nonDeletedChildCount > 0) {
+        throw new ConflictException(
+          "Cannot delete a page that has non-deleted children. Delete or move the children first."
+        );
+      }
+
+      // Soft-delete: set status='deleted'. Revisions are preserved (AC3).
+      await em.update(DocsPageEntity, { id: pageId }, { status: "deleted" as const });
     });
-    if (nonDeletedChildCount > 0) {
-      throw new ConflictException(
-        "Cannot delete a page that has non-deleted children. Delete or move the children first."
-      );
-    }
-
-    // Soft-delete: set status='deleted'. Revisions are preserved (AC3).
-    await this.pageRepository.update({ id: pageId }, { status: "deleted" as const });
   }
 
   // ---------------------------------------------------------------------------

@@ -38,7 +38,10 @@ import { DOCS_DIFF_MAX_BODY_BYTES, DOCS_DIFF_MAX_LINES } from "./docs.types";
 interface MinimalRepo {
   find: ReturnType<typeof vi.fn>;
   findOne: ReturnType<typeof vi.fn>;
+  count: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
   createQueryBuilder: ReturnType<typeof vi.fn>;
+  manager: unknown;
 }
 
 const createMinimalRepo = (): MinimalRepo => {
@@ -58,7 +61,10 @@ const createMinimalRepo = (): MinimalRepo => {
   return {
     find: vi.fn().mockResolvedValue([]),
     findOne: vi.fn().mockResolvedValue(null),
-    createQueryBuilder: vi.fn().mockReturnValue(qb)
+    count: vi.fn().mockResolvedValue(0),
+    update: vi.fn().mockResolvedValue({ affected: 1 }),
+    createQueryBuilder: vi.fn().mockReturnValue(qb),
+    manager: undefined
   };
 };
 
@@ -2426,9 +2432,9 @@ describe("DocsService.assertNotForeignLocked (AC6, AC7, AC8)", () => {
       thrown = e;
     }
     expect(thrown).toBeInstanceOf(ConflictException);
-    const response = (thrown as ConflictException).getResponse() as { lock: { lockedByUserId: string; lockExpiresAt: Date } };
-    expect(response.lock.lockedByUserId).toBe("user-holder");
-    expect(response.lock.lockExpiresAt).toEqual(future);
+    const response = (thrown as ConflictException).getResponse() as { details: { lockedByUserId: string; lockExpiresAt: Date } };
+    expect(response.details.lockedByUserId).toBe("user-holder");
+    expect(response.details.lockExpiresAt).toEqual(future);
   });
 });
 
@@ -2505,7 +2511,7 @@ describe("DocsService.acquireLock (AC1, AC2, AC8)", () => {
     await expect(service.acquireLock("user-actor", "user", "page-1")).rejects.toThrow(ConflictException);
   });
 
-  it("ConflictException response includes lock.lockedByUserId and lock.lockExpiresAt (AC2)", async () => {
+  it("ConflictException response includes details.lockedByUserId and details.lockExpiresAt (AC2)", async () => {
     const future = new Date(Date.now() + 30 * 60 * 1000);
     const page = makeSitePage({
       isLocked: 1,
@@ -2522,9 +2528,9 @@ describe("DocsService.acquireLock (AC1, AC2, AC8)", () => {
       thrown = e;
     }
     expect(thrown).toBeInstanceOf(ConflictException);
-    const response = (thrown as ConflictException).getResponse() as { lock: { lockedByUserId: string; lockExpiresAt: Date } };
-    expect(response.lock.lockedByUserId).toBe("user-holder");
-    expect(response.lock.lockExpiresAt).toEqual(future);
+    const response = (thrown as ConflictException).getResponse() as { details: { lockedByUserId: string; lockExpiresAt: Date } };
+    expect(response.details.lockedByUserId).toBe("user-holder");
+    expect(response.details.lockExpiresAt).toEqual(future);
   });
 
   it("moderator can acquire lock even when a foreign non-expired lock exists (AC8: staff bypass)", async () => {
@@ -2748,9 +2754,14 @@ describe("DocsService write paths — assertNotForeignLocked called (AC6)", () =
 
   it("softDeletePage throws 409 when page is locked by another user (AC6)", async () => {
     const page = makeForeignLockedPage();
-    const countSpy = vi.fn().mockResolvedValue(0);
     const findOneSpy = vi.fn().mockResolvedValue(page);
-    const service = makeDocsService({ findOne: findOneSpy, count: countSpy });
+    const countSpy = vi.fn().mockResolvedValue(0);
+    const updateSpy = vi.fn().mockResolvedValue({ affected: 1 });
+    const txManager = { findOne: findOneSpy, count: countSpy, update: updateSpy };
+    const manager = {
+      transaction: vi.fn().mockImplementation(async (cb: (em: typeof txManager) => unknown) => cb(txManager))
+    };
+    const service = makeDocsService({ manager });
     await expect(
       service.softDeletePage("page-1", "user-actor", "user")
     ).rejects.toThrow(ConflictException);
