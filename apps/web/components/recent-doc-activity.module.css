@@ -1,0 +1,35 @@
+.feedList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-md);
+}
+
+.feedItem {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.feedTitle {
+  font-weight: 700;
+  color: var(--color-accent-strong);
+  text-decoration: none;
+}
+
+.feedTitle:hover,
+.feedTitle:focus-visible {
+  text-decoration: underline;
+}
+
+.feedMeta {
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: 0.82rem;
+}
+
+.feedNote {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
