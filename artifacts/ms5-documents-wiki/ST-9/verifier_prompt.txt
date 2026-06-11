@@ -1,0 +1,63 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST-9 adds the web UI for revision history, side-by-side diff, and staff-gated rollback at /docs/history/<path>. Route: apps/web/app/docs/history/[...path]/page.tsx (App Router forbids a static segment after a catch-all). History list shows author/editor, summary, timestamp. Side-by-side diff renders ST-5 server diff hunks (added/removed/unchanged). Staff-only rollback wired to POST /api/docs/:id/rollback (non-destructive, creates new revision). Diff 400 size-cap surfaces a friendly 'too large to compare' message. docs-client.ts extended with getDocHistory/getDocRevision/getDocDiff/rollbackDocPage.
+
+Acceptance criteria to verify:
+- Route /docs/history/<path> at apps/web/app/docs/history/[...path]/page.tsx
+- History list: revision number, author/editor, summary, timestamp
+- Side-by-side diff: added/removed/unchanged hunks with line numbers
+- Diff 400 size-cap: friendly message in UI
+- Rollback button visible to staff (moderator/admin) only
+- Non-staff see no rollback button
+- Rollback creates new revision and reloads history
+- Not-found returns null (oracle parity)
+- History link on DocsPageView is /docs/history/<path>
+- getDocHistory/getDocRevision/getDocDiff/rollbackDocPage in docs-client.ts
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms5-st9-documenter-20260611 (branch ms5-st9-documenter-20260611).
+- Implementation adds apps/web/app/docs/history/[...path]/page.tsx (DocsHistoryPage), extends apps/web/app/docs/docs-client.ts with history/diff/rollback helpers, adds CSS to apps/web/app/docs/docs.module.css, and fixes History link in apps/web/app/docs/[...path]/page.tsx.
+- Tests in docs-client-history.spec.ts, docs-history-page.spec.ts, docs-page.spec.ts. Diff base: ms5.
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/docs/history/[...path]/page.tsx
+- apps/web/app/docs/docs-client.ts
+- apps/web/app/docs/docs.module.css
+- apps/web/app/docs/[...path]/page.tsx
+- apps/web/app/docs/docs-client-history.spec.ts
+- apps/web/app/docs/docs-history-page.spec.ts
+- apps/web/app/docs/docs-page.spec.ts
+- docs/features/documents.md
+- docs/guides/content-management.md
+
+Commands executed:
+- git diff ms5 -- apps/web/app/docs/history/[...path]/page.tsx apps/web/app/docs/docs-client.ts apps/web/app/docs/[...path]/page.tsx
+- git add docs/features/documents.md docs/guides/content-management.md
+- git commit -F /tmp/st9-doc-commit-msg.txt
+
+Final test outcomes:
+- All tester outcomes green on ms5-st9-documenter-20260611 branch as of tester pass. Documentation-only changes made; no test behavior modified.
+
+Plan or evaluation context guidance:
+- plans/ms5-documents-wiki-plan.md, ST-9. Comparison base: ms5. Prior-story artifacts under artifacts/ms5-documents-wiki/ST-8/.
+
+Convention-file guidance:
+- docs/README.md routing table.
+- docs/features/documents.md is the canonical docs subsystem contract.
+- docs/guides/content-management.md is the staff how-to guide.
+
+Updated documentation files:
+- docs/features/documents.md
+- docs/guides/content-management.md
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-9
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
