@@ -1,0 +1,59 @@
+{
+  "status": "complete",
+  "subtask": "ST-6",
+  "branch_name": "ms5-st6-verifier-20260611",
+  "verdict": "FAIL",
+  "blocking_finding_count": 2,
+  "warning_finding_count": 2,
+  "note_finding_count": 2,
+  "findings": [
+    {
+      "severity": "BLOCKING",
+      "file": "apps/api/src/docs/docs.service.ts",
+      "line": "455-459 and 514-519",
+      "summary": "409 ConflictException holder metadata stripped by global JsonExceptionFilter; client never receives lockedByUserId or lockExpiresAt",
+      "category": "correctness"
+    },
+    {
+      "severity": "BLOCKING",
+      "file": "apps/api/src/docs/docs.controller.ts",
+      "line": "587-591",
+      "summary": "acquireLock 200 response is double-nested { lock: { pageId, lock: DocsLockState } } rather than AC1-specified { pageId, lock: DocsLockState }",
+      "category": "correctness"
+    },
+    {
+      "severity": "WARNING",
+      "file": "apps/api/src/docs/docs.service.ts",
+      "line": "960-979",
+      "summary": "softDeletePage performs lock check outside a transaction, creating a TOCTOU window unlike the other three write paths",
+      "category": "correctness"
+    },
+    {
+      "severity": "WARNING",
+      "file": "docs/features/documents.md",
+      "line": "490-498",
+      "summary": "Documentation claims 409 error body includes DocsLockConflictInfo under a lock key, which the JsonExceptionFilter strips",
+      "category": "documentation"
+    },
+    {
+      "severity": "NOTE",
+      "file": "apps/api/src/docs/docs.module.ts",
+      "line": "23-30",
+      "summary": "docs.module.ts edited outside stated allowed-file scope to register DOCS_CONFIG DI provider — necessary and minimal",
+      "category": "convention"
+    },
+    {
+      "severity": "NOTE",
+      "file": "apps/api/src/auth/auth.controller.test.ts (and four other fixture test files)",
+      "line": "createValidEnvironment() stub",
+      "summary": "Five out-of-scope test-fixture files edited to add docs.lockTtlMinutes: 30 — necessary due to ApplicationEnvironment type change",
+      "category": "convention"
+    }
+  ],
+  "test_sufficiency_summary": "Thorough unit test coverage for AC1-AC11. Gap: no HTTP-layer test exercises the JsonExceptionFilter; holder-metadata BLOCKING defect passes unit tests undetected.",
+  "documentation_accuracy_summary": "Mostly accurate. INACCURATE: 409 body described as including DocsLockConflictInfo under lock key, but the global error filter strips this field.",
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-6/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-6/verifier_result.json"
+  ]
+}
