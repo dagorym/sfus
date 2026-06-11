@@ -1,0 +1,26 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-4/security_report.md",
+    "artifacts/ms5-documents-wiki/ST-4/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st4-security-20260611",
+  "documentation_sufficiency_summary": [
+    "docs/features/documents.md accurately documents PATCH /api/docs/:id (slug-change subtree rewrite vs title-only no-op, deferred cross-parent move) and DELETE /api/docs/:id (status='deleted', revisions preserved, 409 children guard) including full 400/401/403/404/409/429 error tables and the doc-page-edit throttle label.",
+    "A new 'Parent resolution' section documents that both resolveParent branches filter status='published' and reject soft-deleted parents with 400 'Parent page does not exist.' \u2014 matching the implementation.",
+    "Documentation is sufficient for safe operation; no security-relevant gaps identified."
+  ],
+  "note_finding_count": 3,
+  "outcome": "PASS",
+  "pass_label": "PASS",
+  "status": "completed",
+  "task_id": "ST-4",
+  "test_sufficiency_summary": [
+    "Authorization (AC5): STRONG. Controller unit tests assert resolveSession (401) runs before assertDocWriteAccess (403) via mock invocationCallOrder, that the seam is called with ('moderator','site'), and that 401/403/404/409 propagate for both PATCH and DELETE. AuthorizationService.hasGlobalRole rejects null/empty (anonymous) and 'user' (rank 0 < moderator); a non-staff caller cannot rename or delete.",
+    "Path-rewrite integrity (AC1/P10): ADEQUATE. Unit tests confirm em.update is called once per node (parent+child+grandchild) on slug change, the title-only path issues a single update touching only the title (no slug/path/pathHash) and never scans descendants, and the new-path collision check returns 409. An integration test proves the real service rewrites parent+child paths against a real MySQL schema. GAP (NOTE): the integration 'rollback' test is a DB-capability proxy, and there is no explicit sibling no-over-match regression test.",
+    "Oracle parity / leak surface (P12): STRONG. Tests assert rename and soft-delete of nonexistent and already-deleted pages both return the identical PAGE_NOT_FOUND_MESSAGE 404, and the 409 children message is generic (no child details). All ST-2 read paths filter status='published', so soft-deleted pages and descendants disappear from reads.",
+    "Soft-delete safety (AC3/AC4): STRONG. Unit tests confirm status='deleted' update, that update is NOT called when children block the delete (no partial state), the children-count guard counts only status='published' children, and the 409 message mentions children. An integration test confirms status flips to 'deleted' and revisions are preserved for a leaf, and that a parent with a published child is rejected 409.",
+    "resolveParent fix: ADEQUATE. Unit tests confirm a soft-deleted parent referenced by parentId now yields BadRequestException (parity with the parentPath branch), and a published parent still resolves. Both branches filter status='published' in the product code."
+  ],
+  "warning_finding_count": 0
+}
