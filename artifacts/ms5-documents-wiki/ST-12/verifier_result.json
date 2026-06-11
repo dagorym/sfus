@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-12/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-12/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st12-verifier-20260611",
+  "documentation_accuracy_summary": [
+    "docs/features/web-shell.md landing-page section accurately describes the MS5 hero, what's-new two-column layout (RecentDocActivity + RecentForumActivity), explore section ordering, and content-scope card. One inaccuracy was introduced: 'five cards' at line 88 should be 'six cards' (Dynamic navigation and media uploads was retained in the highlights array but omitted from the doc count). This is a WARNING finding. The pre-existing Milestone 3/4 shared-shell discrepancy at line 13 predates ST-12 and is recorded as a NOTE."
+  ],
+  "note_finding_count": 2,
+  "pass_label": null,
+  "status": "complete",
+  "task_id": null,
+  "test_sufficiency_summary": [
+    "Coverage is sufficient. 17 new source-contract tests in recent-doc-activity.spec.ts cover all acceptance-criteria-relevant behaviors: 'use client' directive, imports, loading/empty/error states, state-check ordering, hooks presence, getRecentDocEdits(5) call, link href format, key=edit.pageId, editor display-name/username fallback with null guard, editedAt date formatting, absence of dangerouslySetInnerHTML, and the Browse-the-wiki link. public-shell.spec.ts was updated with correct MS5 assertions and now also asserts /docs href ordering before /forums. docs-client.ts getRecentDocEdits public endpoint contract (no credentials) is also verified. All 927 existing specs continued to pass."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 1
+}
