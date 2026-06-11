@@ -1,0 +1,78 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST-6 adds a soft-lock subsystem to the Documents wiki API: POST /api/docs/:id/lock (acquire/refresh with TTL), DELETE /api/docs/:id/lock (release by holder or admin/moderator override), lock checks wired into all write paths (addRevision/renamePage/softDeletePage/rollbackPage returning 409 on active foreign lock), expired lock treated as free, staff bypass (admin/moderator), DOCS_LOCK_TTL_MINUTES env var (default 30, range 1-1440, fail-fast on invalid), and a lock field (DocsLockState) on DocsPageShape page read responses.
+
+Acceptance criteria to verify:
+- AC1: POST /api/docs/:id/lock acquires or refreshes the soft lock; same holder refreshes expiry; returns 200 with { pageId, lock: DocsLockState }
+- AC2: POST /api/docs/:id/lock returns 409 with holder metadata (lockedByUserId, lockExpiresAt) when a non-expired foreign lock blocks acquisition
+- AC3: DELETE /api/docs/:id/lock releases lock by holder; idempotent when already unlocked (no error); returns 204
+- AC4: DELETE /api/docs/:id/lock admin/moderator staff override releases any active lock; returns 204
+- AC5: DELETE /api/docs/:id/lock returns 403 ForbiddenException for non-holder non-staff actor
+- AC6: addRevision, renamePage, softDeletePage, rollbackPage each call assertNotForeignLocked; active foreign lock -> 409 ConflictException with holder metadata
+- AC7: Expired lock (lockExpiresAt <= now) is treated as free; write proceeds without error
+- AC8: admin/moderator bypass: isActiveForeignLock returns false when actorGlobalRole satisfies moderator or admin
+- AC9: DOCS_LOCK_TTL_MINUTES env var: absent -> default 30, valid integer 1-1440 -> used, invalid/out-of-range -> default 30 + error collected at startup
+- AC10: DocsPageShape.lock field (isLocked, lockedByUserId, lockedAt, lockExpiresAt) always present on page read responses
+- AC11: POST and DELETE /api/docs/:id/lock both call assertDocWriteAccess (moderator/admin gate) before acting
+
+Implementation branch or worktree context:
+- Branch: ms5-st6-documenter-20260611 (branched from ms5-st6-tester-20260611, compare against ms5)
+- New endpoints: POST /api/docs/:id/lock (200 { pageId, lock }) and DELETE /api/docs/:id/lock (204)
+- New service methods: acquireLock(actorUserId, actorGlobalRole, pageId), releaseLock(actorUserId, actorGlobalRole, pageId), assertNotForeignLocked(page, actorUserId?, actorGlobalRole?), isActiveForeignLock(page, actorUserId?, actorGlobalRole?) [private]
+- Lock entity fields: isLocked (tinyint), lockedByUserId, lockedAt, lockExpiresAt on DocsPageEntity (added in ST-1 migration)
+- TTL: lockExpiresAt = now + (lockTtlMinutes * 60 * 1000) from DocsConfig.lockTtlMinutes (DOCS_CONFIG injection token in docs.module.ts)
+- Staff bypass: AuthorizationService.hasGlobalRole(actorGlobalRole, 'moderator') returns true for admin and moderator roles; bypasses all foreign lock checks
+- Expired lock: lockExpiresAt <= now -> treated as free; write proceeds normally; no background cleanup job
+- Write-path signatures updated with optional appended role params: addRevision(..., actorGlobalRole?), renamePage(..., actorUserId?, actorGlobalRole?), softDeletePage(..., actorUserId?, actorGlobalRole?), rollbackPage(..., actorGlobalRole?)
+- DocsPageShape.lock computed in toPageShape(); DocsLockState: { isLocked: boolean, lockedByUserId: string|null, lockedAt: Date|null, lockExpiresAt: Date|null }
+- DOCS_LOCK_TTL_MINUTES: optional env var in environment.ts using parseOptionalInteger, range 1-1440, default 30, invalid/out-of-range falls back to 30 with collected error
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/config/environment.ts
+- apps/api/src/config/environment.test.ts
+- apps/api/src/docs/docs.controller.ts
+- apps/api/src/docs/docs.controller.test.ts
+- apps/api/src/docs/docs.module.ts
+- apps/api/src/docs/docs-module.test.ts
+- apps/api/src/docs/docs.service.ts
+- apps/api/src/docs/docs.service.test.ts
+- apps/api/src/docs/docs.service.integration.test.ts
+- apps/api/src/docs/docs.types.ts
+- apps/api/src/auth/auth.controller.test.ts
+- apps/api/src/auth/auth.service.test.ts
+- apps/api/src/database/database.config.test.ts
+- apps/api/src/health/readiness.service.test.ts
+- apps/api/src/media/media.service.test.ts
+- docs/features/documents.md
+- docs/operations/launch.md
+
+Commands executed:
+- None
+
+Final test outcomes:
+- 252 passed, 15 skipped, 0 failed (from tester: vitest run apps/api/src/docs/ apps/api/src/config/)
+
+Plan or evaluation context guidance:
+- Plan: plans/ms5-documents-wiki-plan.md (ST-6 section)
+- Documentation impact per plan: extend docs/features/documents.md with locking section; add DOCS_LOCK_TTL_MINUTES to docs/operations/launch.md; document current state only, verify against code (P1)
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table; owning doc for features/documents.md is docs/features/documents.md; owning doc for env vars is docs/operations/launch.md
+- docs/development/api-conventions.md for error envelope conventions
+- docs/features/authorization.md for authorization gate details
+
+Updated documentation files:
+- docs/features/documents.md
+- docs/operations/launch.md
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-6
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
