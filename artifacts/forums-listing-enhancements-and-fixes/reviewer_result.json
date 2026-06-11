@@ -1,0 +1,19 @@
+{
+  "artifact_file_paths": [
+    "artifacts/forums-listing-enhancements-and-fixes/reviewer_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/reviewer_result.json"
+  ],
+  "blocking_finding_count": 2,
+  "branch_name": "forums-listing",
+  "final_outcome": "CONDITIONAL PASS",
+  "follow_up_feature_requests": [
+    "Test-fix (BLOCKING, pre-closeout): update apps/api/src/database/database.config.test.ts to add \"ForumDescriptionLength1780893000000\" to the expected reviewedMigrationNames array so the full @sfus/api suite is green after ST4's migration registration.",
+    "Test-fix (BLOCKING, pre-closeout): rework the two source-ordering assertions in apps/web/app/admin/forums/forums-admin.spec.ts (AC7 name-input maxLength tests, ~lines 376 and 390) so they verify maxLength={128} is present on the name inputs without assuming it precedes the placeholder in source order; the implementation is already correct.",
+    "Cleanup (optional, future): when computing board lastPost in ForumsService.listPublicCategories/getBoard, derive the reply timestamp from the latest NON-DELETED reply (consistent with the author resolution) rather than topic.lastPostAt, so a soft-deleted latest reply cannot leave a stale last-activity date.",
+    "Cleanup (optional, future): either populate TopicLastActivity.at with the resolved reply timestamp or remove the field and tighten its JSDoc, since it is currently always null and unused by callers."
+  ],
+  "note_finding_count": 2,
+  "status": "complete",
+  "task_id": "forums-listing-enhancements-and-fixes",
+  "warning_finding_count": 0
+}
