@@ -1,0 +1,58 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Landing page refresh to Milestone 5: rewrote apps/web/app/page.tsx hero, highlights, what's-new, explore, and content-scope sections to MS5 (Documents wiki); added RecentDocActivity component (apps/web/components/recent-doc-activity.tsx) consuming GET /api/docs/recent; placed RecentDocActivity and RecentForumActivity together in the what's-new section; updated CTAs, highlights grid, explore links, and current-content-scope card to reflect Documents wiki.
+
+Acceptance criteria to verify:
+- docs/features/web-shell.md landing page section updated to reflect MS5 layout: hero, highlights, what's-new, explore, and content-scope all describe Milestone 5 / Documents wiki accurately
+- RecentDocActivity component documented in the what's-new section alongside RecentForumActivity
+- No incorrect claims about layout.tsx shell title (which still reads Milestone 4)
+- All three required artifacts written and committed: documenter_report.md, documenter_result.json, verifier_prompt.txt
+
+Implementation branch or worktree context:
+- Documenter branch: ms5-st12-documenter-20260611
+- Tester branch: ms5-st12-tester-20260611 (test commit: 3bb5474)
+- Implementer branch: ms5-st12-implementer-20260611 (code commit: 7647ba5)
+- Base branch for comparison: ms5
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/page.tsx (implementer: landing page rewrite to MS5)
+- apps/web/components/recent-doc-activity.tsx (implementer: new RecentDocActivity component)
+- apps/web/components/recent-doc-activity.module.css (implementer: styles for RecentDocActivity)
+- apps/web/app/public-shell.spec.ts (tester: updated tests for MS5 landing)
+- apps/web/components/recent-doc-activity.spec.ts (tester: new tests for RecentDocActivity)
+- docs/features/web-shell.md (documenter: landing page section updated to MS5)
+
+Commands executed:
+- git diff ms5 -- apps/web/app/page.tsx (reviewed full diff)
+- git diff ms5 -- apps/web/components/recent-doc-activity.tsx (reviewed new component)
+- Edit docs/features/web-shell.md landing page section (MS5 update)
+
+Final test outcomes:
+- 927 tests passed, 0 failed across 23 test files (tester branch ms5-st12-tester-20260611)
+- Lint: 0 errors, 0 warnings
+- next build: succeeded (all routes compiled, 0 type errors)
+
+Plan or evaluation context guidance:
+- Plan: plans/ms5-documents-wiki-plan.md, ST-12 section
+- Documentation impact: update docs/features/web-shell.md landing page section to reflect MS5 content
+- NOTE from plan: do not edit layout.tsx; if web-shell.md docs the shell title as Milestone 4, do not change it to Milestone 5 — layout.tsx was not in ST-12's allowed files
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table; docs/features/web-shell.md owns the landing page documentation
+- diff-first-editing: minimal, localized edits only — preserve unaffected sections
+- Document current state only; verify every claim against code
+
+Updated documentation files:
+- docs/features/web-shell.md
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-12
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
