@@ -533,6 +533,208 @@ describe("Forums index page (app/forums/page.tsx) ST5 per-board column rendering
 });
 
 // ---------------------------------------------------------------------------
+// ST6: Board page — 4-column topic list
+// ---------------------------------------------------------------------------
+
+describe("Board view page (app/forums/[boardSlug]/page.tsx) ST6 four-column topic table", () => {
+  it("board page renders a semantic <table> for the topic list", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: the topic list must be a semantic table, not a <ul>
+    expect(source).toContain("<table");
+    expect(source).toContain("<thead");
+    expect(source).toContain("<tbody");
+  });
+
+  it("table has exactly the four required column headers: Topic, Replies, Created, Last reply", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: four specific columns
+    expect(source).toContain(">Topic<");
+    expect(source).toContain(">Replies<");
+    expect(source).toContain(">Created<");
+    expect(source).toContain(">Last reply<");
+  });
+
+  it("Topic column renders title link with encodeURIComponent(topic.slug)", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: topic title is linked to /forums/<boardSlug>/<topicSlug>
+    expect(source).toContain("encodeURIComponent(topic.slug)");
+    expect(source).toContain("topic.title");
+  });
+
+  it("Topic column renders Pinned badge when topic.isPinned", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: pinned badge preserved in topic column
+    expect(source).toContain("topic.isPinned");
+    expect(source).toContain("Pinned");
+  });
+
+  it("Topic column renders Locked badge when topic.isLocked", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: locked badge preserved in topic column
+    expect(source).toContain("topic.isLocked");
+    expect(source).toContain("Locked");
+  });
+
+  it("Replies column renders topic.replyCount directly", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: reply count comes straight from the API field
+    expect(source).toContain("topic.replyCount");
+  });
+
+  it("Created column renders author.displayName ?? author.username", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: displayName takes precedence over username in Created column
+    expect(source).toContain("topic.author.displayName ?? topic.author.username");
+  });
+
+  it("Created column author link targets /users/<encodeURIComponent(username)>", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: profile link must encode the username to handle special characters
+    expect(source).toContain("/users/${encodeURIComponent(topic.author.username)}");
+  });
+
+  it("Created column renders an absolute date via toLocaleDateString on topic.createdAt", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: absolute date shown, not relative time
+    expect(source).toContain("topic.createdAt");
+    expect(source).toContain("toLocaleDateString");
+  });
+
+  it("Last reply column shows dash when replyCount === 0", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: zero-reply topics show dash in Last reply column
+    expect(source).toContain("topic.replyCount === 0");
+  });
+
+  it("Last reply column shows dash when lastPostAuthor is null", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: null lastPostAuthor also triggers the no-reply fallback
+    expect(source).toContain("topic.lastPostAuthor === null");
+  });
+
+  it("Last reply column: zero-replies AND null-lastPostAuthor both guarded in a combined condition", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: a single conditional guards both null cases before rendering the author link
+    // The guard should use || (either condition) — verify both appear together
+    const tableSection = source.slice(source.indexOf("<table"));
+    const zeroIdx = tableSection.indexOf("topic.replyCount === 0");
+    const nullIdx = tableSection.indexOf("topic.lastPostAuthor === null");
+    expect(zeroIdx).toBeGreaterThan(-1);
+    expect(nullIdx).toBeGreaterThan(-1);
+    // They should be within 200 chars of each other (same conditional expression)
+    expect(Math.abs(zeroIdx - nullIdx)).toBeLessThan(200);
+  });
+
+  it("Last reply column renders lastPostAuthor.displayName ?? username when replies exist", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: display-name precedence for Last reply author
+    expect(source).toContain("topic.lastPostAuthor.displayName ?? topic.lastPostAuthor.username");
+  });
+
+  it("Last reply column author link uses encodeURIComponent on lastPostAuthor.username", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: special-character usernames (e.g. "user@domain") must be URI-safe in profile links
+    expect(source).toContain("/users/${encodeURIComponent(topic.lastPostAuthor.username)}");
+  });
+
+  it("Last reply column renders lastPostAt date via toLocaleDateString when replies exist", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: absolute date for last post
+    expect(source).toContain("topic.lastPostAt");
+  });
+
+  it("does not use dangerouslySetInnerHTML anywhere in the board page", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: all rendered values are safe/trusted (counts, dates, public author fields) — no raw HTML
+    expect(source).not.toContain("dangerouslySetInnerHTML");
+  });
+
+  it("empty topic state renders 'No topics yet' message (not a table)", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: empty board shows a prose fallback, not an empty table
+    expect(source).toContain("No topics yet");
+  });
+
+  it("pagination controls (Previous page / Next page) are preserved", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: pagination must remain functional after the table refactor
+    expect(source).toContain("Previous page");
+    expect(source).toContain("Next page");
+    expect(source).toContain("PAGE_SIZE");
+    expect(source).toContain("totalPages");
+  });
+
+  it("sign-in prompt for guests is preserved below the topic table", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: guest CTA must still appear after the table
+    expect(source).toContain("Sign in to create a topic");
+    expect(source).toContain("/login?next=");
+  });
+
+  it("new-topic CTA for authenticated members is preserved", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: member CTA link must still appear after the table refactor
+    expect(source).toContain("New Topic");
+    expect(source).toContain("new-topic");
+  });
+
+  it("breadcrumb navigation is preserved", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: breadcrumb retained after the refactor
+    expect(source).toContain('href="/forums"');
+    expect(source).toContain("breadcrumb");
+  });
+
+  it("moderator note is preserved (renders when isModerator is true)", async () => {
+    const source = await readAppFile("app/forums/[boardSlug]/page.tsx");
+    // ST6 AC: moderator access note still present
+    expect(source).toContain("isModerator");
+    expect(source).toContain("moderator access");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST6: forums-client.ts — PublicTopicShape lastPostAuthor field
+// ---------------------------------------------------------------------------
+
+describe("forums-client.ts — ST6 PublicTopicShape lastPostAuthor field", () => {
+  it("PublicTopicShape declares lastPostAuthor as { username; displayName } | null", async () => {
+    const source = await readAppFile("app/forums/forums-client.ts");
+    // ST6 AC: the new field added to the topic shape
+    expect(source).toContain("lastPostAuthor");
+    // Must be nullable — no-reply topics have no last-post author
+    const topicShapeBlock = source.slice(
+      source.indexOf("export interface PublicTopicShape"),
+      source.indexOf("export interface PaginatedTopicsShape")
+    );
+    expect(topicShapeBlock).toContain("lastPostAuthor");
+    expect(topicShapeBlock).toContain("null");
+  });
+
+  it("PublicTopicShape lastPostAuthor carries username and displayName fields", async () => {
+    const source = await readAppFile("app/forums/forums-client.ts");
+    // ST6 AC: enough identity fields to render author name and profile link
+    const topicShapeBlock = source.slice(
+      source.indexOf("export interface PublicTopicShape"),
+      source.indexOf("export interface PaginatedTopicsShape")
+    );
+    expect(topicShapeBlock).toContain("username");
+    expect(topicShapeBlock).toContain("displayName");
+  });
+
+  it("PublicTopicShape retains replyCount and lastPostAt fields (no regression)", async () => {
+    const source = await readAppFile("app/forums/forums-client.ts");
+    // ST6 AC: existing fields must not have been removed
+    const topicShapeBlock = source.slice(
+      source.indexOf("export interface PublicTopicShape"),
+      source.indexOf("export interface PaginatedTopicsShape")
+    );
+    expect(topicShapeBlock).toContain("replyCount: number");
+    expect(topicShapeBlock).toContain("lastPostAt: string | null");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC5: @-mention rendering links @username to /users/<username>
 // ---------------------------------------------------------------------------
 
