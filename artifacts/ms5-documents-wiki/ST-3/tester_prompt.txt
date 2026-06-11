@@ -1,0 +1,55 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Implement Documents Wiki write API (ST-3): POST /api/docs (createPage), POST /api/docs/:id/revisions (addRevision), assertDocWriteAccess authorization seam, slug/title validation, path_hash collision detection, ThrottleGuard on write routes, ThrottleModule + AuthModule wired into DocsModule, and integration test stub.
+
+Modified files:
+- apps/api/src/docs/docs.service.ts
+- apps/api/src/docs/docs.controller.ts
+- apps/api/src/docs/docs.types.ts
+- apps/api/src/docs/docs.module.ts
+- apps/api/src/docs/docs.service.integration.test.ts
+- apps/api/src/docs/docs.controller.test.ts
+- apps/api/src/docs/docs-module.test.ts
+
+Acceptance criteria to validate (from Planner):
+- AC1: POST /api/docs creates page + revision #1 + sets current_revision_id in a single transaction
+- AC2: POST /api/docs/:id/revisions bumps revision_number, updates current_revision_id, title, updated_at in a transaction
+- AC3: ConflictException (409) on path_hash collision; BadRequestException (400) on invalid slug/title or missing parent
+- AC4: ThrottleGuard attached to both write routes; ThrottleModule and AuthModule wired into DocsModule.register(environment)
+- AC5: assertDocWriteAccess is the SINGLE authorization gate; site scope requires moderator/admin via AuthorizationService.hasGlobalRole; future project-scope rules add a branch inside the method with no call-site changes
+
+Create test files in:
+- Unit tests: apps/api/src/docs/docs.service.test.ts (add createPage/addRevision/assertDocWriteAccess unit tests)
+- Controller tests: apps/api/src/docs/docs.controller.test.ts (add POST handler tests; updated to 2-arg constructor in this commit)
+- Integration tests: apps/api/src/docs/docs.service.integration.test.ts (opt-in: SFUS_DB_INTEGRATION=1; AC5 gate tests already written; tester must fill in it.todo P10 atomicity injection test)
+
+Implementation context for testing:
+- assertDocWriteAccess accepts string scopeType OR DocsPageEntity — callers pass 'site' for creates (before page row exists) or the entity for edits; adding project-scope rules requires only a new branch inside this method, no call-site changes
+- path_hash collision check is INSIDE the transaction to prevent TOCTOU race conditions; ConflictException rolls back the entire transaction
+- addRevision uses oracle-parity 404 (DocsService.PAGE_NOT_FOUND_MESSAGE) for missing/non-published pages — same constant as ST-2 read paths, no 403 vs 404 distinction
+- Integration test stub at apps/api/src/docs/docs.service.integration.test.ts: AC5 gate tests already written (all 4); AC1, AC2, AC3 DB tests written; P10 atomicity injection left as it.todo for tester
+- docs.controller.test.ts updated: DocsController constructor now takes 2 args (DocsService, AuthService); tests pass null as never for AuthService since read routes do not use auth
+- docs-module.test.ts updated: fakeEnvironment now includes throttle property (windowMs, maxHits, etc.) matching ForumsModule test pattern; required by ThrottleModule.register(environment)
+- No new PUBLIC (unauthenticated) id-based read/lookup introduced — write routes are staff-gated (coordinator carry-forward security constraint satisfied)
+- Integration test run command: SFUS_DB_INTEGRATION=1 DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=sfus DB_USER=sfus DB_PASSWORD=changeme-app npx --yes pnpm@10.0.0 --filter @sfus/api run test:integration
+
+Suggested test command(s):
+- pnpm --dir /home/tstephen/repos/worktrees/ms5-st3-implementer-20260610 lint
+- pnpm --dir /home/tstephen/repos/worktrees/ms5-st3-implementer-20260610 typecheck
+- pnpm --dir /home/tstephen/repos/worktrees/ms5-st3-implementer-20260610 test
+- pnpm --filter @sfus/api exec tsc --noEmit
+
+Existing validations expected to fail only because approved behavior changed:
+- None — all pre-existing tests pass. docs.controller.test.ts and docs-module.test.ts were updated in this commit to match the new constructor signature and fakeEnvironment shape.
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
