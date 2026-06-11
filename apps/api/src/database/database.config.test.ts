@@ -87,7 +87,8 @@ describe("database config", () => {
       "MilestoneThreeContentFoundation1748736000000",
       "MilestoneFourForumsFoundation1780890123767",
       "UserBioAndAvatar1780892561355",
-      "ForumDescriptionLength1780893000000"
+      "ForumDescriptionLength1780893000000",
+      "MilestoneFiveDocumentsFoundation1781308800000"
     ]);
   });
 

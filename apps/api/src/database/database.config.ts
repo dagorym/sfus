@@ -20,12 +20,15 @@ import { ForumCategoryEntity } from "../forums/entities/forum-category.entity";
 import { ForumBoardEntity } from "../forums/entities/forum-board.entity";
 import { ForumTopicEntity } from "../forums/entities/forum-topic.entity";
 import { ForumPostEntity } from "../forums/entities/forum-post.entity";
+import { DocsPageEntity } from "../docs/entities/docs-page.entity";
+import { DocsRevisionEntity } from "../docs/entities/docs-revision.entity";
 import { FoundationBaseline1711843200000 } from "./migrations/1711843200000-foundation-baseline";
 import { IdentityAuthorizationFoundation1714435200000 } from "./migrations/1714435200000-identity-authorization-foundation";
 import { MilestoneThreeContentFoundation1748736000000 } from "./migrations/1748736000000-milestone-three-content-foundation";
 import { MilestoneFourForumsFoundation1780890123767 } from "./migrations/1780890123767-milestone-four-forums-foundation";
 import { UserBioAndAvatar1780892561355 } from "./migrations/1780892561355-user-bio-and-avatar";
 import { ForumDescriptionLength1780893000000 } from "./migrations/1780893000000-forum-description-length";
+import { MilestoneFiveDocumentsFoundation1781308800000 } from "./migrations/1781308800000-milestone-five-documents-foundation";
 import { UserEntity } from "../users/entities/user.entity";
 
 const reviewedMigrationClasses = [
@@ -34,7 +37,8 @@ const reviewedMigrationClasses = [
   MilestoneThreeContentFoundation1748736000000,
   MilestoneFourForumsFoundation1780890123767,
   UserBioAndAvatar1780892561355,
-  ForumDescriptionLength1780893000000
+  ForumDescriptionLength1780893000000,
+  MilestoneFiveDocumentsFoundation1781308800000
 ];
 
 const reviewedEntityClasses = [
@@ -56,7 +60,9 @@ const reviewedEntityClasses = [
   ForumCategoryEntity,
   ForumBoardEntity,
   ForumTopicEntity,
-  ForumPostEntity
+  ForumPostEntity,
+  DocsPageEntity,
+  DocsRevisionEntity
 ];
 
 export const reviewedMigrationNames = reviewedMigrationClasses.map((MigrationClass) => {
