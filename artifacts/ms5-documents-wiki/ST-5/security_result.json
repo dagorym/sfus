@@ -1,0 +1,27 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-5/security_report.md",
+    "artifacts/ms5-documents-wiki/ST-5/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st5-security-20260611",
+  "documentation_sufficiency_summary": [
+    "Prior diff-limit documentation NOTE is RESOLVED. docs/features/documents.md now documents the DoS size guard explicitly: the two constants and their values (DOCS_DIFF_MAX_BODY_BYTES = 512,000 bytes / 512 KB via Buffer.byteLength; DOCS_DIFF_MAX_LINES = 5,000 lines after body.split('\\n')), the 400 BadRequestException with a message naming the violated limit, the O(m x n) cost rationale, and the fact that the guard protects an unauthenticated public endpoint (lines 375-383).",
+    "The diff endpoint response table adds the over-cap 400 case (line 413), and a constants/limits table documents both caps and their exceeded -> 400 behavior (lines 461-463).",
+    "Documentation is sufficient for safe operation; operators and future implementers now have a documented expectation of safe revision-body sizes for diffing."
+  ],
+  "note_finding_count": 2,
+  "outcome": "PASS",
+  "pass_label": "specialist-re-review-after-verifier-remediation",
+  "status": "complete",
+  "task_id": "ms5-documents-wiki/ST-5",
+  "test_sufficiency_summary": [
+    "WARNING CLOSED \u2014 strong. The DoS guard is proven directly: docs.service.test.ts:1893-1996 builds a REAL DocsService (only repositories mocked) and exercises the real getDiff: byte cap fired for an over-cap fromRev body (1898) AND toRev body (1906); line cap fired for over-cap fromRev (1934) AND toRev (1943); each exception message asserted to contain the violated limit (1913, 1950); at-cap bodies (exactly DOCS_DIFF_MAX_BODY_BYTES) on both sides resolve through to a real computeLineDiff result (1970, 1978); constants pinned to 512000 / 5000 (1989, 1993) proving named constants, not env vars.",
+    "Guard ordering verified in product code (docs.service.ts:879-898): Buffer.byteLength byte cap on both bodies fires BEFORE body.split, then the line cap fires BEFORE computeLineDiff allocates the dp[m+1][n+1] table \u2014 so no unbounded allocation can occur on the unauthenticated path. The split itself is bounded because it runs only after the <=512KB byte cap passes.",
+    "Controller propagation proven: docs.controller.test.ts:1014-1042 confirms both the over-cap byte and over-cap line BadRequestException(400) surface unchanged to the HTTP caller. The diff handler accepts only from/to revision numbers (no caller-supplied body or size param), so the cap cannot be bypassed by request shaping.",
+    "Oracle parity (P12) unchanged and intact: getDiff, getRevisionByNumber, and getPageHistory all use the identical guard (!page || page.status !== 'published' || !isPagePubliclyReadable(page)) returning NotFoundException(PAGE_NOT_FOUND_MESSAGE). The new 400 cap is inserted AFTER the readability and revision-existence checks, so it is reachable only for already-public pages with both revisions present and therefore introduces no new gated-content leak or 403-vs-404 oracle.",
+    "Rollback authorization unchanged: controller resolves session (401) BEFORE assertDocWriteAccess (403) BEFORE rollbackPage; non-destructive transactional rollback (rollbackPage inserts a new highest-numbered revision equal to the target and repoints current_revision_id inside a single transaction, deleting nothing) is unchanged from the prior PASS.",
+    "GAP (non-blocking): no dedicated mid-rollback transaction-failure integration proof (see NOTE); rollback atomicity remains inferred from the shared transaction wrapper and the createPage/renamePage mid-failure proofs."
+  ],
+  "warning_finding_count": 0
+}
