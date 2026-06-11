@@ -1,0 +1,67 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST-9: Documents revision history, side-by-side diff, and rollback UI (web). Route /docs/history/[...path] with history view (revisions with author/editor/summary/timestamp), side-by-side diff renderer (server diff hunks: added/removed/unchanged), and staff-gated rollback wired to POST /api/docs/:id/rollback. Extended docs-client.ts with getDocHistory, getDocRevision, getDocDiff, rollbackDocPage. History affordance link in /docs/[...path]/page.tsx fixed to /docs/history/<path>.
+
+Acceptance criteria validated:
+- AC1: History view lists revisions with author/editor, summary, and timestamp.
+- AC2: Diff view renders side-by-side using added/removed/unchanged server diff structure; 400 size-cap surfaces friendly message.
+- AC3: Staff rollback affordance gated by hasGlobalRole('moderator'); non-staff sees no rollback button; rollback POSTs credentials; post-rollback state updates correctly.
+- AC4: next build and lint pass.
+
+Implementation branch or worktree context:
+- Branch: ms5-st9-implementer-20260611 (merged into ms5-st9-tester-20260611)
+- Route: apps/web/app/docs/history/[...path]/page.tsx
+- Client: apps/web/app/docs/docs-client.ts (getDocHistory, getDocRevision, getDocDiff, rollbackDocPage added)
+- CSS: apps/web/app/docs/docs.module.css (history and diff classes added)
+- Affordance: apps/web/app/docs/[...path]/page.tsx (History link fixed to /docs/history/<path>)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/docs/history/[...path]/page.tsx (new route: revision history, diff, rollback UI)
+- apps/web/app/docs/docs-client.ts (new helpers: getDocHistory, getDocRevision, getDocDiff, rollbackDocPage; new types: DocsRevisionMetaShape, DocsSingleRevisionShape, DocsDiffHunk, DocsDiffShape)
+- apps/web/app/docs/docs.module.css (new classes: historyList, historyItem, historyRevNum, historyMeta, historySummary, historyActions, historyActionBtn, historyActionBtnDanger, diffContainer, diffTable, diffHeaderRow, diffLineUnchanged, diffLineAdded, diffLineRemoved, diffLineGutter, diffLineDivider, diffControls, diffControlGroup, diffControlLabel, diffSelect)
+- apps/web/app/docs/[...path]/page.tsx (History affordance link fixed to /docs/history/<path>)
+- apps/web/app/docs/docs-client-history.spec.ts (new test file)
+- apps/web/app/docs/docs-history-page.spec.ts (new test file)
+- apps/web/app/docs/docs-page.spec.ts (updated: History link assertion)
+
+Test commit:
+- 7925343
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run --reporter=verbose
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec eslint app components --ext .ts,.tsx --max-warnings=0
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec next build
+
+Final test outcomes:
+- AC1 PASS: History list renders revisionNumber, author/editor display, createdAt timestamp, and summary. Auto-selector populates (latest-1, latest) on load when >= 2 revisions exist.
+- AC2 PASS: SideBySideDiff renders added (diffLineAdded), removed (diffLineRemoved), and unchanged (diffLineUnchanged) CSS classes with line-number gutters (diffLineGutter). Friendly size-cap error on 400. 404 returns null.
+- AC3 PASS: isStaff gate via hasGlobalRole('moderator') hides rollback button for non-staff. rollbackDocPage POSTs with credentials and revisionNumber. Post-rollback: history reloads and diff selectors update to (rolled-back-rev, new-rev). Success/error feedback rendered.
+- AC4 PASS: next build and lint pass with 0 errors and 0 warnings.
+- docs-page.spec.ts updated: History link assertion now verifies /docs/history/<path> pattern, confirming the ST-9 affordance-link fix.
+
+Documentation context:
+- ST-9 adds the /docs/history/<path> route to the web layer of the Documents wiki feature.
+- Staff users (moderator/admin) can view revision history, compare any two revisions side-by-side, and roll back to a previous revision.
+- Non-staff users see history list and diff view but no rollback affordance; server gate is authoritative.
+- 400 from diff endpoint (size cap) surfaces 'too large to compare' friendly message, not a crash.
+- getDocHistory/getDocDiff/rollbackDocPage follow the error-envelope pattern (payload.error.message || payload.message || fallback) consistent with the existing docs-client helpers.
+- History affordance link in /docs/[...path] is /docs/history/<path> (correct URL pattern).
+
+Plan and diff context:
+- Plan: plans/ms5-documents-wiki-plan.md, ST-9 subtask.
+- Comparison base: ms5 branch (before ST-9 implementer branch was cut).
+- Relevant docs: docs/features/documents.md (Documents feature contract).
+- docs/development/api-conventions.md (error envelope pattern).
+- docs/development/testing.md (web test conventions).
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-9
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

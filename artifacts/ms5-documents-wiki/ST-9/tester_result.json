@@ -1,0 +1,28 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-9/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-9/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-9/documenter_prompt.txt"
+  ],
+  "branch_name": "ms5-st9-tester-20260611",
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run --reporter=verbose",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web exec eslint app components --ext .ts,.tsx --max-warnings=0",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web exec next build"
+  ],
+  "pass_fail_totals": {
+    "test_files": 21,
+    "tests_failed": 0,
+    "tests_passed": 843
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST-9",
+  "test_commit_hash": "7925343",
+  "test_files_changed": [
+    "apps/web/app/docs/docs-client-history.spec.ts (new)",
+    "apps/web/app/docs/docs-history-page.spec.ts (new)",
+    "apps/web/app/docs/docs-page.spec.ts (updated: tighten History link assertion)"
+  ],
+  "unmet_acceptance_criteria": []
+}

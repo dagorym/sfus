@@ -1,0 +1,70 @@
+{
+  "status": "success",
+  "task_id": "ST-9",
+  "branch_name": "ms5-st9-tester-20260611",
+  "test_commit_hash": "7925343",
+  "task_summary": "ST-9: Documents revision history, side-by-side diff, and rollback UI (web). Route /docs/history/[...path] with history view (revisions with author/editor/summary/timestamp), side-by-side diff renderer (server diff hunks: added/removed/unchanged), and staff-gated rollback wired to POST /api/docs/:id/rollback. Extended docs-client.ts with getDocHistory, getDocRevision, getDocDiff, rollbackDocPage. History affordance link in /docs/[...path]/page.tsx fixed to /docs/history/<path>.",
+  "test_files_changed": [
+    "apps/web/app/docs/docs-client-history.spec.ts (new)",
+    "apps/web/app/docs/docs-history-page.spec.ts (new)",
+    "apps/web/app/docs/docs-page.spec.ts (updated: tighten History link assertion)"
+  ],
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run --reporter=verbose",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web exec eslint app components --ext .ts,.tsx --max-warnings=0",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web exec next build"
+  ],
+  "pass_fail_totals": {
+    "test_files": 21,
+    "tests_passed": 843,
+    "tests_failed": 0
+  },
+  "unmet_acceptance_criteria": [],
+  "final_test_outcomes": [
+    "AC1 PASS: History list renders revisionNumber, author/editor display, createdAt timestamp, and summary. Auto-selector populates (latest-1, latest) on load when >= 2 revisions exist.",
+    "AC2 PASS: SideBySideDiff renders added (diffLineAdded), removed (diffLineRemoved), and unchanged (diffLineUnchanged) CSS classes with line-number gutters (diffLineGutter). Friendly size-cap error on 400. 404 returns null.",
+    "AC3 PASS: isStaff gate via hasGlobalRole('moderator') hides rollback button for non-staff. rollbackDocPage POSTs with credentials and revisionNumber. Post-rollback: history reloads and diff selectors update to (rolled-back-rev, new-rev). Success/error feedback rendered.",
+    "AC4 PASS: next build and lint pass with 0 errors and 0 warnings.",
+    "docs-page.spec.ts updated: History link assertion now verifies /docs/history/<path> pattern, confirming the ST-9 affordance-link fix."
+  ],
+  "cleanup_notes": [
+    "Temporary write_commit_msg.py helper removed from worktree before artifact commit."
+  ],
+  "acceptance_criteria_validated": [
+    "AC1: History view lists revisions with author/editor, summary, and timestamp.",
+    "AC2: Diff view renders side-by-side using added/removed/unchanged server diff structure; 400 size-cap surfaces friendly message.",
+    "AC3: Staff rollback affordance gated by hasGlobalRole('moderator'); non-staff sees no rollback button; rollback POSTs credentials; post-rollback state updates correctly.",
+    "AC4: next build and lint pass."
+  ],
+  "implementation_context": [
+    "Branch: ms5-st9-implementer-20260611 (merged into ms5-st9-tester-20260611)",
+    "Route: apps/web/app/docs/history/[...path]/page.tsx",
+    "Client: apps/web/app/docs/docs-client.ts (getDocHistory, getDocRevision, getDocDiff, rollbackDocPage added)",
+    "CSS: apps/web/app/docs/docs.module.css (history and diff classes added)",
+    "Affordance: apps/web/app/docs/[...path]/page.tsx (History link fixed to /docs/history/<path>)"
+  ],
+  "modified_files_for_documentation": [
+    "apps/web/app/docs/history/[...path]/page.tsx (new route: revision history, diff, rollback UI)",
+    "apps/web/app/docs/docs-client.ts (new helpers: getDocHistory, getDocRevision, getDocDiff, rollbackDocPage; new types: DocsRevisionMetaShape, DocsSingleRevisionShape, DocsDiffHunk, DocsDiffShape)",
+    "apps/web/app/docs/docs.module.css (new classes: historyList, historyItem, historyRevNum, historyMeta, historySummary, historyActions, historyActionBtn, historyActionBtnDanger, diffContainer, diffTable, diffHeaderRow, diffLineUnchanged, diffLineAdded, diffLineRemoved, diffLineGutter, diffLineDivider, diffControls, diffControlGroup, diffControlLabel, diffSelect)",
+    "apps/web/app/docs/[...path]/page.tsx (History affordance link fixed to /docs/history/<path>)",
+    "apps/web/app/docs/docs-client-history.spec.ts (new test file)",
+    "apps/web/app/docs/docs-history-page.spec.ts (new test file)",
+    "apps/web/app/docs/docs-page.spec.ts (updated: History link assertion)"
+  ],
+  "documentation_context": [
+    "ST-9 adds the /docs/history/<path> route to the web layer of the Documents wiki feature.",
+    "Staff users (moderator/admin) can view revision history, compare any two revisions side-by-side, and roll back to a previous revision.",
+    "Non-staff users see history list and diff view but no rollback affordance; server gate is authoritative.",
+    "400 from diff endpoint (size cap) surfaces 'too large to compare' friendly message, not a crash.",
+    "getDocHistory/getDocDiff/rollbackDocPage follow the error-envelope pattern (payload.error.message || payload.message || fallback) consistent with the existing docs-client helpers.",
+    "History affordance link in /docs/[...path] is /docs/history/<path> (correct URL pattern)."
+  ],
+  "plan_and_diff_context": [
+    "Plan: plans/ms5-documents-wiki-plan.md, ST-9 subtask.",
+    "Comparison base: ms5 branch (before ST-9 implementer branch was cut).",
+    "Relevant docs: docs/features/documents.md (Documents feature contract).",
+    "docs/development/api-conventions.md (error envelope pattern).",
+    "docs/development/testing.md (web test conventions)."
+  ]
+}
