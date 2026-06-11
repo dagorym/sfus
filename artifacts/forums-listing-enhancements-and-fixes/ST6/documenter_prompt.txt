@@ -1,0 +1,77 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+ST6 reorganized the forum board page topic list from a `<ul>` meta-line layout into a
+semantic four-column `<table>` (Topic / Replies / Created / Last reply). `PublicTopicShape`
+in `forums-client.ts` gained a `lastPostAuthor` field. Profile links use `encodeURIComponent`.
+Dates use `toLocaleDateString` (absolute format). The Last reply column shows a dash when
+`replyCount === 0` OR `lastPostAuthor === null`. All existing behaviors (pagination,
+guest/member CTA, breadcrumb, moderator note, empty state) are preserved.
+
+Acceptance criteria validated:
+- Four columns rendered: Topic / Replies / Created / Last reply
+- Topic column retains title link (with encodeURIComponent on slug) and Pinned/Locked badges
+- Replies column renders replyCount directly from the API shape
+- Created column: author.displayName ?? username, linked to /users/<encodeURIComponent(username)>, plus toLocaleDateString absolute date
+- Last reply column: lastPostAuthor.displayName ?? username, profile-linked; lastPostAt date via toLocaleDateString; dash when replyCount === 0 OR lastPostAuthor === null
+- No dangerouslySetInnerHTML anywhere in the board page
+- Existing behaviors preserved: pagination, new-topic CTA, sign-in prompt, breadcrumb, moderator note, empty "No topics yet" state
+- lint (0 warnings), typecheck (0 errors), and web suite (62/62) all pass
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/forums-listing-st6-tester-20260610
+- Branch: forums-listing-st6-tester-20260610
+- Base branch for comparison: main (or the most recent common ancestor with the implementer branch)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/forums/forums-client.ts (PublicTopicShape gains lastPostAuthor field)
+- apps/web/app/forums/[boardSlug]/page.tsx (topic list refactored to 4-column table)
+- apps/web/app/forums/forums.module.css (table layout CSS additions)
+- apps/web/app/forums/forums.spec.ts (20 new ST6 tests added by Tester)
+
+Test commit:
+- b7b993b
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/forums/forums.spec.ts
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+
+Final test outcomes:
+- 62 tests passed, 0 failed (20 new ST6 tests added to forums.spec.ts)
+- lint: 0 warnings, 0 errors
+- typecheck: 0 errors
+- No implementation defects found
+
+Documentation context:
+- Primary doc to inspect: docs/features/forums.md (if it exists) — likely covers the board-view
+  rendering contract and topic list layout; the table refactor changes the semantic structure.
+- Any user-facing feature documentation describing the topic list layout needs to reflect the
+  four-column table (Topic / Replies / Created / Last reply) rather than the previous meta-line list.
+- The lastPostAuthor addition to PublicTopicShape should be noted if docs cover the client type
+  contracts for the web layer.
+- Cross-check docs/development/ for any API/type contracts that reference the topic shape.
+- The encodeURIComponent convention for profile links is consistent with ST5 (forums index page);
+  docs may already cover this pattern and only need a note that it applies to the board page too.
+
+Plan and diff context:
+- Plan name: forums-listing-enhancements-and-fixes
+- Subtask: ST6
+- The plan resides in .myteam/ or a linked planning artifact; infer from repository context if the
+  exact plan path is not immediately obvious.
+- Comparison base: diff the implementer branch against main to see the full ST6 change set.
+
+Startup behavior:
+- If the worktree context, diff, and story context above are present and sufficient, begin documentation
+  work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from
+  repository context when repository evidence is sufficient, and label those choices as assumptions
+  instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when
+  documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/forums-listing-enhancements-and-fixes/ST6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
