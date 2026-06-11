@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-8/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-8/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st8-verifier-20260611",
+  "documentation_accuracy_summary": [
+    "Documentation is accurate and complete. docs/features/documents.md correctly documents all four routes including the route-deviation justification for the edit URL shape, all DocsNewPage and DocsEditPage behaviors, and the docs-client.ts write helper table. docs/guides/content-management.md has clear staff how-tos for create, edit, lock acquire/release, and 409 conflict messaging. The 409 banner description matches the implementation (shows lockedByUserId and lockExpiresAt). No contradictions or duplications found."
+  ],
+  "note_finding_count": 2,
+  "pass_label": null,
+  "status": "complete",
+  "task_id": "ST-8",
+  "test_sufficiency_summary": [
+    "Test coverage is strong. 772 tests pass (34 new for DocsNewPage, 56 new for DocsEditPage, 38 new for docs-client.ts write helpers). Source-audit pattern is consistent with all existing web specs. AC1 create/edit flow, AC2 lock UX and 409 conflict parsing, AC3 client gate, and AC4 export constraints are all directly asserted. The isLockConflictError helper has behavioral runtime tests beyond source inspection. One minor gap: the activeForeignLock userId-parameter omission at the call site (NOTE finding above) is not captured by tests, but the source-audit pattern used here cannot cover runtime state interactions. Coverage is sufficient for the delivery risk."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
