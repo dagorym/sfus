@@ -304,6 +304,139 @@ pages are rejected as invalid parents — a `400 BadRequestException` is thrown 
 present from ST-2. This wires session resolution and rate limiting into the module
 without requiring changes to the app-level module imports.
 
+## Revision history, diff, and rollback
+
+### Overview
+
+Three read endpoints and one write endpoint expose the full revision lifecycle. The three
+read endpoints (`history`, `revisions/:revisionNumber`, `diff`) are unauthenticated — oracle
+parity applies: a non-readable, deleted, or nonexistent page returns the same `404` with
+`PAGE_NOT_FOUND_MESSAGE` as all other read paths. The write endpoint (`rollback`) is
+staff-gated by `assertDocWriteAccess` (moderator or admin; `user`-role → `403`).
+
+### GET /api/docs/:id/history — ordered revision metadata
+
+Returns ordered metadata for all revisions of a wiki page.
+
+- Revisions are ordered by `revision_number ASC`.
+- Oracle parity (P12): a non-readable, deleted, or nonexistent page returns `404` with
+  `PAGE_NOT_FOUND_MESSAGE`. No authentication required.
+
+**Response shape** (`{ history: DocsHistoryShape }`):
+
+`DocsHistoryShape.revisions` is an array of `DocsRevisionMetaShape`:
+
+| Field | Type | Notes |
+|---|---|---|
+| `revisionNumber` | number | 1-based revision counter |
+| `author` | `DocsAuthorShape \| null` | Original author of this revision |
+| `editorUsername` | `string \| null` | Actor who saved this revision; `null` if same as author |
+| `summary` | `string \| null` | Edit summary text |
+| `createdAt` | Date | Revision creation timestamp |
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| 404 | Page not found, deleted, or not publicly accessible (oracle parity) |
+
+### GET /api/docs/:id/revisions/:revisionNumber — single revision body
+
+Returns the full body of a specific revision.
+
+- `revisionNumber` must be a positive integer (1-based); invalid values return `400`.
+- Oracle parity (P12): page not found/deleted/non-readable, or a missing revision number, all
+  return `404` with `PAGE_NOT_FOUND_MESSAGE`. No authentication required.
+
+**Response shape** (`{ revision: DocsSingleRevisionShape }`):
+
+| Field | Type | Notes |
+|---|---|---|
+| `revisionNumber` | number | |
+| `title` | string | Page title at the time of this revision |
+| `body` | string | Full Markdown body |
+| `summary` | `string \| null` | Edit summary |
+| `author` | `DocsAuthorShape \| null` | |
+| `editorUsername` | `string \| null` | |
+| `createdAt` | Date | |
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| 400 | `revisionNumber` is not a positive integer |
+| 404 | Page or revision not found (oracle parity) |
+
+### GET /api/docs/:id/diff?from=&to= — deterministic line-level diff
+
+Returns a server-computed, deterministic line-level diff between two revisions.
+
+- Both `from` and `to` query parameters are required and must be positive integers.
+- `from` and `to` must be different revision numbers; equal values return `400`.
+- The diff is computed server-side using the LCS (longest common subsequence) algorithm
+  in `DocsService.computeLineDiff(fromLines, toLines)`. This is a `static` method so tests
+  can pin its output against fixed inputs deterministically (P3).
+- Lines are split on `"\n"`; empty trailing lines from the split are included
+  (consistent trailing-newline handling).
+- Oracle parity (P12): page not found/deleted/non-readable, or a missing revision, returns
+  `404` with `PAGE_NOT_FOUND_MESSAGE`. No authentication required.
+
+**Response shape** (`{ diff: DocsDiffShape }`):
+
+| Field | Type | Notes |
+|---|---|---|
+| `fromRevisionNumber` | number | The `from` revision number |
+| `toRevisionNumber` | number | The `to` revision number |
+| `hunks` | `DocsDiffHunk[]` | Ordered diff hunks |
+
+`DocsDiffHunk` fields:
+
+| Field | Type | Notes |
+|---|---|---|
+| `type` | `"unchanged" \| "added" \| "removed"` | Hunk classification |
+| `lines` | `string[]` | Text lines in this hunk (no trailing newline per line) |
+
+Adjacent lines of the same type are merged into a single hunk.
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| 400 | `from` or `to` missing, not a positive integer, or `from === to` |
+| 404 | Page or either revision not found (oracle parity) |
+
+### POST /api/docs/:id/rollback — non-destructive rollback
+
+Creates a new highest-numbered revision whose content equals the target revision, then
+updates `current_revision_id`. The target and all intermediate revisions are preserved
+(non-destructive, AC3).
+
+- Requires an active session (`401` without one) and moderator or admin role
+  (`403` for `user`-role via `assertDocWriteAccess`).
+- The rollback is transactional (P10): the new revision insert and the `current_revision_id`
+  pointer update are written inside a single `manager.transaction`. A failure leaves no
+  dangling pointer.
+- The new revision is assigned `summary = "Rolled back to revision N"`.
+- Throttle label: `doc-page-edit`.
+
+**Request body (`DocRollbackInput`):**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `revisionNumber` | number | yes | Positive integer; revision to roll back to |
+
+**Response:** `201` with `{ page: DocWriteResultShape }` reflecting the new rollback revision.
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| 400 | `revisionNumber` is not a positive integer |
+| 401 | No active session |
+| 403 | Actor does not have moderator or admin role |
+| 404 | Page not found or deleted; or target revision not found |
+| 429 | Rate limit exceeded |
+
 ## Shared utilities
 
 ### DocsService.computePathHash(scopeType, scopeId, path)
@@ -321,7 +454,8 @@ the SHA-256 hash stored in `path_hash`. Input format: `${scopeType}:${scopeId ??
 
 ## Route ordering note
 
-`GET /api/docs/recent` is registered **before** `GET /api/docs/*path` in
-`DocsController`. This ordering is required: the literal `recent` route must be declared
-first so NestJS resolves `GET /docs/recent` as the recent-feed handler rather than
-treating `recent` as a path segment for the catch-all.
+`GET /api/docs/recent`, and all ST-5 routes (`GET /:id/history`,
+`GET /:id/revisions/:revisionNumber`, `GET /:id/diff`, `POST /:id/rollback`) are
+registered **before** `GET /api/docs/*path` in `DocsController`. This ordering is
+required: literal and parameterised routes must be declared before the `*path` catch-all
+so NestJS resolves them correctly rather than treating their path segments as wiki paths.
