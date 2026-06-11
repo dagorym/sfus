@@ -1,0 +1,30 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-5/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-5/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st5-verifier-20260611",
+  "documentation_accuracy_summary": [
+    "docs/features/documents.md accurately documents all four ST-5 endpoints: GET /:id/history, GET /:id/revisions/:revisionNumber, GET /:id/diff, POST /:id/rollback.",
+    "Oracle-parity 404 contract for the three unauthenticated read paths is documented correctly.",
+    "401-then-403 gate order, assertDocWriteAccess routing, and ThrottleGuard label are documented correctly for rollback.",
+    "Transactional/non-destructive rollback semantics (P10), new-revision-is-highest, and the 'Rolled back to revision N' summary are documented.",
+    "Route ordering note explicitly lists all ST-5 routes as registered before GET *path.",
+    "GAP: no mention of a diff body-size/line-count limit or the O(m*n) cost (see WARNING and NOTE). Otherwise complete and accurate."
+  ],
+  "note_finding_count": 2,
+  "pass_label": "verifier-1-warnings",
+  "status": "completed",
+  "task_id": "ms5-documents-wiki/ST-5",
+  "test_sufficiency_summary": [
+    "STRONG overall. computeLineDiff is directly unit-tested as a static method with pinned fixed-input assertions covering: identical content, add-line, remove-line, modify-line, empty-from, empty-to, both-empty, determinism (two calls, same input, same output), and multi-line merge correctness. These are exactly the determinism assertions called for by P3.",
+    "getPageHistory: oracle parity (nonexistent, deleted, non-readable all produce identical PAGE_NOT_FOUND_MESSAGE) is explicitly asserted at the service layer with a Set-uniqueness check. Author/editor shape, empty-list, and field-level mapping are covered. Integration test proves ordering ASC and real-DB deleted-page 404.",
+    "getRevisionByNumber: page-not-found, deleted-page, non-readable, missing-revision-number, full-body + author/editor shape coverage.",
+    "getDiff: missing-param 400, invalid-integer from/to, equal-value 400, page-not-found/deleted/non-readable, missing fromRev/toRev 404 (both individually), and a positive hunk-content assertion at the service layer. Controller layer adds parameter-parsing and delegation tests.",
+    "rollbackPage: new-revision-number-is-highest, summary='Rolled back to revision N', target body copied (non-destructive), em.save+em.update inside transaction (P10 structure), invalid-revisionNumber 400, page-not-found, deleted-page, target-revision-not-found. AC4 (assertDocWriteAccess before rollbackPage, 403 for user role, 401 for no session) is proven at the controller layer with invocation-call-order assertion.",
+    "GAP (carried from security report): no DoS/large-body test for the diff path; no dedicated mid-rollback transaction-failure integration proof. Neither gap is blocking."
+  ],
+  "verdict": "CONDITIONAL PASS",
+  "warning_finding_count": 1
+}
