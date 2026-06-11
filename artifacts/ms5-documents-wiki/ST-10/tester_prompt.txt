@@ -1,0 +1,35 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- ST-10 — Add the Documents management link to the admin dashboard for Milestone 5. A Documents entry is added to the adminSections array in apps/web/app/admin/page.tsx, linking to /docs with a description consistent with existing Blog/Pages/Navigation/Forums entries.
+
+Modified files:
+- apps/web/app/admin/page.tsx
+
+Acceptance criteria to validate (from Planner):
+- AC1: The admin dashboard shows a Documents card linking to /docs with an accurate description.
+- AC2: next build and lint pass.
+
+Create test files in:
+- apps/web/app/admin/admin-dashboard.spec.ts — the tester updates the admin dashboard spec to cover the new Documents link.
+
+Implementation context for testing:
+- Added a single new entry { href: '/docs', label: 'Documents', description: 'Manage wiki pages: create, edit, lock, and roll back pages in the public docs area.' } to the adminSections const array in apps/web/app/admin/page.tsx, after the existing Forums entry. The entry follows the same object shape and description tone as the other four entries. No other logic was changed. The /docs route was already built and live (ST-7 through ST-9). No authentication or authorization logic is in scope for this subtask — the API is the real gate.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec next build
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-10
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
