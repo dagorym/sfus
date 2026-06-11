@@ -28,6 +28,31 @@ export type DocsVisibility = (typeof docsVisibilities)[number];
 export const DOCS_LOCK_TTL_MINUTES_DEFAULT = 30;
 
 // ---------------------------------------------------------------------------
+// Diff size limits (ST-5 security: DoS guard for O(m·n) LCS computation)
+// ---------------------------------------------------------------------------
+
+/**
+ * Maximum allowed byte length of a single revision body accepted by the diff
+ * endpoint (GET /api/docs/:id/diff). Bodies exceeding this threshold cause a
+ * 400 BadRequestException before the O(m·n) LCS table is allocated.
+ *
+ * Chosen to be well below the MEDIUMTEXT ceiling (~16 MB) while still
+ * accommodating normal wiki pages (typical pages are well under 1 MB).
+ */
+export const DOCS_DIFF_MAX_BODY_BYTES = 512_000; // 512 KB per revision body
+
+/**
+ * Maximum allowed line count of a single revision body accepted by the diff
+ * endpoint. Bodies with more lines cause a 400 BadRequestException before the
+ * O(m·n) LCS table is allocated.
+ *
+ * Caps the DP table at ~25 billion cells in the worst case
+ * (5 000 × 5 000 = 25 000 000), which is the safe upper bound for a
+ * synchronous in-process diff.
+ */
+export const DOCS_DIFF_MAX_LINES = 5_000; // lines per revision body
+
+// ---------------------------------------------------------------------------
 // Read API shapes (ST-2)
 // ---------------------------------------------------------------------------
 

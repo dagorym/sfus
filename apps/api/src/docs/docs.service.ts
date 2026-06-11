@@ -7,6 +7,7 @@ import { IsNull, Repository } from "typeorm";
 import { AuthorizationService } from "../authorization/authorization.service";
 import { DocsPageEntity } from "./entities/docs-page.entity";
 import { DocsRevisionEntity } from "./entities/docs-revision.entity";
+import { DOCS_DIFF_MAX_BODY_BYTES, DOCS_DIFF_MAX_LINES } from "./docs.types";
 import type {
   DocsBreadcrumbItem,
   DocsPageShape,
@@ -875,8 +876,24 @@ export class DocsService {
       throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
     }
 
+    // DoS guard: reject before allocating the O(m·n) LCS table if either body
+    // exceeds the configured byte or line-count limits.
+    const fromBodyBytes = Buffer.byteLength(fromRev.body, "utf8");
+    const toBodyBytes = Buffer.byteLength(toRev.body, "utf8");
+    if (fromBodyBytes > DOCS_DIFF_MAX_BODY_BYTES || toBodyBytes > DOCS_DIFF_MAX_BODY_BYTES) {
+      throw new BadRequestException(
+        `Revision body exceeds the maximum allowed size for diff (${DOCS_DIFF_MAX_BODY_BYTES} bytes).`
+      );
+    }
+
     const fromLines = fromRev.body.split("\n");
     const toLines = toRev.body.split("\n");
+
+    if (fromLines.length > DOCS_DIFF_MAX_LINES || toLines.length > DOCS_DIFF_MAX_LINES) {
+      throw new BadRequestException(
+        `Revision body exceeds the maximum allowed line count for diff (${DOCS_DIFF_MAX_LINES} lines).`
+      );
+    }
 
     const hunks = DocsService.computeLineDiff(fromLines, toLines);
 
