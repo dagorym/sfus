@@ -1,0 +1,48 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- REMEDIATION: Fix lint error in DocsModule.register (unused _environment param). Added targeted eslint-disable-next-line comment; ST-1 DocsModule is a skeleton with no providers (tests assert empty providers), so API_ENVIRONMENT wiring is deferred. All validations pass.
+
+Modified files:
+- apps/api/src/docs/docs.module.ts
+
+Acceptance criteria to validate (from Planner):
+- DocsModule.register(environment) wired into app.module.ts
+- lint --max-warnings=0 passes for all API source files
+- DocsModule.register() returns empty providers array (test asserts length 0)
+- docs-module.test.ts: 4/4 tests pass
+- docs-entities.test.ts: 16/16 tests pass
+- database.config.test.ts: migration name assertion passes
+- API tsc build clean
+
+Create test files in:
+- apps/api/src/docs/docs-entities.test.ts
+- apps/api/src/docs/docs-module.test.ts
+- apps/api/src/database/database.config.test.ts
+
+Implementation context for testing:
+- Remediation adds a single targeted eslint-disable-next-line comment on the _environment param in DocsModule.register().
+- The param is kept for app.module.ts compatibility; providers array stays empty to pass the test assertions.
+- All prior ST-1 implementation (entities, migration, database.config.ts, app.module.ts) unchanged.
+- Worktree: ms5-st1-implementer-20260610
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 lint (main repo root)
+- npx --yes pnpm@10.0.0 typecheck (main repo root)
+- npx --yes pnpm@10.0.0 test (main repo root)
+- vitest run --root apps/api (worktree: 1003 tests pass including 20 docs tests)
+- tsc -p apps/api/tsconfig.json (worktree API tsc build: clean)
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
