@@ -67,6 +67,7 @@ export interface PublicTopicShape {
   isLocked?: boolean;
   replyCount: number;
   lastPostAt: string | null;
+  lastPostAuthor: { username: string; displayName: string | null } | null;
   author: PublicAuthorShape;
   createdAt: string;
   updatedAt: string;

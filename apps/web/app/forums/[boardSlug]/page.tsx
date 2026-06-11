@@ -148,34 +148,65 @@ export default function BoardPage() {
       {topicsData.topics.length === 0 ? (
         <p className={styles.description}>No topics yet. Be the first to post.</p>
       ) : (
-        <ul className={styles.topicList} aria-label="Topics">
-          {topicsData.topics.map((topic) => (
-            <li key={topic.id} className={styles.topicItem}>
-              <Link
-                href={`/forums/${encodeURIComponent(boardSlug)}/${encodeURIComponent(topic.slug)}`}
-                className={styles.topicLink}
-              >
-                <p className={styles.topicTitle}>
-                  {topic.isPinned ? (
-                    <span className={styles.pinnedBadge} aria-label="Pinned">Pinned</span>
-                  ) : null}
-                  {topic.isLocked ? (
-                    <span className={styles.lockedBadge} aria-label="Locked">Locked</span>
-                  ) : null}
-                  {topic.title}
-                </p>
-                <p className={styles.topicMeta}>
-                  by {topic.author.displayName ?? topic.author.username}
-                  {" · "}
-                  {topic.replyCount} {topic.replyCount === 1 ? "reply" : "replies"}
-                  {topic.lastPostAt ? (
-                    <> · Last post {new Date(topic.lastPostAt).toLocaleDateString()}</>
-                  ) : null}
-                </p>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <table className={styles.topicTable} aria-label="Topics">
+          <thead>
+            <tr>
+              <th className={styles.topicTableHeaderTopic} scope="col">Topic</th>
+              <th className={styles.topicTableHeaderReplies} scope="col">Replies</th>
+              <th className={styles.topicTableHeaderCreated} scope="col">Created</th>
+              <th className={styles.topicTableHeaderLastReply} scope="col">Last reply</th>
+            </tr>
+          </thead>
+          <tbody>
+            {topicsData.topics.map((topic) => (
+              <tr key={topic.id} className={styles.topicRow}>
+                <td className={styles.topicCellTopic}>
+                  <Link
+                    href={`/forums/${encodeURIComponent(boardSlug)}/${encodeURIComponent(topic.slug)}`}
+                    className={styles.topicLink}
+                  >
+                    {topic.isPinned ? (
+                      <span className={styles.pinnedBadge} aria-label="Pinned">Pinned</span>
+                    ) : null}
+                    {topic.isLocked ? (
+                      <span className={styles.lockedBadge} aria-label="Locked">Locked</span>
+                    ) : null}
+                    {topic.title}
+                  </Link>
+                </td>
+                <td className={styles.topicCellReplies}>{topic.replyCount}</td>
+                <td className={styles.topicCellCreated}>
+                  <Link
+                    href={`/users/${encodeURIComponent(topic.author.username)}`}
+                    className={styles.authorLink}
+                  >
+                    {topic.author.displayName ?? topic.author.username}
+                  </Link>
+                  <br />
+                  <span className={styles.topicDate}>{new Date(topic.createdAt).toLocaleDateString()}</span>
+                </td>
+                <td className={styles.topicCellLastReply}>
+                  {topic.replyCount === 0 || topic.lastPostAuthor === null ? (
+                    <span className={styles.noRepliesYet}>—</span>
+                  ) : (
+                    <>
+                      <Link
+                        href={`/users/${encodeURIComponent(topic.lastPostAuthor.username)}`}
+                        className={styles.authorLink}
+                      >
+                        {topic.lastPostAuthor.displayName ?? topic.lastPostAuthor.username}
+                      </Link>
+                      <br />
+                      <span className={styles.topicDate}>
+                        {topic.lastPostAt ? new Date(topic.lastPostAt).toLocaleDateString() : "—"}
+                      </span>
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
 
       {/* Pagination */}
