@@ -1,0 +1,28 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-6/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-6/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-6/documenter_prompt.txt"
+  ],
+  "branch_name": "ms5-st6-tester-20260611",
+  "commands_run": [
+    "npx --prefix /home/tstephen/repos/worktrees/ms5-st6-tester-20260611 vitest run apps/api/src/docs/ apps/api/src/config/"
+  ],
+  "pass_fail_totals": {
+    "fail": 0,
+    "pass": 252,
+    "skip": 15,
+    "total": 267
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST-6",
+  "test_commit_hash": "5a0d43b",
+  "test_files_changed": [
+    "apps/api/src/config/environment.test.ts",
+    "apps/api/src/docs/docs.controller.test.ts",
+    "apps/api/src/docs/docs.service.integration.test.ts",
+    "apps/api/src/docs/docs.service.test.ts"
+  ],
+  "unmet_acceptance_criteria": []
+}

@@ -1,0 +1,79 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST-6: Docs soft-lock — validated acquireLock, releaseLock, assertNotForeignLocked, lock endpoints (POST/DELETE /api/docs/:id/lock), toPageShape lock field, write-path guards, and DOCS_LOCK_TTL_MINUTES environment parsing. All 11 acceptance criteria covered. 252 unit tests pass; 15 integration tests skipped (DB not available).
+
+Acceptance criteria validated:
+- AC1: POST /api/docs/:id/lock acquires/refreshes; returns 200 with { pageId, lock: DocsLockState }
+- AC2: POST /api/docs/:id/lock returns 409 ConflictException for active foreign lock with { message, lock: { lockedByUserId, lockExpiresAt } }
+- AC3: DELETE /api/docs/:id/lock releases by holder; idempotent when unlocked; returns 204
+- AC4: DELETE /api/docs/:id/lock admin/moderator staff override releases any lock; returns 204
+- AC5: DELETE /api/docs/:id/lock returns 403 ForbiddenException for non-holder non-staff
+- AC6: addRevision/renamePage/softDeletePage/rollbackPage each call assertNotForeignLocked; active foreign lock yields 409
+- AC7: Expired lock (lockExpiresAt <= now) treated as free; write proceeds without error
+- AC8: admin/moderator bypass: isActiveForeignLock returns false for staff roles
+- AC9: DOCS_LOCK_TTL_MINUTES env var: absent=30, valid 1-1440 used, invalid/OOR=30+error
+- AC10: DocsPageShape.lock field present on page read responses (active, inactive, null states)
+- AC11: Both lock endpoints call assertDocWriteAccess before acting on lock
+
+Implementation branch or worktree context:
+- Implementer worktree: ms5-st6-implementer-20260611 (commit 02e1484)
+- Tester worktree: ms5-st6-tester-20260611 (test commit 5a0d43b)
+- Both branches based off ms5; implementation commit 696dee1 is the implementer artifact commit
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/docs/docs.types.ts
+- apps/api/src/docs/docs.service.ts
+- apps/api/src/docs/docs.controller.ts
+- apps/api/src/config/environment.ts
+- apps/api/src/docs/entities/docs-page.entity.ts
+- apps/api/src/docs/docs.module.ts
+- apps/api/src/config/environment.test.ts
+- apps/api/src/docs/docs.controller.test.ts
+- apps/api/src/docs/docs.service.integration.test.ts
+- apps/api/src/docs/docs.service.test.ts
+
+Test commit:
+- 5a0d43b
+
+Commands executed:
+- npx --prefix /home/tstephen/repos/worktrees/ms5-st6-tester-20260611 vitest run apps/api/src/docs/ apps/api/src/config/
+
+Final test outcomes:
+- 252 tests pass, 0 failures, 15 skipped (integration tests gated by SFUS_DB_INTEGRATION=1)
+- AC1 covered: acquireLock returns 200 with pageId+lock shape; re-acquire refreshes TTL
+- AC2 covered: acquireLock returns 409 ConflictException for active foreign lock
+- AC3 covered: releaseLock returns 204 for holder; idempotent when already unlocked
+- AC4 covered: admin/moderator staff override releases any lock (204)
+- AC5 covered: non-holder non-staff gets ForbiddenException (403)
+- AC6 covered: addRevision/renamePage/softDeletePage/rollbackPage each call assertNotForeignLocked and yield 409 on active foreign lock
+- AC7 covered: expired lock (lockExpiresAt <= now) is treated as free; write proceeds
+- AC8 covered: admin/moderator roles bypass lock check (isActiveForeignLock returns false for staff)
+- AC9 covered: DOCS_LOCK_TTL_MINUTES absent=30, valid range 1-1440 used, invalid/OOR=30+error
+- AC10 covered: toPageShape includes lock field; active/inactive/null states verified
+- AC11 covered: both lock endpoints call assertDocWriteAccess before acquireLock/releaseLock
+- Integration tests: structured with describe.skipIf(!DB_INTEGRATION_ENABLED) block; SKIPPED (no DB)
+
+Documentation context:
+- New lock endpoints POST /api/docs/:id/lock and DELETE /api/docs/:id/lock need docs in the documents feature contract (docs/features/)
+- DocsPageShape now includes a lock field; page read response schema documentation needs updating
+- DOCS_LOCK_TTL_MINUTES environment variable needs to be documented in env contract (docs/operations/)
+- Staff override behavior (admin/moderator bypass) should be documented in the authorization notes for the docs feature
+- Lock TTL default of 30 minutes, valid range 1-1440 minutes, should appear in operational docs
+
+Plan and diff context:
+- Plan path: artifacts/ms5-documents-wiki/plan.md (or similar in artifacts/ms5-documents-wiki/)
+- ST-6 plan section covers soft-lock design; compare implementer changes against that spec
+- Comparison base: ms5 branch — diff ms5-st6-tester-20260611 against ms5 to see all ST-6 changes
+- Implementer artifacts in artifacts/ms5-documents-wiki/ST-6/: implementer_report.md, implementer_result.json
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
