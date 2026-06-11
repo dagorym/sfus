@@ -1,0 +1,72 @@
+Your role is 'verifier'. Your task is as follows:
+
+Verify the ST4 implementation for plan forums-listing-enhancements-and-fixes-plan.md.
+
+## Context
+
+ST4 widens forum_categories.description and forum_boards.description from
+varchar(255) to varchar(512) via a new TypeORM migration
+(1780893000000-forum-description-length.ts). ForumsService adds
+assertFieldLengthValid() wired into createCategory, updateCategory, createBoard,
+and updateBoard, throwing BadRequestException (400) before any DB write when
+description exceeds 512 characters or name exceeds 128 characters.
+FORUM_DESCRIPTION_MAX_LENGTH=512 and FORUM_NAME_MAX_LENGTH=128 are exported from
+forums.types.ts.
+
+## Comparison base
+
+Branch: forums-listing (the plan's base branch for this story).
+
+## Files to verify
+
+Implementer and Tester:
+- apps/api/src/database/migrations/1780893000000-forum-description-length.ts
+- apps/api/src/database/database.config.ts
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.types.ts
+- apps/api/src/forums/forums.service.test.ts
+- apps/api/src/forums/forums.service.integration.test.ts
+
+Documenter (documentation commit 6c56b7a on branch forums-listing-st4-documenter-20260610):
+- docs/features/forums.md
+- docs/guides/content-management.md
+
+Artifacts:
+- artifacts/forums-listing-enhancements-and-fixes/ST4/documenter_report.md
+- artifacts/forums-listing-enhancements-and-fixes/ST4/documenter_result.json
+- artifacts/forums-listing-enhancements-and-fixes/ST4/verifier_prompt.txt
+
+## Acceptance criteria to verify
+
+AC1: Migration widens both description columns to varchar(512) with a working
+     down() that reverts to varchar(255). Migration is registered last in
+     reviewedMigrationClasses with timestamp 1780893000000 > 1780892561355.
+
+AC2: createCategory, updateCategory, createBoard, updateBoard all reject
+     description > 512 and name > 128 with BadRequestException (400) before
+     any persistence. The error message is clear and friendly.
+
+AC3: Update methods validate ONLY supplied fields; null/undefined description
+     is accepted and skips validation.
+
+AC4: 256–512 char description persists (no 500); > 512 returns 400 (not 500).
+
+AC5: lint, typecheck, and API forums suite all pass — 197 tests, 0 failures.
+
+Documentation AC:
+- docs/features/forums.md Validation rules section documents both limits (512/128),
+  the error messages, the assertFieldLengthValid() enforcement point, and the
+  partial-update isolation contract.
+- docs/features/forums.md admin route tables note name/description over-length
+  as 400 conditions and clarify omission behaviour on PATCH.
+- docs/guides/content-management.md category and board create walkthroughs
+  include max-length hints (128 / 512) for Name and Description.
+
+## Completion gate
+
+Do not report success unless all required artifacts exist
+(verifier_report.md and verifier_result.json in
+artifacts/forums-listing-enhancements-and-fixes/ST4/) and all changes are
+committed with a clean branch. Continue through the full verification workflow
+in the same run — do not stop after activation, scope confirmation, or diff
+inspection when blocking inputs are present.

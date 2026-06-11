@@ -1,0 +1,17 @@
+{
+  "status": "pass",
+  "story": "ST4",
+  "plan": "plans/forums-listing-enhancements-and-fixes-plan.md",
+  "branch": "forums-listing-st4-documenter-20260610",
+  "documentation_commit": "6c56b7a",
+  "docs_updated": [
+    "docs/features/forums.md",
+    "docs/guides/content-management.md"
+  ],
+  "no_change": [
+    "AGENTS.md",
+    ".myteam/ files",
+    "docs/README.md"
+  ],
+  "notes": "FORUM_DESCRIPTION_MAX_LENGTH=512 and FORUM_NAME_MAX_LENGTH=128 documented in Validation rules section; partial-update isolation contract documented; admin route tables updated; how-to walkthroughs updated with max-length hints."
+}
