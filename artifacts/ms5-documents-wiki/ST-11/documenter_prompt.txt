@@ -1,0 +1,76 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST-11: Forums last-activity cleanup. ForumsService.listPublicCategories and getPublicBoard
+  now derive each board's lastPost reply timestamp from the latest NON-DELETED reply.
+  resolveTopicLastActivity now selects post.created_at as createdAt and sets
+  TopicLastActivity.at to that Date when isReply=true; null for the opening-post fallback.
+  effectiveAt uses activity.at ?? topic.lastPostAt ?? topic.createdAt.
+  The previously always-null TopicLastActivity.at is now populated (non-null) for the reply case.
+  JSDoc on TopicLastActivity, BoardLastPostShape, and the effectiveAt logic paths was updated.
+  Tester added 7 new tests covering AC1, AC2, and no regressions. All tests pass.
+
+Acceptance criteria validated:
+- AC1: Board lastPost activity reflects the latest non-deleted reply; a soft-deleted latest
+  reply no longer drives the displayed last-activity date.
+- AC2: TopicLastActivity.at is consistently populated (non-null) in the reply case and used
+  by effectiveAt; null only for the opening-post fallback. No always-null field remains.
+- AC3: The full @sfus/api suite stays green (1287/1287 pass, lint and typecheck clean).
+
+Implementation branch or worktree context:
+- Branch: ms5-st11-tester-20260611
+- Worktree: /home/tstephen/repos/worktrees/ms5-st11-tester-20260611
+- Comparison base: ms5 (the plan coordination branch)
+- Implementer changes landed in commit c4bf36f on ms5-st11-implementer-20260611; tester
+  worktree is branched from there.
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/forums/forums.service.ts (resolveTopicLastActivity, listPublicCategories, getPublicBoard)
+- apps/api/src/forums/forums.types.ts (TopicLastActivity interface JSDoc, BoardLastPostShape JSDoc)
+- apps/api/src/forums/forums.service.test.ts (ST-11 test section, makeRawQb/makeLastActivityQb type updates)
+
+Test commit:
+- 89332bb
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/api test --reporter=verbose
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec tsc -p tsconfig.json
+- npx --yes pnpm@10.0.0 lint
+
+Final test outcomes:
+- 1287 tests passed, 30 skipped (integration tests — SFUS_DB_INTEGRATION=1 not set), 0 failed
+- Lint: clean (0 warnings/errors)
+- TypeScript: no errors
+
+Documentation context:
+- Primary doc to review: docs/features/forums.md — it documents board listing, lastPost behavior,
+  and the public-read contract. The change to TopicLastActivity.at (now populated vs. always-null)
+  and the effectiveAt derivation (activity.at takes priority over topic.lastPostAt for reply case)
+  may need to be reflected if the doc describes the lastPost timestamp source.
+- Secondary: docs/development/api-conventions.md may mention soft-delete filtering conventions.
+- The JSDoc on TopicLastActivity in forums.types.ts and the BoardLastPostShape comment both
+  already carry updated descriptions from the Implementer; the doc review should confirm
+  the narrative in docs/features/forums.md is consistent.
+- No public API contract change (endpoints and response shapes unchanged); this is an internal
+  accuracy fix to the timestamp source for lastPost.at.
+
+Plan and diff context:
+- Plan: plans/ms5-documents-wiki-plan.md (ST-11 section)
+- Base branch: ms5
+- The implementer commit on ms5-st11-implementer-20260611 (c4bf36f) is the comparison base
+  for the code changes. The tester commit (89332bb) added only test changes.
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin
+  documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details
+  from repository context when repository evidence is sufficient, and label those choices as
+  assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review
+  when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-11
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

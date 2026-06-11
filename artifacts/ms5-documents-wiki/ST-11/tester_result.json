@@ -1,0 +1,28 @@
+{
+  "status": "pass",
+  "subtask": "ST-11",
+  "branch": "ms5-st11-tester-20260611",
+  "test_commit": "89332bb",
+  "test_files_modified": [
+    "apps/api/src/forums/forums.service.test.ts"
+  ],
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/api test --reporter=verbose",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec tsc -p tsconfig.json",
+    "npx --yes pnpm@10.0.0 lint"
+  ],
+  "tests_passed": 1287,
+  "tests_skipped": 30,
+  "tests_failed": 0,
+  "unmet_acceptance_criteria": [],
+  "acceptance_criteria_results": {
+    "AC1": "PASS — soft-deleted latest reply falls back to topic.createdAt, not stale topic.lastPostAt",
+    "AC2": "PASS — activity.at is non-null Date for reply case; null only for opening-post fallback",
+    "AC3": "PASS — 1287/1287 tests pass; lint and typecheck clean"
+  },
+  "artifact_files_written": [
+    "artifacts/ms5-documents-wiki/ST-11/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-11/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-11/documenter_prompt.txt"
+  ]
+}
