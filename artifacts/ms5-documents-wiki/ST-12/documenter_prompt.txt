@@ -1,0 +1,81 @@
+You are the Documenter Agent for this project.
+
+PROCEDURAL SCOPE: Perform ONLY the documenter stage and then STOP and report. Do NOT continue
+into verifier work. Deliverables: any documentation changes plus documenter_report.md and
+documenter_result.json only.
+
+COMMIT-LOCATION GUARD: Commit ONLY from inside your worktree on branch ms5-st12-tester-20260611.
+Confirm `git branch --show-current` before each commit.
+
+## Task
+
+ST-12 REMEDIATION — Documentation correction: web-shell.md highlights count/list.
+
+The Verifier identified a P1 doc/code accuracy discrepancy in a prior pass:
+`docs/features/web-shell.md` documents the landing page highlights grid as containing
+"five cards", but `apps/web/app/page.tsx` renders SIX highlight cards.
+
+No product code was changed this pass. The implementation is correct. The documentation is wrong.
+
+## Required Change
+
+Edit `docs/features/web-shell.md`:
+
+1. Find any reference to "five cards" (or "5 cards", "five highlight cards", etc.) in the
+   description of the landing page highlights grid.
+2. Update the count to **six cards** (or "6 cards" — match the existing style in the document).
+3. Ensure the list of highlight card titles in the documentation matches the six cards rendered
+   by `apps/web/app/page.tsx` exactly:
+   1. Documents wiki
+   2. Community forums
+   3. Blog with threaded comments
+   4. Standalone pages and revision history
+   5. Dynamic navigation and media uploads
+   6. Public member profiles and avatars
+
+   If the documentation lists card titles, all six must be present and match the code exactly.
+   If the documentation only states the count (not a list), updating the count is sufficient.
+
+## Source of Truth
+
+`apps/web/app/page.tsx` — the `highlights` array at the top of the file defines the cards
+rendered in the `<section aria-label="Milestone 5 highlights">` grid. As of the current
+implementation it contains exactly six entries (verified by Tester on 2026-06-11).
+
+## Files Changed by Implementer / Tester (for reference)
+
+Implementer (no changes this pass — doc-only remediation):
+- No implementation files were modified in this remediation pass.
+- The landing page implementation from the prior ST-12 implementer pass remains in place.
+
+Tester:
+- No test files were modified (existing coverage is sufficient).
+
+Documentation target:
+- `docs/features/web-shell.md` — update the highlights count/list as described above.
+
+## Shared Artifact Directory
+
+Repository-root-relative path: `artifacts/ms5-documents-wiki/ST-12`
+
+Write `documenter_report.md` and `documenter_result.json` to that directory.
+
+## Acceptance Criteria
+
+- `docs/features/web-shell.md` no longer states "five cards" (or any incorrect count).
+- The documented count matches the six cards rendered in `apps/web/app/page.tsx`.
+- If the documentation lists card titles, all six titles match the code exactly.
+- `documenter_report.md` and `documenter_result.json` exist in the shared artifact directory.
+- All changes are committed on the correct branch.
+
+## Completion Gate
+
+Do not report success unless:
+1. `docs/features/web-shell.md` is updated with the correct count/list.
+2. `artifacts/ms5-documents-wiki/ST-12/documenter_report.md` exists and is committed.
+3. `artifacts/ms5-documents-wiki/ST-12/documenter_result.json` exists and is committed.
+4. All changes are committed on branch ms5-st12-tester-20260611 (confirmed with
+   `git branch --show-current` before each commit).
+
+Do not stop after scope confirmation, documentation discovery, or diff review when blocking
+inputs are present — continue past those stages and complete the work in the same run.
