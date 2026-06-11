@@ -1,0 +1,15 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-5/documenter_report.md",
+    "artifacts/ms5-documents-wiki/ST-5/documenter_result.json",
+    "artifacts/ms5-documents-wiki/ST-5/verifier_prompt.txt"
+  ],
+  "branch_name": "ms5-st5-documenter-20260611",
+  "documentation_commit_hash": "80fe6ce",
+  "documentation_files_changed": [
+    "docs/features/documents.md"
+  ],
+  "pass_label": "documenter-1",
+  "status": "success",
+  "task_id": "ST-5"
+}
