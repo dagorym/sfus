@@ -1,0 +1,60 @@
+Your role is 'tester'. Your task is as follows:
+
+This is the ST-12 remediation handoff from the Implementer (Verifier-driven, pass 1 of 1 allowed). No product code changes were made this pass. The Verifier warning that triggered this remediation is documentation-only.
+
+## Modified Files
+
+None — this was an artifact-only remediation pass. The ST-12 product code (page.tsx, page.module.css, recent-doc-activity.tsx, recent-doc-activity.module.css) is unchanged from the merged state.
+
+## Your Two Jobs
+
+### Job 1: Confirm existing ST-12 tests still pass (no test changes needed)
+
+Run the full web test suite to confirm no regressions:
+
+  pnpm --filter web test
+
+All ST-12 tests should pass without modification. No new tests are required. If any test fails, that is a regression to investigate and report — but based on the clean working tree and passing lint, no failures are expected.
+
+Also confirm lint still passes:
+
+  pnpm --filter web lint
+
+### Job 2: Carry forward to the Documenter — P1 doc/code accuracy correction required
+
+The Verifier identified the following mismatch that the Documenter MUST fix before the Verifier can pass:
+
+**FILE**: `docs/features/web-shell.md`
+**PROBLEM**: The landing page section states the highlights grid has "five cards", but `apps/web/app/page.tsx` actually renders **six** highlight cards.
+
+The actual six highlight cards rendered by page.tsx (in order) are:
+
+1. **Documents wiki** — hierarchical wiki with breadcrumb nav, per-edit revision history, side-by-side diffs, rollback, and soft locking; staff create/edit/rename/soft-delete; fully publicly readable
+2. **Community forums** — threaded topic boards; members create topics and reply; moderators pin/lock/move threads; @mentions link to public member profiles
+3. **Blog with threaded comments** — Markdown posts with featured images, tags, and pinning; authenticated members leave threaded replies; moderators and admins hide/remove comments
+4. **Standalone pages and revision history** — admin-managed site pages at any slug; every save creates a revisioned snapshot that can be previewed and restored
+5. **Dynamic navigation and media uploads** — admins control site navigation in real time via the navigation manager; images attachable to posts, pages, and comments via the media upload widget
+6. **Public member profiles and avatars** — public profile pages at /users/<username> showing display name, bio, and avatar; avatars uploaded via media API
+
+The Documenter must update `docs/features/web-shell.md` to say "six cards" (not "five") and list all six accurately. This is the sole blocking issue from the Verifier pass.
+
+## Acceptance Criteria
+
+- All existing ST-12 tests pass without modification
+- Lint passes with 0 warnings/errors
+- The tester_report.md and tester_result.json carry the Documenter doc-fix requirement forward clearly
+
+## Shared Artifact Directory
+
+artifacts/ms5-documents-wiki/ST-12
+
+## Validation Commands
+
+  pnpm --filter web lint
+  pnpm --filter web test
+
+## Implementation Context
+
+- Branch: ms5-st12-implementer-20260611
+- Implementation commit: No Changes Made (artifact-only remediation pass)
+- The landing page code is correct. The doc is wrong. Code fix: none needed. Doc fix: required.
