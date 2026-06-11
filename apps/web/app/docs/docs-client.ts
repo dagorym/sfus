@@ -159,3 +159,160 @@ export async function getRecentDocEdits(limit?: number): Promise<DocsRecentEditS
   const data = (await response.json()) as { docs: DocsRecentEditShape[] };
   return data.docs;
 }
+
+// ---------------------------------------------------------------------------
+// Write routes — require a moderator/admin session cookie
+// ---------------------------------------------------------------------------
+
+export interface CreateDocPageInput {
+  title: string;
+  slug?: string;
+  body: string;
+  summary?: string;
+  parentPath?: string;
+}
+
+export interface CreateDocPageResult {
+  page: DocsPageShape;
+}
+
+/**
+ * Creates a new doc page (POST /api/docs).
+ *
+ * Throws on any error, including 403 (not staff) and 409 (path collision).
+ */
+export async function createDocPage(input: CreateDocPageInput): Promise<DocsPageShape> {
+  const response = await fetch(`${apiBase}/docs`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input)
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as ErrorEnvelope;
+    throw new Error(extractErrorMessage(payload, "Failed to create document."));
+  }
+  const data = (await response.json()) as CreateDocPageResult;
+  return data.page;
+}
+
+export interface AddDocRevisionInput {
+  title?: string;
+  body: string;
+  summary?: string;
+}
+
+export interface AddDocRevisionResult {
+  page: DocsPageShape;
+}
+
+/**
+ * Adds a new revision to an existing doc page (POST /api/docs/:id/revisions).
+ *
+ * Throws on any error, including 403 (not staff) and 409 (active foreign lock).
+ */
+export async function addDocRevision(pageId: string, input: AddDocRevisionInput): Promise<DocsPageShape> {
+  const response = await fetch(`${apiBase}/docs/${encodeURIComponent(pageId)}/revisions`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input)
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as (ErrorEnvelope & { error?: { details?: LockConflictDetails } });
+    if (response.status === 409) {
+      const details = (payload as { error?: { details?: LockConflictDetails } })?.error?.details;
+      if (details?.lockedByUserId) {
+        throw Object.assign(
+          new Error(extractErrorMessage(payload as ErrorEnvelope, "Document is locked by another user.")),
+          { lockConflict: details }
+        );
+      }
+    }
+    throw new Error(extractErrorMessage(payload as ErrorEnvelope, "Failed to save revision."));
+  }
+  const data = (await response.json()) as AddDocRevisionResult;
+  return data.page;
+}
+
+export interface RenameDocPageInput {
+  title?: string;
+  slug?: string;
+}
+
+/**
+ * Renames a doc page's title and/or slug (PATCH /api/docs/:id).
+ *
+ * Throws on any error, including 403 (not staff) and 409 (active foreign lock).
+ */
+export async function renameDocPage(pageId: string, input: RenameDocPageInput): Promise<DocsPageShape> {
+  const response = await fetch(`${apiBase}/docs/${encodeURIComponent(pageId)}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input)
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as ErrorEnvelope;
+    throw new Error(extractErrorMessage(payload, "Failed to rename document."));
+  }
+  const data = (await response.json()) as { page: DocsPageShape };
+  return data.page;
+}
+
+/** Lock-conflict details returned inside error.details on a 409 from lock routes. */
+export interface LockConflictDetails {
+  lockedByUserId: string;
+  lockExpiresAt: string | null;
+}
+
+/** Extended error for lock conflicts — carries parsed holder metadata. */
+export type LockConflictError = Error & { lockConflict: LockConflictDetails };
+
+export function isLockConflictError(err: unknown): err is LockConflictError {
+  return err instanceof Error && "lockConflict" in err;
+}
+
+/**
+ * Acquires (or refreshes) the soft lock on a doc page (POST /api/docs/:id/lock).
+ *
+ * Returns updated lock state on success.
+ * Throws a LockConflictError when a different, non-expired holder already holds the lock.
+ */
+export async function acquireDocLock(pageId: string): Promise<DocsLockState> {
+  const response = await fetch(`${apiBase}/docs/${encodeURIComponent(pageId)}/lock`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" }
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as (ErrorEnvelope & { error?: { details?: LockConflictDetails } });
+    if (response.status === 409) {
+      const details = (payload as { error?: { details?: LockConflictDetails } })?.error?.details;
+      if (details?.lockedByUserId) {
+        const err = new Error(extractErrorMessage(payload as ErrorEnvelope, "Document is locked by another user.")) as LockConflictError;
+        err.lockConflict = details;
+        throw err;
+      }
+    }
+    throw new Error(extractErrorMessage(payload as ErrorEnvelope, "Failed to acquire lock."));
+  }
+  const data = (await response.json()) as { lock: DocsLockState };
+  return data.lock;
+}
+
+/**
+ * Releases the soft lock on a doc page (DELETE /api/docs/:id/lock).
+ *
+ * Throws on any error, including 403 (not the holder and not staff override).
+ */
+export async function releaseDocLock(pageId: string): Promise<void> {
+  const response = await fetch(`${apiBase}/docs/${encodeURIComponent(pageId)}/lock`, {
+    method: "DELETE",
+    credentials: "include"
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as ErrorEnvelope;
+    throw new Error(extractErrorMessage(payload, "Failed to release lock."));
+  }
+}

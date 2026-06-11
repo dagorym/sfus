@@ -208,11 +208,11 @@ export default function DocsPageView() {
       {/* Staff affordances — defense-in-depth client gate */}
       {isStaff ? (
         <div className={styles.staffActions}>
-          <Link href={`/docs/${page.path}/edit`} className={styles.actionButton}>
+          <Link href={`/docs/edit/${page.path}`} className={styles.actionButton}>
             Edit
           </Link>
           {!isLocked ? (
-            <Link href={`/docs/${page.path}/edit`} className={styles.secondaryActionButton}>
+            <Link href={`/docs/edit/${page.path}`} className={styles.secondaryActionButton}>
               Acquire lock
             </Link>
           ) : null}

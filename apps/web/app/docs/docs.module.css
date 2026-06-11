@@ -168,3 +168,51 @@
   flex-shrink: 0;
   color: rgba(255, 200, 50, 0.85);
 }
+
+.lockHeldIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(122, 255, 140, 0.9);
+}
+
+/* ---------------------------------------------------------------------------
+ * Authoring forms (new page / edit page)
+ * --------------------------------------------------------------------------- */
+
+.form {
+  display: grid;
+  gap: var(--space-md, 0.75rem);
+  max-width: 42rem;
+}
+
+.formLabel {
+  display: grid;
+  gap: 0.3rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.formHint {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.formInput {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+  background: rgba(6, 13, 23, 0.78);
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.saveSuccess {
+  margin: 0;
+  color: rgba(122, 255, 140, 0.9);
+  font-size: 0.9rem;
+}
