@@ -1,0 +1,17 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-8/documenter_report.md",
+    "artifacts/ms5-documents-wiki/ST-8/documenter_result.json",
+    "artifacts/ms5-documents-wiki/ST-8/verifier_prompt.txt"
+  ],
+  "branch_name": "ms5-st8-documenter-20260611",
+  "documentation_commit_hash": "8ebbcaca4f9a269681ee9e57c0c1b305a08a5885",
+  "documentation_files_changed": [
+    "docs/features/documents.md",
+    "docs/guides/content-management.md",
+    "docs/README.md"
+  ],
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST-8"
+}
