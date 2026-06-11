@@ -1,0 +1,46 @@
+{
+  "status": "complete",
+  "feature": "Milestone 5 — Documents Wiki",
+  "plan": "plans/ms5-documents-wiki-plan.md",
+  "branch_name": "ms5-reviewer-20260611",
+  "diff_base": "6ad5ae56f6b7ee3db430e8adb78c1915968a6e25",
+  "diff_head": "ms5",
+  "final_outcome": "CONDITIONAL PASS",
+  "blocking_finding_count": 0,
+  "warning_finding_count": 0,
+  "note_finding_count": 4,
+  "subtasks_reviewed": [
+    "ST-1", "ST-2", "ST-3", "ST-4", "ST-5", "ST-6",
+    "ST-7", "ST-8", "ST-9", "ST-9-followup", "ST-10", "ST-11", "ST-12"
+  ],
+  "subtask_verifier_verdicts": {
+    "ST-1": "PASS", "ST-2": "PASS", "ST-3": "PASS", "ST-4": "PASS",
+    "ST-5": "PASS", "ST-6": "PASS", "ST-7": "PASS", "ST-8": "PASS",
+    "ST-9": "PASS", "ST-9-followup": "PASS", "ST-10": "PASS",
+    "ST-11": "PASS", "ST-12": "PASS"
+  },
+  "security_review": {
+    "required_subtasks": ["ST-2", "ST-3", "ST-4", "ST-5"],
+    "outcomes": {
+      "ST-2": "PASS (breadcrumb-gating remediation verified; 0 blocking/0 warning)",
+      "ST-3": "PASS (atomicity-proof remediation verified; 0 blocking/0 warning)",
+      "ST-4": "PASS (0 blocking/0 warning)",
+      "ST-5": "PASS (diff-DoS-cap remediation verified; 0 blocking/0 warning)"
+    },
+    "trust_boundary_consistency": "Uniform: single assertDocWriteAccess seam, shared oracle-parity 404 (PAGE_NOT_FOUND_MESSAGE), breadcrumb chain truncation on first gated ancestor, diff size cap before O(m*n) allocation."
+  },
+  "follow_up_feature_requests": [
+    "Refresh the global web-shell to Milestone 5: update apps/web/app/layout.tsx (brand eyebrow 'Milestone 4 Content Platform' line 29, metadata.description line 14, footer line 46) and the docs/features/web-shell.md 'Shared shell' section (currently 'Milestone 3 Content Platform', lines 13-17) so no stale Milestone 3/4 labels remain; next build and lint pass. Consider a milestone-agnostic shell label so future milestones need no layout edit. Distinct from ST-12, which only refreshed page.tsx and was correctly not auto-fixed (outside every subtask's allowed files).",
+    "Optional low-priority doc top-up: extend the docs/features/authorization.md assertDocWriteAccess row to enumerate all gated write routes (rename, delete, rollback, lock acquire/release), not just create/edit."
+  ],
+  "notes": [
+    "Stale global shell milestone label in layout.tsx and web-shell.md (out-of-plan-scope; actionable -> follow-up #1; cosmetic, NOTE severity).",
+    "authorization.md gate table lists only the two create/edit write routes though the same gate also guards rename/delete/rollback/lock (incomplete, not wrong).",
+    "DocsTreeItem.hasChildren is hardcoded false; no caller populates it; no plan AC requires it.",
+    "Carried-over informational items (verified non-blocking): docs integration suites DB-gated via SFUS_DB_INTEGRATION=1; rollback mid-transaction-failure proof inferred, not dedicated; DocsPageShape.parentId exposes a gated parent's opaque UUID but no public id-based lookup exists; cross-parent move/reparent deferred per plan; write controllers pass literal 'site' scope to assertDocWriteAccess (correct for M5, no project docs)."
+  ],
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/reviewer_report.md",
+    "artifacts/ms5-documents-wiki/reviewer_result.json"
+  ]
+}
