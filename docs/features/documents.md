@@ -373,6 +373,14 @@ Returns a server-computed, deterministic line-level diff between two revisions.
 
 - Both `from` and `to` query parameters are required and must be positive integers.
 - `from` and `to` must be different revision numbers; equal values return `400`.
+- **DoS size guard:** before allocating the O(m×n) LCS table, each revision body is
+  checked against two hard limits (constants exported from `docs.types.ts`):
+  - `DOCS_DIFF_MAX_BODY_BYTES` = 512,000 bytes (512 KB) per revision body
+    (checked with `Buffer.byteLength`, UTF-8 encoded).
+  - `DOCS_DIFF_MAX_LINES` = 5,000 lines per revision body (after `body.split("\n")`).
+  Either limit exceeded returns `400 BadRequestException` with a message naming the
+  violated limit. The guard fires on this unauthenticated public endpoint because the
+  LCS diff is O(m×n) in both time and memory.
 - The diff is computed server-side using the LCS (longest common subsequence) algorithm
   in `DocsService.computeLineDiff(fromLines, toLines)`. This is a `static` method so tests
   can pin its output against fixed inputs deterministically (P3).
@@ -402,7 +410,7 @@ Adjacent lines of the same type are merged into a single hunk.
 
 | Status | Condition |
 |---|---|
-| 400 | `from` or `to` missing, not a positive integer, or `from === to` |
+| 400 | `from` or `to` missing, not a positive integer, or `from === to`; or either revision body exceeds `DOCS_DIFF_MAX_BODY_BYTES` (512 KB) or `DOCS_DIFF_MAX_LINES` (5,000 lines) |
 | 404 | Page or either revision not found (oracle parity) |
 
 ### POST /api/docs/:id/rollback — non-destructive rollback
@@ -451,6 +459,8 @@ the SHA-256 hash stored in `path_hash`. Input format: `${scopeType}:${scopeId ??
 | `PAGE_NOT_FOUND_MESSAGE` | `'Document page not found.'` | Oracle-parity error message for all gated 404 reads |
 | `RECENT_DOCS_DEFAULT_LIMIT` | `5` | Default recent-feed page count |
 | `RECENT_DOCS_MAX_LIMIT` | `20` | Hard cap on recent-feed page count |
+| `DOCS_DIFF_MAX_BODY_BYTES` | `512000` (512 KB) | Max revision body size (UTF-8 bytes) accepted by the diff endpoint; exceeded → 400 |
+| `DOCS_DIFF_MAX_LINES` | `5000` | Max revision body line count accepted by the diff endpoint; exceeded → 400 |
 
 ## Route ordering note
 
