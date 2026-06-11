@@ -1,0 +1,73 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST-7: Public /docs browse and render surface (web) for Milestone 5 (ms5-documents-wiki)
+
+Acceptance criteria to verify:
+- AC1: /docs renders site page tree; /docs/<path> renders page with breadcrumb trail and sanitized Markdown — PASS
+- AC2: Non-staff/anonymous visitor sees no create/edit/lock affordances; staff session sees them (hasGlobalRole client gate) — PASS
+- AC3: Nonexistent/gated path renders the standard not-found experience with no oracle distinction — PASS
+- AC4: next build and lint pass; route files export only default — PASS
+
+Implementation branch or worktree context:
+- DocsIndexPage (apps/web/app/docs/page.tsx): fetches site root page tree via getDocPageTree(), renders page links. Staff (moderator/admin via hasGlobalRole) see 'Create page' link to /docs/new (ST-8, not yet built).
+- DocsPageView (apps/web/app/docs/[...path]/page.tsx): resolves catch-all path segments, fetches page via getDocPageByPath(), renders breadcrumbs and MarkdownRenderer. Staff see Edit/History/Acquire-lock affordances (defense-in-depth; API is real gate). Not-found (null from API) renders oracle-parity message.
+- docs-client.ts provides getDocPageTree, getDocPageByPath, getRecentDocEdits using shared error-envelope pattern (payload.error.message || payload.message || fallback).
+- Branch: ms5-st7-documenter-20260611 (contains Implementer + Tester + Documenter commits). Compare against ms5 to see all ST-7 changes.
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/docs/page.tsx
+- apps/web/app/docs/[...path]/page.tsx
+- apps/web/app/docs/docs-client.ts
+- apps/web/app/docs/docs.module.css
+- apps/web/app/docs/docs-index.spec.ts
+- apps/web/app/docs/docs-page.spec.ts
+- apps/web/app/docs/docs-client.spec.ts
+- docs/features/web-shell.md
+- docs/features/documents.md
+
+Commands executed:
+- git diff ms5..HEAD --name-only
+- myteam get role documenter
+- myteam get skill execution-start
+- myteam get skill documenter/preflight
+- myteam get skill documenter/diff-review
+- myteam get skill documenter/doc-editing
+- myteam get skill diff-first-editing
+- myteam get skill documenter/commit-flow
+- myteam get skill documenter/artifact-writing
+- myteam get skill documenter/verifier-handoff
+- myteam get skill handoff-prompt-contract
+
+Final test outcomes:
+- 85 new tests PASS (docs-index.spec.ts: 17, docs-page.spec.ts: 27, docs-client.spec.ts: 41)
+- Full web suite: 640 passed, 0 failed (2 pre-existing worktree env failures unrelated to ST-7)
+- Lint: PASS
+- Build: PASS (/docs and /docs/[...path] routes confirmed in build manifest)
+
+Plan or evaluation context guidance:
+- Plan: plans/ms5-documents-wiki-plan.md.
+- Documentation Impact: docs/features/web-shell.md — add /docs and /docs/[...path] routes to route map.
+- Documentation Impact: docs/features/documents.md — note new public web routes for the Documents feature.
+- Note: /docs/new and /docs/<path>/edit are ST-8 (authoring routes, not yet built) — do not flag their absence as a defect.
+
+Convention-file guidance:
+- Web specs use source-audit pattern (file read + string assertions), consistent with blog.spec.ts and forums.spec.ts.
+- Route files use 'use client' directive and export only a single default function.
+- Error envelope pattern: payload.error.message || payload.message || fallback string.
+- Staff role gate: hasGlobalRole(session.user, 'moderator') — matches existing forums and admin patterns.
+
+Updated documentation files:
+- docs/features/web-shell.md
+- docs/features/documents.md
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-7
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
