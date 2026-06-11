@@ -1,0 +1,170 @@
+/* ---------------------------------------------------------------------------
+ * Docs module styles
+ * Shared by the /docs index page and /docs/[...path] page view.
+ * --------------------------------------------------------------------------- */
+
+.container {
+  display: grid;
+  gap: var(--space-lg);
+  padding: clamp(var(--space-xl), 5vw, var(--space-3xl));
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--surface-radius-large) + 4px);
+  background:
+    linear-gradient(180deg, rgba(122, 162, 255, 0.08), rgba(9, 19, 33, 0.92)),
+    var(--color-background-elevated);
+  box-shadow: var(--shadow-soft);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-accent-strong);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.description {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+}
+
+.error {
+  margin: 0;
+  color: #ffb4b4;
+}
+
+/* ---------------------------------------------------------------------------
+ * Breadcrumbs
+ * --------------------------------------------------------------------------- */
+
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.breadcrumbSeparator {
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+.breadcrumbLink {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.breadcrumbLink:hover {
+  text-decoration: underline;
+}
+
+.breadcrumbCurrent {
+  color: var(--color-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Page tree list
+ * --------------------------------------------------------------------------- */
+
+.treeList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.treeItem {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.75rem;
+}
+
+.treeLink {
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.treeLink:hover {
+  color: var(--color-accent);
+}
+
+.treeChildrenHint {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Staff affordances
+ * --------------------------------------------------------------------------- */
+
+.staffActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md, 0.75rem);
+  margin-top: var(--space-md, 0.75rem);
+}
+
+.actionButton,
+.secondaryActionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.actionButton {
+  border: 0;
+  background: var(--color-accent);
+  color: #05101c;
+}
+
+.secondaryActionButton {
+  border: 1px solid var(--color-border-strong);
+  background: rgba(122, 162, 255, 0.08);
+  color: var(--color-text);
+}
+
+/* ---------------------------------------------------------------------------
+ * Lock indicator
+ * --------------------------------------------------------------------------- */
+
+.lockBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 200, 50, 0.08);
+  border: 1px solid rgba(255, 200, 50, 0.3);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+}
+
+.lockIcon {
+  flex-shrink: 0;
+  color: rgba(255, 200, 50, 0.85);
+}
