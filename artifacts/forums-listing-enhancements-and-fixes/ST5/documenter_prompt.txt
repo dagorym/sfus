@@ -1,0 +1,54 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+ST5 added per-board Topics, Posts, and Last Post columns to the public /forums index page. The implementation extended PublicBoardShape in forums-client.ts with topicCount, postCount, and lastPost (BoardLastPostShape | null), and rewrote the forum index page.tsx to use a semantic <table> with Board/Topics/Posts/Last Post column headers. The Last Post cell renders an absolute date via toLocaleDateString plus a profile-linked author using displayName ?? username with encodeURIComponent on the username. Empty boards show "No posts yet". No dangerouslySetInnerHTML is used anywhere in the index page. The Tester added 12 new source-audit tests covering all of the above; all 51 tests pass.
+
+Acceptance criteria validated:
+- Each board shows Topics (topicCount), Posts (postCount), and Last Post (absolute date via toLocaleDateString + author displayName ?? username linked to /users/<encodeURIComponent(username)>), with "No posts yet" when lastPost is null; values come straight from the API (no client recompute).
+- Usernames are encodeURIComponent-encoded in Last Post author links; only public fields rendered; no dangerouslySetInnerHTML.
+- lint, typecheck, and the web suite (51 tests) all pass.
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/forums-listing-st5-tester-20260610
+- Branch: forums-listing-st5-tester-20260610
+- Plan: plans/forums-listing-enhancements-and-fixes-plan.md (ST5 subtask)
+- Comparison base: infer from the implementer commit preceding the tester commit on this branch
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/forums/forums-client.ts (BoardLastPostShape added; PublicBoardShape extended with topicCount, postCount, lastPost)
+- apps/web/app/forums/page.tsx (full rewrite to "use client" with semantic table and column rendering)
+- apps/web/app/forums/forums.module.css (new CSS classes: boardTable, boardRow, boardCellName, boardCellStat, boardCellLastPost, lastPostDate, noPostsYet, authorLink, etc.)
+- apps/web/app/forums/forums.spec.ts (Tester: 12 new source-audit tests)
+
+Test commit:
+- 897bd90ae8a6098bd9cc1ce3489fdf6cf9050ac7
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter "@sfus/web" exec vitest run app/forums/forums.spec.ts
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+
+Final test outcomes:
+- Web suite: 51/51 tests passed (forums.spec.ts), 0 failures
+- Lint: PASS (0 warnings, 0 errors)
+- Typecheck: PASS (0 errors)
+
+Documentation context:
+- The primary doc to inspect and update is docs/features/forums.md — it covers the public-facing forum browsing surface. The ST5 change adds per-board aggregate statistics columns and a Last Post author link pattern to the /forums index page, which is likely undocumented or documented only at a high level.
+- docs/README.md routing table should be checked to confirm forums.md is still the correct owner.
+- The new encodeURIComponent pattern for last-post author links is consistent with existing username link patterns elsewhere in the codebase (e.g., topic/post author links).
+
+Plan and diff context:
+- Plan: plans/forums-listing-enhancements-and-fixes-plan.md, subtask ST5
+- Base branch: infer by diffing this branch against its merge base with main; the implementer's commit(s) are immediately prior to the tester commit 897bd90ae8a6098bd9cc1ce3489fdf6cf9050ac7
+
+Startup behavior:
+- If this worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/forums-listing-enhancements-and-fixes/ST5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
