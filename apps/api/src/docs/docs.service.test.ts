@@ -1307,19 +1307,28 @@ describe("DocsService.renamePage (ST-4 AC2: title-only rename does not alter pat
 /**
  * Build a softDelete-capable DocsService stub.
  *
- * `pageStub` is returned by findOne, `nonDeletedChildCount` by count.
+ * `pageStub` is returned by findOne (via transaction em.findOne),
+ * `nonDeletedChildCount` by em.count.
+ *
+ * WARNING-1 (ST-6 remediation): softDeletePage now runs inside
+ * pageRepository.manager.transaction, so pRepo.manager must expose a
+ * transaction() callback that injects the entity-manager stub.
  */
 const makeSoftDeleteDocsService = (
   pageStub: unknown,
   nonDeletedChildCount = 0
 ) => {
   const auth = new AuthorizationService();
-  const pRepo = {
-    ...createMinimalRepo(),
-    findOne: vi.fn().mockResolvedValue(pageStub),
-    count: vi.fn().mockResolvedValue(nonDeletedChildCount),
-    update: vi.fn().mockResolvedValue({})
+  const findOneSpy = vi.fn().mockResolvedValue(pageStub);
+  const countSpy = vi.fn().mockResolvedValue(nonDeletedChildCount);
+  const updateSpy = vi.fn().mockResolvedValue({ affected: 1 });
+  const txManager = { findOne: findOneSpy, count: countSpy, update: updateSpy };
+  const manager = {
+    transaction: vi.fn().mockImplementation(
+      async (cb: (em: typeof txManager) => unknown) => cb(txManager)
+    )
   };
+  const pRepo = { ...createMinimalRepo(), manager };
   const rRepo = createMinimalRepo();
   return new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 };
@@ -1358,18 +1367,25 @@ describe("DocsService.softDeletePage (ST-4 AC3: leaf page soft-delete)", () => {
   it("calls update with status='deleted' on the page repo (AC3: sets status=deleted)", async () => {
     const page = makeSitePage({ id: "p1" });
     const auth = new AuthorizationService();
-    const updateSpy = vi.fn().mockResolvedValue({});
-    const pRepo = {
-      ...createMinimalRepo(),
+    const updateSpy = vi.fn().mockResolvedValue({ affected: 1 });
+    const txManager = {
       findOne: vi.fn().mockResolvedValue(page),
       count: vi.fn().mockResolvedValue(0),
       update: updateSpy
     };
+    const manager = {
+      transaction: vi.fn().mockImplementation(
+        async (cb: (em: typeof txManager) => unknown) => cb(txManager)
+      )
+    };
+    const pRepo = { ...createMinimalRepo(), manager };
     const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth, { lockTtlMinutes: 30 });
 
     await service.softDeletePage("p1");
 
+    // em.update is called with (Entity, criteria, partial) inside the transaction
     expect(updateSpy).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({ id: "p1" }),
       expect.objectContaining({ status: "deleted" })
     );
@@ -1404,13 +1420,18 @@ describe("DocsService.softDeletePage (ST-4 AC4: 409 when children exist)", () =>
   it("does NOT call update when children block the delete (AC4: no partial state)", async () => {
     const page = makeSitePage({ id: "p1" });
     const auth = new AuthorizationService();
-    const updateSpy = vi.fn().mockResolvedValue({});
-    const pRepo = {
-      ...createMinimalRepo(),
+    const updateSpy = vi.fn().mockResolvedValue({ affected: 1 });
+    const txManager = {
       findOne: vi.fn().mockResolvedValue(page),
-      count: vi.fn().mockResolvedValue(1), // child exists
+      count: vi.fn().mockResolvedValue(1), // child exists → 409 before update
       update: updateSpy
     };
+    const manager = {
+      transaction: vi.fn().mockImplementation(
+        async (cb: (em: typeof txManager) => unknown) => cb(txManager)
+      )
+    };
+    const pRepo = { ...createMinimalRepo(), manager };
     const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth, { lockTtlMinutes: 30 });
 
     await expect(service.softDeletePage("p1")).rejects.toThrow(ConflictException);
@@ -2366,7 +2387,6 @@ describe("DocsService.assertNotForeignLocked (AC6, AC7, AC8)", () => {
   });
 
   it("throws ConflictException (409) when a non-expired foreign lock exists (AC6)", () => {
-    const { ConflictException: CE } = require("@nestjs/common");
     const service = makeDocsService();
     const future = new Date(Date.now() + 30 * 60 * 1000);
     const page = makeSitePage({
@@ -2375,7 +2395,7 @@ describe("DocsService.assertNotForeignLocked (AC6, AC7, AC8)", () => {
       lockedAt: new Date(),
       lockExpiresAt: future
     }) as never;
-    expect(() => service.assertNotForeignLocked(page, "user-actor", "user")).toThrow(CE);
+    expect(() => service.assertNotForeignLocked(page, "user-actor", "user")).toThrow(ConflictException);
   });
 
   it("does not throw when the foreign lock has expired (AC7: expired lock treated as free)", () => {
@@ -2703,7 +2723,6 @@ describe("DocsService write paths — assertNotForeignLocked called (AC6)", () =
 
   const makeTransactionManager = (page: ReturnType<typeof makeSitePage>) => {
     const findOneSpy = vi.fn().mockResolvedValue(page);
-    const lastRevSpy = vi.fn().mockResolvedValue(null);
     // Implement varying findOne responses for addRevision, renamePage, rollbackPage
     findOneSpy.mockImplementation((_entity: unknown, opts: unknown) => {
       const options = opts as { where?: { revisionNumber?: number } };
