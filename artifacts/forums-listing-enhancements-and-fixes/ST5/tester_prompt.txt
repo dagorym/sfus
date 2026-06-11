@@ -1,0 +1,50 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+ST5 — Add per-board Topics/Posts/Last Post columns to the public /forums index page.
+
+Modified files:
+- apps/web/app/forums/forums-client.ts
+- apps/web/app/forums/forums.module.css
+- apps/web/app/forums/page.tsx
+
+Acceptance criteria to validate (from Planner):
+- Each board shows Topics, Posts, and Last Post (absolute date + profile-linked author), with "No posts yet" when lastPost is null; values come straight from the API (no client recompute).
+- Usernames are encodeURIComponent-encoded in links; only public fields rendered; no dangerouslySetInnerHTML.
+- lint, typecheck, and the web suite pass.
+
+Test file location:
+- apps/web/app/forums/forums.spec.ts
+
+Implementation context for testing:
+- forums-client.ts: Added BoardLastPostShape interface {at: string; author: {username: string; displayName: string | null}}. Extended PublicBoardShape with topicCount: number, postCount: number, lastPost: BoardLastPostShape | null.
+- page.tsx: Replaced the <ul>/<li> board list with a semantic <table> with Board, Topics, Posts, and Last Post columns. Topics and Posts cells show numeric counts from the API. Last Post cell shows toLocaleDateString() of board.lastPost.at and the author's displayName ?? username linked to /users/<encodeURIComponent(username)>. When board.lastPost is null, renders "No posts yet". No dangerouslySetInnerHTML used.
+- forums.module.css: Added table and cell CSS classes: .boardTable, .boardRow, .boardCellName, .boardCellStat, .boardCellLastPost, .lastPostDate, .noPostsYet, and header classes.
+
+Coverage needed (add tests to forums.spec.ts in a new describe block):
+- forums-client.ts exports BoardLastPostShape type / PublicBoardShape includes topicCount, postCount, lastPost fields
+- page.tsx renders board.topicCount (e.g. source contains "board.topicCount")
+- page.tsx renders board.postCount
+- page.tsx renders Last Post using toLocaleDateString (source contains "toLocaleDateString")
+- page.tsx renders author name as displayName ?? username (source contains "displayName ?? ")
+- Last Post author link goes to /users/<encodeURIComponent(username)> (source contains "/users/${encodeURIComponent(board.lastPost.author.username)}")
+- page.tsx renders "No posts yet" fallback when lastPost is null (source contains "No posts yet")
+- page.tsx does NOT use dangerouslySetInnerHTML
+
+Suggested test commands:
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/forums/forums.spec.ts
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Do not stop after activation, directory discovery, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/forums-listing-enhancements-and-fixes/ST5
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

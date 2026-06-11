@@ -1,0 +1,45 @@
+{
+  "status": "success",
+  "subtask_id": "ST5",
+  "branch_name": "forums-listing-st5-implementer-20260610",
+  "code_commit_hash": "3057b3b",
+  "task_summary": "ST5 — Add per-board Topics/Posts/Last Post columns to the public /forums index page by extending the web client types and rendering a semantic table with encoded author links.",
+  "test_location_guidance": "apps/web/app/forums/forums.spec.ts",
+  "changed_files": [
+    "apps/web/app/forums/forums-client.ts",
+    "apps/web/app/forums/forums.module.css",
+    "apps/web/app/forums/page.tsx"
+  ],
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/forums/forums.spec.ts",
+    "npx --yes pnpm@10.0.0 lint",
+    "npx --yes pnpm@10.0.0 typecheck"
+  ],
+  "validation_outcome": "PASS — 51/51 tests pass; lint 0 warnings; typecheck 0 errors",
+  "task_goal": "Add per-board Topics / Posts / Last Post columns to the public forums index page.",
+  "allowed_files": [
+    "apps/web/app/forums/forums-client.ts",
+    "apps/web/app/forums/page.tsx",
+    "apps/web/app/forums/forums.module.css"
+  ],
+  "acceptance_criteria": [
+    "Each board shows Topics, Posts, and Last Post (absolute date + profile-linked author), with No posts yet when lastPost is null; values come straight from the API (no client recompute).",
+    "Usernames are encodeURIComponent-encoded in links; only public fields rendered; no dangerouslySetInnerHTML.",
+    "lint, typecheck, and the web suite pass."
+  ],
+  "implementation_context": "forums-client.ts: Added BoardLastPostShape interface {at: string; author: {username: string; displayName: string | null}}. Extended PublicBoardShape with topicCount: number, postCount: number, lastPost: BoardLastPostShape | null — matching the ST3 API response shape.\n\npage.tsx: Replaced the <ul>/<li> board list with a semantic <table> containing a Board, Topics, Posts, and Last Post column. Topics and Posts cells render the numeric counts from the API. Last Post cell renders toLocaleDateString() of board.lastPost.at plus the author's displayName ?? username linked to /users/<encodeURIComponent(username)>, or the text 'No posts yet' when lastPost is null. No dangerouslySetInnerHTML used anywhere.\n\nforums.module.css: Added .boardTable, .boardTableHeaderBoard, .boardTableHeaderStat, .boardTableHeaderLastPost, .boardRow, .boardCellName, .boardCellStat, .boardCellLastPost, .lastPostDate, .noPostsYet CSS classes to style the new table layout.\n\nExisting category headers and board name/description are preserved. The authorLink class already present in the module is reused for the Last Post author link.",
+  "expected_failures": [],
+  "tester_guidance": {
+    "test_file": "apps/web/app/forums/forums.spec.ts",
+    "test_command": "npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/forums/forums.spec.ts",
+    "coverage_needed": [
+      "forums-client.ts exports BoardLastPostShape interface",
+      "PublicBoardShape now includes topicCount, postCount, and lastPost fields",
+      "page.tsx renders topicCount and postCount from each board",
+      "page.tsx renders Last Post date (toLocaleDateString) and author displayName ?? username",
+      "Last Post author name links to /users/<encodeURIComponent(username)>",
+      "page.tsx renders 'No posts yet' when board.lastPost is null",
+      "No dangerouslySetInnerHTML in page.tsx"
+    ]
+  }
+}
