@@ -28,6 +28,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AuthorizationService } from "../authorization/authorization.service";
 import { DocsService } from "./docs.service";
+import { DOCS_DIFF_MAX_BODY_BYTES, DOCS_DIFF_MAX_LINES } from "./docs.types";
 
 // ---------------------------------------------------------------------------
 // Minimal repository stubs — only methods called by DocsService are needed.
@@ -1850,6 +1851,147 @@ describe("DocsService.getDiff (ST-5 AC2: validation + diff computation + oracle 
     // Verify "world" is removed and "universe" is added
     expect(result.hunks.some((h) => h.type === "removed" && h.lines.includes("world"))).toBe(true);
     expect(result.hunks.some((h) => h.type === "added" && h.lines.includes("universe"))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-5 remediation: DocsService.getDiff — DoS size guard (DOCS_DIFF_MAX_BODY_BYTES / DOCS_DIFF_MAX_LINES)
+// ---------------------------------------------------------------------------
+//
+// Acceptance criteria validated:
+//   AC-bytes-1: fromRev.body exceeds DOCS_DIFF_MAX_BODY_BYTES → BadRequestException (400)
+//   AC-bytes-2: toRev.body exceeds DOCS_DIFF_MAX_BODY_BYTES → BadRequestException (400)
+//   AC-lines-1: fromRev split line count > DOCS_DIFF_MAX_LINES → BadRequestException (400)
+//   AC-lines-2: toRev split line count > DOCS_DIFF_MAX_LINES → BadRequestException (400)
+//   AC-at-cap:  body exactly at DOCS_DIFF_MAX_BODY_BYTES passes (no error)
+//   AC-msg:     exception message names the violated limit
+//   AC-no-env:  guard is driven by named constants, not env vars (DOCS_DIFF_MAX_BODY_BYTES
+//               and DOCS_DIFF_MAX_LINES are re-imported from docs.types here as the source of truth)
+
+/**
+ * Builds a diff-capable service stub that returns the given from/to revision bodies.
+ * Re-usable across size-guard tests.
+ */
+const makeSizeGuardDiffService = (fromBody: string, toBody: string) => {
+  const page = makeSitePage({ id: "p1" });
+  const auth = new AuthorizationService();
+  const pRepo = {
+    ...createMinimalRepo(),
+    findOne: vi.fn().mockResolvedValue(page)
+  };
+  const fromRev = { id: "rev-1", body: fromBody, revisionNumber: 1, pageId: "p1" };
+  const toRev = { id: "rev-2", body: toBody, revisionNumber: 2, pageId: "p1" };
+  const rRepo = {
+    ...createMinimalRepo(),
+    findOne: vi.fn()
+      .mockResolvedValueOnce(fromRev)
+      .mockResolvedValueOnce(toRev)
+  };
+  return new DocsService(pRepo as never, rRepo as never, auth);
+};
+
+describe("DocsService.getDiff — DoS size guard (ST-5 remediation: DOCS_DIFF_MAX_BODY_BYTES / DOCS_DIFF_MAX_LINES)", () => {
+  // -----------------------------------------------------------------------
+  // Byte-limit: guard fires BEFORE the O(m·n) LCS table is allocated.
+  // -----------------------------------------------------------------------
+
+  it("throws BadRequestException (400) when fromRev.body exceeds DOCS_DIFF_MAX_BODY_BYTES (AC-bytes-1)", async () => {
+    // A body just one byte over the cap (ASCII 'a' repeated, so 1 byte per char).
+    const oversizedBody = "a".repeat(DOCS_DIFF_MAX_BODY_BYTES + 1);
+    const service = makeSizeGuardDiffService(oversizedBody, "normal body");
+
+    await expect(service.getDiff("p1", 1, 2)).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) when toRev.body exceeds DOCS_DIFF_MAX_BODY_BYTES (AC-bytes-2)", async () => {
+    const oversizedBody = "a".repeat(DOCS_DIFF_MAX_BODY_BYTES + 1);
+    const service = makeSizeGuardDiffService("normal body", oversizedBody);
+
+    await expect(service.getDiff("p1", 1, 2)).rejects.toThrow(BadRequestException);
+  });
+
+  it("byte-limit exception message names the byte cap (AC-msg)", async () => {
+    const oversizedBody = "a".repeat(DOCS_DIFF_MAX_BODY_BYTES + 1);
+    const service = makeSizeGuardDiffService(oversizedBody, "normal body");
+
+    let caught: unknown = null;
+    try {
+      await service.getDiff("p1", 1, 2);
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).not.toBeNull();
+    expect(caught instanceof BadRequestException).toBe(true);
+    // Message must reference the byte limit so operators can act on it.
+    expect((caught as BadRequestException).message).toContain(String(DOCS_DIFF_MAX_BODY_BYTES));
+  });
+
+  // -----------------------------------------------------------------------
+  // Line-limit: guard fires AFTER the byte check, BEFORE LCS allocation.
+  // -----------------------------------------------------------------------
+
+  it("throws BadRequestException (400) when fromRev split line count > DOCS_DIFF_MAX_LINES (AC-lines-1)", async () => {
+    // Build a body that is within the byte cap but has too many lines.
+    // Each line is "x\n" (2 bytes); DOCS_DIFF_MAX_LINES + 1 lines = safely within 512 KB.
+    const oversizedLines = Array.from({ length: DOCS_DIFF_MAX_LINES + 1 }, () => "x").join("\n");
+    const service = makeSizeGuardDiffService(oversizedLines, "normal body");
+
+    await expect(service.getDiff("p1", 1, 2)).rejects.toThrow(BadRequestException);
+  });
+
+  it("throws BadRequestException (400) when toRev split line count > DOCS_DIFF_MAX_LINES (AC-lines-2)", async () => {
+    const oversizedLines = Array.from({ length: DOCS_DIFF_MAX_LINES + 1 }, () => "x").join("\n");
+    const service = makeSizeGuardDiffService("normal body", oversizedLines);
+
+    await expect(service.getDiff("p1", 1, 2)).rejects.toThrow(BadRequestException);
+  });
+
+  it("line-limit exception message names the line cap (AC-msg)", async () => {
+    const oversizedLines = Array.from({ length: DOCS_DIFF_MAX_LINES + 1 }, () => "x").join("\n");
+    const service = makeSizeGuardDiffService(oversizedLines, "normal body");
+
+    let caught: unknown = null;
+    try {
+      await service.getDiff("p1", 1, 2);
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).not.toBeNull();
+    expect(caught instanceof BadRequestException).toBe(true);
+    expect((caught as BadRequestException).message).toContain(String(DOCS_DIFF_MAX_LINES));
+  });
+
+  // -----------------------------------------------------------------------
+  // At-cap: body exactly AT the limit must pass without error (AC-at-cap).
+  // -----------------------------------------------------------------------
+
+  it("at-cap fromRev.body (exactly DOCS_DIFF_MAX_BODY_BYTES) does NOT throw (AC-at-cap)", async () => {
+    // Exactly DOCS_DIFF_MAX_BODY_BYTES bytes of ASCII.
+    const atCapBody = "a".repeat(DOCS_DIFF_MAX_BODY_BYTES);
+    const service = makeSizeGuardDiffService(atCapBody, "normal to body");
+
+    await expect(service.getDiff("p1", 1, 2)).resolves.toBeDefined();
+  });
+
+  it("at-cap toRev.body (exactly DOCS_DIFF_MAX_BODY_BYTES) does NOT throw (AC-at-cap)", async () => {
+    const atCapBody = "a".repeat(DOCS_DIFF_MAX_BODY_BYTES);
+    const service = makeSizeGuardDiffService("normal from body", atCapBody);
+
+    await expect(service.getDiff("p1", 1, 2)).resolves.toBeDefined();
+  });
+
+  // -----------------------------------------------------------------------
+  // Guard fires BEFORE LCS: verify the constant values match the implementation.
+  // -----------------------------------------------------------------------
+
+  it("DOCS_DIFF_MAX_BODY_BYTES is 512_000 (512 KB per revision body, no env var)", () => {
+    expect(DOCS_DIFF_MAX_BODY_BYTES).toBe(512_000);
+  });
+
+  it("DOCS_DIFF_MAX_LINES is 5_000 (lines per revision body, no env var)", () => {
+    expect(DOCS_DIFF_MAX_LINES).toBe(5_000);
   });
 });
 

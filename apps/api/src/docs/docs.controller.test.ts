@@ -1010,6 +1010,30 @@ describe("DocsController: getDiff (ST-5 AC2: diff endpoint delegation + validati
 
     await expect(controller.getDiff("page-1", "2", "2")).rejects.toThrow(BadRequestException);
   });
+
+  it("propagates BadRequestException (400) from service DoS size guard — over-cap body bytes (ST-5 remediation)", async () => {
+    // When the service throws BadRequestException due to the byte-size DoS guard,
+    // the controller must surface the same 400 to the HTTP caller unchanged.
+    const docsService = makeDocsService({
+      getDiff: vi.fn().mockRejectedValue(
+        new BadRequestException("Revision body exceeds the maximum allowed size for diff (512000 bytes).")
+      )
+    });
+    const controller = makeController(docsService);
+
+    await expect(controller.getDiff("page-1", "1", "2")).rejects.toThrow(BadRequestException);
+  });
+
+  it("propagates BadRequestException (400) from service DoS size guard — over-cap line count (ST-5 remediation)", async () => {
+    const docsService = makeDocsService({
+      getDiff: vi.fn().mockRejectedValue(
+        new BadRequestException("Revision body exceeds the maximum allowed line count for diff (5000 lines).")
+      )
+    });
+    const controller = makeController(docsService);
+
+    await expect(controller.getDiff("page-1", "1", "2")).rejects.toThrow(BadRequestException);
+  });
 });
 
 // ---------------------------------------------------------------------------
