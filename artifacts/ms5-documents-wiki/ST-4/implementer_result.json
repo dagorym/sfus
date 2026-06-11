@@ -1,0 +1,24 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-4/implementer_report.md",
+    "artifacts/ms5-documents-wiki/ST-4/tester_prompt.txt",
+    "artifacts/ms5-documents-wiki/ST-4/implementer_result.json"
+  ],
+  "branch_name": "ms5-st4-implementer-20260611",
+  "changed_files": [
+    "apps/api/src/docs/docs.service.ts",
+    "apps/api/src/docs/docs.controller.ts",
+    "apps/api/src/docs/docs.types.ts"
+  ],
+  "code_commit_hash": "e7c88aabc697408aaffeab6b488b2061b5126f6e",
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST-4",
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 lint",
+    "npx --yes pnpm@10.0.0 typecheck",
+    "npx --yes pnpm@10.0.0 test",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec tsc -p tsconfig.json"
+  ],
+  "validation_outcome": "PASS \u2014 lint 0 warnings, typecheck 0 errors, 1111 tests passed (19 skipped DB-gated), API tsc build clean"
+}
