@@ -1,0 +1,43 @@
+{
+  "status": "success",
+  "task_id": "ST-2",
+  "task_summary": "Implement ST-2 — the Documents read API (path resolution, tree, breadcrumbs, recent feed) for Milestone 5. DocsService and DocsController provide: GET /api/docs/*path (resolve a published site page by full path_hash, return current revision body plus ordered breadcrumb ancestry); GET /api/docs (site root tree or children of ?parentPath=); GET /api/docs/recent?limit= (recent publicly-readable site-scope non-deleted document edits for the landing feed). All visibility routed through AuthorizationService.evaluate() with anonymous actor. Project-scoped pages excluded from every site index. Oracle parity (P12): nonexistent, deleted, and non-readable pages all return PAGE_NOT_FOUND_MESSAGE (identical 404, no 403 vs 404 distinction).",
+  "branch_name": "ms5-st2-implementer-20260610",
+  "code_commit_hash": "a3e6d0d",
+  "changed_files": [
+    "apps/api/src/docs/docs.service.ts",
+    "apps/api/src/docs/docs.controller.ts",
+    "apps/api/src/docs/docs.module.ts",
+    "apps/api/src/docs/docs.types.ts"
+  ],
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 lint",
+    "npx --yes pnpm@10.0.0 typecheck",
+    "npx --yes pnpm@10.0.0 test",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec tsc -p tsconfig.json"
+  ],
+  "validation_outcome": "All pass. 1003 tests passed (11 skipped — DB integration, gated on SFUS_DB_INTEGRATION=1). Lint and typecheck clean.",
+  "acceptance_criteria": [
+    "AC1: GET /api/docs/*path resolves a published site page by full path and returns its current revision content plus an ordered breadcrumb ancestry array.",
+    "AC2: A nonexistent path, a deleted page, and a non-publicly-readable page all return the same 404 class and message (oracle parity), assertable by operator-pinned predicate. Constant: DocsService.PAGE_NOT_FOUND_MESSAGE = 'Document page not found.'",
+    "AC3: GET /api/docs returns the site page tree/children with no project-scoped pages ever present.",
+    "AC4: GET /api/docs/recent returns recent published site-doc edits (page title, path, editor, timestamp), excludes deleted/non-readable/project pages, and respects limit. Default=5, max=20.",
+    "AC5: Every read path routes visibility through AuthorizationService.evaluate() with no inline re-derived predicate."
+  ],
+  "test_location_guidance": [
+    "apps/api/src/docs/docs.service.test.ts — new file, tester-owned",
+    "apps/api/src/docs/docs.controller.test.ts — new file, tester-owned"
+  ],
+  "implementation_context": [
+    "DocsService.isPagePubliclyReadable(page) mirrors ForumsService.isBoardPubliclyReadable: scopeType !== 'site' → false; then AuthorizationService.evaluate() with anonymous actor { userId: null, globalRole: '' }.",
+    "DocsService.PAGE_NOT_FOUND_MESSAGE = 'Document page not found.' — static constant, single source of truth for oracle parity. Throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE) in all gated read paths.",
+    "DocsService.computePathHash(scopeType, scopeId, path) is public — ST-3 must use it with the same SHA-256('scopeType:scopeId:path') formula when creating pages.",
+    "Path normalization: trim whitespace and strip leading/trailing slashes before hashing.",
+    "GET /docs/recent is declared before GET *path in the controller — NestJS route priority ensures 'recent' is not treated as a path segment.",
+    "Recent feed: joins revision.page.current_revision_id = revision.id, orders by revision.createdAt DESC, takes limit items from the allow-listed public page ids.",
+    "DocsTreeItem.hasChildren is always false in ST-2; ST-3+ can enhance with a child-count query.",
+    "Breadcrumb chain walks parentId links up to root, then reverses for display order (root first).",
+    "DocsModule now imports AuthorizationModule and exports DocsService for downstream subtasks."
+  ],
+  "expected_validation_failures": []
+}
