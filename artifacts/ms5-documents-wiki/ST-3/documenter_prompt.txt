@@ -1,0 +1,70 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST-3 implements the Documents Wiki write API: POST /api/docs (createPage), POST /api/docs/:id/revisions (addRevision), the assertDocWriteAccess authorization seam, slug/title validation, path_hash collision detection (ConflictException), ThrottleGuard on write routes, and ThrottleModule + AuthModule wired into DocsModule.register(environment).
+- Tester added 27 service unit tests, 16 controller unit tests, and filled in the P10 atomicity injection integration test. All 1111 unit tests pass. Integration suite skips cleanly without SFUS_DB_INTEGRATION=1.
+
+Acceptance criteria validated:
+- AC1: POST /api/docs creates page + revision #1 + sets current_revision_id in a single transaction (PASS)
+- AC2: POST /api/docs/:id/revisions bumps revision_number, updates current_revision_id, title, updated_at in a transaction (PASS)
+- AC3: ConflictException (409) on path_hash collision; BadRequestException (400) on invalid slug/title or missing parent (PASS)
+- AC4: ThrottleGuard attached to both write routes; ThrottleModule and AuthModule wired into DocsModule.register(environment) (PASS)
+- AC5: assertDocWriteAccess is the SINGLE authorization gate; site scope requires moderator/admin via AuthorizationService.hasGlobalRole; future project-scope rules add a branch inside the method with no call-site changes (PASS)
+
+Implementation branch or worktree context:
+- Tester branch: ms5-st3-tester-20260610 (worktree: /home/tstephen/repos/worktrees/ms5-st3-tester-20260610)
+- Base plan branch: ms5
+- Compare ms5-st3-tester-20260610 against ms5 (or the ST-3 implementer commit) to see all changes
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/docs/docs.service.ts (assertDocWriteAccess, createPage, addRevision, validateSlug, validateTitle, resolveParent)
+- apps/api/src/docs/docs.controller.ts (createPage handler, addRevision handler, ThrottleGuard decorators, AuthService constructor param)
+- apps/api/src/docs/docs.types.ts (CreateDocPageInput, AddDocRevisionInput, DocWriteResultShape)
+- apps/api/src/docs/docs.module.ts (AuthModule.register, ThrottleModule.register added to imports)
+- apps/api/src/docs/docs.service.test.ts (tester: 27 new ST-3 tests added)
+- apps/api/src/docs/docs.controller.test.ts (tester: 16 new ST-3 tests added; updated for 2-arg constructor)
+- apps/api/src/docs/docs.service.integration.test.ts (tester: P10 atomicity injection test filled in)
+- apps/api/src/docs/docs-module.test.ts (implementer: fakeEnvironment updated for throttle; no tester changes)
+
+Test commit:
+- bbb98b086d17ed4241c067b7d06e2caf5bb7d513
+
+Commands executed:
+- npx --yes pnpm@10.0.0 install --dir /home/tstephen/repos/worktrees/ms5-st3-tester-20260610
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st3-tester-20260610 --filter @sfus/api run lint
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st3-tester-20260610 typecheck
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st3-tester-20260610 --filter @sfus/api run test
+
+Final test outcomes:
+- 1111 tests passed, 19 skipped, 0 failed
+- docs.service.test.ts: 72 passed (was 45 before ST-3 tester additions)
+- docs.controller.test.ts: 36 passed (was 20 before ST-3 tester additions)
+- docs-module.test.ts: 4 passed (unchanged)
+- docs.service.integration.test.ts: 8 skipped (no DB; skips cleanly)
+- No regressions against pre-existing ST-2 tests
+
+Documentation context:
+- docs/features/ likely contains or should contain a wiki/docs API feature doc (check docs/README.md routing table)
+- The write API introduces new HTTP endpoints: POST /api/docs and POST /api/docs/:id/revisions
+- Both routes require a session (401 without one) and moderator/admin role (403 for 'user' role)
+- Both routes are rate-limited via ThrottleGuard with labels 'doc-page-create' and 'doc-page-edit'
+- The assertDocWriteAccess method is the SINGLE auth gate — doc this as the extension seam for future project-scope
+- path_hash collision returns 409 ConflictException; validate-only failures return 400 BadRequestException
+- Security contract (AC5): no 403 vs 404 oracle distinction on write routes — addRevision uses same PAGE_NOT_FOUND_MESSAGE as read paths for nonexistent/deleted pages
+- Integration test note: the test:integration script in apps/api/package.json only runs pages.service.integration.test.ts; docs.service.integration.test.ts must be run via vitest directly — this may need documenting
+
+Plan and diff context:
+- Plan directory: likely docs/.myteam/ or a plan file in the repo root — infer from repo context
+- Base for comparison: ms5 branch at the point before the ST-3 implementer commit
+- The coordinator plan for ms5 documents wiki is in docs/plans/ or artifacts/ms5-documents-wiki/ — check artifacts/ for context
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

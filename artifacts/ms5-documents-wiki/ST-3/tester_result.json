@@ -1,0 +1,44 @@
+{
+  "status": "success",
+  "subtask": "ST-3",
+  "plan": "ms5-documents-wiki",
+  "branch": "ms5-st3-tester-20260610",
+  "test_commit_hash": "bbb98b086d17ed4241c067b7d06e2caf5bb7d513",
+  "test_files_modified": [
+    "apps/api/src/docs/docs.service.test.ts",
+    "apps/api/src/docs/docs.controller.test.ts",
+    "apps/api/src/docs/docs.service.integration.test.ts"
+  ],
+  "test_files_unchanged": [
+    "apps/api/src/docs/docs-module.test.ts"
+  ],
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 install --dir /home/tstephen/repos/worktrees/ms5-st3-tester-20260610",
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st3-tester-20260610 --filter @sfus/api run lint",
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st3-tester-20260610 typecheck",
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st3-tester-20260610 --filter @sfus/api run test"
+  ],
+  "test_results": {
+    "total_passed": 1111,
+    "total_skipped": 19,
+    "total_failed": 0,
+    "docs_service_test_passed": 72,
+    "docs_controller_test_passed": 36,
+    "docs_module_test_passed": 4,
+    "docs_integration_test_skipped": 8,
+    "integration_suite_status": "SKIPPED — SFUS_DB_INTEGRATION=1 not set; suite skips cleanly"
+  },
+  "acceptance_criteria": {
+    "AC1": "PASS",
+    "AC2": "PASS",
+    "AC3": "PASS",
+    "AC4": "PASS",
+    "AC5": "PASS",
+    "P10_atomicity": "PASS_UNIT_SKIP_INTEGRATION"
+  },
+  "artifact_files_written": [
+    "artifacts/ms5-documents-wiki/ST-3/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-3/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-3/documenter_prompt.txt"
+  ]
+}
