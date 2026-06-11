@@ -1,0 +1,25 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-7/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-7/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st7-verifier-20260611",
+  "documentation_accuracy_summary": [
+    "docs/features/documents.md: New 'Web surface (ST-7)' section accurately describes routes, DocsIndexPage and DocsPageView behavior, breadcrumb trail structure, lock indicator visibility, not-found oracle parity, and docs-client.ts API functions with return types and error-envelope pattern.",
+    "docs/features/web-shell.md: Two rows added to the route table for /docs (public, DocsIndexPage) and /docs/<path> (public catch-all, DocsPageView) with correct access level and cross-reference to documents.md#web-surface-st-7.",
+    "No inaccuracies, omissions, contradictions, or duplication found."
+  ],
+  "note_finding_count": 2,
+  "pass_label": null,
+  "status": "complete",
+  "task_id": "ST-7",
+  "test_sufficiency_summary": [
+    "85 new source-contract tests cover all four acceptance criteria: AC1 (tree rendering, breadcrumbs, MarkdownRenderer, revision author/summary), AC2 (isStaff gate, Create/Edit/Acquire lock/History affordances, lock banner visible to all, isLocked computation), AC3 (not-found state, oracle-parity message, Back to Documents link), AC4 (only default export, no non-allowlisted App Router exports, no dangerouslySetInnerHTML).",
+    "Full web suite (640 tests) passes. Pre-existing env failures in authoring-components.spec.ts and user-avatar.spec.ts are unrelated worktree issues.",
+    "Gap: docs-client.spec.ts:157 asserts encodeURIComponent is present but does not verify correctness for multi-segment paths. This allows the %2F encoding defect (WARNING finding) to pass undetected. A test asserting per-segment encoding or no-encoding of slashes would close this gap.",
+    "Overall coverage is good for the scope of ST-7; the single gap corresponds to the WARNING finding."
+  ],
+  "verdict": "CONDITIONAL PASS",
+  "warning_finding_count": 1
+}
