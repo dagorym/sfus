@@ -1,0 +1,25 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-3/security_report.md",
+    "artifacts/ms5-documents-wiki/ST-3/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st3-security-20260610",
+  "documentation_sufficiency_summary": [
+    "SUFFICIENT. docs/features/documents.md adds a complete Write API contract: single-gate authorization, 401-before-403 ordering, moderator/admin requirement, write-path oracle parity (404), slug/title validation rules, both throttle labels, P10 transactional atomicity, full request/response/error tables, and module wiring.",
+    "docs/features/authorization.md adds DocsService.assertDocWriteAccess to the gate table (moderator/admin for site scope, extensible for project scope) and reiterates 'gate before any data operation; 401 no session, 403 insufficient role'.",
+    "No documentation defects. The docs accurately describe the implemented behavior and the security contract."
+  ],
+  "note_finding_count": 2,
+  "outcome": "CONDITIONAL PASS",
+  "pass_label": "CONDITIONAL PASS",
+  "status": "completed",
+  "task_id": "ms5-ST-3",
+  "test_sufficiency_summary": [
+    "PASS for the authorization seam: assertDocWriteAccess unit tests cover null/undefined/'user' -> 403, moderator/admin -> pass, deny-by-default on unknown scope, the DocsPageEntity overload, and that it routes through AuthorizationService.hasGlobalRole. Controller tests assert the seam is invoked BEFORE the service write (invocationCallOrder) and that 401 (resolveSession throw) precedes 403, for both routes.",
+    "PASS for input validation / oracle parity: slug charset/length, title length, missing-parent 400, path_hash collision 409, and addRevision nonexistent/deleted -> identical 404 (PAGE_NOT_FOUND_MESSAGE) are all covered.",
+    "PARTIAL for P10 transactional atomicity: the real-schema integration tests (createPage, duplicate-rejection, addRevision) DO exercise the real manager.transaction and the unique index, but they only run under SFUS_DB_INTEGRATION=1 (skipped in CI), and the dedicated mid-sequence-failure rollback test (WARNING finding) uses a fake manager that proves nothing about rollback. The rollback property is implemented correctly in product code but is not demonstrated by an executed test.",
+    "Throttle attachment and module wiring are correct in source but only weakly asserted by tests (NOTE findings)."
+  ],
+  "warning_finding_count": 1
+}
