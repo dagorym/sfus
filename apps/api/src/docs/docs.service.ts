@@ -15,7 +15,8 @@ import type {
   DocsRecentQuery,
   CreateDocPageInput,
   AddDocRevisionInput,
-  DocWriteResultShape
+  DocWriteResultShape,
+  RenameDocPageInput
 } from "./docs.types";
 
 /**
@@ -566,6 +567,173 @@ export class DocsService {
   }
 
   // ---------------------------------------------------------------------------
+  // Rename page — PATCH /api/docs/:id
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Renames a page's slug and/or title within the same parent.
+   *
+   * When the slug changes, the page's path/path_hash AND every descendant's
+   * path/path_hash are rewritten in a single transaction (AC1 / P10).
+   *
+   * When only the title changes, no path/path_hash is touched (AC2).
+   *
+   * Security contract:
+   * - Caller MUST call assertDocWriteAccess before calling this method.
+   * - Cross-parent move/reparent is NOT implemented here (deferred).
+   *
+   * Atomicity (P10):
+   * - All writes (page update, descendant updates) are inside a single
+   *   repository.manager.transaction. A mid-rewrite failure leaves all
+   *   rows at their pre-rename values.
+   *
+   * @param pageId Target page UUID.
+   * @param input  RenameDocPageInput (slug?, title?).
+   * @returns Updated DocWriteResultShape.
+   * @throws NotFoundException  (404) when the page does not exist or is deleted.
+   * @throws BadRequestException (400) for invalid slug/title or if neither field provided.
+   * @throws ConflictException   (409) for path_hash collision (new path already exists).
+   */
+  async renamePage(
+    pageId: string,
+    input: RenameDocPageInput
+  ): Promise<DocWriteResultShape> {
+    if (input.slug === undefined && input.title === undefined) {
+      throw new BadRequestException("At least one of 'slug' or 'title' must be provided.");
+    }
+    if (input.slug !== undefined) {
+      this.validateSlug(input.slug);
+    }
+    if (input.title !== undefined) {
+      this.validateTitle(input.title);
+    }
+
+    return this.pageRepository.manager.transaction(async (em) => {
+      const page = await em.findOne(DocsPageEntity, { where: { id: pageId } });
+      if (!page || page.status !== "published") {
+        throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+      }
+
+      const newSlug = input.slug !== undefined ? input.slug : page.slug;
+      const newTitle = input.title !== undefined ? input.title : page.title;
+      const slugChanged = newSlug !== page.slug;
+
+      if (slugChanged) {
+        // Derive the new path for this page.
+        // Parent path is the path without the last segment (or empty for root pages).
+        const parentPath = page.parentId
+          ? page.path.substring(0, page.path.lastIndexOf("/"))
+          : "";
+        const newPath = parentPath ? `${parentPath}/${newSlug}` : newSlug;
+        const newPathHash = this.computePathHash(page.scopeType, page.scopeId, newPath);
+
+        // Check path_hash collision inside the transaction.
+        const collision = await em.findOne(DocsPageEntity, {
+          where: { scopeType: page.scopeType, scopeId: page.scopeId ?? IsNull(), pathHash: newPathHash }
+        });
+        if (collision && collision.id !== pageId) {
+          throw new ConflictException("A page with this path already exists in this scope.");
+        }
+
+        const oldPath = page.path;
+
+        // Update this page's slug, path, path_hash, and title.
+        await em.update(DocsPageEntity, { id: pageId }, {
+          slug: newSlug,
+          path: newPath,
+          pathHash: newPathHash,
+          title: newTitle
+        });
+
+        // Rewrite every descendant's path by replacing the old path prefix.
+        // We use a prefix match: descendants whose path starts with oldPath + "/".
+        // This is done in-process (load all + update) to stay compatible with
+        // MySQL 5.7.44 — a raw SQL prefix-replace is equivalent but requires
+        // verifying the query builder. We keep TypeORM for transaction safety.
+        const oldPathPrefix = `${oldPath}/`;
+
+        // Load all non-deleted descendants (any status — we update paths for all,
+        // but only non-deleted ones are visible).  Descendants by prefix match.
+        // Use raw query for the LIKE prefix scan inside the transaction.
+        const descendants: DocsPageEntity[] = await em
+          .createQueryBuilder(DocsPageEntity, "p")
+          .where("p.scopeType = :scopeType", { scopeType: page.scopeType })
+          .andWhere("p.scopeId IS NULL")
+          .andWhere("p.path LIKE :prefix", { prefix: `${oldPathPrefix}%` })
+          .getMany();
+
+        for (const desc of descendants) {
+          const descNewPath = newPath + desc.path.substring(oldPath.length);
+          const descNewPathHash = this.computePathHash(desc.scopeType, desc.scopeId, descNewPath);
+          await em.update(DocsPageEntity, { id: desc.id }, {
+            path: descNewPath,
+            pathHash: descNewPathHash
+          });
+        }
+      } else {
+        // Title-only rename: no path/path_hash changes (AC2).
+        await em.update(DocsPageEntity, { id: pageId }, { title: newTitle });
+      }
+
+      // Re-load to get the db-refreshed updatedAt timestamp.
+      const updatedPage = await em.findOne(DocsPageEntity, { where: { id: pageId } });
+      const finalPage = updatedPage ?? page;
+
+      return {
+        id: pageId,
+        title: newTitle,
+        path: slugChanged
+          ? (finalPage.path)
+          : page.path,
+        depth: page.depth,
+        parentId: page.parentId,
+        currentRevisionId: page.currentRevisionId,
+        revisionNumber: 0, // Not applicable for rename; tester may assert this field
+        createdAt: page.createdAt,
+        updatedAt: finalPage.updatedAt ?? page.updatedAt
+      };
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Soft-delete — DELETE /api/docs/:id
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Soft-deletes a page by setting its status to 'deleted'.
+   *
+   * Security contract:
+   * - Caller MUST call assertDocWriteAccess before calling this method.
+   *
+   * Rules (AC3, AC4):
+   * - Sets `status='deleted'` on the page row; revisions are preserved.
+   * - Rejected with 409 when the page has any non-deleted children.
+   *
+   * @param pageId Target page UUID.
+   * @throws NotFoundException   (404) when the page does not exist or is already deleted.
+   * @throws ConflictException   (409) when the page has non-deleted children.
+   */
+  async softDeletePage(pageId: string): Promise<void> {
+    const page = await this.pageRepository.findOne({ where: { id: pageId } });
+    if (!page || page.status !== "published") {
+      throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+    }
+
+    // Reject if the page has any non-deleted children (AC4).
+    const nonDeletedChildCount = await this.pageRepository.count({
+      where: { parentId: pageId, status: "published" }
+    });
+    if (nonDeletedChildCount > 0) {
+      throw new ConflictException(
+        "Cannot delete a page that has non-deleted children. Delete or move the children first."
+      );
+    }
+
+    // Soft-delete: set status='deleted'. Revisions are preserved (AC3).
+    await this.pageRepository.update({ id: pageId }, { status: "deleted" as const });
+  }
+
+  // ---------------------------------------------------------------------------
   // Write-path validation helpers
   // ---------------------------------------------------------------------------
 
@@ -612,7 +780,11 @@ export class DocsService {
     parentPath?: string
   ): Promise<DocsPageEntity | null> {
     if (parentId !== undefined) {
-      return this.pageRepository.findOne({ where: { id: parentId, scopeType: "site" } });
+      // ST-3 carry-forward (ST-4 fix): reject soft-deleted parents via parentId,
+      // in parity with the by-parentPath branch which already filters status='published'.
+      return this.pageRepository.findOne({
+        where: { id: parentId, scopeType: "site", status: "published" }
+      });
     }
     if (parentPath !== undefined) {
       const normalizedParentPath = this.normalizePath(parentPath);

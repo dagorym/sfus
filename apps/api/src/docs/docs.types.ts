@@ -128,6 +128,23 @@ export interface AddDocRevisionInput {
   summary?: string;
 }
 
+/**
+ * Input for PATCH /api/docs/:id — rename a page within the same parent.
+ *
+ * At least one of `slug` or `title` must be provided.
+ * Cross-parent move/reparent is OUT OF SCOPE (deferred).
+ */
+export interface RenameDocPageInput {
+  /**
+   * New URL slug (1–255 chars, a-z 0-9 hyphen only).
+   * When changed, the page's path/path_hash and ALL descendants' paths are
+   * rewritten in a single transaction (subtree path rewrite, AC1).
+   */
+  slug?: string;
+  /** New page title (1–255 chars). If slug is unchanged, only the title is updated (AC2). */
+  title?: string;
+}
+
 /** Response shape for page-write operations (create / add revision). */
 export interface DocWriteResultShape {
   id: string;

@@ -2,11 +2,13 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -17,6 +19,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -35,7 +38,8 @@ import type {
   DocWriteResultShape,
   DocsPageShape,
   DocsRecentEditShape,
-  DocsTreeItem
+  DocsTreeItem,
+  RenameDocPageInput
 } from "./docs.types";
 
 /**
@@ -246,6 +250,116 @@ export class DocsController {
     }
     const page = await this.docsService.addRevision(session.user.id, id, body);
     return { page };
+  }
+
+  // ===========================================================================
+  // PATCH /docs/:id — rename a page (slug and/or title, staff-gated)
+  // ===========================================================================
+
+  /**
+   * Renames an existing wiki page's slug and/or title within the same parent.
+   *
+   * When the slug changes, recomputes this page's path/path_hash and
+   * transactionally rewrites every descendant's path/path_hash (AC1, P10).
+   * A title-only rename leaves all paths unchanged (AC2).
+   *
+   * Cross-parent move/reparent is NOT implemented (deferred).
+   *
+   * Authorization: moderator or admin only. Anonymous and `user`-role callers
+   * receive `403` from `assertDocWriteAccess`.
+   *
+   * @param id   Page UUID.
+   * @body `{ slug?, title? }` — at least one must be provided.
+   * @returns 200 with `{ page }` reflecting the rename result.
+   * @throws 400 Invalid slug/title or no field provided.
+   * @throws 401 No active session.
+   * @throws 403 Moderator or admin role required.
+   * @throws 404 Page not found or deleted.
+   * @throws 409 New path collides with an existing page in the same scope.
+   */
+  @Patch(":id")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ThrottleGuard)
+  @ThrottleLabel(THROTTLE_LABEL_DOC_EDIT)
+  @ApiOperation({ summary: "Rename a wiki page slug/title within the same parent (moderator/admin)." })
+  @ApiOkResponse({
+    description:
+      "Page renamed. When slug changed, all descendant paths are rewritten atomically."
+  })
+  @ApiBadRequestResponse({
+    description: "Invalid slug or title, or neither field provided."
+  })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({ description: "Page not found or deleted (oracle parity)." })
+  @ApiConflictResponse({ description: "New path already exists in this scope." })
+  @ApiTooManyRequestsResponse({ description: "Rate limit exceeded." })
+  async renamePage(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Body() body: RenameDocPageInput
+  ): Promise<{ page: DocWriteResultShape }> {
+    // 401: session required before any data operation.
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    // 403: single authorization gate for all site-scope doc writes.
+    this.docsService.assertDocWriteAccess(session.user.globalRole, "site");
+    // Input guard: at least one field must be present.
+    if (body?.slug === undefined && body?.title === undefined) {
+      throw new BadRequestException("At least one of 'slug' or 'title' must be provided.");
+    }
+    const page = await this.docsService.renamePage(id, body);
+    return { page };
+  }
+
+  // ===========================================================================
+  // DELETE /docs/:id — soft-delete a page (staff-gated)
+  // ===========================================================================
+
+  /**
+   * Soft-deletes a wiki page by setting its status to 'deleted'.
+   *
+   * The page's revision history is preserved. Soft-deleted pages disappear
+   * from all public reads (ST-2) (AC3).
+   *
+   * Rejected with 409 when the page has any non-deleted children — the tree
+   * is never orphaned (AC4).
+   *
+   * Authorization: moderator or admin only. Anonymous and `user`-role callers
+   * receive `403` from `assertDocWriteAccess`.
+   *
+   * @param id Page UUID.
+   * @returns 204 No Content on success.
+   * @throws 401 No active session.
+   * @throws 403 Moderator or admin role required.
+   * @throws 404 Page not found or already deleted.
+   * @throws 409 Page has non-deleted children.
+   */
+  @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(ThrottleGuard)
+  @ThrottleLabel(THROTTLE_LABEL_DOC_EDIT)
+  @ApiOperation({ summary: "Soft-delete a wiki page (moderator/admin)." })
+  @ApiNoContentResponse({
+    description:
+      "Page soft-deleted (status=deleted). Revisions preserved. " +
+      "Page no longer appears in public reads."
+  })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({ description: "Page not found or already deleted." })
+  @ApiConflictResponse({
+    description: "Page has non-deleted children; cannot soft-delete until children are removed."
+  })
+  @ApiTooManyRequestsResponse({ description: "Rate limit exceeded." })
+  async softDeletePage(
+    @Req() request: Request,
+    @Param("id") id: string
+  ): Promise<void> {
+    // 401: session required before any data operation.
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    // 403: single authorization gate for all site-scope doc writes.
+    this.docsService.assertDocWriteAccess(session.user.globalRole, "site");
+    await this.docsService.softDeletePage(id);
   }
 
   // ===========================================================================
