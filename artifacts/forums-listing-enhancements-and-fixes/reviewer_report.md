@@ -1,5 +1,19 @@
 Reviewer Report
 
+=========================================================================
+POST-REVIEW RESOLUTION (2026-06-10) — added by Coordinator after the review.
+Both BLOCKING findings below have been FIXED on the coordination branch
+forums-listing in commit 28ce050 ("test(forums): fix stale migration-list
+assertion and ST7 maxLength ordering assertions"). The change is TEST-ONLY
+(apps/api/src/database/database.config.test.ts and
+apps/web/app/admin/forums/forums-admin.spec.ts); no production code changed.
+Full suites now pass: @sfus/api 983 passed / 0 failed, @sfus/web 626 passed
+/ 0 failed, lint clean, typecheck clean. The original CONDITIONAL PASS was
+gated solely on these two test-only defects, which are now cleared.
+DO NOT re-plan or re-fix these — they are done. (The two optional cosmetic
+NOTE/cleanup items below remain open by choice.)
+=========================================================================
+
 Feature plan reviewed:
 - plans/forums-listing-enhancements-and-fixes-plan.md (READY FOR COORDINATION; ST1-ST7).
 - Comparison base: main; integrated diff reviewed via `git diff main...HEAD` on worktree branch forums-listing-reviewer-20260610 (off coordination base forums-listing).
@@ -23,10 +37,10 @@ Overall feature completeness:
 
 Findings
 
-BLOCKING
-- apps/api/src/database/database.config.test.ts:84 - Integrated API test suite is RED: the exact-match reviewedMigrationNames assertion was not updated for ST4's newly registered migration, so the full @sfus/api vitest run fails (1 failed | 982 passed | 11 skipped).
+BLOCKING  [BOTH RESOLVED 2026-06-10 in commit 28ce050 — test-only fix; see POST-REVIEW RESOLUTION at top]
+- [RESOLVED 28ce050] apps/api/src/database/database.config.test.ts:84 - Integrated API test suite is RED: the exact-match reviewedMigrationNames assertion was not updated for ST4's newly registered migration, so the full @sfus/api vitest run fails (1 failed | 982 passed | 11 skipped).
   ST4 correctly registered ForumDescriptionLength1780893000000 in reviewedMigrationClasses (database.config.ts), but this pre-existing test pins the literal migration list and was outside ST4's allowed-files set, so no stage updated it. Every subtask's acceptance criteria require 'the API test suite passes'; the integrated suite does not. Fix: append "ForumDescriptionLength1780893000000" to the expected array at line 84-90 (test-only; no production change).
-- apps/web/app/admin/forums/forums-admin.spec.ts:376,390 - Integrated web test suite is RED: two ST7 'name input enforces maxLength=128' tests assert maxLength={128} appears at a LOWER source-string index than the name placeholder, contradicting the delivered JSX attribute order (maxLength is rendered on the line AFTER placeholder). @sfus/web vitest run fails (2 failed | 624 passed).
+- [RESOLVED 28ce050] apps/web/app/admin/forums/forums-admin.spec.ts:376,390 - Integrated web test suite is RED: two ST7 'name input enforces maxLength=128' tests assert maxLength={128} appears at a LOWER source-string index than the name placeholder, contradicting the delivered JSX attribute order (maxLength is rendered on the line AFTER placeholder). @sfus/web vitest run fails (2 failed | 624 passed).
   The implementation is correct - page.tsx carries maxLength={128} on both name inputs (lines 418, 500) and maxLength={512} on both description inputs (439, 521), and the companion 'two occurrences total' test passes. The two failing assertions encode a false ordering assumption (placeholder precedes maxLength in source). Fix the assertions to not depend on attribute source order (e.g. assert co-occurrence within the input element, or drop the index-ordering check). Test-only; no production or security impact.
 
 WARNING
@@ -44,8 +58,8 @@ Missed functionality or edge cases:
 - Two low-priority cosmetic NOTEs (board lastPost timestamp on reply soft-delete; unused TopicLastActivity.at field) do not affect correctness or oracle/visibility safety.
 
 Follow-up feature requests for planning:
-- Test-fix (BLOCKING, pre-closeout): update apps/api/src/database/database.config.test.ts to add "ForumDescriptionLength1780893000000" to the expected reviewedMigrationNames array so the full @sfus/api suite is green after ST4's migration registration.
-- Test-fix (BLOCKING, pre-closeout): rework the two source-ordering assertions in apps/web/app/admin/forums/forums-admin.spec.ts (AC7 name-input maxLength tests, ~lines 376 and 390) so they verify maxLength={128} is present on the name inputs without assuming it precedes the placeholder in source order; the implementation is already correct.
+- [DONE — commit 28ce050] Test-fix (BLOCKING, pre-closeout): update apps/api/src/database/database.config.test.ts to add "ForumDescriptionLength1780893000000" to the expected reviewedMigrationNames array so the full @sfus/api suite is green after ST4's migration registration.
+- [DONE — commit 28ce050] Test-fix (BLOCKING, pre-closeout): rework the two source-ordering assertions in apps/web/app/admin/forums/forums-admin.spec.ts (AC7 name-input maxLength tests, ~lines 376 and 390) so they verify maxLength={128} is present on the name inputs without assuming it precedes the placeholder in source order; the implementation is already correct.
 - Cleanup (optional, future): when computing board lastPost in ForumsService.listPublicCategories/getBoard, derive the reply timestamp from the latest NON-DELETED reply (consistent with the author resolution) rather than topic.lastPostAt, so a soft-deleted latest reply cannot leave a stale last-activity date.
 - Cleanup (optional, future): either populate TopicLastActivity.at with the resolved reply timestamp or remove the field and tighten its JSDoc, since it is currently always null and unused by callers.
 
@@ -54,4 +68,5 @@ Artifacts written:
 - artifacts/forums-listing-enhancements-and-fixes/reviewer_result.json
 
 Final outcome:
-- CONDITIONAL PASS
+- CONDITIONAL PASS (as originally reviewed)
+- POST-REVIEW STATUS (2026-06-10): the two BLOCKING test-only defects that gated this verdict are RESOLVED in commit 28ce050; integrated @sfus/api and @sfus/web suites, lint, and typecheck are all green. No remaining blockers; the only open items are the two optional cosmetic cleanups in NOTE/Follow-up.

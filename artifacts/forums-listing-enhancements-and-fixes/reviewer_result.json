@@ -4,11 +4,21 @@
     "artifacts/forums-listing-enhancements-and-fixes/reviewer_result.json"
   ],
   "blocking_finding_count": 2,
+  "blocking_findings_resolved": 2,
+  "post_review_resolution": {
+    "resolved": true,
+    "resolved_date": "2026-06-10",
+    "commit": "28ce050",
+    "scope": "test-only (apps/api/src/database/database.config.test.ts, apps/web/app/admin/forums/forums-admin.spec.ts); no production code changed",
+    "validation": "@sfus/api 983 passed / 0 failed; @sfus/web 626 passed / 0 failed; lint clean; typecheck clean",
+    "note": "Both BLOCKING findings that gated the CONDITIONAL PASS are fixed. Do not re-plan or re-fix them. Only the two optional cosmetic cleanups (note_finding_count) remain open by choice."
+  },
   "branch_name": "forums-listing",
   "final_outcome": "CONDITIONAL PASS",
+  "final_outcome_post_resolution": "PASS (blockers cleared in commit 28ce050; only optional cosmetic cleanups remain)",
   "follow_up_feature_requests": [
-    "Test-fix (BLOCKING, pre-closeout): update apps/api/src/database/database.config.test.ts to add \"ForumDescriptionLength1780893000000\" to the expected reviewedMigrationNames array so the full @sfus/api suite is green after ST4's migration registration.",
-    "Test-fix (BLOCKING, pre-closeout): rework the two source-ordering assertions in apps/web/app/admin/forums/forums-admin.spec.ts (AC7 name-input maxLength tests, ~lines 376 and 390) so they verify maxLength={128} is present on the name inputs without assuming it precedes the placeholder in source order; the implementation is already correct.",
+    "[DONE — commit 28ce050] Test-fix (BLOCKING, pre-closeout): update apps/api/src/database/database.config.test.ts to add \"ForumDescriptionLength1780893000000\" to the expected reviewedMigrationNames array so the full @sfus/api suite is green after ST4's migration registration.",
+    "[DONE — commit 28ce050] Test-fix (BLOCKING, pre-closeout): rework the two source-ordering assertions in apps/web/app/admin/forums/forums-admin.spec.ts (AC7 name-input maxLength tests, ~lines 376 and 390) so they verify maxLength={128} is present on the name inputs without assuming it precedes the placeholder in source order; the implementation is already correct.",
     "Cleanup (optional, future): when computing board lastPost in ForumsService.listPublicCategories/getBoard, derive the reply timestamp from the latest NON-DELETED reply (consistent with the author resolution) rather than topic.lastPostAt, so a soft-deleted latest reply cannot leave a stale last-activity date.",
     "Cleanup (optional, future): either populate TopicLastActivity.at with the resolved reply timestamp or remove the field and tighten its JSDoc, since it is currently always null and unused by callers."
   ],
