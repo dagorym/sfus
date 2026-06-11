@@ -1,0 +1,67 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST-2 of the ms5-documents-wiki plan: Documents read API (path resolution, tree, breadcrumbs, recent feed). DocsService and DocsController implement GET /api/docs/*path (resolve published site page by path, return current revision body plus ordered breadcrumb ancestry), GET /api/docs (site root tree or children of ?parentPath=), and GET /api/docs/recent?limit= (recent publicly-readable site-scope non-deleted document edits for the landing feed). All visibility routed through AuthorizationService.evaluate() with anonymous actor. Project-scoped pages excluded from every site index. Oracle parity (P12): nonexistent, deleted, and non-readable pages all return PAGE_NOT_FOUND_MESSAGE (identical 404, no 403 vs 404 distinction).
+- Tests passed for all five acceptance criteria (1065 passed, 0 failed).
+
+Acceptance criteria validated:
+- AC1: GET /api/docs/*path resolves a published site page by full path and returns its current revision content plus an ordered breadcrumb ancestry array.
+- AC2: A nonexistent path, a deleted page, and a non-publicly-readable page all return the same 404 class and message (oracle parity). Constant: DocsService.PAGE_NOT_FOUND_MESSAGE = 'Document page not found.'
+- AC3: GET /api/docs returns the site page tree/children with no project-scoped pages ever present.
+- AC4: GET /api/docs/recent returns recent published site-doc edits (page title, path, editor, timestamp), excludes deleted/non-readable/project pages, and respects limit. Default=5, max=20.
+- AC5: Every read path routes visibility through AuthorizationService.evaluate() with no inline re-derived predicate.
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms5-st2-tester-20260610
+- Branch: ms5-st2-tester-20260610
+- Comparison base: branch ms5 (the coordination branch for milestone 5)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/docs/docs.service.ts (new — DocsService with getPageByPath, listPageTree, listRecentEdits, isPagePubliclyReadable, computePathHash)
+- apps/api/src/docs/docs.controller.ts (new — DocsController with GET /docs, GET /docs/recent, GET /docs/*path)
+- apps/api/src/docs/docs.module.ts (updated — registers DocsController and DocsService, imports AuthorizationModule, exports DocsService)
+- apps/api/src/docs/docs.types.ts (updated — adds DocsPageShape, DocsTreeItem, DocsRecentEditShape, DocsBreadcrumbItem, DocsRevisionShape, DocsRecentQuery)
+- apps/api/src/docs/docs.service.test.ts (new — tester-owned service tests)
+- apps/api/src/docs/docs.controller.test.ts (new — tester-owned controller tests)
+- apps/api/src/docs/docs-module.test.ts (updated — ST-1 placeholder tests replaced with ST-2 registrations)
+
+Test commit:
+- e1583eb
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/api --dir /home/tstephen/repos/worktrees/ms5-st2-tester-20260610 test
+- npx --yes pnpm@10.0.0 --filter @sfus/api --dir /home/tstephen/repos/worktrees/ms5-st2-tester-20260610 lint
+- npx --yes pnpm@10.0.0 --filter @sfus/api --dir /home/tstephen/repos/worktrees/ms5-st2-tester-20260610 typecheck
+
+Final test outcomes:
+- 1065 tests passed, 11 skipped (integration tests only, by design), 0 failed
+- All 5 acceptance criteria confirmed passing
+- lint: 0 errors, 0 warnings
+- typecheck: 0 errors
+- docs-module.test.ts updated: 2 ST-1 "empty arrays" placeholder tests replaced with ST-2 "length >= 1" assertions — intentional behavior change documented in test file and tester report
+
+Documentation context:
+- New public API surface: GET /api/docs, GET /api/docs/recent, GET /api/docs/*path — all unauthenticated
+- DocsService.PAGE_NOT_FOUND_MESSAGE = 'Document page not found.' is the canonical oracle-parity constant for all gated reads
+- Oracle parity rule: non-readable, deleted, and nonexistent pages produce identical 404 responses (no 403 vs 404 distinction, no information oracle)
+- computePathHash(scopeType, scopeId, path) is public — ST-3 must use it for page creation
+- DocsTreeItem.hasChildren is always false in ST-2; ST-3+ will enhance with child-count
+- DocsModule now imports AuthorizationModule and exports DocsService for downstream subtasks
+- DocsRecentQuery interface and DocsRecentEditShape type added to docs.types.ts
+- If docs/features/ has a documents feature doc, it should be created or updated to describe these endpoints
+- docs/README.md routing table may need a new entry for the documents feature doc
+
+Plan and diff context:
+- Plan file: plans/ms5-documents-wiki-plan.md (Milestone 5, subtask ST-2)
+- Comparison base: branch ms5 (assumption — this is the coordination branch for the ms5-documents-wiki plan)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
