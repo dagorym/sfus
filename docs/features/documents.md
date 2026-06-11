@@ -602,7 +602,7 @@ the SHA-256 hash stored in `path_hash`. Input format: `${scopeType}:${scopeId ??
 | `DOCS_DIFF_MAX_LINES` | `5000` | Max revision body line count accepted by the diff endpoint; exceeded → 400 |
 | `DOCS_LOCK_TTL_MINUTES_DEFAULT` | `30` | Default soft-lock TTL when `DOCS_LOCK_TTL_MINUTES` env var is absent or invalid |
 
-## Web surface (ST-7)
+## Web surface
 
 The public web surface for the Documents wiki lives in `apps/web/app/docs/`.
 
@@ -612,13 +612,18 @@ The public web surface for the Documents wiki lives in `apps/web/app/docs/`.
 |---|---|---|
 | `/docs` | public | `DocsIndexPage` (`apps/web/app/docs/page.tsx`) |
 | `/docs/<path>` | public (catch-all) | `DocsPageView` (`apps/web/app/docs/[...path]/page.tsx`) |
+| `/docs/new` | staff-gated | `DocsNewPage` (`apps/web/app/docs/new/page.tsx`) |
+| `/docs/edit/<path>` | staff-gated | `DocsEditPage` (`apps/web/app/docs/edit/[...path]/page.tsx`) |
+
+The edit route is `/docs/edit/<path>` (not `/docs/<path>/edit`). App Router forbids a
+static segment after a catch-all, so the edit prefix must come before the path catch-all.
 
 ### DocsIndexPage (`/docs`)
 
 Fetches the site root page tree via `getDocPageTree()` and displays a flat list of pages
 with links to `/docs/<path>`. Anonymous and non-staff visitors see a read-only list.
 Staff (moderator/admin — via `hasGlobalRole(session.user, "moderator")`) see a
-"Create page" affordance linking to `/docs/new` (the ST-8 authoring route, not yet built).
+"Create page" affordance linking to `/docs/new`.
 Loading and error states are handled in-page; an empty tree renders a "No pages have been
 published yet." message.
 
@@ -634,17 +639,61 @@ fetches the page via `getDocPageByPath(fullPath)`, and renders:
   the future (visible to all visitors).
 
 Staff (moderator/admin) see Edit, "Acquire lock", and History affordances as a
-client-side defense-in-depth gate. These links target `/docs/<path>/edit` and
-`/docs/<path>/history` (ST-8 and ST-9 authoring routes, not yet built). The API is the
-real enforcement boundary.
+client-side defense-in-depth gate. Edit and "Acquire lock" link to `/docs/edit/<path>`;
+History links to `/docs/<path>/history` (ST-9, not yet built). The API is the real
+enforcement boundary.
 
 **Not-found state:** when `getDocPageByPath` returns `null` (a `404` from the API), the
 page renders "Document not found." without distinguishing existence from visibility
 (oracle parity — mirrors the API's P12 contract).
 
+### DocsNewPage (`/docs/new`) — ST-8
+
+`apps/web/app/docs/new/page.tsx`
+
+Creates a new wiki page. Client-side gate requires a session with `moderator` or `admin`
+global role — unauthenticated visitors are redirected to login; non-staff see an access
+denied message. The server (`assertDocWriteAccess`) is the authoritative gate; the client
+check is defense-in-depth only.
+
+- Accepts an optional `?parentPath=` query parameter so the new page can be placed under
+  an existing node.
+- Slug field is optional; when left blank the server derives it from the title.
+- Uses the shared `MarkdownEditor` component for the body field.
+- On success, navigates to the newly created page at `/docs/<path>`.
+
+### DocsEditPage (`/docs/edit/<path>`) — ST-8
+
+`apps/web/app/docs/edit/[...path]/page.tsx`
+
+Edits an existing wiki page. Same client-side staff gate as `DocsNewPage`.
+
+On load, the page is fetched by path and the form fields (title, slug, body, summary) are
+seeded from the current revision. The editor uses the shared `MarkdownEditor` component.
+
+**Rename:** if the title or slug changed from the loaded values, a PATCH
+(`renameDocPage`) is sent before the revision is saved. Changing the slug rewrites the
+page URL and all descendant paths.
+
+**Save:** adds a new revision via `addDocRevision` (POST `/api/docs/:id/revisions`).
+
+**Lock UX:**
+
+- A "Acquire lock" / "Release lock" button is always visible on the edit form.
+- When the lock is held by the current user a "Lock held" indicator is shown.
+- A lock indicator banner appears when the page is actively locked by someone else
+  (read from `page.lock.{isLocked, lockExpiresAt}`).
+- A 409 conflict from either lock-acquire or save surfaces a banner showing the holder
+  user ID and expiry time (read from `error.details.{lockedByUserId, lockExpiresAt}` per
+  the API contract).
+- The Save button is disabled while a foreign active lock is detected on the loaded page.
+  The server still enforces the lock — a forced save attempt returns 409.
+
 ### docs-client.ts
 
-`apps/web/app/docs/docs-client.ts` provides three public read helpers:
+`apps/web/app/docs/docs-client.ts` provides public read helpers and staff write helpers.
+
+**Read helpers (no session required):**
 
 | Function | API endpoint | Notes |
 |---|---|---|
@@ -654,6 +703,21 @@ page renders "Document not found." without distinguishing existence from visibil
 
 All three use the shared error-envelope read pattern (`payload.error.message` →
 `payload.message` → fallback string).
+
+**Write helpers (moderator/admin session required):**
+
+| Function | API endpoint | Notes |
+|---|---|---|
+| `createDocPage(input)` | `POST /api/docs` | Throws on 403 (not staff) or 409 (path collision) |
+| `addDocRevision(pageId, input)` | `POST /api/docs/:id/revisions` | Throws `LockConflictError` on 409 with holder details |
+| `renameDocPage(pageId, input)` | `PATCH /api/docs/:id` | Throws on 403, 409 |
+| `acquireDocLock(pageId)` | `POST /api/docs/:id/lock` | Throws `LockConflictError` on 409 with holder details |
+| `releaseDocLock(pageId)` | `DELETE /api/docs/:id/lock` | Throws on 403 |
+
+**Lock-conflict error handling:** `acquireDocLock` and `addDocRevision` parse a `409`
+response and throw a `LockConflictError` (an `Error` with `lockConflict:
+LockConflictDetails` attached). Callers test with `isLockConflictError(err)` to surface
+`err.lockConflict.{lockedByUserId, lockExpiresAt}` in the UI.
 
 ## Route ordering note
 

@@ -38,7 +38,7 @@ and skip the rest.
 
 | Doc | Scope |
 |---|---|
-| [guides/content-management.md](guides/content-management.md) | admin/member how-tos: publish posts, comments/moderation, pages, navigation |
+| [guides/content-management.md](guides/content-management.md) | admin/member how-tos: publish posts, comments/moderation, pages, navigation, wiki pages |
 | [architecture/](architecture/) | locked architecture/deployment decisions (per milestone) — inputs to implementation, not to be reopened casually |
 | [deferred-tasks.md](deferred-tasks.md) | deferred work register — planners read and append during planning cycles only |
 | `cicd/docs/cicd.md` | CI/CD validation runner, config contracts, GitHub workflow shims (lives next to the scripts) |

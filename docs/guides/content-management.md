@@ -194,3 +194,62 @@ Site navigation is database-driven; changes appear on the next page load without
 Items linking to unpublished blog posts or pages are automatically hidden from guests and
 non-admin members until the target is published; admins always see every item
 (see [navigation](../features/navigation.md)).
+
+## Wiki pages (Documents)
+
+The public `/docs` area is a hierarchical wiki editable by moderators and admins
+(collectively "staff"). The server enforces all access — client-side gates are
+defense-in-depth only.
+
+API contract details live in [features/documents.md](../features/documents.md).
+
+### Reading wiki pages (guests and members)
+
+- `/docs` — root page index listing all published top-level wiki pages.
+- `/docs/<path>` — a single published wiki page with breadcrumb trail and Markdown body.
+
+### Creating a wiki page (staff)
+
+1. Sign in with a `moderator` or `admin` account.
+2. Go to `/docs` and click **Create page** (visible to staff only), or navigate directly
+   to `/docs/new`.
+   - To create a sub-page under an existing one, the "Create page" affordance on the
+     index appends `?parentPath=<path>` automatically; you can also add it manually.
+3. Fill in **Title** (required), **Slug** (optional — leave blank to let the server
+   derive it from the title), optional **Summary**, and **Body** (Markdown).
+4. Click **Create page**. On success you are redirected to the newly created page at
+   `/docs/<path>`.
+
+### Editing a wiki page (staff)
+
+1. Sign in and navigate to the wiki page you want to edit at `/docs/<path>`.
+2. Click **Edit** (visible to staff only) or navigate directly to `/docs/edit/<path>`.
+3. Edit **Title**, **Slug**, **Summary**, and **Body** as needed.
+   - **Changing the slug** rewrites the page's URL and all descendant page paths.
+4. Click **Save revision** to append a new revision. The previous revision is preserved.
+   Clicking **Cancel** returns you to the page view without saving.
+
+### Lock acquire and release (staff)
+
+A soft lock signals to other editors that a page is being actively edited. It is advisory:
+the server rejects writes from a non-holder when a non-expired foreign lock exists.
+
+- On the edit form (`/docs/edit/<path>`), click **Acquire lock** to claim the lock for
+  yourself. The lock expires automatically after the configured TTL (default 30 minutes).
+  Acquiring a lock you already hold refreshes the expiry.
+- Click **Release lock** to release it early so others can edit immediately.
+- When you hold the lock, a "Lock held" indicator is shown next to the lock button.
+- A lock banner is also shown on the read view (`/docs/<path>`) to all visitors when
+  the page is actively locked.
+
+### Lock-conflict (409) messages
+
+If the lock is already held by someone else, a `409 Conflict` response is returned and
+the edit form displays a banner:
+
+> **Lock held by user ID `<uuid>`. Expires `<date/time>`.**
+
+`lockedByUserId` is the UUID of the current holder; `lockExpiresAt` is when the lock
+expires. Wait for the lock to expire or ask the holder to release it. Staff members
+(admin/moderator) can always override a foreign lock by simply acquiring it — the server
+allows staff to take over any lock.
