@@ -1,0 +1,71 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST-1 remediation: fixed lint error in DocsModule.register (unused _environment param) with a targeted eslint-disable-next-line comment. Test files for entities, module, and database config already committed in a prior tester pass (2135530). All 7 acceptance criteria now pass: entities compile, migration registered, DocsModule wired, lint clean, tsc clean.
+
+Acceptance criteria validated:
+- DocsModule.register(environment) wired into app.module.ts — PASS: 4/4 docs-module.test.ts pass
+- lint --max-warnings=0 passes for all API source files — PASS: eslint exits cleanly
+- DocsModule.register() returns empty providers array (test asserts length 0) — PASS
+- docs-module.test.ts: 4/4 tests pass — PASS
+- docs-entities.test.ts: 16/16 tests pass — PASS
+- database.config.test.ts: migration name assertion passes — PASS: MilestoneFiveDocumentsFoundation1781308800000 confirmed
+- API tsc build clean — PASS: pnpm typecheck exits cleanly
+
+Implementation branch or worktree context:
+- Worktree: ms5-st1-implementer-20260610
+- Branch: ms5-st1-tester-20260610
+- Implementer changed: apps/api/src/docs/docs.module.ts — added eslint-disable-next-line comment on _environment param
+- All other ST-1 implementation files unchanged from original implementation
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/docs/docs.module.ts
+- apps/api/src/docs/entities/docs-page.entity.ts
+- apps/api/src/docs/entities/docs-revision.entity.ts
+- apps/api/src/docs/docs.types.ts
+- apps/api/src/database/database.config.ts
+- apps/api/src/database/migrations/1781308800000-milestone-five-documents-foundation.ts
+- apps/api/src/app.module.ts
+- apps/api/src/docs/docs-entities.test.ts
+- apps/api/src/docs/docs-module.test.ts
+- apps/api/src/database/database.config.test.ts
+
+Test commit:
+- 2135530
+
+Commands executed:
+- vitest run --root apps/api --reporter=verbose src/docs src/database/database.config.test.ts (implementer worktree): 23/23 pass
+- vitest run --root apps/api (full suite, implementer worktree): 1003 pass, 11 skipped
+- pnpm lint --max-warnings=0 (implementer worktree): clean
+- pnpm typecheck (implementer worktree): clean
+
+Final test outcomes:
+- docs-module.test.ts: 4/4 pass — DocsModule.register returns DynamicModule, empty controllers, empty providers, imports TypeOrmModule
+- docs-entities.test.ts: 16/16 pass — DocsPageEntity (7), DocsRevisionEntity (5), docs.types vocabulary (4)
+- database.config.test.ts: 3/3 pass — includes MilestoneFiveDocumentsFoundation1781308800000 in reviewedMigrationNames
+- Full API suite: 1003 pass, 11 skipped (integration tests)
+- lint --max-warnings=0: clean (eslint-disable-next-line suppresses unused-vars on _environment)
+- tsc typecheck: clean
+
+Documentation context:
+- New docs subsystem introduced: DocsPageEntity and DocsRevisionEntity, MilestoneFiveDocumentsFoundation migration, DocsModule skeleton registered in AppModule.
+- MS5 plan at plans/ms5-documents-wiki-plan.md
+- docs/README.md routing table should be updated to cover the docs subsystem
+- docs/development/api-conventions.md should note the new reviewed migration MilestoneFiveDocumentsFoundation1781308800000
+- No existing docs feature file — docs/features/docs.md likely needs to be created
+
+Plan and diff context:
+- Active plan: ms5-documents-wiki, subtask ST-1 (docs schema, entities, migration, module)
+- Base branch: ms5
+- Compare ms5-st1-tester-20260610 against ms5 to see all ST-1 changes
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-1
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

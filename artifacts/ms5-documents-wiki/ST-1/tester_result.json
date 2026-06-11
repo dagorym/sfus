@@ -1,0 +1,29 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-1/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-1/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-1/documenter_prompt.txt"
+  ],
+  "branch_name": "ms5-st1-tester-20260610",
+  "commands_run": [
+    "vitest run --root apps/api --reporter=verbose src/docs src/database/database.config.test.ts (implementer worktree): 23/23 pass",
+    "vitest run --root apps/api (full suite, implementer worktree): 1003 pass, 11 skipped",
+    "pnpm lint --max-warnings=0 (implementer worktree): clean",
+    "pnpm typecheck (implementer worktree): clean"
+  ],
+  "pass_fail_totals": {
+    "failed": 0,
+    "passed": 1003,
+    "skipped": 11
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST-1",
+  "test_commit_hash": "2135530",
+  "test_files_changed": [
+    "apps/api/src/docs/docs-entities.test.ts",
+    "apps/api/src/docs/docs-module.test.ts",
+    "apps/api/src/database/database.config.test.ts"
+  ],
+  "unmet_acceptance_criteria": []
+}
