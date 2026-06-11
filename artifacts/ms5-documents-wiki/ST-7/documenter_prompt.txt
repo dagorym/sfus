@@ -1,0 +1,66 @@
+Your role is 'documenter'. Your task is as follows:
+
+## Task Summary
+
+Document the ST-7 implementation: the public /docs browse and render surface for the Milestone 5 documents wiki. All tests pass. Proceed with documentation immediately — do not stop for scope confirmation or diff review.
+
+## Implementation Context
+
+**Plan:** ms5-documents-wiki
+**Subtask:** ST-7 — Public /docs browse and render surface (web)
+**Shared artifact directory (repository-root-relative):** artifacts/ms5-documents-wiki/ST-7
+
+### Modified files (Implementer + Tester)
+
+Implementer:
+- `apps/web/app/docs/docs-client.ts` — Public API client helpers: getDocPageTree, getDocPageByPath, getRecentDocEdits; shared extractErrorMessage envelope helper; exported type shapes (DocsTreeItem, DocsPageShape, DocsBreadcrumbItem, DocsLockState, DocsRecentEditShape).
+- `apps/web/app/docs/docs.module.css` — Shared CSS module for /docs index and page view: container, breadcrumbs, treeList, staffActions, lockBanner, actionButton, secondaryActionButton.
+- `apps/web/app/docs/page.tsx` — DocsIndexPage ('use client'): renders site page tree via getDocPageTree; isStaff gate using hasGlobalRole(session.user, 'moderator') controls Create page link to /docs/new.
+- `apps/web/app/docs/[...path]/page.tsx` — DocsPageView ('use client'): catch-all route; renders breadcrumb trail (nav[aria-label=Breadcrumb] > ol), page title, body via MarkdownRenderer; lock banner (role=status) visible to all when locked; staff affordances (Edit, Acquire lock, History) gated by isStaff.
+
+Tester:
+- `apps/web/app/docs/docs-index.spec.ts` — Source-contract tests for DocsIndexPage.
+- `apps/web/app/docs/docs-page.spec.ts` — Source-contract tests for DocsPageView.
+- `apps/web/app/docs/docs-client.spec.ts` — Source-contract tests for docs-client.ts.
+
+### Acceptance Criteria (all PASS)
+
+- AC1: /docs renders site page tree; /docs/<path> renders page with breadcrumb trail and sanitized Markdown via MarkdownRenderer.
+- AC2: Non-staff/anonymous visitor sees no create/edit/lock affordances; staff session (hasGlobalRole 'moderator') sees Create page, Edit, Acquire lock, History links.
+- AC3: Nonexistent/gated path renders not-found state — no oracle distinction between missing and access-denied.
+- AC4: next build and lint pass; route files export only default.
+
+### Key behaviors
+
+- `getDocPageTree(parentPath?)` fetches GET /api/docs; returns null on 404, throws on other errors. Uses extractErrorMessage(payload, fallback) which reads payload.error?.message || payload.message || fallback.
+- `getDocPageByPath(path)` fetches GET /api/docs/<encoded-path>; returns null on 404, throws on other errors.
+- `getRecentDocEdits(limit?)` fetches GET /api/docs/recent; never returns null, throws on error.
+- All public read routes use `cache: "no-store"` and do not include `credentials: "include"`.
+- Lock state: `isLocked = page.lock.isLocked && page.lock.lockExpiresAt !== null && new Date(lockExpiresAt) > new Date()`.
+- The /docs/new and /docs/<path>/edit routes do NOT exist yet (ST-8 scope) — staff affordance links point to those not-yet-existing routes. This is expected and intentional.
+- Both route files export only `export default function`.
+
+### Documentation to update
+
+Consult `docs/README.md` for the routing table. The most likely doc to update is `docs/features/documents.md` (the documents wiki feature doc). Check whether the public surface, error envelope pattern, client-gate behavior, and lock indicator should be documented there.
+
+## Test Results
+
+- 85 tests pass across 3 new spec files.
+- Pre-existing failures (unrelated to ST-7): `components/authoring-components.spec.ts` and `components/user-avatar.spec.ts` fail with ERR_MODULE_NOT_FOUND (react) due to worktree environment node_modules configuration.
+- Lint: PASS.
+- next build: PASS (verified in implementer worktree, shows /docs and /docs/[...path] routes).
+
+## Commit Hashes
+
+- Implementer code commit: `d0c8c65` (on branch `ms5-st7-implementer-20260611`)
+- Tester test commit: `58d7f6d` (on branch `ms5-st7-tester-20260611`)
+
+## Completion Gate
+
+Do not report success unless all required artifacts exist and are committed:
+- `artifacts/ms5-documents-wiki/ST-7/documenter_report.md`
+- `artifacts/ms5-documents-wiki/ST-7/documenter_result.json`
+- `artifacts/ms5-documents-wiki/ST-7/verifier_prompt.txt`
+
+Continue past scope confirmation, documentation discovery, and diff review — do not stop for those steps.

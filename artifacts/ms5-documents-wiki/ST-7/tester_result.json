@@ -1,0 +1,27 @@
+{
+  "status": "success",
+  "task_id": "ST-7",
+  "branch_name": "ms5-st7-tester-20260611",
+  "test_commit_hash": "58d7f6d",
+  "tests_total": 85,
+  "tests_passed": 85,
+  "tests_failed": 0,
+  "pre_existing_failures": [
+    "components/authoring-components.spec.ts (ERR_MODULE_NOT_FOUND: react — worktree environment, not caused by ST-7)",
+    "components/user-avatar.spec.ts (ERR_MODULE_NOT_FOUND: react — worktree environment, not caused by ST-7)"
+  ],
+  "acceptance_criteria": {
+    "AC1": "PASS — page tree rendering, breadcrumbs, MarkdownRenderer sanitization verified",
+    "AC2": "PASS — hasGlobalRole client gate for staff affordances and lock banner verified",
+    "AC3": "PASS — null API response renders not-found with no oracle distinction verified",
+    "AC4": "PASS — only default export; no non-allowlisted App Router named exports; lint and build pass"
+  },
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-7/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-7/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-7/documenter_prompt.txt",
+    "apps/web/app/docs/docs-index.spec.ts",
+    "apps/web/app/docs/docs-page.spec.ts",
+    "apps/web/app/docs/docs-client.spec.ts"
+  ]
+}
