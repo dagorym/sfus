@@ -1,0 +1,25 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-5/security_report.md",
+    "artifacts/ms5-documents-wiki/ST-5/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st5-security-20260611",
+  "documentation_sufficiency_summary": [
+    "docs/features/documents.md accurately documents all four ST-5 endpoints, the oracle-parity 404 contract for the three read paths, the 401-then-403 staff gate for rollback, and the transactional/non-destructive rollback semantics.",
+    "GAP: no mention of a diff body-size/line-count limit or the O(m*n) cost (see DoS WARNING and related NOTE). Otherwise sufficient for safe operation."
+  ],
+  "note_finding_count": 2,
+  "outcome": "CONDITIONAL PASS",
+  "pass_label": "security-1",
+  "status": "completed",
+  "task_id": "ms5-documents-wiki/ST-5",
+  "test_sufficiency_summary": [
+    "STRONG for the security-critical properties. Oracle parity (P12) is proven for all three read paths: getPageHistory, getRevisionByNumber, and getDiff each return NotFoundException(PAGE_NOT_FOUND_MESSAGE) for nonexistent, deleted (status='deleted'), and non-readable (visibility='members'/'private') pages, with explicit identical-message assertions and no 403-vs-404 distinction (docs.service.test.ts 1557-1838; docs.controller.test.ts 837-1014).",
+    "Rollback authorization is proven at the controller seam: 401 precedes 403 (resolveSession awaited first; UnauthorizedException test at 1124), assertDocWriteAccess is invoked with 'site' BEFORE rollbackPage (call-order assertion assertOrder<rollbackOrder at 1072-1089), and a 'user'/anonymous caller is denied (403 at 1091-1106). No inline role check exists in rollbackPage.",
+    "Non-destructive + transactional rollback (P10) is proven: unit test confirms em.save (new revision) + em.update (pointer/title) inside the transaction; the integration test drives the real service and verifies revisions 1 and 2 are preserved and rev 3 equals rev 1 (504-571).",
+    "Diff input validation is covered (positive-integer from/to, equal-value 400, missing-param 400) at both controller and service layers; computeLineDiff is proven pure and deterministic with fixed-input pinning.",
+    "GAP: no DoS/large-body test for the diff path, and no dedicated mid-rollback transaction-failure proof (see NOTE)."
+  ],
+  "warning_finding_count": 1
+}
