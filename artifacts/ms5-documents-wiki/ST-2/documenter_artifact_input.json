@@ -1,0 +1,57 @@
+{
+  "status": "success",
+  "task_id": "ST-2",
+  "task_summary": "ST-2 of the ms5-documents-wiki plan: Documents read API (path resolution, tree, breadcrumbs, recent feed). DocsService and DocsController implement GET /api/docs/*path (resolve published site page by path, return current revision body plus ordered breadcrumb ancestry), GET /api/docs (site root tree or children of ?parentPath=), and GET /api/docs/recent?limit= (recent publicly-readable site-scope non-deleted document edits for the landing feed). All visibility routed through AuthorizationService.evaluate() with anonymous actor. Project-scoped pages excluded from every site index. Oracle parity (P12): nonexistent, deleted, and non-readable pages all return PAGE_NOT_FOUND_MESSAGE (identical 404, no 403 vs 404 distinction).",
+  "branch_name": "ms5-st2-documenter-20260610",
+  "documentation_commit_hash": "6c28e39fe1f02f6328d1c28c713c604e80256d70",
+  "documentation_files_changed": [
+    "docs/features/documents.md",
+    "docs/README.md"
+  ],
+  "commands_run": [],
+  "final_test_outcomes": [
+    "1065 tests passed, 0 failed, 11 skipped (DB integration, gated on SFUS_DB_INTEGRATION=1)",
+    "AC1: PASS", "AC2: PASS", "AC3: PASS", "AC4: PASS", "AC5: PASS"
+  ],
+  "acceptance_criteria": [
+    "AC1: GET /api/docs/*path resolves a published site page by full path and returns its current revision content plus an ordered breadcrumb ancestry array.",
+    "AC2: A nonexistent path, a deleted page, and a non-publicly-readable page all return the same 404 class and message (oracle parity). Constant: DocsService.PAGE_NOT_FOUND_MESSAGE = 'Document page not found.'",
+    "AC3: GET /api/docs returns the site page tree/children with no project-scoped pages ever present.",
+    "AC4: GET /api/docs/recent returns recent published site-doc edits (page title, path, editor, timestamp), excludes deleted/non-readable/project pages, and respects limit. Default=5, max=20.",
+    "AC5: Every read path routes visibility through AuthorizationService.evaluate() with no inline re-derived predicate."
+  ],
+  "implementation_context": [
+    "Branch: ms5-st2-documenter-20260610, comparison base: ms5",
+    "New: apps/api/src/docs/docs.service.ts (DocsService)",
+    "New: apps/api/src/docs/docs.controller.ts (DocsController)",
+    "Updated: apps/api/src/docs/docs.module.ts (registers DocsController and DocsService, imports AuthorizationModule, exports DocsService)",
+    "Updated: apps/api/src/docs/docs.types.ts (adds DocsPageShape, DocsTreeItem, DocsRecentEditShape, DocsBreadcrumbItem, DocsRevisionShape, DocsRecentQuery)",
+    "New (tester): apps/api/src/docs/docs.service.test.ts",
+    "New (tester): apps/api/src/docs/docs.controller.test.ts",
+    "Updated (tester): apps/api/src/docs/docs-module.test.ts",
+    "Added (documenter): docs/features/documents.md",
+    "Updated (documenter): docs/README.md"
+  ],
+  "all_modified_files": [
+    "apps/api/src/docs/docs.service.ts",
+    "apps/api/src/docs/docs.controller.ts",
+    "apps/api/src/docs/docs.module.ts",
+    "apps/api/src/docs/docs.types.ts",
+    "apps/api/src/docs/docs.service.test.ts",
+    "apps/api/src/docs/docs.controller.test.ts",
+    "apps/api/src/docs/docs-module.test.ts",
+    "docs/features/documents.md",
+    "docs/README.md"
+  ],
+  "plan_context": [
+    "Plan: plans/ms5-documents-wiki-plan.md, subtask ST-2",
+    "Documentation Impact per plan: New docs/features/documents.md read-contract section + routing table row in docs/README.md",
+    "Document current state only (no milestone/subtask history) per routing-table Writing documentation rules"
+  ],
+  "convention_guidance": [
+    "API conventions: docs/development/api-conventions.md (error envelope, migrations registry)",
+    "Authorization: docs/features/authorization.md (global roles, decision contract)",
+    "Oracle parity (P12): nonexistent, deleted, and non-readable pages produce identical 404 — no information oracle"
+  ],
+  "assumptions": []
+}
