@@ -1,0 +1,103 @@
+You are the Documenter Agent for the sfus project. Your task is to document the
+ST-3 (Docs write API + authz seam) changes on the ms5-st3-tester-20260610 branch
+in the worktree at /home/tstephen/repos/worktrees/ms5-st3-tester-20260610.
+
+## Start immediately
+
+Blocking inputs are present. Begin documentation work in the same run — do not
+stop after reading this prompt, discovering files, or reviewing diffs.
+
+## Context
+
+ST-3 implements the Documents wiki write API for the sfus API. The implementation
+is complete and all tests pass (CONDITIONAL PASS from verifier; security reviewer
+also confirmed PASS). A remediation tester pass has rewritten the P10 atomicity
+test to use a real-DB constraint-violation pattern.
+
+### What was implemented (ST-3)
+
+- `DocsService.createPage()` — creates a docs_pages row + docs_revisions row
+  (revision_number=1) + sets current_revision_id in a single TypeORM transaction.
+  Returns DocWriteResultShape.
+- `DocsService.addRevision()` — increments revision_number, updates
+  current_revision_id pointer in a single transaction. Returns DocWriteResultShape.
+- `DocsService.assertDocWriteAccess()` — single authorization gate for all write
+  paths; null/undefined/'user' → ForbiddenException (403); 'moderator'/'admin' →
+  pass; 401 precedes 403 (controller guard order).
+- `DocsController` — POST /api/docs (createPage) and
+  POST /api/docs/:id/revisions (addRevision), both protected by JwtAuthGuard +
+  ThrottleGuard.
+- `DocsModule.register(environment)` wires ThrottleModule + AuthModule.
+
+### Files changed by Implementer
+
+- `apps/api/src/docs/docs.service.ts` — createPage, addRevision,
+  assertDocWriteAccess, validateSlug, validateTitle, resolveParent,
+  computePathHash methods
+- `apps/api/src/docs/docs.controller.ts` — POST /api/docs,
+  POST /api/docs/:id/revisions routes
+- `apps/api/src/docs/docs.types.ts` — CreateDocPageInput, AddDocRevisionInput,
+  DocWriteResultShape types
+- `apps/api/src/docs/docs.module.ts` — ThrottleModule + AuthModule wiring
+
+### Files changed by Tester (remediation pass)
+
+- `apps/api/src/docs/docs.service.integration.test.ts` — P10 atomicity test
+  rewritten from fake-manager pattern to real-DB constraint-violation pattern
+  (added `import crypto from "node:crypto"`; replaced lines 226-317 with a
+  `pageRepo.manager.transaction()` test that violates
+  `uq_docs_revisions_page_revision_number` to prove rollback). Commit: 95f165a.
+
+### Files NOT changed (do not edit these)
+
+- `apps/api/src/docs/docs.service.test.ts`
+- `apps/api/src/docs/docs.controller.test.ts`
+- `apps/api/src/docs/docs-module.test.ts`
+
+## Shared artifact directory
+
+Repository-root-relative: `artifacts/ms5-documents-wiki/ST-3`
+
+All output artifacts must be written there. Re-read any prior artifacts in that
+directory to understand what has already been documented. Existing files:
+- `implementer_report.md`
+- `implementer_result.json`
+- `tester_prompt.txt` (the previous tester prompt)
+- `tester_report.md`
+- `tester_result.json`
+- `documenter_prompt.txt` (this file)
+- `history/` (archived artifacts from prior passes)
+
+## Documentation targets
+
+Consult `docs/README.md` (the routing table) to find the canonical docs that
+cover the surfaces affected by ST-3:
+
+1. **docs/features/** — per-feature contract docs. Check if a Documents wiki
+   feature doc exists; if not, create one. If one exists, update it to reflect
+   the write API (createPage, addRevision), the assertDocWriteAccess contract,
+   and the ThrottleModule + AuthModule wiring.
+
+2. **docs/development/** — cross-cutting engineering contracts. Check
+   `docs/development/api-conventions.md` (or equivalent) to see whether the
+   DocWriteResultShape response shape and the write-API error codes (400, 403,
+   404, 409, 429) need to be added or updated.
+
+Follow the "Writing documentation" rules in `docs/README.md` exactly. Update
+the canonical doc(s) in-place rather than creating new files unless the routing
+table directs otherwise.
+
+## Deferred items (do not document as resolved)
+
+- `resolveParent` by parentId does not filter status='published' (deferred to
+  ST-4 soft-delete).
+- `addRevision` passes hardcoded 'site' scope to assertDocWriteAccess (deferred
+  to when project scope is introduced).
+
+## Completion gate
+
+Report success only after all required documenter artifacts exist AND all changes
+are committed. Required artifacts:
+- `artifacts/ms5-documents-wiki/ST-3/documenter_report.md`
+- `artifacts/ms5-documents-wiki/ST-3/documenter_result.json`
+- `artifacts/ms5-documents-wiki/ST-3/verifier_prompt.txt`
