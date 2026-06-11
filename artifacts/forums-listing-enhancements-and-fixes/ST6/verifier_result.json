@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST6/verifier_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST6/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "forums-listing-st6-verifier-20260610",
+  "documentation_accuracy_summary": [
+    "Accurate. docs/features/forums.md lines 583-592 documents the board view 4-column table with correct column descriptions including the dash condition. docs/features/web-shell.md route table entry for /forums/[boardSlug] names the 4-column topic table layout. Both match the implementation exactly. No contradictions or omissions found."
+  ],
+  "note_finding_count": 1,
+  "pass_label": null,
+  "status": "complete",
+  "task_id": "ST6",
+  "test_sufficiency_summary": [
+    "Sufficient. 24 new source-contract tests in the ST6 describe block cover: semantic table structure (thead/tbody), all 4 column headers, topic title link encoding, Pinned/Locked badge preservation, replyCount rendering, Created column display-name-precedence and encodeURIComponent, Last reply zero-replies and null-lastPostAuthor conditions individually and as a combined condition proximity check, Last reply display-name-precedence and encodeURIComponent, no dangerouslySetInnerHTML, empty state, pagination, sign-in prompt, new-topic CTA, breadcrumb, and moderator note. Three forums-client.ts lastPostAuthor shape/regression tests also present. All 62 tests pass."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
