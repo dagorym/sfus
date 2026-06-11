@@ -1,0 +1,16 @@
+{
+  "artifact_file_paths": [
+    "artifacts/forums-listing-enhancements-and-fixes/ST7/documenter_report.md",
+    "artifacts/forums-listing-enhancements-and-fixes/ST7/documenter_result.json",
+    "artifacts/forums-listing-enhancements-and-fixes/ST7/verifier_prompt.txt"
+  ],
+  "branch_name": "forums-listing-st7-documenter-20260610",
+  "documentation_commit_hash": "acbee0d",
+  "documentation_files_changed": [
+    "docs/guides/content-management.md",
+    "docs/features/forums.md"
+  ],
+  "pass_label": null,
+  "status": "success",
+  "task_id": null
+}
