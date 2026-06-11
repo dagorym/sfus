@@ -1,0 +1,58 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST-7 remediation documenter pass. Internal bug fix in docs-client.ts: getDocPageByPath now encodes each path segment individually (path.split('/').map(encodeURIComponent).join('/')) instead of encoding the whole path (which turned '/' into '%2F' and broke nested/multi-segment doc page loads). A redundant session guard was also removed from page.tsx. The Tester added behavioral mock-fetch tests (AC1/AC2/AC3) confirming the fix. The Documenter verified that existing ST-7 documentation remains accurate — no documentation changes needed.
+
+Acceptance criteria to verify:
+- AC1: Multi-segment path uses literal '/' separators (not %2F) when fetching GET /api/docs/*path
+- AC2: Single-segment root-level paths continue to work correctly
+- AC3: Reserved characters within a path segment are percent-encoded
+- AC4: Lint/build pass; no non-allowlisted exports
+
+Implementation branch or worktree context:
+- Branch: ms5-st7-documenter-20260611 (remediation pass, branched from tester branch)
+- Base branch for comparison: ms5
+- Implementation: apps/web/app/docs/docs-client.ts — per-segment path encoding fix
+- Implementation: apps/web/app/docs/page.tsx — redundant session guard removal
+- Tests: apps/web/app/docs/docs-client.spec.ts — added behavioral mock-fetch tests AC1/AC2/AC3
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/docs/docs-client.ts
+- apps/web/app/docs/page.tsx
+- apps/web/app/docs/[...path]/page.tsx
+- apps/web/app/docs/docs-client.spec.ts
+- apps/web/app/docs/docs-index.spec.ts
+- apps/web/app/docs/docs-page.spec.ts
+- docs/features/documents.md (verified accurate, no change made)
+- docs/features/web-shell.md (verified accurate, no change made)
+
+Commands executed:
+- None
+
+Final test outcomes:
+- None
+
+Plan or evaluation context guidance:
+- Plan: plans/ms5-documents-wiki-plan.md, story ST-7
+- This is a remediation documenter pass following a Verifier-driven bug fix
+- The fix is an internal correctness fix; nested pages were always intended to work
+- No externally documented contract changed
+
+Convention-file guidance:
+- docs/features/documents.md owns the Documents API and web surface documentation
+- docs/features/web-shell.md owns the web route map
+- docs/README.md is the documentation routing table
+
+Updated documentation files:
+- None
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-7
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
