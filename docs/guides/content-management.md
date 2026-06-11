@@ -9,12 +9,13 @@ production. API contract details live in the feature docs: [blog](../features/bl
 
 ## Accessing the admin dashboard
 
-Sign in with an account whose global role is `admin`. An **Admin** link appears in the site navigation bar and links to `/admin`. That dashboard page lists all four admin management areas:
+Sign in with an account whose global role is `admin`. An **Admin** link appears in the site navigation bar and links to `/admin`. That dashboard page lists all five admin management areas:
 
 - **Blog** — `/admin/blog`
 - **Pages** — `/admin/pages`
 - **Navigation** — `/admin/navigation`
 - **Forums** — `/admin/forums`
+- **Documents** — `/docs` (create, edit, lock, and roll back wiki pages in the public docs area)
 
 The Admin nav link is not shown for guest visitors, members still in onboarding, or authenticated members without the `admin` role.
 

@@ -39,7 +39,7 @@ error surface (`error.tsx`) are part of the shell.
 | `/docs` | public | Documents wiki index — shows site root page tree; see [documents](documents.md#web-surface-st-7) |
 | `/docs/<path>` | public | Documents wiki catch-all page view with breadcrumbs and sanitized Markdown body; see [documents](documents.md#web-surface-st-7) |
 | `/users/<username>` | public | minimal public profile (five fields only: username, displayName, avatar, bio, joinDate); fetches `GET /api/users/:username`; 404 renders a "not found" message; avatar via `UserAvatar` (see below) |
-| `/admin` | admin | dashboard landing page — links to all four admin sections; requires `admin` role (see below) |
+| `/admin` | admin | dashboard landing page — links to all five admin sections; requires `admin` role (see below) |
 | `/admin/blog[...]`, `/admin/pages[...]`, `/admin/navigation`, `/admin/forums` | admin | client-gated admin management; the API role checks are the enforcement boundary |
 | `/health/live`, `/health/ready` | public | static JSON `{ status: "ok", service: "web", check: "live" \| "ready" }` — **no dependency checks**; web readiness says nothing about API/DB health |
 
@@ -67,11 +67,12 @@ protected by the API, not by the page.
 
 1. Calls `resolveProtectedSession("/admin")` on mount; no session → redirect to `/login?next=/admin`; `onboardingRequired` → redirect to `/onboarding/username`.
 2. Checks `hasGlobalRole(session.user, "admin")`; non-admin authenticated sessions receive an "Admin access required." error panel.
-3. On success, renders a dashboard with four labelled section links and short descriptions:
+3. On success, renders a dashboard with five labelled section links and short descriptions:
    - **Blog** (`/admin/blog`) — manage blog posts
    - **Pages** (`/admin/pages`) — manage standalone pages
    - **Navigation** (`/admin/navigation`) — configure site navigation items
    - **Forums** (`/admin/forums`) — manage forum categories and boards
+   - **Documents** (`/docs`) — manage wiki pages: create, edit, lock, and roll back pages in the public docs area
 
 **Navigation entry:** `apps/web/components/navigation.tsx` renders an `Admin` nav link to `/admin` only when a session is present, `session.user.onboardingRequired` is `false`, and `hasGlobalRole(session.user, "admin")` is `true`. The link is absent for guest, onboarding, and non-admin member sessions. The link receives the active-link style when the pathname is `/admin` or starts with `/admin/`.
 
