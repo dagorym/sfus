@@ -1,0 +1,2 @@
+
+execute plans/forums-listing-enhancements-and-fixes-plan.md, it's approved.  Unless there is a blocking failure that requires intervention, you should execute the entire plan start to finish.  Monitor the 5-hour rate limit and if you start to get close to 100%, pause until the window resets. I don't think that will happen but keep an eye on it just in case.  for this coordination run, keep track of the token usage per sub agent to report on at the end of the run.
