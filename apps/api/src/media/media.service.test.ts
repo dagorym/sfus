@@ -38,6 +38,7 @@ const makeTestEnvironment = (overrides: Partial<ApplicationEnvironment["media"]>
   nodeEnv: "test",
   apiPort: 3001,
   swaggerEnabled: false,
+  docs: { lockTtlMinutes: 30 },
   media: {
     uploadMaxSizeBytes: 5 * 1024 * 1024, // 5 MB
     avatarUploadMaxSizeBytes: 1 * 1024 * 1024, // 1 MB avatar cap

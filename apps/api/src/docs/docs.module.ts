@@ -9,6 +9,7 @@ import { DocsPageEntity } from "./entities/docs-page.entity";
 import { DocsRevisionEntity } from "./entities/docs-revision.entity";
 import { DocsController } from "./docs.controller";
 import { DocsService } from "./docs.service";
+import { DOCS_CONFIG } from "./docs.types";
 
 @Module({})
 export class DocsModule {
@@ -22,7 +23,13 @@ export class DocsModule {
         ThrottleModule.register(environment)
       ],
       controllers: [DocsController],
-      providers: [DocsService],
+      providers: [
+        DocsService,
+        {
+          provide: DOCS_CONFIG,
+          useValue: { lockTtlMinutes: environment.docs.lockTtlMinutes }
+        }
+      ],
       exports: [DocsService]
     };
   }

@@ -91,7 +91,8 @@ describe.skipIf(!DB_INTEGRATION_ENABLED)(
       service = new DocsService(
         pageRepo,
         revisionRepo,
-        authorizationService
+        authorizationService,
+        { lockTtlMinutes: 30 }
       );
 
       authorUserId = await insertThrowawayUser(ds);

@@ -39,6 +39,7 @@ import type {
   DocWriteResultShape,
   DocsDiffShape,
   DocsHistoryShape,
+  DocsLockResultShape,
   DocsSingleRevisionShape,
   DocsPageShape,
   DocsRecentEditShape,
@@ -252,7 +253,7 @@ export class DocsController {
     if (typeof body?.body !== "string") {
       throw new BadRequestException("body must be a string.");
     }
-    const page = await this.docsService.addRevision(session.user.id, id, body);
+    const page = await this.docsService.addRevision(session.user.id, id, body, session.user.globalRole);
     return { page };
   }
 
@@ -311,7 +312,7 @@ export class DocsController {
     if (body?.slug === undefined && body?.title === undefined) {
       throw new BadRequestException("At least one of 'slug' or 'title' must be provided.");
     }
-    const page = await this.docsService.renamePage(id, body);
+    const page = await this.docsService.renamePage(id, body, session.user.id, session.user.globalRole);
     return { page };
   }
 
@@ -363,7 +364,7 @@ export class DocsController {
     const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
     // 403: single authorization gate for all site-scope doc writes.
     this.docsService.assertDocWriteAccess(session.user.globalRole, "site");
-    await this.docsService.softDeletePage(id);
+    await this.docsService.softDeletePage(id, session.user.id, session.user.globalRole);
   }
 
   // ===========================================================================
@@ -538,8 +539,98 @@ export class DocsController {
     if (typeof body?.revisionNumber !== "number" || !Number.isInteger(body.revisionNumber) || body.revisionNumber < 1) {
       throw new BadRequestException("revisionNumber must be a positive integer.");
     }
-    const page = await this.docsService.rollbackPage(session.user.id, id, body);
+    const page = await this.docsService.rollbackPage(session.user.id, id, body, session.user.globalRole);
     return { page };
+  }
+
+  // ===========================================================================
+  // POST /docs/:id/lock — acquire or refresh the soft lock (staff-gated, throttled)
+  // ===========================================================================
+
+  /**
+   * Acquires or refreshes the soft lock on a wiki page.
+   *
+   * Behaviour:
+   * - If the page is unlocked (or the lock has expired), sets the lock for the actor.
+   * - If the same actor holds a non-expired lock, refreshes the expiry.
+   * - If a different actor holds a non-expired lock, returns 409 with holder metadata.
+   *   (Admin/moderator can override any foreign lock.)
+   *
+   * Authorization: moderator or admin only.
+   *
+   * @param id Page UUID.
+   * @returns 200 with `{ lock }` containing the new lock state.
+   * @throws 401 No active session.
+   * @throws 403 Moderator or admin role required.
+   * @throws 404 Page not found or deleted.
+   * @throws 409 Page locked by another (non-expired) user (includes holder metadata).
+   * @throws 429 Rate limit exceeded.
+   */
+  @Post(":id/lock")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ThrottleGuard)
+  @ThrottleLabel(THROTTLE_LABEL_DOC_EDIT)
+  @ApiOperation({ summary: "Acquire or refresh the soft lock on a wiki page (moderator/admin)." })
+  @ApiOkResponse({
+    description: "Lock acquired or refreshed. Returns the new lock state."
+  })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({ description: "Moderator or admin role required." })
+  @ApiNotFoundResponse({ description: "Page not found or deleted." })
+  @ApiConflictResponse({
+    description: "Page locked by another non-expired holder. Response includes holder metadata."
+  })
+  @ApiTooManyRequestsResponse({ description: "Rate limit exceeded." })
+  async acquireLock(
+    @Req() request: Request,
+    @Param("id") id: string
+  ): Promise<{ lock: DocsLockResultShape }> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    this.docsService.assertDocWriteAccess(session.user.globalRole, "site");
+    const lock = await this.docsService.acquireLock(session.user.id, session.user.globalRole, id);
+    return { lock };
+  }
+
+  // ===========================================================================
+  // DELETE /docs/:id/lock — release the soft lock (holder or staff override)
+  // ===========================================================================
+
+  /**
+   * Releases the soft lock on a wiki page.
+   *
+   * Behaviour:
+   * - The lock holder can release their own lock.
+   * - An admin or moderator can release any lock (staff override).
+   * - If the page is not locked (or the lock has expired), the call is idempotent.
+   * - A non-holder without staff role receives 403.
+   *
+   * Authorization: moderator or admin only (assertDocWriteAccess).
+   *
+   * @param id Page UUID.
+   * @returns 204 No Content on success.
+   * @throws 401 No active session.
+   * @throws 403 Non-holder, non-staff attempt to release.
+   * @throws 404 Page not found or deleted.
+   */
+  @Delete(":id/lock")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(ThrottleGuard)
+  @ThrottleLabel(THROTTLE_LABEL_DOC_EDIT)
+  @ApiOperation({ summary: "Release the soft lock on a wiki page (holder or admin/moderator override)." })
+  @ApiNoContentResponse({ description: "Lock released. Idempotent if not locked." })
+  @ApiUnauthorizedResponse({ description: "No active session." })
+  @ApiForbiddenResponse({
+    description: "Non-holder, non-staff attempt to release a lock."
+  })
+  @ApiNotFoundResponse({ description: "Page not found or deleted." })
+  @ApiTooManyRequestsResponse({ description: "Rate limit exceeded." })
+  async releaseLock(
+    @Req() request: Request,
+    @Param("id") id: string
+  ): Promise<void> {
+    const session = await this.authService.resolveSession({ cookieHeader: request.headers.cookie });
+    this.docsService.assertDocWriteAccess(session.user.globalRole, "site");
+    await this.docsService.releaseLock(session.user.id, session.user.globalRole, id);
   }
 
   // ===========================================================================

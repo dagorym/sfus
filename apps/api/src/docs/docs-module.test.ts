@@ -6,7 +6,8 @@ import { DocsModule } from "./docs.module";
 // to DocsModule, which require environment.throttle to be present. The fake environment
 // must supply a throttle config (matching the ForumsModule test pattern).
 const fakeEnvironment = {
-  throttle: { windowMs: 60000, maxHits: 100, newAccountMaxHits: 10, newAccountWindowMs: 604800000, maxLinksPerPost: 10 }
+  throttle: { windowMs: 60000, maxHits: 100, newAccountMaxHits: 10, newAccountWindowMs: 604800000, maxLinksPerPost: 10 },
+  docs: { lockTtlMinutes: 30 }
 } as never;
 
 /**

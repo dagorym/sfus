@@ -69,7 +69,7 @@ const makeDocsService = (
   const auth = authorizationService ?? new AuthorizationService();
   const pRepo = { ...createMinimalRepo(), ...pageRepo };
   const rRepo = { ...createMinimalRepo(), ...revisionRepo };
-  return new DocsService(pRepo as never, rRepo as never, auth);
+  return new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 };
 
 // ---------------------------------------------------------------------------
@@ -821,7 +821,7 @@ const makeWriteDocsService = (
     }
   };
   const rRepo = { ...createMinimalRepo(), ...revisionRepo };
-  return new DocsService(pRepo as never, rRepo as never, auth);
+  return new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 };
 
 describe("DocsService.createPage (ST-3 AC1: page + revision #1 + pointer in transaction)", () => {
@@ -983,7 +983,7 @@ const makeAddRevisionService = (
     manager: { transaction: txBehavior }
   };
   const rRepo = createMinimalRepo();
-  return new DocsService(pRepo as never, rRepo as never, auth);
+  return new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 };
 
 describe("DocsService.addRevision (ST-3 AC2: revision bump + pointer update)", () => {
@@ -1117,7 +1117,7 @@ const makeRenameDocsService = (
     }
   };
   const rRepo = createMinimalRepo();
-  return new DocsService(pRepo as never, rRepo as never, auth);
+  return new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 };
 
 describe("DocsService.renamePage (ST-4 AC1: slug rename + descendant rewrite)", () => {
@@ -1224,7 +1224,7 @@ describe("DocsService.renamePage (ST-4 AC1: slug rename + descendant rewrite)", 
     const auth = new AuthorizationService();
     const pRepo = { ...createMinimalRepo(), manager: { transaction: txBehavior } };
     const rRepo = createMinimalRepo();
-    const service = new DocsService(pRepo as never, rRepo as never, auth);
+    const service = new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 
     await service.renamePage("p1", { slug: "wiki" });
 
@@ -1252,7 +1252,7 @@ describe("DocsService.renamePage (ST-4 AC2: title-only rename does not alter pat
     const auth = new AuthorizationService();
     const pRepo = { ...createMinimalRepo(), manager: { transaction: txBehavior } };
     const rRepo = createMinimalRepo();
-    const service = new DocsService(pRepo as never, rRepo as never, auth);
+    const service = new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 
     await service.renamePage("p1", { title: "New Title" });
 
@@ -1284,7 +1284,7 @@ describe("DocsService.renamePage (ST-4 AC2: title-only rename does not alter pat
     const auth = new AuthorizationService();
     const pRepo = { ...createMinimalRepo(), manager: { transaction: txBehavior } };
     const rRepo = createMinimalRepo();
-    const service = new DocsService(pRepo as never, rRepo as never, auth);
+    const service = new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 
     await service.renamePage("p1", { title: "New Title" });
 
@@ -1314,7 +1314,7 @@ const makeSoftDeleteDocsService = (
     update: vi.fn().mockResolvedValue({})
   };
   const rRepo = createMinimalRepo();
-  return new DocsService(pRepo as never, rRepo as never, auth);
+  return new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 };
 
 describe("DocsService.softDeletePage (ST-4 AC3: leaf page soft-delete)", () => {
@@ -1358,7 +1358,7 @@ describe("DocsService.softDeletePage (ST-4 AC3: leaf page soft-delete)", () => {
       count: vi.fn().mockResolvedValue(0),
       update: updateSpy
     };
-    const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth);
+    const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth, { lockTtlMinutes: 30 });
 
     await service.softDeletePage("p1");
 
@@ -1404,7 +1404,7 @@ describe("DocsService.softDeletePage (ST-4 AC4: 409 when children exist)", () =>
       count: vi.fn().mockResolvedValue(1), // child exists
       update: updateSpy
     };
-    const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth);
+    const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth, { lockTtlMinutes: 30 });
 
     await expect(service.softDeletePage("p1")).rejects.toThrow(ConflictException);
 
@@ -1552,7 +1552,7 @@ const makeHistoryDocsService = (
     ...createMinimalRepo(),
     find: vi.fn().mockResolvedValue(revisionsStub)
   };
-  return new DocsService(pRepo as never, rRepo as never, auth);
+  return new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 };
 
 describe("DocsService.getPageHistory (ST-5 AC1: ordered history, oracle-parity 404)", () => {
@@ -1665,7 +1665,7 @@ const makeRevisionByNumberService = (
     ...createMinimalRepo(),
     findOne: vi.fn().mockResolvedValue(revisionStub)
   };
-  return new DocsService(pRepo as never, rRepo as never, auth);
+  return new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 };
 
 describe("DocsService.getRevisionByNumber (ST-5 AC1: single revision, oracle parity)", () => {
@@ -1763,7 +1763,7 @@ const makeDiffDocsService = (
       .mockResolvedValueOnce(fromRevStub)
       .mockResolvedValueOnce(toRevStub)
   };
-  return new DocsService(pRepo as never, rRepo as never, auth);
+  return new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 };
 
 describe("DocsService.getDiff (ST-5 AC2: validation + diff computation + oracle parity)", () => {
@@ -1838,7 +1838,7 @@ describe("DocsService.getDiff (ST-5 AC2: validation + diff computation + oracle 
         .mockResolvedValueOnce(fromRev)
         .mockResolvedValueOnce(toRev)
     };
-    const service = new DocsService(pRepo as never, rRepo as never, auth);
+    const service = new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 
     const result = await service.getDiff("p1", 1, 2);
 
@@ -1887,7 +1887,7 @@ const makeSizeGuardDiffService = (fromBody: string, toBody: string) => {
       .mockResolvedValueOnce(fromRev)
       .mockResolvedValueOnce(toRev)
   };
-  return new DocsService(pRepo as never, rRepo as never, auth);
+  return new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 };
 
 describe("DocsService.getDiff — DoS size guard (ST-5 remediation: DOCS_DIFF_MAX_BODY_BYTES / DOCS_DIFF_MAX_LINES)", () => {
@@ -2033,7 +2033,7 @@ const makeRollbackDocsService = (
     manager: { transaction: overrideTransactionBehavior ?? defaultTransactionBehavior }
   };
   const rRepo = createMinimalRepo();
-  return new DocsService(pRepo as never, rRepo as never, auth);
+  return new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: 30 });
 };
 
 describe("DocsService.rollbackPage (ST-5 AC3: non-destructive, creates new revision)", () => {
@@ -2087,13 +2087,13 @@ describe("DocsService.rollbackPage (ST-5 AC3: non-destructive, creates new revis
 
     const auth = new AuthorizationService();
     const pRepo = { ...createMinimalRepo(), manager: { transaction: txBehavior } };
-    const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth);
+    const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth, { lockTtlMinutes: 30 });
 
     await service.rollbackPage("user-1", "p1", { revisionNumber: 2 });
 
     // The second create call should be the DocsRevisionEntity (not the page).
     // We check the last create call data.
-    expect(capturedRevisionData?.summary).toBe("Rolled back to revision 2");
+    expect((capturedRevisionData as unknown as Record<string, unknown>)["summary"]).toBe("Rolled back to revision 2");
   });
 
   it("throws BadRequestException (400) for non-positive revisionNumber input (AC3: validation)", async () => {
@@ -2157,7 +2157,7 @@ describe("DocsService.rollbackPage (ST-5 AC3: non-destructive, creates new revis
 
     const auth = new AuthorizationService();
     const pRepo = { ...createMinimalRepo(), manager: { transaction: txBehavior } };
-    const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth);
+    const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth, { lockTtlMinutes: 30 });
 
     await service.rollbackPage("user-1", "p1", { revisionNumber: 1 });
 
@@ -2191,7 +2191,7 @@ describe("DocsService.rollbackPage (ST-5 AC3: non-destructive, creates new revis
 
     const auth = new AuthorizationService();
     const pRepo = { ...createMinimalRepo(), manager: { transaction: txBehavior } };
-    const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth);
+    const service = new DocsService(pRepo as never, createMinimalRepo() as never, auth, { lockTtlMinutes: 30 });
 
     await service.rollbackPage("user-1", "p1", { revisionNumber: 1 });
 

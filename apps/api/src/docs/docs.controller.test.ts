@@ -524,7 +524,7 @@ describe("DocsController: addRevision (ST-3 AC2, AC3, AC4, AC5)", () => {
     const controller = makeWriteController({ addRevision: addRevisionSpy });
     const body = { title: "Revised", body: "body v2" };
     await controller.addRevision(makeFakeRequest(), "page-1", body);
-    expect(addRevisionSpy).toHaveBeenCalledWith("user-1", "page-1", body);
+    expect(addRevisionSpy).toHaveBeenCalledWith("user-1", "page-1", body, "moderator");
   });
 
   it("calls assertDocWriteAccess with actor globalRole and 'site' before service.addRevision (AC5)", async () => {
@@ -641,7 +641,7 @@ describe("DocsController: renamePage (ST-4 AC1, AC2, AC5)", () => {
 
     await controller.renamePage(makeFakeRequest(), "page-1", body);
 
-    expect(renamePageSpy).toHaveBeenCalledWith("page-1", body);
+    expect(renamePageSpy).toHaveBeenCalledWith("page-1", body, "user-1", "moderator");
   });
 
   it("returns { page } for a title-only rename (AC2: title-only returns 200 { page })", async () => {
@@ -742,7 +742,7 @@ describe("DocsController: softDeletePage (ST-4 AC3, AC4, AC5)", () => {
 
     await controller.softDeletePage(makeFakeRequest(), "page-1");
 
-    expect(softDeleteSpy).toHaveBeenCalledWith("page-1");
+    expect(softDeleteSpy).toHaveBeenCalledWith("page-1", "user-1", "moderator");
   });
 
   it("calls assertDocWriteAccess with actor globalRole and 'site' before softDeletePage (AC5)", async () => {
@@ -1090,7 +1090,7 @@ describe("DocsController: rollbackPage (ST-5 AC3, AC4: rollback delegation + aut
 
     await controller.rollbackPage(makeFakeRequest(), "page-1", { revisionNumber: 1 });
 
-    expect(rollbackSpy).toHaveBeenCalledWith("user-1", "page-1", { revisionNumber: 1 });
+    expect(rollbackSpy).toHaveBeenCalledWith("user-1", "page-1", { revisionNumber: 1 }, "moderator");
   });
 
   it("calls assertDocWriteAccess with actor globalRole and 'site' before rollbackPage (AC4)", async () => {

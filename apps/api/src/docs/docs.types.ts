@@ -1,4 +1,17 @@
 // ---------------------------------------------------------------------------
+// Injection token
+// ---------------------------------------------------------------------------
+
+/** Injection token for the resolved docs configuration object. */
+export const DOCS_CONFIG = "DOCS_CONFIG";
+
+/** Shape of the resolved docs configuration. */
+export interface DocsConfig {
+  /** Soft-lock TTL in minutes (from DOCS_LOCK_TTL_MINUTES env var). */
+  lockTtlMinutes: number;
+}
+
+// ---------------------------------------------------------------------------
 // Docs scope-type vocabulary
 // ---------------------------------------------------------------------------
 
@@ -24,8 +37,42 @@ export type DocsVisibility = (typeof docsVisibilities)[number];
 // Lock constants
 // ---------------------------------------------------------------------------
 
-/** Default soft-lock TTL in minutes (overridden by DOCS_LOCK_TTL_MINUTES env var in ST-6). */
+/** Default soft-lock TTL in minutes (overridden by DOCS_LOCK_TTL_MINUTES env var). */
 export const DOCS_LOCK_TTL_MINUTES_DEFAULT = 30;
+
+// ---------------------------------------------------------------------------
+// Lock shapes (ST-6)
+// ---------------------------------------------------------------------------
+
+/**
+ * Current lock state surfaced on page read responses.
+ * If the page is not locked (or the lock has expired), all fields except
+ * `isLocked` are null.
+ */
+export interface DocsLockState {
+  isLocked: boolean;
+  lockedByUserId: string | null;
+  lockedAt: Date | null;
+  lockExpiresAt: Date | null;
+}
+
+/**
+ * Response shape for POST /api/docs/:id/lock.
+ * Returns the new lock state for the page.
+ */
+export interface DocsLockResultShape {
+  pageId: string;
+  lock: DocsLockState;
+}
+
+/**
+ * Holder metadata included in 409 responses when a non-expired foreign lock
+ * prevents acquiring the lock.
+ */
+export interface DocsLockConflictInfo {
+  lockedByUserId: string;
+  lockExpiresAt: Date;
+}
 
 // ---------------------------------------------------------------------------
 // Diff size limits (ST-5 security: DoS guard for O(m·n) LCS computation)
@@ -92,6 +139,8 @@ export interface DocsPageShape {
   visibility: DocsVisibility;
   breadcrumbs: DocsBreadcrumbItem[];
   currentRevision: DocsRevisionShape | null;
+  /** Current lock state. Always present; reflects whether the page is actively locked. */
+  lock: DocsLockState;
   createdAt: Date;
   updatedAt: Date;
 }

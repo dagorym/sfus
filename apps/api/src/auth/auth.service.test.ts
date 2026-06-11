@@ -100,6 +100,7 @@ const createEnvironment = (): ApplicationEnvironment => ({
   nodeEnv: "development",
   apiPort: 3001,
   swaggerEnabled: true,
+  docs: { lockTtlMinutes: 30 },
   media: {
     uploadMaxSizeBytes: 5242880,
     avatarUploadMaxSizeBytes: 1048576,

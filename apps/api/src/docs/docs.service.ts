@@ -1,15 +1,19 @@
 import crypto from "node:crypto";
 
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository } from "typeorm";
 
 import { AuthorizationService } from "../authorization/authorization.service";
 import { DocsPageEntity } from "./entities/docs-page.entity";
 import { DocsRevisionEntity } from "./entities/docs-revision.entity";
-import { DOCS_DIFF_MAX_BODY_BYTES, DOCS_DIFF_MAX_LINES } from "./docs.types";
+import { DOCS_CONFIG, DOCS_DIFF_MAX_BODY_BYTES, DOCS_DIFF_MAX_LINES } from "./docs.types";
 import type {
   DocsBreadcrumbItem,
+  DocsConfig,
+  DocsLockConflictInfo,
+  DocsLockResultShape,
+  DocsLockState,
   DocsPageShape,
   DocsTreeItem,
   DocsRecentEditShape,
@@ -60,7 +64,8 @@ export class DocsService {
     private readonly pageRepository: Repository<DocsPageEntity>,
     @InjectRepository(DocsRevisionEntity)
     private readonly revisionRepository: Repository<DocsRevisionEntity>,
-    private readonly authorizationService: AuthorizationService
+    private readonly authorizationService: AuthorizationService,
+    @Inject(DOCS_CONFIG) private readonly docsConfig: DocsConfig
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -289,6 +294,18 @@ export class DocsService {
    */
   private toPageShape(page: DocsPageEntity, breadcrumbs: DocsBreadcrumbItem[]): DocsPageShape {
     const rev = page.currentRevision;
+    const now = new Date();
+    const lockActive = page.isLocked === 1
+      && page.lockExpiresAt !== null
+      && page.lockExpiresAt > now;
+
+    const lock: DocsLockState = {
+      isLocked: lockActive,
+      lockedByUserId: lockActive ? page.lockedByUserId : null,
+      lockedAt: lockActive ? page.lockedAt : null,
+      lockExpiresAt: lockActive ? page.lockExpiresAt : null
+    };
+
     return {
       id: page.id,
       title: page.title,
@@ -313,6 +330,7 @@ export class DocsService {
             createdAt: rev.createdAt
           }
         : null,
+      lock,
       createdAt: page.createdAt,
       updatedAt: page.updatedAt
     };
@@ -373,6 +391,212 @@ export class DocsService {
     // Future: project-scoped rules branch here (no call-site change required).
     // For now, any unrecognised scope type is denied.
     throw new ForbiddenException(`Unsupported scope type: ${scopeType}.`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Lock helpers — shared by acquire/release/write-path guard
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns true when the given page currently has an active, non-expired lock
+   * held by a user other than `actorUserId`.
+   *
+   * An expired lock (lockExpiresAt <= now) is treated as free regardless of the
+   * isLocked flag — the DB row is stale and the write proceeds.
+   *
+   * Actors with admin or moderator role are never blocked by a foreign lock
+   * (staff override, AC3).
+   */
+  private isActiveForeignLock(
+    page: DocsPageEntity,
+    actorUserId: string | undefined,
+    actorGlobalRole: string | null | undefined
+  ): boolean {
+    // Staff override: admin/moderator bypass all foreign lock checks.
+    if (this.authorizationService.hasGlobalRole(actorGlobalRole, "moderator")) {
+      return false;
+    }
+    if (page.isLocked !== 1 || page.lockExpiresAt === null) {
+      return false;
+    }
+    const now = new Date();
+    if (page.lockExpiresAt <= now) {
+      // Expired lock: treated as free.
+      return false;
+    }
+    // Active lock held by another user (or by unknown actor when actorUserId is undefined).
+    return page.lockedByUserId !== (actorUserId ?? null);
+  }
+
+  /**
+   * Throws a 409 ConflictException when the page is actively locked by another user
+   * (and the actor is not a staff-override holder).
+   *
+   * Must be called inside a transaction (page row already loaded) to ensure the
+   * lock check and subsequent write are atomic.
+   *
+   * @param page            The loaded DocsPageEntity (from within the transaction).
+   * @param actorUserId     The calling user's UUID (undefined for anonymous/unknown).
+   * @param actorGlobalRole The calling user's global role string.
+   * @throws ConflictException (409) with holder metadata when a foreign lock blocks the write.
+   */
+  assertNotForeignLocked(
+    page: DocsPageEntity,
+    actorUserId: string | undefined,
+    actorGlobalRole: string | null | undefined
+  ): void {
+    if (!this.isActiveForeignLock(page, actorUserId, actorGlobalRole)) {
+      return;
+    }
+    const conflict: DocsLockConflictInfo = {
+      lockedByUserId: page.lockedByUserId!,
+      lockExpiresAt: page.lockExpiresAt!
+    };
+    throw new ConflictException({
+      message: "This page is currently locked by another user. Try again after the lock expires or contact the holder.",
+      lock: conflict
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Acquire lock — POST /api/docs/:id/lock
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Acquires or refreshes the soft lock on a wiki page.
+   *
+   * Behaviour:
+   * - If the page is not locked, or the lock has expired, sets the lock for the actor.
+   * - If the same actor holds the current non-expired lock, refreshes the expiry.
+   * - If a different actor holds a non-expired lock, throws 409 with holder metadata.
+   *
+   * Security contract:
+   * - Caller MUST call assertDocWriteAccess before calling this method (staff-only gate).
+   *
+   * @param actorUserId     The authenticated user's UUID.
+   * @param actorGlobalRole The authenticated user's global role.
+   * @param pageId          Target page UUID.
+   * @returns DocsLockResultShape with the new lock state.
+   * @throws NotFoundException (404) when the page does not exist or is deleted.
+   * @throws ConflictException (409) when a non-expired foreign lock blocks acquisition.
+   */
+  async acquireLock(
+    actorUserId: string,
+    actorGlobalRole: string | null | undefined,
+    pageId: string
+  ): Promise<DocsLockResultShape> {
+    return this.pageRepository.manager.transaction(async (em) => {
+      const page = await em.findOne(DocsPageEntity, { where: { id: pageId } });
+      if (!page || page.status !== "published") {
+        throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+      }
+
+      const now = new Date();
+      const lockExpired =
+        page.isLocked === 1 &&
+        page.lockExpiresAt !== null &&
+        page.lockExpiresAt <= now;
+
+      const isForeignHolder =
+        page.isLocked === 1 &&
+        page.lockExpiresAt !== null &&
+        page.lockExpiresAt > now &&
+        page.lockedByUserId !== actorUserId;
+
+      // Staff override: admin/moderator can always acquire even against a foreign lock.
+      const isStaff = this.authorizationService.hasGlobalRole(actorGlobalRole, "moderator");
+
+      if (isForeignHolder && !isStaff) {
+        const conflict: DocsLockConflictInfo = {
+          lockedByUserId: page.lockedByUserId!,
+          lockExpiresAt: page.lockExpiresAt!
+        };
+        throw new ConflictException({
+          message: "This page is currently locked by another user.",
+          lock: conflict
+        });
+      }
+
+      // Acquire or refresh the lock.
+      const lockTtlMs = this.docsConfig.lockTtlMinutes * 60 * 1000;
+      const lockedAt = now;
+      const lockExpiresAt = new Date(now.getTime() + lockTtlMs);
+
+      await em.update(DocsPageEntity, { id: pageId }, {
+        isLocked: 1,
+        lockedByUserId: actorUserId,
+        lockedAt,
+        lockExpiresAt
+      });
+
+      void lockExpired; // explicitly consumed — no unused-var warning
+
+      return {
+        pageId,
+        lock: {
+          isLocked: true,
+          lockedByUserId: actorUserId,
+          lockedAt,
+          lockExpiresAt
+        }
+      };
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Release lock — DELETE /api/docs/:id/lock
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Releases the soft lock on a wiki page.
+   *
+   * Behaviour:
+   * - The lock holder can release their own lock.
+   * - An admin or moderator can release any lock (override, AC4).
+   * - A non-holder without staff role receives 403.
+   * - If the page is not locked (or the lock has expired), the call is idempotent
+   *   (no error; lock fields are cleared).
+   *
+   * Security contract:
+   * - Caller MUST call assertDocWriteAccess before calling this method (staff-only gate).
+   *
+   * @param actorUserId     The authenticated user's UUID.
+   * @param actorGlobalRole The authenticated user's global role.
+   * @param pageId          Target page UUID.
+   * @throws NotFoundException (404) when the page does not exist or is deleted.
+   * @throws ForbiddenException (403) when a non-holder, non-staff actor attempts release.
+   */
+  async releaseLock(
+    actorUserId: string,
+    actorGlobalRole: string | null | undefined,
+    pageId: string
+  ): Promise<void> {
+    return this.pageRepository.manager.transaction(async (em) => {
+      const page = await em.findOne(DocsPageEntity, { where: { id: pageId } });
+      if (!page || page.status !== "published") {
+        throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
+      }
+
+      const now = new Date();
+      const isActiveLock =
+        page.isLocked === 1 &&
+        page.lockExpiresAt !== null &&
+        page.lockExpiresAt > now;
+
+      const isStaff = this.authorizationService.hasGlobalRole(actorGlobalRole, "moderator");
+
+      if (isActiveLock && page.lockedByUserId !== actorUserId && !isStaff) {
+        throw new ForbiddenException("Only the lock holder or an admin/moderator can release this lock.");
+      }
+
+      // Clear lock fields regardless of current state (idempotent).
+      await em.update(DocsPageEntity, { id: pageId }, {
+        isLocked: 0,
+        lockedByUserId: null,
+        lockedAt: null,
+        lockExpiresAt: null
+      });
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -517,7 +741,8 @@ export class DocsService {
   async addRevision(
     actorUserId: string,
     pageId: string,
-    input: AddDocRevisionInput
+    input: AddDocRevisionInput,
+    actorGlobalRole?: string | null
   ): Promise<DocWriteResultShape> {
     this.validateTitle(input.title);
 
@@ -527,6 +752,9 @@ export class DocsService {
       if (!page || page.status !== "published") {
         throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
       }
+
+      // Lock check: reject if page is actively locked by another user (AC3).
+      this.assertNotForeignLocked(page, actorUserId, actorGlobalRole);
 
       // Determine the next revision number.
       const lastRevision = await em.findOne(DocsRevisionEntity, {
@@ -602,7 +830,9 @@ export class DocsService {
    */
   async renamePage(
     pageId: string,
-    input: RenameDocPageInput
+    input: RenameDocPageInput,
+    actorUserId?: string,
+    actorGlobalRole?: string | null
   ): Promise<DocWriteResultShape> {
     if (input.slug === undefined && input.title === undefined) {
       throw new BadRequestException("At least one of 'slug' or 'title' must be provided.");
@@ -619,6 +849,9 @@ export class DocsService {
       if (!page || page.status !== "published") {
         throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
       }
+
+      // Lock check: reject if page is actively locked by another user (AC3).
+      this.assertNotForeignLocked(page, actorUserId, actorGlobalRole);
 
       const newSlug = input.slug !== undefined ? input.slug : page.slug;
       const newTitle = input.title !== undefined ? input.title : page.title;
@@ -719,11 +952,18 @@ export class DocsService {
    * @throws NotFoundException   (404) when the page does not exist or is already deleted.
    * @throws ConflictException   (409) when the page has non-deleted children.
    */
-  async softDeletePage(pageId: string): Promise<void> {
+  async softDeletePage(
+    pageId: string,
+    actorUserId?: string,
+    actorGlobalRole?: string | null
+  ): Promise<void> {
     const page = await this.pageRepository.findOne({ where: { id: pageId } });
     if (!page || page.status !== "published") {
       throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
     }
+
+    // Lock check: reject if page is actively locked by another user (AC3).
+    this.assertNotForeignLocked(page, actorUserId, actorGlobalRole);
 
     // Reject if the page has any non-deleted children (AC4).
     const nonDeletedChildCount = await this.pageRepository.count({
@@ -1002,7 +1242,8 @@ export class DocsService {
   async rollbackPage(
     actorUserId: string,
     pageId: string,
-    input: DocRollbackInput
+    input: DocRollbackInput,
+    actorGlobalRole?: string | null
   ): Promise<DocWriteResultShape> {
     if (!Number.isInteger(input.revisionNumber) || input.revisionNumber < 1) {
       throw new BadRequestException("revisionNumber must be a positive integer.");
@@ -1013,6 +1254,9 @@ export class DocsService {
       if (!page || page.status !== "published") {
         throw new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE);
       }
+
+      // Lock check: reject if page is actively locked by another user (AC3).
+      this.assertNotForeignLocked(page, actorUserId, actorGlobalRole);
 
       // Load the target revision to roll back to.
       const targetRevision = await em.findOne(DocsRevisionEntity, {
