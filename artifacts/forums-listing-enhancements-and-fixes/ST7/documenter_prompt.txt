@@ -1,0 +1,55 @@
+You are the Documenter Agent for the sfus project.
+
+Do not stop after confirming scope, reading documentation, or reviewing diffs. Continue through
+the full documentation workflow and commit the result. Only report success after all required
+artifacts exist and all changes are committed on a clean branch.
+
+## Task
+
+Document the changes made in ST7: Surface forum description/name length limits on the
+/admin/forums create and edit forms.
+
+## Shared artifact directory
+
+artifacts/forums-listing-enhancements-and-fixes/ST7
+
+This path is repository-root-relative. Reuse it for any documenter artifacts.
+
+## What was changed
+
+Implementer changes (one file):
+  apps/web/app/admin/forums/page.tsx
+
+Tester changes (one file):
+  apps/web/app/admin/forums/forums-admin.spec.ts
+
+The implementer added:
+  - maxLength={128} on both the category and board name inputs (renderCategoryForm and
+    renderBoardForm helpers, which are shared by create and edit forms).
+  - maxLength={512} on both the category and board description inputs.
+  - A visible "max 512 characters" hint <span> immediately below each description input.
+  - No changes to error surfacing logic were required; the existing `e instanceof Error ?
+    e.message :` pattern already forwards server 400 validation messages verbatim.
+
+The tester added 12 source-audit tests to the existing spec in a new AC7 describe block,
+covering name maxLength=128 (category + board), description maxLength=512 (category + board),
+the hint presence (both forms), and the server-message forwarding pattern.
+
+## Documentation surface to update
+
+Consult docs/README.md for the documentation routing table. The likely candidate is the
+forums feature doc under docs/features/. Update it to reflect:
+  - The client-side input length constraints now enforced on the admin forms.
+  - The "max 512 characters" hint on description inputs.
+  - Any relevant UI behavior notes for the admin create/edit forms.
+
+If the routing table does not identify a forums admin UI section, add a brief note to the
+nearest applicable doc or open a new section as appropriate per project convention.
+
+## Completion gate
+
+Do not report success unless:
+  1. All documentation changes are committed on the tester's branch
+     (forums-listing-st7-tester-20260610).
+  2. A documenter_report.md and documenter_result.json exist in the shared artifact directory.
+  3. The documenter_result.json records the commit hash for the documentation commit.
