@@ -213,6 +213,63 @@ Throttle label: `doc-page-edit`.
 | 404 | Page not found or deleted (oracle parity — same message as read 404) |
 | 429 | Rate limit exceeded |
 
+### PATCH /api/docs/:id — rename a page (slug and/or title)
+
+Renames a page's slug and/or title within the same parent. At least one of `slug` or
+`title` must be provided.
+
+- **Slug change:** the page's `path` and `path_hash`, plus every descendant's `path` and
+  `path_hash`, are rewritten in a single transaction (atomic subtree path rewrite).
+- **Title-only change:** no `path` or `path_hash` values are touched.
+- **Cross-parent move / reparent** is **not** implemented and is deferred to a future
+  milestone.
+
+Throttle label: `doc-page-edit`.
+
+**Request body (`RenameDocPageInput`):**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `slug` | string | one of slug/title required | New URL slug (1–255 chars, `[a-z0-9-]` only) |
+| `title` | string | one of slug/title required | New page title (1–255 chars) |
+
+**Response:** `200` with `{ page: DocWriteResultShape }`.
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| 400 | Invalid slug or title; or neither `slug` nor `title` provided |
+| 401 | No active session |
+| 403 | Actor does not have moderator or admin role |
+| 404 | Page not found or deleted (oracle parity) |
+| 409 | New path collides with an existing page in this scope |
+| 429 | Rate limit exceeded |
+
+### DELETE /api/docs/:id — soft-delete a page
+
+Soft-deletes a page by setting its `status` to `'deleted'`. Revision rows are preserved.
+The page disappears from all public reads immediately (oracle parity: deleted === nonexistent).
+
+- **Children guard:** a `409 ConflictException` is thrown when the page has any children
+  with `status='published'`. Children must be deleted or moved before the parent can be
+  deleted.
+- **Revisions:** all existing revision rows are retained; only `status` is updated.
+
+Throttle label: `doc-page-edit`.
+
+**Response:** `204 No Content` on success.
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| 401 | No active session |
+| 403 | Actor does not have moderator or admin role |
+| 404 | Page not found or already deleted |
+| 409 | Page has non-deleted children |
+| 429 | Rate limit exceeded |
+
 ### DocWriteResultShape (write response)
 
 | Field | Type | Notes |
@@ -232,6 +289,13 @@ Throttle label: `doc-page-edit`.
 `validateSlug` enforces: non-empty string, 1–255 chars, pattern `[a-z0-9-]` only.
 `validateTitle` enforces: non-empty string, 1–255 chars.
 Both throw `400 BadRequestException` on failure.
+
+### Parent resolution
+
+`resolveParent` is the shared helper used by `createPage` when a `parentId` or
+`parentPath` is provided. Both branches filter `status='published'`, so soft-deleted
+pages are rejected as invalid parents — a `400 BadRequestException` is thrown with
+`"Parent page does not exist."` when the resolved parent is absent or deleted.
 
 ### Module wiring
 
