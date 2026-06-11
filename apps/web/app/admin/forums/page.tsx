@@ -415,6 +415,7 @@ export default function AdminForumsPage() {
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="e.g. General Discussion"
+            maxLength={128}
             style={{ width: "100%", padding: "0.25rem 0.5rem" }}
           />
         </div>
@@ -435,8 +436,10 @@ export default function AdminForumsPage() {
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="Optional description"
+            maxLength={512}
             style={{ width: "100%", padding: "0.25rem 0.5rem" }}
           />
+          <span style={{ fontSize: "0.8em", color: "var(--color-text-muted)" }}>max 512 characters</span>
         </div>
         <div>
           <label style={{ display: "block", marginBottom: "0.25rem" }}>Sort Order</label>
@@ -494,6 +497,7 @@ export default function AdminForumsPage() {
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="e.g. Rules & Announcements"
+            maxLength={128}
             style={{ width: "100%", padding: "0.25rem 0.5rem" }}
           />
         </div>
@@ -514,8 +518,10 @@ export default function AdminForumsPage() {
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="Optional description"
+            maxLength={512}
             style={{ width: "100%", padding: "0.25rem 0.5rem" }}
           />
+          <span style={{ fontSize: "0.8em", color: "var(--color-text-muted)" }}>max 512 characters</span>
         </div>
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
           <div>
