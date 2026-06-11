@@ -1,0 +1,23 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-9/implementer_report.md",
+    "artifacts/ms5-documents-wiki/ST-9/tester_prompt.txt",
+    "artifacts/ms5-documents-wiki/ST-9/implementer_result.json"
+  ],
+  "branch_name": "ms5-st9-implementer-20260611",
+  "changed_files": [
+    "apps/web/app/docs/history/[...path]/page.tsx",
+    "apps/web/app/docs/docs-client.ts",
+    "apps/web/app/docs/docs.module.css",
+    "apps/web/app/docs/[...path]/page.tsx"
+  ],
+  "code_commit_hash": "89cf88f",
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST-9",
+  "validation_commands": [
+    "pnpm --dir apps/web lint",
+    "pnpm --dir apps/web build"
+  ],
+  "validation_outcome": "All green: lint 0 warnings (--max-warnings=0); next build succeeded (34 routes compiled including /docs/history/[...path], 0 type errors)."
+}
