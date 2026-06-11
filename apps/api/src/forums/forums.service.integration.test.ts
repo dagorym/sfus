@@ -39,7 +39,7 @@
 import crypto from "node:crypto";
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import type { DataSource } from "typeorm";
+import type { DataSource, QueryRunner } from "typeorm";
 import { Repository } from "typeorm";
 
 import {
@@ -48,6 +48,7 @@ import {
   insertThrowawayUser,
   cleanupThrowawayRows
 } from "../pages/integration-test-support";
+import { ForumDescriptionLength1780893000000 } from "../database/migrations/1780893000000-forum-description-length";
 import { AuthorizationService } from "../authorization/authorization.service";
 import { ForumsService } from "./forums.service";
 import { ForumCategoryEntity } from "./entities/forum-category.entity";
@@ -269,5 +270,102 @@ describe.skipIf(!DB_INTEGRATION_ENABLED)(
         expect(found!.lastPostAt).toBeNull();
       }
     );
+  }
+);
+
+// ---------------------------------------------------------------------------
+// ST4: Migration up/down check — forum_categories and forum_boards description
+// column widening from varchar(255) to varchar(512).
+//
+// NOTE: This suite is skipped automatically when SFUS_DB_INTEGRATION is not "1".
+// MySQL is unavailable in this environment; the suite skips cleanly.
+// ---------------------------------------------------------------------------
+
+describe.skipIf(!DB_INTEGRATION_ENABLED)(
+  "ForumDescriptionLength1780893000000 migration — up/down column width check (SFUS_DB_INTEGRATION=1 required)",
+  () => {
+    let ds: DataSource;
+    let qr: QueryRunner;
+
+    /**
+     * Returns the column length for a given table+column from information_schema.
+     * Works for MySQL varchar columns; returns null when the column is not found.
+     */
+    const getColumnLength = async (table: string, column: string): Promise<number | null> => {
+      const rows = await qr.query(
+        `SELECT CHARACTER_MAXIMUM_LENGTH
+           FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = ?
+            AND COLUMN_NAME = ?`,
+        [table, column]
+      );
+      if (!rows || rows.length === 0) return null;
+      return Number((rows as Array<{ CHARACTER_MAXIMUM_LENGTH: number | string }>)[0].CHARACTER_MAXIMUM_LENGTH);
+    };
+
+    beforeAll(async () => {
+      const opts = readDbOptionsFromEnv();
+      ds = await createIntegrationDataSource(opts);
+      qr = ds.createQueryRunner();
+      await qr.connect();
+    });
+
+    afterAll(async () => {
+      if (qr) await qr.release();
+      if (ds && ds.isInitialized) await ds.destroy();
+    });
+
+    it("up() widens forum_categories.description to varchar(512)", async () => {
+      // Ensure we are at varchar(255) state before running up().
+      await qr.query("ALTER TABLE `forum_categories` MODIFY COLUMN `description` varchar(255) NULL");
+      const migration = new ForumDescriptionLength1780893000000();
+      await migration.up(qr);
+      const len = await getColumnLength("forum_categories", "description");
+      expect(len).toBe(512);
+    });
+
+    it("up() widens forum_boards.description to varchar(512)", async () => {
+      await qr.query("ALTER TABLE `forum_boards` MODIFY COLUMN `description` varchar(255) NULL");
+      const migration = new ForumDescriptionLength1780893000000();
+      await migration.up(qr);
+      const len = await getColumnLength("forum_boards", "description");
+      expect(len).toBe(512);
+    });
+
+    it("down() reverts forum_categories.description to varchar(255)", async () => {
+      // Ensure we are at varchar(512) state before running down().
+      await qr.query("ALTER TABLE `forum_categories` MODIFY COLUMN `description` varchar(512) NULL");
+      const migration = new ForumDescriptionLength1780893000000();
+      await migration.down(qr);
+      const len = await getColumnLength("forum_categories", "description");
+      expect(len).toBe(255);
+    });
+
+    it("down() reverts forum_boards.description to varchar(255)", async () => {
+      await qr.query("ALTER TABLE `forum_boards` MODIFY COLUMN `description` varchar(512) NULL");
+      const migration = new ForumDescriptionLength1780893000000();
+      await migration.down(qr);
+      const len = await getColumnLength("forum_boards", "description");
+      expect(len).toBe(255);
+    });
+
+    it("up() then down() leaves forum_categories.description at varchar(255) (round-trip)", async () => {
+      await qr.query("ALTER TABLE `forum_categories` MODIFY COLUMN `description` varchar(255) NULL");
+      const migration = new ForumDescriptionLength1780893000000();
+      await migration.up(qr);
+      await migration.down(qr);
+      const len = await getColumnLength("forum_categories", "description");
+      expect(len).toBe(255);
+    });
+
+    it("up() then down() leaves forum_boards.description at varchar(255) (round-trip)", async () => {
+      await qr.query("ALTER TABLE `forum_boards` MODIFY COLUMN `description` varchar(255) NULL");
+      const migration = new ForumDescriptionLength1780893000000();
+      await migration.up(qr);
+      await migration.down(qr);
+      const len = await getColumnLength("forum_boards", "description");
+      expect(len).toBe(255);
+    });
   }
 );

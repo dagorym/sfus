@@ -3890,3 +3890,438 @@ describe("ForumsService.getPublicBoard — soft-delete exclusion (ST3: AC3)", ()
     expect(result.postCount).toBe(1); // 1 topic + 0 live replies
   });
 });
+
+// ---------------------------------------------------------------------------
+// ST4: description/name length validation — boundary tests for createCategory,
+// updateCategory, createBoard, updateBoard (AC1-AC4 of the varchar-512 task).
+//
+// Acceptance criteria:
+// AC1: FORUM_DESCRIPTION_MAX_LENGTH=512, FORUM_NAME_MAX_LENGTH=128 exported.
+// AC2: createCategory/updateCategory/createBoard/updateBoard reject description>512
+//      and name>128 with BadRequestException (400), BEFORE persistence.
+// AC3: update methods validate ONLY supplied fields (name-only update does not
+//      trip description validation; null/undefined description accepted).
+// AC4: 256–512-char description accepted (no 500); >512-char description → 400.
+// ---------------------------------------------------------------------------
+
+import { FORUM_DESCRIPTION_MAX_LENGTH, FORUM_NAME_MAX_LENGTH } from "./forums.types";
+
+// Helpers for generating strings of exact length.
+const repeat = (char: string, n: number): string => char.repeat(n);
+
+// ---------------------------------------------------------------------------
+// AC1: exported constant values
+// ---------------------------------------------------------------------------
+
+describe("FORUM_DESCRIPTION_MAX_LENGTH / FORUM_NAME_MAX_LENGTH constants (ST4: AC1)", () => {
+  it("FORUM_DESCRIPTION_MAX_LENGTH equals 512", () => {
+    expect(FORUM_DESCRIPTION_MAX_LENGTH).toBe(512);
+  });
+
+  it("FORUM_NAME_MAX_LENGTH equals 128", () => {
+    expect(FORUM_NAME_MAX_LENGTH).toBe(128);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC2 + AC4: createCategory — description boundary tests
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.createCategory — description length boundaries (ST4: AC2/AC4)", () => {
+  const makeSavedCategory = (id: string) => ({
+    id,
+    name: "Cat",
+    slug: "cat",
+    description: null,
+    sortOrder: 0,
+    boards: [],
+    createdAt: new Date(),
+    updatedAt: new Date()
+  });
+
+  it("accepts description of length 255 (ok: below old limit)", async () => {
+    const desc = repeat("a", 255);
+    const saved = { ...makeSavedCategory("cat-d255"), description: desc };
+    const service = makeForumsService({
+      create: vi.fn().mockReturnValue(saved),
+      save: vi.fn().mockResolvedValue(saved),
+      findOne: vi.fn().mockResolvedValue(saved)
+    });
+    await expect(
+      service.createCategory({ name: "Cat", slug: "cat", description: desc })
+    ).resolves.toBeDefined();
+  });
+
+  it("accepts description of length 256 (ok: above old 255 limit)", async () => {
+    const desc = repeat("b", 256);
+    const saved = { ...makeSavedCategory("cat-d256"), description: desc };
+    const service = makeForumsService({
+      create: vi.fn().mockReturnValue(saved),
+      save: vi.fn().mockResolvedValue(saved),
+      findOne: vi.fn().mockResolvedValue(saved)
+    });
+    await expect(
+      service.createCategory({ name: "Cat", slug: "cat", description: desc })
+    ).resolves.toBeDefined();
+  });
+
+  it("accepts description of length 512 (ok: at new limit)", async () => {
+    const desc = repeat("c", 512);
+    const saved = { ...makeSavedCategory("cat-d512"), description: desc };
+    const service = makeForumsService({
+      create: vi.fn().mockReturnValue(saved),
+      save: vi.fn().mockResolvedValue(saved),
+      findOne: vi.fn().mockResolvedValue(saved)
+    });
+    await expect(
+      service.createCategory({ name: "Cat", slug: "cat", description: desc })
+    ).resolves.toBeDefined();
+  });
+
+  it("rejects description of length 513 with BadRequestException BEFORE persistence (ST4: AC2/AC4)", async () => {
+    const desc = repeat("d", 513);
+    const saveSpy = vi.fn();
+    const service = makeForumsService({ save: saveSpy });
+    await expect(
+      service.createCategory({ name: "Cat", slug: "cat", description: desc })
+    ).rejects.toThrow(BadRequestException);
+    expect(saveSpy).not.toHaveBeenCalled();
+  });
+
+  it("accepts null description without error (null is allowed)", async () => {
+    const saved = makeSavedCategory("cat-dnull");
+    const service = makeForumsService({
+      create: vi.fn().mockReturnValue(saved),
+      save: vi.fn().mockResolvedValue(saved),
+      findOne: vi.fn().mockResolvedValue(saved)
+    });
+    await expect(
+      service.createCategory({ name: "Cat", slug: "cat", description: null })
+    ).resolves.toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC2 + AC4: createCategory — name length boundaries
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.createCategory — name length boundaries (ST4: AC2)", () => {
+  const makeSavedCategory = (id: string) => ({
+    id,
+    name: "N".repeat(128),
+    slug: "cat",
+    description: null,
+    sortOrder: 0,
+    boards: [],
+    createdAt: new Date(),
+    updatedAt: new Date()
+  });
+
+  it("accepts name of length 128 (ok: at limit)", async () => {
+    const name = repeat("N", 128);
+    const saved = makeSavedCategory("cat-n128");
+    const service = makeForumsService({
+      create: vi.fn().mockReturnValue(saved),
+      save: vi.fn().mockResolvedValue(saved),
+      findOne: vi.fn().mockResolvedValue(saved)
+    });
+    await expect(
+      service.createCategory({ name, slug: "cat" })
+    ).resolves.toBeDefined();
+  });
+
+  it("rejects name of length 129 with BadRequestException BEFORE persistence (ST4: AC2)", async () => {
+    const name = repeat("N", 129);
+    const saveSpy = vi.fn();
+    const service = makeForumsService({ save: saveSpy });
+    await expect(
+      service.createCategory({ name, slug: "cat" })
+    ).rejects.toThrow(BadRequestException);
+    expect(saveSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC3: updateCategory — validate only supplied fields; null description accepted
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.updateCategory — partial-update field isolation (ST4: AC3)", () => {
+  const existing = {
+    id: "cat-upd",
+    name: "Original",
+    slug: "original",
+    description: repeat("x", 512), // valid 512-char description on record
+    sortOrder: 0
+  };
+
+  it("updating name alone does NOT validate description (only supplied fields checked)", async () => {
+    const findOneSpy = vi.fn()
+      .mockResolvedValueOnce(existing)
+      .mockResolvedValueOnce({ ...existing, name: "New Name", boards: [] });
+    const saveSpy = vi.fn().mockImplementation(async (e: unknown) => e);
+    const service = makeForumsService({ findOne: findOneSpy, save: saveSpy });
+    // description not supplied — should not throw even if entity description is 512 chars
+    await expect(
+      service.updateCategory("cat-upd", { name: "New Name" })
+    ).resolves.toBeDefined();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("updating description with null is accepted (null clears description)", async () => {
+    const findOneSpy = vi.fn()
+      .mockResolvedValueOnce(existing)
+      .mockResolvedValueOnce({ ...existing, description: null, boards: [] });
+    const saveSpy = vi.fn().mockImplementation(async (e: unknown) => e);
+    const service = makeForumsService({ findOne: findOneSpy, save: saveSpy });
+    await expect(
+      service.updateCategory("cat-upd", { description: null })
+    ).resolves.toBeDefined();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("updating description with 512-char value is accepted", async () => {
+    const desc512 = repeat("z", 512);
+    const findOneSpy = vi.fn()
+      .mockResolvedValueOnce(existing)
+      .mockResolvedValueOnce({ ...existing, description: desc512, boards: [] });
+    const saveSpy = vi.fn().mockImplementation(async (e: unknown) => e);
+    const service = makeForumsService({ findOne: findOneSpy, save: saveSpy });
+    await expect(
+      service.updateCategory("cat-upd", { description: desc512 })
+    ).resolves.toBeDefined();
+  });
+
+  it("rejects description of 513 in updateCategory with BadRequestException BEFORE save (ST4: AC2)", async () => {
+    const desc513 = repeat("z", 513);
+    const findOneSpy = vi.fn().mockResolvedValue(existing);
+    const saveSpy = vi.fn();
+    const service = makeForumsService({ findOne: findOneSpy, save: saveSpy });
+    await expect(
+      service.updateCategory("cat-upd", { description: desc513 })
+    ).rejects.toThrow(BadRequestException);
+    expect(saveSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects name of 129 in updateCategory with BadRequestException BEFORE save (ST4: AC2)", async () => {
+    const name129 = repeat("N", 129);
+    const findOneSpy = vi.fn().mockResolvedValue(existing);
+    const saveSpy = vi.fn();
+    const service = makeForumsService({ findOne: findOneSpy, save: saveSpy });
+    await expect(
+      service.updateCategory("cat-upd", { name: name129 })
+    ).rejects.toThrow(BadRequestException);
+    expect(saveSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC2 + AC4: createBoard — description and name length boundaries
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.createBoard — description length boundaries (ST4: AC2/AC4)", () => {
+  const makeCategory = () => ({ id: "cat-1", name: "Cat" });
+  const makeSavedBoard = (id: string) => ({
+    id,
+    categoryId: "cat-1",
+    name: "Board",
+    slug: "board",
+    description: null,
+    sortOrder: 0,
+    scopeType: "site",
+    visibility: "public",
+    projectId: null,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  });
+
+  it("accepts description of length 255 (ok: below old limit)", async () => {
+    const desc = repeat("a", 255);
+    const saved = { ...makeSavedBoard("brd-d255"), description: desc };
+    const service = makeForumsService(
+      { findOne: vi.fn().mockResolvedValue(makeCategory()) },
+      { create: vi.fn().mockReturnValue(saved), save: vi.fn().mockResolvedValue(saved), findOne: vi.fn().mockResolvedValue(saved) }
+    );
+    await expect(
+      service.createBoard({ categoryId: "cat-1", name: "Board", slug: "board", description: desc })
+    ).resolves.toBeDefined();
+  });
+
+  it("accepts description of length 256 (ok: above old 255 limit)", async () => {
+    const desc = repeat("b", 256);
+    const saved = { ...makeSavedBoard("brd-d256"), description: desc };
+    const service = makeForumsService(
+      { findOne: vi.fn().mockResolvedValue(makeCategory()) },
+      { create: vi.fn().mockReturnValue(saved), save: vi.fn().mockResolvedValue(saved), findOne: vi.fn().mockResolvedValue(saved) }
+    );
+    await expect(
+      service.createBoard({ categoryId: "cat-1", name: "Board", slug: "board", description: desc })
+    ).resolves.toBeDefined();
+  });
+
+  it("accepts description of length 512 (ok: at new limit)", async () => {
+    const desc = repeat("c", 512);
+    const saved = { ...makeSavedBoard("brd-d512"), description: desc };
+    const service = makeForumsService(
+      { findOne: vi.fn().mockResolvedValue(makeCategory()) },
+      { create: vi.fn().mockReturnValue(saved), save: vi.fn().mockResolvedValue(saved), findOne: vi.fn().mockResolvedValue(saved) }
+    );
+    await expect(
+      service.createBoard({ categoryId: "cat-1", name: "Board", slug: "board", description: desc })
+    ).resolves.toBeDefined();
+  });
+
+  it("rejects description of length 513 with BadRequestException BEFORE persistence (ST4: AC2/AC4)", async () => {
+    const desc = repeat("d", 513);
+    const boardSaveSpy = vi.fn();
+    const service = makeForumsService(
+      { findOne: vi.fn().mockResolvedValue(makeCategory()) },
+      { save: boardSaveSpy }
+    );
+    await expect(
+      service.createBoard({ categoryId: "cat-1", name: "Board", slug: "board", description: desc })
+    ).rejects.toThrow(BadRequestException);
+    expect(boardSaveSpy).not.toHaveBeenCalled();
+  });
+
+  it("accepts null description without error", async () => {
+    const saved = makeSavedBoard("brd-dnull");
+    const service = makeForumsService(
+      { findOne: vi.fn().mockResolvedValue(makeCategory()) },
+      { create: vi.fn().mockReturnValue(saved), save: vi.fn().mockResolvedValue(saved), findOne: vi.fn().mockResolvedValue(saved) }
+    );
+    await expect(
+      service.createBoard({ categoryId: "cat-1", name: "Board", slug: "board", description: null })
+    ).resolves.toBeDefined();
+  });
+});
+
+describe("ForumsService.createBoard — name length boundaries (ST4: AC2)", () => {
+  const makeCategory = () => ({ id: "cat-1", name: "Cat" });
+  const makeSavedBoard = (id: string, name: string) => ({
+    id,
+    categoryId: "cat-1",
+    name,
+    slug: "board",
+    description: null,
+    sortOrder: 0,
+    scopeType: "site",
+    visibility: "public",
+    projectId: null,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  });
+
+  it("accepts name of length 128 (ok: at limit)", async () => {
+    const name = repeat("B", 128);
+    const saved = makeSavedBoard("brd-n128", name);
+    const service = makeForumsService(
+      { findOne: vi.fn().mockResolvedValue(makeCategory()) },
+      { create: vi.fn().mockReturnValue(saved), save: vi.fn().mockResolvedValue(saved), findOne: vi.fn().mockResolvedValue(saved) }
+    );
+    await expect(
+      service.createBoard({ categoryId: "cat-1", name, slug: "board" })
+    ).resolves.toBeDefined();
+  });
+
+  it("rejects name of length 129 with BadRequestException BEFORE persistence (ST4: AC2)", async () => {
+    const name = repeat("B", 129);
+    const boardSaveSpy = vi.fn();
+    const service = makeForumsService(
+      { findOne: vi.fn().mockResolvedValue(makeCategory()) },
+      { save: boardSaveSpy }
+    );
+    await expect(
+      service.createBoard({ categoryId: "cat-1", name, slug: "board" })
+    ).rejects.toThrow(BadRequestException);
+    expect(boardSaveSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC3: updateBoard — validate only supplied fields; null description accepted
+// ---------------------------------------------------------------------------
+
+describe("ForumsService.updateBoard — partial-update field isolation (ST4: AC3)", () => {
+  const existingBoard = {
+    id: "brd-upd",
+    categoryId: "cat-1",
+    name: "Original",
+    slug: "original",
+    description: repeat("x", 512), // valid 512-char description on record
+    sortOrder: 0,
+    scopeType: "site",
+    visibility: "public",
+    projectId: null
+  };
+
+  it("updating name alone does NOT validate description (only supplied fields checked)", async () => {
+    const boardFindOneSpy = vi.fn()
+      .mockResolvedValueOnce(existingBoard)
+      .mockResolvedValueOnce({ ...existingBoard, name: "New Name" });
+    const saveSpy = vi.fn().mockImplementation(async (e: unknown) => e);
+    const service = makeForumsService(undefined, { findOne: boardFindOneSpy, save: saveSpy });
+    // description not supplied — should not throw
+    await expect(
+      service.updateBoard("brd-upd", { name: "New Name" })
+    ).resolves.toBeDefined();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("updating description with null is accepted (null clears description)", async () => {
+    const boardFindOneSpy = vi.fn()
+      .mockResolvedValueOnce(existingBoard)
+      .mockResolvedValueOnce({ ...existingBoard, description: null });
+    const saveSpy = vi.fn().mockImplementation(async (e: unknown) => e);
+    const service = makeForumsService(undefined, { findOne: boardFindOneSpy, save: saveSpy });
+    await expect(
+      service.updateBoard("brd-upd", { description: null })
+    ).resolves.toBeDefined();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("accepts description of 512 in updateBoard", async () => {
+    const desc512 = repeat("z", 512);
+    const boardFindOneSpy = vi.fn()
+      .mockResolvedValueOnce(existingBoard)
+      .mockResolvedValueOnce({ ...existingBoard, description: desc512 });
+    const saveSpy = vi.fn().mockImplementation(async (e: unknown) => e);
+    const service = makeForumsService(undefined, { findOne: boardFindOneSpy, save: saveSpy });
+    await expect(
+      service.updateBoard("brd-upd", { description: desc512 })
+    ).resolves.toBeDefined();
+  });
+
+  it("rejects description of 513 in updateBoard with BadRequestException BEFORE save (ST4: AC2)", async () => {
+    const desc513 = repeat("z", 513);
+    const boardFindOneSpy = vi.fn().mockResolvedValue(existingBoard);
+    const saveSpy = vi.fn();
+    const service = makeForumsService(undefined, { findOne: boardFindOneSpy, save: saveSpy });
+    await expect(
+      service.updateBoard("brd-upd", { description: desc513 })
+    ).rejects.toThrow(BadRequestException);
+    expect(saveSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects name of 129 in updateBoard with BadRequestException BEFORE save (ST4: AC2)", async () => {
+    const name129 = repeat("N", 129);
+    const boardFindOneSpy = vi.fn().mockResolvedValue(existingBoard);
+    const saveSpy = vi.fn();
+    const service = makeForumsService(undefined, { findOne: boardFindOneSpy, save: saveSpy });
+    await expect(
+      service.updateBoard("brd-upd", { name: name129 })
+    ).rejects.toThrow(BadRequestException);
+    expect(saveSpy).not.toHaveBeenCalled();
+  });
+
+  it("accepts name of 128 in updateBoard (at limit)", async () => {
+    const name128 = repeat("N", 128);
+    const boardFindOneSpy = vi.fn()
+      .mockResolvedValueOnce(existingBoard)
+      .mockResolvedValueOnce({ ...existingBoard, name: name128 });
+    const saveSpy = vi.fn().mockImplementation(async (e: unknown) => e);
+    const service = makeForumsService(undefined, { findOne: boardFindOneSpy, save: saveSpy });
+    await expect(
+      service.updateBoard("brd-upd", { name: name128 })
+    ).resolves.toBeDefined();
+  });
+});
