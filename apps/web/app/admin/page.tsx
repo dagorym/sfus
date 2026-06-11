@@ -27,6 +27,11 @@ const adminSections = [
     href: "/admin/forums",
     label: "Forums",
     description: "Manage forum categories and boards: create, edit, reorder, and delete."
+  },
+  {
+    href: "/docs",
+    label: "Documents",
+    description: "Manage wiki pages: create, edit, lock, and roll back pages in the public docs area."
   }
 ] as const;
 
