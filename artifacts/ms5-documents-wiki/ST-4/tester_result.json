@@ -1,0 +1,36 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-4/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-4/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-4/documenter_prompt.txt"
+  ],
+  "branch_name": "ms5-st4-tester-20260611",
+  "commands_run": [
+    "npx pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st4-tester-20260611 install",
+    "npx pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st4-tester-20260611 --filter @sfus/api run lint",
+    "npx pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st4-tester-20260611 --filter @sfus/api run typecheck",
+    "npx pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st4-tester-20260611 --filter @sfus/api run test",
+    "npx pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st4-tester-20260611 --filter @sfus/web run test",
+    "git -C /home/tstephen/repos/worktrees/ms5-st4-tester-20260611 branch --show-current"
+  ],
+  "pass_fail_totals": {
+    "api_test_files_passed": 33,
+    "api_test_files_skipped": 3,
+    "api_tests_failed": 0,
+    "api_tests_passed": 1149,
+    "api_tests_skipped": 23,
+    "web_tests_failed": 0,
+    "web_tests_passed": 626
+  },
+  "pass_label": "PASS",
+  "status": "success",
+  "task_id": "ST-4",
+  "test_commit_hash": "159d110",
+  "test_files_changed": [
+    "apps/api/src/docs/docs.service.test.ts",
+    "apps/api/src/docs/docs.controller.test.ts",
+    "apps/api/src/docs/docs.service.integration.test.ts",
+    "apps/api/src/pages/integration-test-support.ts"
+  ],
+  "unmet_acceptance_criteria": []
+}
