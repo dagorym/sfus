@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-2/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-2/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st2-verifier-20260610",
+  "documentation_accuracy_summary": [
+    "docs/features/documents.md accurately documents breadcrumb ancestor gating and chain truncation at lines 62-66. Oracle parity, scope exclusion, authorization routing, response shapes for all three endpoints, route ordering requirement, computePathHash input format, and all constants are accurately described. docs/README.md line 18 routing row correctly maps features/documents.md to apps/api/src/docs/ and apps/web/app/docs/. No inaccuracies, omissions, or contradictions found."
+  ],
+  "note_finding_count": 1,
+  "pass_label": null,
+  "status": "PASS",
+  "task_id": null,
+  "test_sufficiency_summary": [
+    "Test coverage is thorough. All six acceptance criteria have dedicated test groups in docs.service.test.ts and docs.controller.test.ts. The three new negative breadcrumb tests (project-scoped, deleted, private ancestor) use the real AuthorizationService, not a stub, and exercise the actual evaluate()-routed gate. Chain-truncation (not per-item skip) is proven by construction: the gated node is the immediate parent, and all three tests assert fully empty breadcrumb lists with no id or title leakage. Oracle parity tests prove message-string equality across all gated states. AC5 tests use evaluate() spies to prove central routing for all three service methods. No material gaps."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
