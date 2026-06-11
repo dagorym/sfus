@@ -126,7 +126,8 @@ export async function getDocPageTree(parentPath?: string): Promise<DocsTreeItem[
  * Throws on unexpected errors.
  */
 export async function getDocPageByPath(path: string): Promise<DocsPageShape | null> {
-  const response = await fetch(`${apiBase}/docs/${encodeURIComponent(path)}`, {
+  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+  const response = await fetch(`${apiBase}/docs/${encodedPath}`, {
     cache: "no-store"
   });
   if (response.status === 404) {

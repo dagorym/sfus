@@ -52,7 +52,7 @@ export default function DocsIndexPage() {
     };
   }, []);
 
-  const isStaff = session != null && session !== undefined && hasGlobalRole(session.user, "moderator");
+  const isStaff = session != null && hasGlobalRole(session.user, "moderator");
 
   if (error) {
     return (
