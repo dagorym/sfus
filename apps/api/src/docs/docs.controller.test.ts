@@ -1,7 +1,7 @@
 /**
  * docs.controller.test.ts
  *
- * Unit tests for DocsController (ST-2 and ST-3).
+ * Unit tests for DocsController (ST-2, ST-3, and ST-4).
  *
  * ST-2 acceptance criteria validated:
  * AC1: listPageTree delegates to docsService.listPageTree; getPageByPath delegates to
@@ -19,6 +19,13 @@
  * AC3: 400 propagated for invalid input; 409 propagated for path_hash collision.
  * AC4: ThrottleGuard attached at the decorator level (presence validated by metadata).
  * AC5: assertDocWriteAccess is the SINGLE auth gate — controller calls auth then service.
+ *
+ * ST-4 acceptance criteria validated:
+ * AC1: PATCH /api/docs/:id (renamePage) delegates to service and returns 200 { page }.
+ * AC2: Title-only rename returns 200 { page } without altering path.
+ * AC3: DELETE /api/docs/:id (softDeletePage) returns 204 No Content for leaf pages.
+ * AC4: DELETE returns 409 when service throws ConflictException (non-deleted children).
+ * AC5: Both PATCH and DELETE routes call resolveSession (401) then assertDocWriteAccess (403).
  */
 
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException, UnauthorizedException } from "@nestjs/common";
@@ -584,6 +591,219 @@ describe("DocsController: addRevision (ST-3 AC2, AC3, AC4, AC5)", () => {
     );
     await expect(
       controller.addRevision(makeFakeRequest(), "page-1", { title: "T", body: "b" })
+    ).rejects.toThrow(UnauthorizedException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /docs/:id — renamePage (ST-4 AC1, AC2, AC5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a rename-capable write controller stub.
+ * Extends makeWriteController with a `renamePage` service method.
+ */
+const makeRenameController = (
+  docsServiceOverrides?: Record<string, unknown>,
+  authServiceOverrides?: Record<string, unknown>
+) => {
+  const docsService = {
+    ...makeDocsService(),
+    assertDocWriteAccess: vi.fn(),
+    renamePage: vi.fn().mockResolvedValue(makeWriteResult()),
+    softDeletePage: vi.fn().mockResolvedValue(undefined),
+    ...docsServiceOverrides
+  };
+  const authService = {
+    resolveSession: vi.fn().mockResolvedValue({
+      user: { id: "user-1", globalRole: "moderator" }
+    }),
+    ...authServiceOverrides
+  };
+  return new DocsController(docsService as never, authService as never);
+};
+
+describe("DocsController: renamePage (ST-4 AC1, AC2, AC5)", () => {
+  it("returns { page } for a valid slug rename (AC1: slug rename returns 200 { page })", async () => {
+    const renameResult = makeWriteResult({ path: "new-slug" });
+    const controller = makeRenameController({ renamePage: vi.fn().mockResolvedValue(renameResult) });
+
+    const result = await controller.renamePage(makeFakeRequest(), "page-1", { slug: "new-slug" });
+
+    expect(result).toHaveProperty("page");
+    expect(result.page.path).toBe("new-slug");
+  });
+
+  it("delegates to docsService.renamePage with the page id and body (AC1)", async () => {
+    const renamePageSpy = vi.fn().mockResolvedValue(makeWriteResult());
+    const controller = makeRenameController({ renamePage: renamePageSpy });
+    const body = { slug: "new-slug" };
+
+    await controller.renamePage(makeFakeRequest(), "page-1", body);
+
+    expect(renamePageSpy).toHaveBeenCalledWith("page-1", body);
+  });
+
+  it("returns { page } for a title-only rename (AC2: title-only returns 200 { page })", async () => {
+    const renameResult = makeWriteResult({ title: "New Title" });
+    const controller = makeRenameController({ renamePage: vi.fn().mockResolvedValue(renameResult) });
+
+    const result = await controller.renamePage(makeFakeRequest(), "page-1", { title: "New Title" });
+
+    expect(result).toHaveProperty("page");
+    expect(result.page.title).toBe("New Title");
+  });
+
+  it("calls assertDocWriteAccess with actor globalRole and 'site' before renamePage (AC5)", async () => {
+    const assertSpy = vi.fn();
+    const renamePageSpy = vi.fn().mockResolvedValue(makeWriteResult());
+    const controller = makeRenameController({ assertDocWriteAccess: assertSpy, renamePage: renamePageSpy });
+
+    await controller.renamePage(makeFakeRequest(), "page-1", { slug: "new-slug" });
+
+    expect(assertSpy).toHaveBeenCalledWith("moderator", "site");
+    const assertOrder = assertSpy.mock.invocationCallOrder[0];
+    const renameOrder = renamePageSpy.mock.invocationCallOrder[0];
+    expect(assertOrder).toBeLessThan(renameOrder!);
+  });
+
+  it("throws BadRequestException (400) when neither slug nor title provided (body guard)", async () => {
+    const controller = makeRenameController();
+
+    await expect(
+      controller.renamePage(makeFakeRequest(), "page-1", {})
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("propagates ForbiddenException (403) when assertDocWriteAccess throws (AC5)", async () => {
+    const controller = makeRenameController({
+      assertDocWriteAccess: vi.fn().mockImplementation(() => {
+        throw new ForbiddenException("Write access requires moderator or admin role.");
+      })
+    });
+
+    await expect(
+      controller.renamePage(makeFakeRequest(), "page-1", { slug: "new-slug" })
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("propagates NotFoundException (404) from service for nonexistent page (AC1)", async () => {
+    const controller = makeRenameController({
+      renamePage: vi.fn().mockRejectedValue(
+        new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE)
+      )
+    });
+
+    await expect(
+      controller.renamePage(makeFakeRequest(), "nonexistent", { slug: "new-slug" })
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("propagates ConflictException (409) from service for path collision (AC1)", async () => {
+    const controller = makeRenameController({
+      renamePage: vi.fn().mockRejectedValue(
+        new ConflictException("A page with this path already exists in this scope.")
+      )
+    });
+
+    await expect(
+      controller.renamePage(makeFakeRequest(), "page-1", { slug: "collision-slug" })
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it("propagates UnauthorizedException (401) when resolveSession throws (AC5)", async () => {
+    const controller = makeRenameController(
+      {},
+      { resolveSession: vi.fn().mockRejectedValue(new UnauthorizedException("No active session.")) }
+    );
+
+    await expect(
+      controller.renamePage(makeFakeRequest(), "page-1", { slug: "new-slug" })
+    ).rejects.toThrow(UnauthorizedException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /docs/:id — softDeletePage (ST-4 AC3, AC4, AC5)
+// ---------------------------------------------------------------------------
+
+describe("DocsController: softDeletePage (ST-4 AC3, AC4, AC5)", () => {
+  it("returns void (undefined) for a successful leaf page delete (AC3: 204 No Content)", async () => {
+    const controller = makeRenameController({ softDeletePage: vi.fn().mockResolvedValue(undefined) });
+
+    const result = await controller.softDeletePage(makeFakeRequest(), "page-1");
+
+    expect(result).toBeUndefined();
+  });
+
+  it("delegates to docsService.softDeletePage with the page id (AC3)", async () => {
+    const softDeleteSpy = vi.fn().mockResolvedValue(undefined);
+    const controller = makeRenameController({ softDeletePage: softDeleteSpy });
+
+    await controller.softDeletePage(makeFakeRequest(), "page-1");
+
+    expect(softDeleteSpy).toHaveBeenCalledWith("page-1");
+  });
+
+  it("calls assertDocWriteAccess with actor globalRole and 'site' before softDeletePage (AC5)", async () => {
+    const assertSpy = vi.fn();
+    const softDeleteSpy = vi.fn().mockResolvedValue(undefined);
+    const controller = makeRenameController({ assertDocWriteAccess: assertSpy, softDeletePage: softDeleteSpy });
+
+    await controller.softDeletePage(makeFakeRequest(), "page-1");
+
+    expect(assertSpy).toHaveBeenCalledWith("moderator", "site");
+    const assertOrder = assertSpy.mock.invocationCallOrder[0];
+    const deleteOrder = softDeleteSpy.mock.invocationCallOrder[0];
+    expect(assertOrder).toBeLessThan(deleteOrder!);
+  });
+
+  it("propagates ConflictException (409) from service when non-deleted children exist (AC4)", async () => {
+    const controller = makeRenameController({
+      softDeletePage: vi.fn().mockRejectedValue(
+        new ConflictException(
+          "Cannot delete a page that has non-deleted children. Delete or move the children first."
+        )
+      )
+    });
+
+    await expect(
+      controller.softDeletePage(makeFakeRequest(), "page-1")
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it("propagates NotFoundException (404) from service for nonexistent page", async () => {
+    const controller = makeRenameController({
+      softDeletePage: vi.fn().mockRejectedValue(
+        new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE)
+      )
+    });
+
+    await expect(
+      controller.softDeletePage(makeFakeRequest(), "nonexistent")
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("propagates ForbiddenException (403) when assertDocWriteAccess throws (AC5)", async () => {
+    const controller = makeRenameController({
+      assertDocWriteAccess: vi.fn().mockImplementation(() => {
+        throw new ForbiddenException("Write access requires moderator or admin role.");
+      })
+    });
+
+    await expect(
+      controller.softDeletePage(makeFakeRequest(), "page-1")
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("propagates UnauthorizedException (401) when resolveSession throws (AC5)", async () => {
+    const controller = makeRenameController(
+      {},
+      { resolveSession: vi.fn().mockRejectedValue(new UnauthorizedException("No active session.")) }
+    );
+
+    await expect(
+      controller.softDeletePage(makeFakeRequest(), "page-1")
     ).rejects.toThrow(UnauthorizedException);
   });
 });
