@@ -1,0 +1,29 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-1/implementer_report.md",
+    "artifacts/ms5-documents-wiki/ST-1/tester_prompt.txt",
+    "artifacts/ms5-documents-wiki/ST-1/implementer_result.json"
+  ],
+  "branch_name": "ms5-st1-implementer-20260610",
+  "changed_files": [
+    "apps/api/src/docs/entities/docs-page.entity.ts",
+    "apps/api/src/docs/entities/docs-revision.entity.ts",
+    "apps/api/src/docs/docs.types.ts",
+    "apps/api/src/docs/docs.module.ts",
+    "apps/api/src/database/migrations/1781308800000-milestone-five-documents-foundation.ts",
+    "apps/api/src/database/database.config.ts",
+    "apps/api/src/database/database.config.test.ts",
+    "apps/api/src/app.module.ts"
+  ],
+  "code_commit_hash": "5ada44e",
+  "pass_label": null,
+  "status": "success",
+  "task_id": null,
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 lint",
+    "npx --yes pnpm@10.0.0 typecheck",
+    "npx --yes pnpm@10.0.0 test",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec tsc -p tsconfig.json --noEmit"
+  ],
+  "validation_outcome": "all passed: lint clean (0 warnings), typecheck clean, test 983 passed 11 skipped (integration skipped no DB), API tsc build clean"
+}
