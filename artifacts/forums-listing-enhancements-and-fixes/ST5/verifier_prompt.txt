@@ -1,0 +1,73 @@
+Your role is 'verifier'. Your task is as follows:
+
+Verify the ST5 implementation for plan forums-listing-enhancements-and-fixes-plan.md.
+
+## Context
+
+ST5 adds per-board Topics, Posts, and Last Post columns to the public /forums
+index page. The board list previously rendered as a <ul>; it now renders as a
+semantic <table> with four columns: Board, Topics, Posts, and Last Post.
+PublicBoardShape in forums-client.ts gained topicCount, postCount, and
+lastPost (BoardLastPostShape | null). Last Post renders an absolute date via
+toLocaleDateString() and a profile link (displayName ?? username, username
+encodeURIComponent-encoded) to /users/<username>; "No posts yet" when
+lastPost is null. No dangerouslySetInnerHTML is used anywhere in the index page.
+
+## Comparison base
+
+Branch: forums-listing (the plan's base branch for this story).
+
+## Files to verify
+
+Implementer and Tester:
+- apps/web/app/forums/forums-client.ts
+- apps/web/app/forums/page.tsx
+- apps/web/app/forums/forums.module.css
+- apps/web/app/forums/forums.spec.ts
+
+Documenter (documentation commit 7ed4403 on branch forums-listing-st5-documenter-20260610):
+- docs/features/forums.md
+
+Artifacts:
+- artifacts/forums-listing-enhancements-and-fixes/ST5/documenter_report.md
+- artifacts/forums-listing-enhancements-and-fixes/ST5/documenter_result.json
+- artifacts/forums-listing-enhancements-and-fixes/ST5/verifier_prompt.txt
+
+## Acceptance criteria to verify
+
+AC1: Each board in the /forums index shows Topics (topicCount), Posts
+     (postCount), and Last Post (absolute date + author link to
+     /users/<encodeURIComponent(username)>), with "No posts yet" when
+     lastPost is null. Values come straight from the API shape.
+
+AC2: Usernames in Last Post author links are encodeURIComponent-encoded.
+     Only public fields from the API shape are used. No dangerouslySetInnerHTML
+     is present in the forums index page.
+
+AC3: lint, typecheck, and web suite (51 tests) pass.
+
+Documentation AC:
+- docs/features/forums.md "What each page renders" forum index entry describes
+  the semantic table layout (Board/Topics/Posts/Last Post columns), stat values
+  sourced from topicCount/postCount, Last Post absolute date with
+  encodeURIComponent-encoded profile link, and "No posts yet" null fallback.
+
+## Shared artifact directory
+
+artifacts/forums-listing-enhancements-and-fixes/ST5
+
+Infer missing plan-source, convention-file, or artifact-path details from
+repository context when safe.
+
+## Startup behavior
+
+Begin verification immediately. Do not stop after activation, scope
+confirmation, or diff inspection when blocking inputs are present. Continue
+through the full verification workflow in the same run.
+
+## Completion gate
+
+Do not report success unless all required artifacts exist
+(verifier_report.md and verifier_result.json in
+artifacts/forums-listing-enhancements-and-fixes/ST5/) and all changes are
+committed with a clean branch.

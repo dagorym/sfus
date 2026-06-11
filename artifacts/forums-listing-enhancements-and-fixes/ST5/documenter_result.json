@@ -1,0 +1,17 @@
+{
+  "status": "pass",
+  "story": "ST5",
+  "plan": "plans/forums-listing-enhancements-and-fixes-plan.md",
+  "branch": "forums-listing-st5-documenter-20260610",
+  "documentation_commit": "7ed4403",
+  "docs_updated": [
+    "docs/features/forums.md"
+  ],
+  "no_change": [
+    "docs/features/web-shell.md",
+    "AGENTS.md",
+    ".myteam/ files",
+    "docs/README.md"
+  ],
+  "notes": "Forum index page description updated: semantic table with Board/Topics/Posts/Last Post columns, stat values from topicCount/postCount, Last Post absolute date + encodeURIComponent-encoded profile link, No posts yet null fallback. PublicBoardShape and BoardLastPostShape shapes already documented for API contract."
+}
