@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-9/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-9/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st9-verifier-20260611",
+  "documentation_accuracy_summary": [
+    "ACCURATE. docs/features/documents.md: route table updated to add /docs/history/<path>, DocsHistoryPage section added accurately covering not-found, diff controls, size-cap, rollback (non-destructive), server/client authorization boundary, post-rollback selector update; docs-client.ts read helper table updated with all 4 new helpers (getDocHistory/getDocRevision/getDocDiff/rollbackDocPage) and write helper table updated with rollbackDocPage; 'All three' updated to 'All six'; history link description corrected from /docs/<path>/history to /docs/history/<path>. docs/guides/content-management.md: new how-to sections added for viewing history (all users) and rolling back (staff), accurately covering size-cap message, non-destructive rollback, and lock-conflict (409) error scenario."
+  ],
+  "note_finding_count": 2,
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST-9",
+  "test_sufficiency_summary": [
+    "SUFFICIENT. docs-client-history.spec.ts provides source-audit and mock-fetch behavioral tests for all four new helpers: getDocHistory (404/null, success shape, error throw), getDocRevision (404/null, success shape, error throw), getDocDiff (404/null, 400 size-cap friendly fallback with and without API message, success shape), rollbackDocPage (POST method+URL, credentials:include, revisionNumber body, 403 error propagation, success shape). docs-history-page.spec.ts provides comprehensive source-audit coverage of AC1 (revisionNumber, author/editor, timestamp, summary; loading/empty/not-found/error states; back link), AC2 (table aria-label, diffLineAdded/Removed/Unchanged classes, diffLineGutter, hunk types, empty/identical message, size-cap error via diffError, selector auto-population with (latest-1, latest), disabled-when-one-revision), AC3 (readSession/hasGlobalRole import, isStaff via 'moderator', rollback button gated to isStaff ? ... : null, aria-label, success/error feedback, post-rollback state update), and AC4 (no non-allowlisted App Router exports, useParams, join('/'), docs.module.css import). One NOTE-level gap: single-revision preselect branch (length === 1) not explicitly asserted. Full component render is constrained in this worktree env; source-audit approach is consistent with established project patterns for docs page components."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
