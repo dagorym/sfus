@@ -1,0 +1,54 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- ST7: Surface forum description/name length limits on the /admin/forums create and edit forms.
+  Add maxLength=128 to name inputs and maxLength=512 with a visible hint to description inputs
+  on category and board create/edit forms. Surface server 400 validation messages.
+
+Modified files:
+- apps/web/app/admin/forums/page.tsx
+
+Acceptance criteria to validate (from Planner):
+- Description inputs (category + board, create + edit) enforce maxLength=512 and display 'max 512 characters' hint
+- Name inputs (category + board, create + edit) enforce maxLength=128
+- Server 400 validation messages surfaced via existing error propagation — no generic error
+- Admin gating and other CRUD behavior unchanged
+- lint, typecheck, and web forum admin spec pass
+
+Test file location:
+- apps/web/app/admin/forums/forums-admin.spec.ts
+
+Implementation context for testing:
+- renderCategoryForm and renderBoardForm in page.tsx both received: (1) maxLength={128} on the
+  name input, (2) maxLength={512} on the description input, (3) a span with 'max 512 characters'
+  text immediately after the description input.
+- The client file (forums-admin-client.ts) was not modified — it already throws Error objects with
+  the server message text (payload?.error?.message || payload?.message), which the page catch blocks
+  render directly.
+- Edge cases: the hint is always visible (not a counter), description is optional so the hint shows
+  even when the field is empty.
+- Tests should cover: maxLength=512 on description inputs (both category and board forms), maxLength=128
+  on name inputs (both category and board forms), presence of 'max 512 characters' hint text, and that
+  a mocked server 400 error message surfaces in the form.
+
+Suggested test commands:
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/admin/forums/forums-admin.spec.ts
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and
+  continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository
+  evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework
+  discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/forums-listing-enhancements-and-fixes/ST7
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
