@@ -7,6 +7,7 @@ import { DocsRevisionEntity } from "./entities/docs-revision.entity";
 
 @Module({})
 export class DocsModule {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   static register(_environment: ApplicationEnvironment): DynamicModule {
     return {
       module: DocsModule,
