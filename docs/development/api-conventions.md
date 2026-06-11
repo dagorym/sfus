@@ -191,6 +191,7 @@ that exceed the configured cap (`THROTTLE_MAX_LINKS_PER_POST`).
   `MilestoneThreeContentFoundation1748736000000`,
   `MilestoneFourForumsFoundation1780890123767`,
   `UserBioAndAvatar1780892561355`,
-  `ForumDescriptionLength1780893000000`.
+  `ForumDescriptionLength1780893000000`,
+  `MilestoneFiveDocumentsFoundation1781308800000`.
 - Schema rollback policy is forward-fix only — see
   [deployment](../operations/deployment.md).
