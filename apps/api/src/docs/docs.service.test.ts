@@ -27,6 +27,7 @@ import { IsNull } from "typeorm";
 import { describe, expect, it, vi } from "vitest";
 
 import { AuthorizationService } from "../authorization/authorization.service";
+import { DocsPageEntity } from "./entities/docs-page.entity";
 import { DocsService } from "./docs.service";
 import { DOCS_DIFF_MAX_BODY_BYTES, DOCS_DIFF_MAX_LINES } from "./docs.types";
 
@@ -2275,5 +2276,517 @@ describe("DocsService AC5: all read paths route through AuthorizationService.eva
         actor: { userId: null, globalRole: "" }
       })
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-6: toPageShape lock field (AC10)
+// ---------------------------------------------------------------------------
+
+describe("DocsService toPageShape — lock field (AC10)", () => {
+  // toPageShape is private; we test it indirectly via getPageByPath.
+
+  it("includes lock field with isLocked=false when page is not locked", async () => {
+    const page = makeSitePage({
+      isLocked: 0,
+      lockedByUserId: null,
+      lockedAt: null,
+      lockExpiresAt: null
+    });
+    const service = makeDocsService({ findOne: vi.fn().mockResolvedValue(page) });
+    const result = await service.getPageByPath("getting-started");
+    expect(result.lock).toBeDefined();
+    expect(result.lock.isLocked).toBe(false);
+    expect(result.lock.lockedByUserId).toBeNull();
+    expect(result.lock.lockedAt).toBeNull();
+    expect(result.lock.lockExpiresAt).toBeNull();
+  });
+
+  it("includes lock field with isLocked=true when page has a non-expired lock", async () => {
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const lockedAt = new Date(Date.now() - 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-99",
+      lockedAt,
+      lockExpiresAt: future
+    });
+    const service = makeDocsService({ findOne: vi.fn().mockResolvedValue(page) });
+    const result = await service.getPageByPath("getting-started");
+    expect(result.lock.isLocked).toBe(true);
+    expect(result.lock.lockedByUserId).toBe("user-99");
+    expect(result.lock.lockedAt).toEqual(lockedAt);
+    expect(result.lock.lockExpiresAt).toEqual(future);
+  });
+
+  it("treats an expired lock as free (isLocked=false) even when isLocked=1 in DB", async () => {
+    const past = new Date(Date.now() - 1000); // expired
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-99",
+      lockedAt: new Date(Date.now() - 60000),
+      lockExpiresAt: past
+    });
+    const service = makeDocsService({ findOne: vi.fn().mockResolvedValue(page) });
+    const result = await service.getPageByPath("getting-started");
+    // AC7: expired lock treated as free on read shape
+    expect(result.lock.isLocked).toBe(false);
+    expect(result.lock.lockedByUserId).toBeNull();
+    expect(result.lock.lockExpiresAt).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-6: isActiveForeignLock (private — tested via assertNotForeignLocked) (AC7, AC8)
+// ---------------------------------------------------------------------------
+
+describe("DocsService.assertNotForeignLocked (AC6, AC7, AC8)", () => {
+  it("does not throw when page is not locked (isLocked=0)", () => {
+    const service = makeDocsService();
+    const page = makeSitePage({ isLocked: 0 }) as never;
+    expect(() => service.assertNotForeignLocked(page, "user-1", "user")).not.toThrow();
+  });
+
+  it("does not throw when the actor is the lock holder (isLocked=1, same userId)", () => {
+    const service = makeDocsService();
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-1",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    }) as never;
+    expect(() => service.assertNotForeignLocked(page, "user-1", "user")).not.toThrow();
+  });
+
+  it("throws ConflictException (409) when a non-expired foreign lock exists (AC6)", () => {
+    const { ConflictException: CE } = require("@nestjs/common");
+    const service = makeDocsService();
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    }) as never;
+    expect(() => service.assertNotForeignLocked(page, "user-actor", "user")).toThrow(CE);
+  });
+
+  it("does not throw when the foreign lock has expired (AC7: expired lock treated as free)", () => {
+    const service = makeDocsService();
+    const past = new Date(Date.now() - 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(Date.now() - 60000),
+      lockExpiresAt: past
+    }) as never;
+    expect(() => service.assertNotForeignLocked(page, "user-actor", "user")).not.toThrow();
+  });
+
+  it("does not throw for moderator actor even when a foreign non-expired lock exists (AC8: staff bypass)", () => {
+    const authorizationService = new AuthorizationService();
+    const service = makeDocsService(undefined, undefined, authorizationService);
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    }) as never;
+    expect(() => service.assertNotForeignLocked(page, "mod-actor", "moderator")).not.toThrow();
+  });
+
+  it("does not throw for admin actor even when a foreign non-expired lock exists (AC8: staff bypass)", () => {
+    const authorizationService = new AuthorizationService();
+    const service = makeDocsService(undefined, undefined, authorizationService);
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    }) as never;
+    expect(() => service.assertNotForeignLocked(page, "admin-actor", "admin")).not.toThrow();
+  });
+
+  it("ConflictException includes holder metadata (lockedByUserId, lockExpiresAt)", () => {
+    const service = makeDocsService();
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    }) as never;
+    let thrown: unknown;
+    try {
+      service.assertNotForeignLocked(page, "user-actor", "user");
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(ConflictException);
+    const response = (thrown as ConflictException).getResponse() as { lock: { lockedByUserId: string; lockExpiresAt: Date } };
+    expect(response.lock.lockedByUserId).toBe("user-holder");
+    expect(response.lock.lockExpiresAt).toEqual(future);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-6: acquireLock (AC1, AC2, AC8)
+// ---------------------------------------------------------------------------
+
+describe("DocsService.acquireLock (AC1, AC2, AC8)", () => {
+  const makeTransactionManager = (page: ReturnType<typeof makeSitePage> | null) => {
+    const findOneSpy = vi.fn().mockResolvedValue(page);
+    const updateSpy = vi.fn().mockResolvedValue({ affected: 1 });
+    const txManager = { findOne: findOneSpy, update: updateSpy };
+    const manager = {
+      transaction: vi.fn().mockImplementation(async (cb: (em: typeof txManager) => unknown) => cb(txManager))
+    };
+    return { findOneSpy, updateSpy, manager };
+  };
+
+  it("returns DocsLockResultShape with { pageId, lock } on success (AC1)", async () => {
+    const page = makeSitePage({ isLocked: 0, lockedByUserId: null });
+    const { manager } = makeTransactionManager(page);
+    const service = makeDocsService({ manager });
+    const result = await service.acquireLock("user-1", "moderator", "page-1");
+    expect(result.pageId).toBe("page-1");
+    expect(result.lock.isLocked).toBe(true);
+    expect(result.lock.lockedByUserId).toBe("user-1");
+    expect(result.lock.lockedAt).toBeInstanceOf(Date);
+    expect(result.lock.lockExpiresAt).toBeInstanceOf(Date);
+  });
+
+  it("lockExpiresAt is approximately now + lockTtlMinutes (AC1: TTL applied)", async () => {
+    const page = makeSitePage({ isLocked: 0 });
+    const { manager } = makeTransactionManager(page);
+    const ttlMinutes = 15;
+    const auth = new AuthorizationService();
+    const pRepo = { ...createMinimalRepo(), manager };
+    const rRepo = createMinimalRepo();
+    const service = new DocsService(pRepo as never, rRepo as never, auth, { lockTtlMinutes: ttlMinutes });
+    const before = Date.now();
+    const result = await service.acquireLock("user-1", "moderator", "page-1");
+    const after = Date.now();
+    const expiresMs = result.lock.lockExpiresAt!.getTime();
+    expect(expiresMs).toBeGreaterThanOrEqual(before + ttlMinutes * 60 * 1000);
+    expect(expiresMs).toBeLessThanOrEqual(after + ttlMinutes * 60 * 1000);
+  });
+
+  it("same holder can refresh an existing non-expired lock (AC1: refresh)", async () => {
+    const future = new Date(Date.now() + 5 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-1",
+      lockedAt: new Date(Date.now() - 1000),
+      lockExpiresAt: future
+    });
+    const { manager, updateSpy } = makeTransactionManager(page);
+    const service = makeDocsService({ manager });
+    const result = await service.acquireLock("user-1", "moderator", "page-1");
+    // update was called — lock was refreshed
+    expect(updateSpy).toHaveBeenCalled();
+    expect(result.lock.isLocked).toBe(true);
+    expect(result.lock.lockedByUserId).toBe("user-1");
+  });
+
+  it("throws ConflictException (409) with holder metadata when foreign non-expired lock exists (AC2)", async () => {
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    });
+    const { manager } = makeTransactionManager(page);
+    const service = makeDocsService({ manager });
+    await expect(service.acquireLock("user-actor", "user", "page-1")).rejects.toThrow(ConflictException);
+  });
+
+  it("ConflictException response includes lock.lockedByUserId and lock.lockExpiresAt (AC2)", async () => {
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    });
+    const { manager } = makeTransactionManager(page);
+    const service = makeDocsService({ manager });
+    let thrown: unknown;
+    try {
+      await service.acquireLock("user-actor", "user", "page-1");
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(ConflictException);
+    const response = (thrown as ConflictException).getResponse() as { lock: { lockedByUserId: string; lockExpiresAt: Date } };
+    expect(response.lock.lockedByUserId).toBe("user-holder");
+    expect(response.lock.lockExpiresAt).toEqual(future);
+  });
+
+  it("moderator can acquire lock even when a foreign non-expired lock exists (AC8: staff bypass)", async () => {
+    const authorizationService = new AuthorizationService();
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    });
+    const { manager } = makeTransactionManager(page);
+    const pRepo = { ...createMinimalRepo(), manager };
+    const rRepo = createMinimalRepo();
+    const service = new DocsService(pRepo as never, rRepo as never, authorizationService, { lockTtlMinutes: 30 });
+    const result = await service.acquireLock("mod-actor", "moderator", "page-1");
+    expect(result.lock.isLocked).toBe(true);
+    expect(result.lock.lockedByUserId).toBe("mod-actor");
+  });
+
+  it("acquires when expired foreign lock exists (AC7: expired lock treated as free)", async () => {
+    const past = new Date(Date.now() - 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(Date.now() - 60000),
+      lockExpiresAt: past
+    });
+    const { manager } = makeTransactionManager(page);
+    const service = makeDocsService({ manager });
+    const result = await service.acquireLock("user-actor", "user", "page-1");
+    expect(result.lock.isLocked).toBe(true);
+    expect(result.lock.lockedByUserId).toBe("user-actor");
+  });
+
+  it("throws NotFoundException (404) when page does not exist", async () => {
+    const { manager } = makeTransactionManager(null);
+    const service = makeDocsService({ manager });
+    await expect(service.acquireLock("user-1", "moderator", "nonexistent")).rejects.toThrow(NotFoundException);
+  });
+
+  it("throws NotFoundException (404) when page is deleted", async () => {
+    const page = makeSitePage({ status: "deleted" });
+    const { manager } = makeTransactionManager(page);
+    const service = makeDocsService({ manager });
+    await expect(service.acquireLock("user-1", "moderator", "page-1")).rejects.toThrow(NotFoundException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-6: releaseLock (AC3, AC4, AC5)
+// ---------------------------------------------------------------------------
+
+describe("DocsService.releaseLock (AC3, AC4, AC5)", () => {
+  const makeTransactionManager = (page: ReturnType<typeof makeSitePage> | null) => {
+    const findOneSpy = vi.fn().mockResolvedValue(page);
+    const updateSpy = vi.fn().mockResolvedValue({ affected: 1 });
+    const txManager = { findOne: findOneSpy, update: updateSpy };
+    const manager = {
+      transaction: vi.fn().mockImplementation(async (cb: (em: typeof txManager) => unknown) => cb(txManager))
+    };
+    return { findOneSpy, updateSpy, manager };
+  };
+
+  it("returns void (204-equivalent) and clears lock fields when holder releases (AC3)", async () => {
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-1",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    });
+    const { manager, updateSpy } = makeTransactionManager(page);
+    const service = makeDocsService({ manager });
+    await expect(service.releaseLock("user-1", "moderator", "page-1")).resolves.toBeUndefined();
+    expect(updateSpy).toHaveBeenCalledWith(
+      DocsPageEntity,
+      { id: "page-1" },
+      { isLocked: 0, lockedByUserId: null, lockedAt: null, lockExpiresAt: null }
+    );
+  });
+
+  it("is idempotent when page is not locked — no error (AC3)", async () => {
+    const page = makeSitePage({ isLocked: 0, lockedByUserId: null });
+    const { manager, updateSpy } = makeTransactionManager(page);
+    const service = makeDocsService({ manager });
+    await expect(service.releaseLock("user-1", "moderator", "page-1")).resolves.toBeUndefined();
+    expect(updateSpy).toHaveBeenCalled();
+  });
+
+  it("is idempotent when lock has already expired — no error (AC3)", async () => {
+    const past = new Date(Date.now() - 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-1",
+      lockedAt: new Date(Date.now() - 60000),
+      lockExpiresAt: past
+    });
+    const { manager } = makeTransactionManager(page);
+    const service = makeDocsService({ manager });
+    await expect(service.releaseLock("user-1", "moderator", "page-1")).resolves.toBeUndefined();
+  });
+
+  it("moderator can release a lock held by another user (AC4: staff override)", async () => {
+    const authorizationService = new AuthorizationService();
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    });
+    const { manager } = makeTransactionManager(page);
+    const pRepo = { ...createMinimalRepo(), manager };
+    const rRepo = createMinimalRepo();
+    const service = new DocsService(pRepo as never, rRepo as never, authorizationService, { lockTtlMinutes: 30 });
+    await expect(service.releaseLock("mod-actor", "moderator", "page-1")).resolves.toBeUndefined();
+  });
+
+  it("admin can release a lock held by another user (AC4: staff override)", async () => {
+    const authorizationService = new AuthorizationService();
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    });
+    const { manager } = makeTransactionManager(page);
+    const pRepo = { ...createMinimalRepo(), manager };
+    const rRepo = createMinimalRepo();
+    const service = new DocsService(pRepo as never, rRepo as never, authorizationService, { lockTtlMinutes: 30 });
+    await expect(service.releaseLock("admin-actor", "admin", "page-1")).resolves.toBeUndefined();
+  });
+
+  it("throws ForbiddenException (403) when non-holder non-staff tries to release an active lock (AC5)", async () => {
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    });
+    const { manager } = makeTransactionManager(page);
+    const service = makeDocsService({ manager });
+    await expect(service.releaseLock("user-actor", "user", "page-1")).rejects.toThrow(ForbiddenException);
+  });
+
+  it("throws NotFoundException (404) when page does not exist", async () => {
+    const { manager } = makeTransactionManager(null);
+    const service = makeDocsService({ manager });
+    await expect(service.releaseLock("user-1", "moderator", "nonexistent")).rejects.toThrow(NotFoundException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-6: addRevision / renamePage / softDeletePage / rollbackPage call assertNotForeignLocked (AC6)
+// ---------------------------------------------------------------------------
+
+describe("DocsService write paths — assertNotForeignLocked called (AC6)", () => {
+  const makeForeignLockedPage = () => {
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    return makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    });
+  };
+
+  const makeTransactionManager = (page: ReturnType<typeof makeSitePage>) => {
+    const findOneSpy = vi.fn().mockResolvedValue(page);
+    const lastRevSpy = vi.fn().mockResolvedValue(null);
+    // Implement varying findOne responses for addRevision, renamePage, rollbackPage
+    findOneSpy.mockImplementation((_entity: unknown, opts: unknown) => {
+      const options = opts as { where?: { revisionNumber?: number } };
+      if (options?.where && "revisionNumber" in (options.where ?? {})) {
+        return Promise.resolve(null);
+      }
+      return Promise.resolve(page);
+    });
+    const updateSpy = vi.fn().mockResolvedValue({ affected: 1 });
+    const saveSpy = vi.fn().mockResolvedValue({});
+    const createSpy = vi.fn().mockReturnValue({});
+    const qb: Record<string, ReturnType<typeof vi.fn>> = {};
+    for (const m of ["where", "andWhere", "getMany"]) {
+      qb[m] = vi.fn().mockReturnValue(qb);
+    }
+    qb["getMany"] = vi.fn().mockResolvedValue([]);
+    const createQueryBuilderSpy = vi.fn().mockReturnValue(qb);
+    const txManager = {
+      findOne: findOneSpy,
+      update: updateSpy,
+      save: saveSpy,
+      create: createSpy,
+      createQueryBuilder: createQueryBuilderSpy
+    };
+    const manager = {
+      transaction: vi.fn().mockImplementation(async (cb: (em: typeof txManager) => unknown) => cb(txManager))
+    };
+    return { manager, findOneSpy };
+  };
+
+  it("addRevision throws 409 when page is locked by another user (AC6)", async () => {
+    const page = makeForeignLockedPage();
+    const { manager } = makeTransactionManager(page);
+    const service = makeDocsService({ manager });
+    await expect(
+      service.addRevision("user-actor", "page-1", { title: "T", body: "B" }, "user")
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it("renamePage throws 409 when page is locked by another user (AC6)", async () => {
+    const page = makeForeignLockedPage();
+    const { manager } = makeTransactionManager(page);
+    const service = makeDocsService({ manager });
+    await expect(
+      service.renamePage("page-1", { title: "New Title" }, "user-actor", "user")
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it("softDeletePage throws 409 when page is locked by another user (AC6)", async () => {
+    const page = makeForeignLockedPage();
+    const countSpy = vi.fn().mockResolvedValue(0);
+    const findOneSpy = vi.fn().mockResolvedValue(page);
+    const service = makeDocsService({ findOne: findOneSpy, count: countSpy });
+    await expect(
+      service.softDeletePage("page-1", "user-actor", "user")
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it("rollbackPage throws 409 when page is locked by another user (AC6)", async () => {
+    const page = makeForeignLockedPage();
+    const { manager } = makeTransactionManager(page);
+    const service = makeDocsService({ manager });
+    await expect(
+      service.rollbackPage("user-actor", "page-1", { revisionNumber: 1 }, "user")
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it("addRevision succeeds for same holder (AC6: holder is not foreign)", async () => {
+    const future = new Date(Date.now() + 30 * 60 * 1000);
+    const page = makeSitePage({
+      isLocked: 1,
+      lockedByUserId: "user-holder",
+      lockedAt: new Date(),
+      lockExpiresAt: future
+    });
+    const findOneSpy = vi.fn()
+      .mockResolvedValueOnce(page) // load page
+      .mockResolvedValueOnce(null)  // last revision
+      .mockResolvedValueOnce(page); // re-load after update
+    const updateSpy = vi.fn().mockResolvedValue({ affected: 1 });
+    const saveSpy = vi.fn().mockResolvedValue({});
+    const createSpy = vi.fn().mockReturnValue({});
+    const txManager = { findOne: findOneSpy, update: updateSpy, save: saveSpy, create: createSpy };
+    const manager = {
+      transaction: vi.fn().mockImplementation(async (cb: (em: typeof txManager) => unknown) => cb(txManager))
+    };
+    const service = makeDocsService({ manager });
+    await expect(
+      service.addRevision("user-holder", "page-1", { title: "T", body: "B" }, "user")
+    ).resolves.not.toThrow();
   });
 });

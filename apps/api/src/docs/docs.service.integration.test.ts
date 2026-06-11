@@ -630,5 +630,119 @@ describe.skipIf(!DB_INTEGRATION_ENABLED)(
         expect(history.revisions[1].summary).toBe("second");
       }
     );
+
+    // -------------------------------------------------------------------------
+    // ST-6 AC1: acquireLock acquires and refreshes the lock
+    // -------------------------------------------------------------------------
+
+    it(
+      "acquireLock sets isLocked=1, lockedByUserId, and lockExpiresAt on the page row (ST-6 AC1)",
+      async () => {
+        const slug = `lock-acquire-${Date.now()}`;
+        const created = await service.createPage(authorUserId, {
+          title: "Lock Acquire Test",
+          slug,
+          body: "body"
+        });
+        createdPageIds.push(created.id);
+
+        const result = await service.acquireLock(authorUserId, "moderator", created.id);
+        expect(result.pageId).toBe(created.id);
+        expect(result.lock.isLocked).toBe(true);
+        expect(result.lock.lockedByUserId).toBe(authorUserId);
+        expect(result.lock.lockExpiresAt).toBeInstanceOf(Date);
+        expect(result.lock.lockExpiresAt!.getTime()).toBeGreaterThan(Date.now());
+
+        // Verify the DB row reflects the lock.
+        const page = await pageRepo.findOne({ where: { id: created.id } });
+        expect(page!.isLocked).toBe(1);
+        expect(page!.lockedByUserId).toBe(authorUserId);
+        expect(page!.lockExpiresAt).not.toBeNull();
+      }
+    );
+
+    it(
+      "acquireLock refreshes expiry when same holder calls again (ST-6 AC1: refresh)",
+      async () => {
+        const slug = `lock-refresh-${Date.now()}`;
+        const created = await service.createPage(authorUserId, {
+          title: "Lock Refresh Test",
+          slug,
+          body: "body"
+        });
+        createdPageIds.push(created.id);
+
+        const first = await service.acquireLock(authorUserId, "moderator", created.id);
+        // Small delay to ensure expiry advances
+        await new Promise((r) => setTimeout(r, 50));
+        const second = await service.acquireLock(authorUserId, "moderator", created.id);
+
+        // Second lockExpiresAt should be >= first (refreshed)
+        expect(second.lock.lockExpiresAt!.getTime()).toBeGreaterThanOrEqual(first.lock.lockExpiresAt!.getTime());
+      }
+    );
+
+    // -------------------------------------------------------------------------
+    // ST-6 AC3: releaseLock clears lock fields
+    // -------------------------------------------------------------------------
+
+    it(
+      "releaseLock clears lock fields and is idempotent (ST-6 AC3)",
+      async () => {
+        const slug = `lock-release-${Date.now()}`;
+        const created = await service.createPage(authorUserId, {
+          title: "Lock Release Test",
+          slug,
+          body: "body"
+        });
+        createdPageIds.push(created.id);
+
+        await service.acquireLock(authorUserId, "moderator", created.id);
+        await service.releaseLock(authorUserId, "moderator", created.id);
+
+        const page = await pageRepo.findOne({ where: { id: created.id } });
+        expect(page!.isLocked).toBe(0);
+        expect(page!.lockedByUserId).toBeNull();
+        expect(page!.lockExpiresAt).toBeNull();
+
+        // Idempotent: second release does not throw
+        await expect(service.releaseLock(authorUserId, "moderator", created.id)).resolves.toBeUndefined();
+      }
+    );
+
+    // -------------------------------------------------------------------------
+    // ST-6 AC2: acquireLock returns 409 for foreign non-expired lock
+    // -------------------------------------------------------------------------
+
+    it(
+      "acquireLock throws ConflictException (409) when a foreign non-expired lock exists (ST-6 AC2)",
+      async () => {
+        const slug = `lock-foreign-${Date.now()}`;
+        const created = await service.createPage(authorUserId, {
+          title: "Lock Foreign Test",
+          slug,
+          body: "body"
+        });
+        createdPageIds.push(created.id);
+
+        // Acquire lock as authorUserId
+        await service.acquireLock(authorUserId, "moderator", created.id);
+
+        // Create a second user
+        const secondUserId = await insertThrowawayUser(ds);
+        createdUserIds.push(secondUserId);
+
+        // Create a second service with user-level role (not staff)
+        const userService = new DocsService(
+          pageRepo,
+          revisionRepo,
+          new AuthorizationService(),
+          { lockTtlMinutes: 30 }
+        );
+
+        const { ConflictException: CE } = await import("@nestjs/common");
+        await expect(userService.acquireLock(secondUserId, "user", created.id)).rejects.toThrow(CE);
+      }
+    );
   }
 );

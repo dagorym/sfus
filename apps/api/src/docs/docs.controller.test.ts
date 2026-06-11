@@ -1180,3 +1180,166 @@ describe("DocsController: rollbackPage (ST-5 AC3, AC4: rollback delegation + aut
     ).rejects.toThrow(DocsService.PAGE_NOT_FOUND_MESSAGE);
   });
 });
+
+// ---------------------------------------------------------------------------
+// POST /docs/:id/lock — acquireLock (AC1, AC2, AC11)
+// ---------------------------------------------------------------------------
+
+const makeLockResult = () => ({
+  pageId: "page-1",
+  lock: {
+    isLocked: true,
+    lockedByUserId: "user-1",
+    lockedAt: now,
+    lockExpiresAt: new Date(now.getTime() + 30 * 60 * 1000)
+  }
+});
+
+const makeAcquireLockController = (
+  docsServiceOverrides?: Record<string, unknown>,
+  authServiceOverrides?: Record<string, unknown>
+) => {
+  const docsService = {
+    assertDocWriteAccess: vi.fn(),
+    acquireLock: vi.fn().mockResolvedValue(makeLockResult()),
+    ...docsServiceOverrides
+  };
+  const authService = {
+    resolveSession: vi.fn().mockResolvedValue({ user: { id: "user-1", globalRole: "moderator" } }),
+    ...authServiceOverrides
+  };
+  return new DocsController(docsService as never, authService as never);
+};
+
+describe("DocsController: POST :id/lock — acquireLock (AC1, AC2, AC11)", () => {
+  it("returns 200 with { lock } containing DocsLockResultShape on success (AC1)", async () => {
+    const controller = makeAcquireLockController();
+    const result = await controller.acquireLock(makeFakeRequest(), "page-1");
+    expect(result).toEqual({ lock: makeLockResult() });
+  });
+
+  it("calls assertDocWriteAccess before acquireLock (AC11: write-access gate first)", async () => {
+    const assertSpy = vi.fn();
+    const acquireSpy = vi.fn().mockResolvedValue(makeLockResult());
+    const controller = makeAcquireLockController({ assertDocWriteAccess: assertSpy, acquireLock: acquireSpy });
+    await controller.acquireLock(makeFakeRequest(), "page-1");
+    expect(assertSpy).toHaveBeenCalledWith("moderator", "site");
+    const assertOrder = assertSpy.mock.invocationCallOrder[0];
+    const acquireOrder = acquireSpy.mock.invocationCallOrder[0];
+    expect(assertOrder).toBeLessThan(acquireOrder!);
+  });
+
+  it("propagates 401 UnauthorizedException when resolveSession throws (AC11)", async () => {
+    const controller = makeAcquireLockController(
+      {},
+      { resolveSession: vi.fn().mockRejectedValue(new UnauthorizedException("No active session.")) }
+    );
+    await expect(controller.acquireLock(makeFakeRequest(), "page-1")).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("propagates 403 ForbiddenException when assertDocWriteAccess throws (AC11)", async () => {
+    const controller = makeAcquireLockController({
+      assertDocWriteAccess: vi.fn().mockImplementation(() => {
+        throw new ForbiddenException("Write access requires moderator or admin role.");
+      })
+    });
+    await expect(controller.acquireLock(makeFakeRequest(), "page-1")).rejects.toThrow(ForbiddenException);
+  });
+
+  it("propagates 409 ConflictException from service when foreign lock active (AC2)", async () => {
+    const controller = makeAcquireLockController({
+      acquireLock: vi.fn().mockRejectedValue(
+        new ConflictException({ message: "This page is currently locked by another user.", lock: {} })
+      )
+    });
+    await expect(controller.acquireLock(makeFakeRequest(), "page-1")).rejects.toThrow(ConflictException);
+  });
+
+  it("propagates 404 NotFoundException from service (AC1: page not found path)", async () => {
+    const controller = makeAcquireLockController({
+      acquireLock: vi.fn().mockRejectedValue(new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE))
+    });
+    await expect(controller.acquireLock(makeFakeRequest(), "page-1")).rejects.toThrow(NotFoundException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /docs/:id/lock — releaseLock (AC3, AC4, AC5, AC11)
+// ---------------------------------------------------------------------------
+
+const makeReleaseLockController = (
+  docsServiceOverrides?: Record<string, unknown>,
+  authServiceOverrides?: Record<string, unknown>
+) => {
+  const docsService = {
+    assertDocWriteAccess: vi.fn(),
+    releaseLock: vi.fn().mockResolvedValue(undefined),
+    ...docsServiceOverrides
+  };
+  const authService = {
+    resolveSession: vi.fn().mockResolvedValue({ user: { id: "user-1", globalRole: "moderator" } }),
+    ...authServiceOverrides
+  };
+  return new DocsController(docsService as never, authService as never);
+};
+
+// reuse the makeFakeRequest from the earlier stub section (defined at the write-routes section)
+
+describe("DocsController: DELETE :id/lock — releaseLock (AC3, AC4, AC5, AC11)", () => {
+  it("returns undefined (204-equivalent) on success (AC3)", async () => {
+    const controller = makeReleaseLockController();
+    const result = await controller.releaseLock(makeFakeRequest(), "page-1");
+    expect(result).toBeUndefined();
+  });
+
+  it("calls assertDocWriteAccess before releaseLock (AC11: write-access gate first)", async () => {
+    const assertSpy = vi.fn();
+    const releaseSpy = vi.fn().mockResolvedValue(undefined);
+    const controller = makeReleaseLockController({ assertDocWriteAccess: assertSpy, releaseLock: releaseSpy });
+    await controller.releaseLock(makeFakeRequest(), "page-1");
+    expect(assertSpy).toHaveBeenCalledWith("moderator", "site");
+    const assertOrder = assertSpy.mock.invocationCallOrder[0];
+    const releaseOrder = releaseSpy.mock.invocationCallOrder[0];
+    expect(assertOrder).toBeLessThan(releaseOrder!);
+  });
+
+  it("propagates 401 UnauthorizedException when resolveSession throws (AC11)", async () => {
+    const controller = makeReleaseLockController(
+      {},
+      { resolveSession: vi.fn().mockRejectedValue(new UnauthorizedException("No active session.")) }
+    );
+    await expect(controller.releaseLock(makeFakeRequest(), "page-1")).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("propagates 403 ForbiddenException when assertDocWriteAccess throws (AC11)", async () => {
+    const controller = makeReleaseLockController({
+      assertDocWriteAccess: vi.fn().mockImplementation(() => {
+        throw new ForbiddenException("Write access requires moderator or admin role.");
+      })
+    });
+    await expect(controller.releaseLock(makeFakeRequest(), "page-1")).rejects.toThrow(ForbiddenException);
+  });
+
+  it("propagates 403 ForbiddenException from service when non-holder non-staff tries release (AC5)", async () => {
+    const controller = makeReleaseLockController({
+      releaseLock: vi.fn().mockRejectedValue(
+        new ForbiddenException("Only the lock holder or an admin/moderator can release this lock.")
+      )
+    });
+    await expect(controller.releaseLock(makeFakeRequest(), "page-1")).rejects.toThrow(ForbiddenException);
+  });
+
+  it("propagates 404 NotFoundException from service when page not found", async () => {
+    const controller = makeReleaseLockController({
+      releaseLock: vi.fn().mockRejectedValue(new NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE))
+    });
+    await expect(controller.releaseLock(makeFakeRequest(), "page-1")).rejects.toThrow(NotFoundException);
+  });
+
+  it("is idempotent — releaseLock resolves when page is not locked (AC3)", async () => {
+    const controller = makeReleaseLockController({
+      releaseLock: vi.fn().mockResolvedValue(undefined) // service already handles idempotency
+    });
+    await expect(controller.releaseLock(makeFakeRequest(), "page-1")).resolves.toBeUndefined();
+  });
+});
