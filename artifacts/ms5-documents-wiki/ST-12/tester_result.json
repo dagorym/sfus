@@ -1,0 +1,24 @@
+{
+  "status": "pass",
+  "subtask": "ST-12",
+  "branch": "ms5-st12-tester-20260611",
+  "test_commit_hash": "3bb5474",
+  "test_files_modified": [
+    "apps/web/app/public-shell.spec.ts",
+    "apps/web/components/recent-doc-activity.spec.ts"
+  ],
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run --reporter=verbose",
+    "npx --yes pnpm@10.0.0 lint",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web exec next build"
+  ],
+  "tests_passed": 927,
+  "tests_failed": 0,
+  "test_files_total": 23,
+  "unmet_acceptance_criteria": [],
+  "artifact_files_written": [
+    "artifacts/ms5-documents-wiki/ST-12/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-12/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-12/documenter_prompt.txt"
+  ]
+}
