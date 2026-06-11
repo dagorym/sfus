@@ -438,6 +438,101 @@ describe("MarkdownRenderer sanitization source contracts (AC1 — no XSS executi
 });
 
 // ---------------------------------------------------------------------------
+// ST5: Per-board Topics/Posts/Last Post columns — forums-client.ts shape
+// ---------------------------------------------------------------------------
+
+describe("forums-client.ts — ST5 per-board aggregate shape (BoardLastPostShape, PublicBoardShape)", () => {
+  it("BoardLastPostShape declares at (string) and author { username; displayName | null }", async () => {
+    const source = await readAppFile("app/forums/forums-client.ts");
+    // ST5 AC: the Last Post shape carries a timestamp and author identity
+    expect(source).toContain("BoardLastPostShape");
+    expect(source).toContain("at: string");
+    expect(source).toContain("username: string");
+    // displayName is nullable — no client recomputation needed
+    expect(source).toContain("displayName: string | null");
+  });
+
+  it("PublicBoardShape includes topicCount, postCount, and lastPost fields", async () => {
+    const source = await readAppFile("app/forums/forums-client.ts");
+    // ST5 AC: values come from the API shape, not recomputed on the client
+    expect(source).toContain("topicCount: number");
+    expect(source).toContain("postCount: number");
+    expect(source).toContain("lastPost: BoardLastPostShape | null");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST5: Per-board Topics/Posts/Last Post columns — page.tsx rendering
+// ---------------------------------------------------------------------------
+
+describe("Forums index page (app/forums/page.tsx) ST5 per-board column rendering", () => {
+  it("renders topicCount directly from the board shape (no client recompute)", async () => {
+    const source = await readAppFile("app/forums/page.tsx");
+    // ST5 AC: the value must be board.topicCount — not a derived expression
+    expect(source).toContain("board.topicCount");
+  });
+
+  it("renders postCount directly from the board shape (no client recompute)", async () => {
+    const source = await readAppFile("app/forums/page.tsx");
+    // ST5 AC: the value must be board.postCount — not a derived expression
+    expect(source).toContain("board.postCount");
+  });
+
+  it("Last Post date renders via toLocaleDateString on board.lastPost.at", async () => {
+    const source = await readAppFile("app/forums/page.tsx");
+    // ST5 AC: absolute date rendered from the API timestamp field
+    expect(source).toContain("board.lastPost.at");
+    expect(source).toContain("toLocaleDateString");
+  });
+
+  it("Last Post author renders displayName ?? username (display-name precedence)", async () => {
+    const source = await readAppFile("app/forums/page.tsx");
+    // ST5 AC: displayName takes precedence over username for display
+    expect(source).toContain("board.lastPost.author.displayName ?? board.lastPost.author.username");
+  });
+
+  it("Last Post author link targets /users/<encodeURIComponent(username)>", async () => {
+    const source = await readAppFile("app/forums/page.tsx");
+    // ST5 AC: profile links encode the username to handle special characters safely
+    expect(source).toContain(
+      "/users/${encodeURIComponent(board.lastPost.author.username)}"
+    );
+  });
+
+  it("encodeURIComponent is used for Last Post author link — handles special-character usernames", async () => {
+    const source = await readAppFile("app/forums/page.tsx");
+    // ST5 AC: usernames with spaces, @, or other URI-unsafe chars must be encoded
+    // Confirm encodeURIComponent appears in the lastPost author href context
+    const lastPostSection = source.slice(source.indexOf("board.lastPost"));
+    expect(lastPostSection).toContain("encodeURIComponent(board.lastPost.author.username)");
+  });
+
+  it("shows 'No posts yet' fallback when board.lastPost is null", async () => {
+    const source = await readAppFile("app/forums/page.tsx");
+    // ST5 AC: empty-board state must be explicitly handled
+    expect(source).toContain("board.lastPost === null");
+    expect(source).toContain("No posts yet");
+  });
+
+  it("page uses a semantic <table> with Board, Topics, Posts, Last Post column headers", async () => {
+    const source = await readAppFile("app/forums/page.tsx");
+    // ST5 AC: board list must be presented in a table for accessibility and scannability
+    expect(source).toContain("<table");
+    expect(source).toContain("<thead");
+    expect(source).toContain(">Board<");
+    expect(source).toContain(">Topics<");
+    expect(source).toContain(">Posts<");
+    expect(source).toContain(">Last Post<");
+  });
+
+  it("does not use dangerouslySetInnerHTML anywhere in the forums index page", async () => {
+    const source = await readAppFile("app/forums/page.tsx");
+    // ST5 AC: forum index renders only safe/trusted data (counts, dates, names) — no raw HTML
+    expect(source).not.toContain("dangerouslySetInnerHTML");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC5: @-mention rendering links @username to /users/<username>
 // ---------------------------------------------------------------------------
 
