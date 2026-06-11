@@ -1,0 +1,44 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- ST6 — Reorganize forum board page topic list into four columns (Topic / Replies / Created / Last reply). Extend PublicTopicShape with lastPostAuthor, replace <ul> with semantic <table>, add profile links with encodeURIComponent, absolute dates, dash when no replies.
+
+Modified files:
+- apps/web/app/forums/forums-client.ts
+- apps/web/app/forums/[boardSlug]/page.tsx
+- apps/web/app/forums/forums.module.css
+
+Acceptance criteria to validate (from Planner):
+- Four columns (Topic / Replies / Created / Last reply) rendered in a semantic table
+- Both author and lastPostAuthor profile-linked with encodeURIComponent-encoded /users/ paths
+- Absolute dates via toLocaleDateString
+- Dash shown when replyCount === 0 or lastPostAuthor is null
+- Pinned and Locked badges preserved
+- No dangerouslySetInnerHTML; only public fields rendered
+- Existing board-page behaviors (pagination, CTA/sign-in, breadcrumb, moderator note, empty state) intact
+- lint, typecheck, and web suite pass
+
+Create test files in:
+- apps/web/app/forums/forums.spec.ts — add tests covering: 4-column table presence (<table>, <thead>, Topic/Replies/Created/Last reply headers), author profile link encoding for both author and lastPostAuthor, dash on 0 replies, badges preserved
+
+Implementation context for testing:
+- The board page ([boardSlug]/page.tsx) now uses a <table> with four columns instead of a <ul>. The Topic column contains the title link with Pinned/Locked badges. The Replies column shows the replyCount integer. The Created column shows the author's displayName ?? username as a /users/<encoded-username> link plus the createdAt date. The Last reply column shows the lastPostAuthor (displayName ?? username) as a profile link plus the lastPostAt date, or a dash when replyCount === 0 or lastPostAuthor is null. PublicTopicShape in forums-client.ts was extended with lastPostAuthor: { username: string; displayName: string | null } | null. New CSS classes topicTable, topicRow, topicCellTopic, topicCellReplies, topicCellCreated, topicCellLastReply, topicDate, noRepliesYet added to forums.module.css.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run app/forums/forums.spec.ts
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/forums-listing-enhancements-and-fixes/ST6
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
