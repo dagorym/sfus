@@ -366,28 +366,29 @@ describe('forums-admin page (AC7) — input length limits on name inputs', () =>
     // anchored to the name input context.
     expect(source).toContain('maxLength={128}');
     expect(source).toContain('placeholder="e.g. General Discussion"');
-    // Verify the attribute appears before the description placeholder so the
-    // name input receives maxLength and not only the description input.
+    // Verify both attributes are present on the same name input element by
+    // checking they appear within a small character window of each other.
     const nameInputIdx = source.indexOf('placeholder="e.g. General Discussion"');
     const maxLength128Idx = source.indexOf('maxLength={128}');
     expect(maxLength128Idx).toBeGreaterThanOrEqual(0);
     expect(nameInputIdx).toBeGreaterThanOrEqual(0);
-    // maxLength={128} must appear before the name placeholder (it is on the same input element)
-    expect(maxLength128Idx).toBeLessThan(nameInputIdx);
+    // Both attributes must appear within 200 characters of each other (same input element)
+    expect(Math.abs(maxLength128Idx - nameInputIdx)).toBeLessThan(200);
   });
 
   it('board name input enforces maxLength=128', async () => {
     const source = await readAppFile("app/admin/forums/page.tsx");
     // The board form renders a name input with the board placeholder text.
-    // maxLength={128} must appear before "e.g. Rules & Announcements".
+    // Verify both attributes are present on the same input element by checking
+    // they appear within a small character window of each other.
     const boardNamePlaceholderIdx = source.indexOf('placeholder="e.g. Rules & Announcements"');
     expect(boardNamePlaceholderIdx).toBeGreaterThanOrEqual(0);
     // Find the second occurrence of maxLength={128} (board form comes after category form)
     const firstOccurrence = source.indexOf('maxLength={128}');
     const secondOccurrence = source.indexOf('maxLength={128}', firstOccurrence + 1);
     expect(secondOccurrence).toBeGreaterThanOrEqual(0);
-    // The second maxLength={128} (board name) must appear before the board name placeholder
-    expect(secondOccurrence).toBeLessThan(boardNamePlaceholderIdx);
+    // The second maxLength={128} (board name) must appear within 200 characters of the board name placeholder (same input element)
+    expect(Math.abs(secondOccurrence - boardNamePlaceholderIdx)).toBeLessThan(200);
   });
 
   it('both category and board name inputs each carry maxLength={128} (two occurrences total)', async () => {
