@@ -578,7 +578,7 @@ Board and topic slugs are resolved by fetching the public category listing and m
 
 ### What each page renders
 
-**Forum index (`page.tsx`)** — calls `listCategories()` (wraps `GET /api/forums/categories`). Renders categories as sections, each with its list of boards linked to `/forums/<slug>`. Non-site or non-public boards never appear (filtered by the API). Empty states: "Unable to load forum categories." (error), "Loading…", "No forum boards are available yet."
+**Forum index (`page.tsx`)** — calls `listCategories()` (wraps `GET /api/forums/categories`). Renders categories as sections, each containing a semantic `<table>` of boards with four columns: Board (name linked to `/forums/<slug>`, optional description), Topics, Posts, and Last Post. Topics and Posts values come directly from `board.topicCount` and `board.postCount`; no client-side recomputation. Last Post shows the absolute date via `toLocaleDateString()` and a profile link (`displayName ?? username`, username `encodeURIComponent`-encoded) pointing to `/users/<username>`; "No posts yet" when `board.lastPost` is `null`. Non-site or non-public boards never appear (filtered by the API). Empty states: "Unable to load forum categories." (error), "Loading…", "No forum boards are available yet."
 
 **Board view (`[boardSlug]/page.tsx`)** — resolves the board from the category listing, then calls `listTopics(boardId, { page, pageSize: 20 })`. Renders a paginated topic list. Each row shows pinned/locked badges, author, reply count, and last-post date. Authenticated members see a `+ New Topic` link; unauthenticated visitors see `Sign in to create a topic` linking to `/login?next=<board>/new-topic`.
 
