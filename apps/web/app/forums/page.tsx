@@ -81,21 +81,53 @@ export default function ForumsIndexPage() {
               No boards in this category.
             </p>
           ) : (
-            <ul className={styles.boardList}>
-              {category.boards.map((board) => (
-                <li key={board.id} className={styles.boardItem}>
-                  <Link
-                    href={`/forums/${encodeURIComponent(board.slug)}`}
-                    className={styles.boardLink}
-                  >
-                    <p className={styles.boardName}>{board.name}</p>
-                    {board.description ? (
-                      <p className={styles.boardDescription}>{board.description}</p>
-                    ) : null}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <table className={styles.boardTable}>
+              <thead>
+                <tr>
+                  <th className={styles.boardTableHeaderBoard} scope="col">Board</th>
+                  <th className={styles.boardTableHeaderStat} scope="col">Topics</th>
+                  <th className={styles.boardTableHeaderStat} scope="col">Posts</th>
+                  <th className={styles.boardTableHeaderLastPost} scope="col">Last Post</th>
+                </tr>
+              </thead>
+              <tbody>
+                {category.boards.map((board) => (
+                  <tr key={board.id} className={styles.boardRow}>
+                    <td className={styles.boardCellName}>
+                      <Link
+                        href={`/forums/${encodeURIComponent(board.slug)}`}
+                        className={styles.boardLink}
+                      >
+                        <p className={styles.boardName}>{board.name}</p>
+                        {board.description ? (
+                          <p className={styles.boardDescription}>{board.description}</p>
+                        ) : null}
+                      </Link>
+                    </td>
+                    <td className={styles.boardCellStat}>{board.topicCount}</td>
+                    <td className={styles.boardCellStat}>{board.postCount}</td>
+                    <td className={styles.boardCellLastPost}>
+                      {board.lastPost === null ? (
+                        <span className={styles.noPostsYet}>No posts yet</span>
+                      ) : (
+                        <>
+                          <span className={styles.lastPostDate}>
+                            {new Date(board.lastPost.at).toLocaleDateString()}
+                          </span>
+                          {" by "}
+                          <Link
+                            href={`/users/${encodeURIComponent(board.lastPost.author.username)}`}
+                            className={styles.authorLink}
+                          >
+                            {board.lastPost.author.displayName ?? board.lastPost.author.username}
+                          </Link>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </section>
       ))}

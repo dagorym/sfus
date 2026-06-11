@@ -24,6 +24,14 @@ export interface PublicAuthorShape {
   displayName: string | null;
 }
 
+export interface BoardLastPostShape {
+  at: string;
+  author: {
+    username: string;
+    displayName: string | null;
+  };
+}
+
 export interface PublicBoardShape {
   id: string;
   name: string;
@@ -31,6 +39,9 @@ export interface PublicBoardShape {
   description: string | null;
   sortOrder: number;
   visibility: string;
+  topicCount: number;
+  postCount: number;
+  lastPost: BoardLastPostShape | null;
   createdAt: string;
   updatedAt: string;
 }

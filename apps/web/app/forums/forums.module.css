@@ -96,6 +96,89 @@
   color: var(--color-text-muted, #8895a7);
 }
 
+/* Board index table */
+
+.boardTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.boardTable thead tr {
+  background: rgba(122, 162, 255, 0.04);
+  border-bottom: 1px solid var(--color-border, #1e2d3d);
+}
+
+.boardTableHeaderBoard {
+  padding: 0.5rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #8895a7);
+  width: auto;
+}
+
+.boardTableHeaderStat {
+  padding: 0.5rem 0.75rem;
+  text-align: right;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #8895a7);
+  width: 6rem;
+}
+
+.boardTableHeaderLastPost {
+  padding: 0.5rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #8895a7);
+  width: 16rem;
+}
+
+.boardRow {
+  border-bottom: 1px solid var(--color-border, #1e2d3d);
+}
+
+.boardRow:last-child {
+  border-bottom: none;
+}
+
+.boardCellName {
+  padding: 0;
+  vertical-align: top;
+}
+
+.boardCellStat {
+  padding: 0.85rem 0.75rem;
+  text-align: right;
+  font-size: 0.9rem;
+  color: var(--color-text, #cdd6f4);
+  vertical-align: middle;
+}
+
+.boardCellLastPost {
+  padding: 0.85rem 1rem;
+  font-size: 0.82rem;
+  color: var(--color-text-muted, #8895a7);
+  vertical-align: middle;
+}
+
+.lastPostDate {
+  color: var(--color-text, #cdd6f4);
+}
+
+.noPostsYet {
+  color: var(--color-text-muted, #8895a7);
+  font-style: italic;
+}
+
 /* Topic list */
 
 .topicList {
