@@ -316,3 +316,142 @@ export async function releaseDocLock(pageId: string): Promise<void> {
     throw new Error(extractErrorMessage(payload, "Failed to release lock."));
   }
 }
+
+// ---------------------------------------------------------------------------
+// History / diff / rollback routes (ST-5 server endpoints)
+// ---------------------------------------------------------------------------
+
+/** Metadata for a single revision in the history list. */
+export interface DocsRevisionMetaShape {
+  revisionNumber: number;
+  author: { username: string; displayName: string | null } | null;
+  editorUsername: string | null;
+  summary: string | null;
+  createdAt: string;
+}
+
+/** Full body of a single revision. */
+export interface DocsSingleRevisionShape {
+  revisionNumber: number;
+  title: string;
+  body: string;
+  summary: string | null;
+  author: { username: string; displayName: string | null } | null;
+  editorUsername: string | null;
+  createdAt: string;
+}
+
+/** A single diff hunk. */
+export interface DocsDiffHunk {
+  type: "unchanged" | "added" | "removed";
+  lines: string[];
+}
+
+/** Response from GET /api/docs/:id/diff?from=&to=. */
+export interface DocsDiffShape {
+  fromRevisionNumber: number;
+  toRevisionNumber: number;
+  hunks: DocsDiffHunk[];
+}
+
+/**
+ * Fetches the revision history metadata for a doc page.
+ *
+ * Returns null when the page is not found / not readable (404).
+ * Throws on unexpected errors.
+ */
+export async function getDocHistory(pageId: string): Promise<DocsRevisionMetaShape[] | null> {
+  const response = await fetch(
+    `${apiBase}/docs/${encodeURIComponent(pageId)}/history`,
+    { cache: "no-store" }
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as ErrorEnvelope;
+    throw new Error(extractErrorMessage(payload, "Failed to load history."));
+  }
+  const data = (await response.json()) as { revisions: DocsRevisionMetaShape[] };
+  return data.revisions;
+}
+
+/**
+ * Fetches a single revision body by page ID and revision number.
+ *
+ * Returns null on 404.
+ * Throws on unexpected errors.
+ */
+export async function getDocRevision(
+  pageId: string,
+  revisionNumber: number
+): Promise<DocsSingleRevisionShape | null> {
+  const response = await fetch(
+    `${apiBase}/docs/${encodeURIComponent(pageId)}/revisions/${encodeURIComponent(String(revisionNumber))}`,
+    { cache: "no-store" }
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as ErrorEnvelope;
+    throw new Error(extractErrorMessage(payload, "Failed to load revision."));
+  }
+  const data = (await response.json()) as { revision: DocsSingleRevisionShape };
+  return data.revision;
+}
+
+/**
+ * Fetches the side-by-side diff between two revisions.
+ *
+ * Returns null on 404 (page not found / not readable).
+ * Throws on 400 (size cap exceeded — surfaces a friendly message) or other errors.
+ */
+export async function getDocDiff(
+  pageId: string,
+  from: number,
+  to: number
+): Promise<DocsDiffShape | null> {
+  const url = `${apiBase}/docs/${encodeURIComponent(pageId)}/diff?from=${encodeURIComponent(String(from))}&to=${encodeURIComponent(String(to))}`;
+  const response = await fetch(url, { cache: "no-store" });
+  if (response.status === 404) return null;
+  if (response.status === 400) {
+    const payload = (await response.json().catch(() => null)) as ErrorEnvelope;
+    throw new Error(
+      extractErrorMessage(
+        payload,
+        "This diff is unavailable because one or more revisions are too large to compare."
+      )
+    );
+  }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as ErrorEnvelope;
+    throw new Error(extractErrorMessage(payload, "Failed to load diff."));
+  }
+  const data = (await response.json()) as DocsDiffShape;
+  return data;
+}
+
+/**
+ * Rolls back a doc page to the given revision number (POST /api/docs/:id/rollback).
+ *
+ * Creates a new highest-numbered revision equal in content to the target.
+ * Requires a moderator/admin session.
+ * Throws on any error (403 if not staff, 409 if locked by another user, etc.).
+ */
+export async function rollbackDocPage(
+  pageId: string,
+  revisionNumber: number
+): Promise<DocsPageShape> {
+  const response = await fetch(
+    `${apiBase}/docs/${encodeURIComponent(pageId)}/rollback`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ revisionNumber })
+    }
+  );
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as ErrorEnvelope;
+    throw new Error(extractErrorMessage(payload, "Failed to roll back document."));
+  }
+  const data = (await response.json()) as { page: DocsPageShape };
+  return data.page;
+}

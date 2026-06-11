@@ -216,7 +216,7 @@ export default function DocsPageView() {
               Acquire lock
             </Link>
           ) : null}
-          <Link href={`/docs/${page.path}/history`} className={styles.secondaryActionButton}>
+          <Link href={`/docs/history/${page.path}`} className={styles.secondaryActionButton}>
             History
           </Link>
         </div>
