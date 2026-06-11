@@ -30,6 +30,8 @@ import { BlogCommentEntity } from "../blog/entities/blog-comment.entity";
 import { BlogPostEntity } from "../blog/entities/blog-post.entity";
 import { BlogPostTagEntity } from "../blog/entities/blog-post-tag.entity";
 import { NavigationItemEntity } from "../navigation/entities/navigation-item.entity";
+import { DocsPageEntity } from "../docs/entities/docs-page.entity";
+import { DocsRevisionEntity } from "../docs/entities/docs-revision.entity";
 
 /** DB connection options read from environment variables. */
 export interface IntegrationDbOptions {
@@ -101,7 +103,9 @@ export async function createIntegrationDataSource(
       BlogCommentEntity,
       StandalonePageEntity,
       PageRevisionEntity,
-      NavigationItemEntity
+      NavigationItemEntity,
+      DocsPageEntity,
+      DocsRevisionEntity
     ],
     extra: {
       connectionLimit: 2,
