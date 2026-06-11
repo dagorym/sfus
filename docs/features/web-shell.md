@@ -78,27 +78,31 @@ protected by the API, not by the page.
 
 ## Landing page
 
-`apps/web/app/page.tsx` is a server component (no fetches/effects) refreshed for Milestone 4
+`apps/web/app/page.tsx` is a server component (no fetches/effects) refreshed for Milestone 5
 with five sections:
 
-1. **Hero** — primary CTA "Visit the forums" → `/forums`; secondary CTA "Read the blog" →
-   `/blog`. The hero copy describes Milestone 4: community forums, @mentions with public member
-   profiles, member avatars, and anti-spam rate limiting built on top of the earlier content
-   milestones. No "Milestone 3" text remains.
-2. **Highlights grid** — six cards: Community forums, Blog with threaded comments, Standalone
-   pages and revision history, Dynamic navigation and media uploads, Public member profiles and
-   avatars, Anti-spam and rate limiting.
-3. **"What's new in Milestone 4"** — two-column layout:
+1. **Hero** — primary CTA "Browse the wiki" → `/docs`; secondary CTA "Visit the forums" →
+   `/forums`. The hero copy describes Milestone 5: a full Documents wiki with hierarchical page
+   tree, breadcrumb navigation, per-edit revision history, side-by-side diffs, rollback, and
+   soft locking, built on top of the earlier milestone content.
+2. **Highlights grid** — five cards: Documents wiki (first), Community forums, Blog with
+   threaded comments, Standalone pages and revision history, Public member profiles and avatars.
+3. **"What's new in Milestone 5"** — two-column layout:
+   - _Recent document activity_ column: `RecentDocActivity` client component
+     (`apps/web/components/recent-doc-activity.tsx`) fetches up to 5 recent doc edits via
+     `getRecentDocEdits(5)` (`GET /api/docs/recent`); loading / "No document activity yet." /
+     non-fatal "Could not load recent document activity." states; "Browse the wiki →" link at
+     `/docs`. Page paths in links come directly from the API response.
    - _Recent forum activity_ column: `RecentForumActivity` client component
      (`apps/web/components/recent-forum-activity.tsx`) fetches up to 5 topics via
      `listRecentTopics({ limit: 5 })` (`GET /api/forums/recent`); loading / "No forum activity
      yet." / non-fatal "Could not load recent forum activity." states; "View the forums →" link
      at `/forums`. Board and topic slugs in links are `encodeURIComponent`-encoded.
-   - _Recent posts_ column: `RecentPostsFeed` client component (unchanged; loading / "No posts
-     yet." / non-fatal "Could not load recent posts." states); "View all posts →" link at `/blog`.
-4. **Explore section** — forums entry (first), blog index, about, navigation admin, and member
-   profiles. No `dangerouslySetInnerHTML` anywhere; all text is React text nodes.
-5. **Runtime notes** — two meta cards: frontend-to-API contract and current content scope.
+4. **Explore section** — Documents wiki entry (first), then forums, blog index, about,
+   navigation admin, and member profiles. No `dangerouslySetInnerHTML` anywhere; all text is
+   React text nodes.
+5. **Runtime notes** — two meta cards: frontend-to-API contract and current content scope
+   (Documents wiki, forums, blog, standalone pages, navigation, and media).
 
 The `/about` link targets the top-level catch-all route; if no `about` page is published it
 resolves to a "not published" message by design.
