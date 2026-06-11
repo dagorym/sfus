@@ -60,7 +60,10 @@ Returns the page's current revision body plus an ordered breadcrumb ancestry arr
   normalized (trim, strip leading/trailing slashes) then hashed via
   `DocsService.computePathHash('site', null, path)` for the indexed lookup.
 - **Breadcrumbs:** ancestors from the shallowest (root) to the immediate parent, in that
-  display order. Non-readable ancestors are included; the breadcrumb is navigational.
+  display order. Each ancestor is routed through `isPagePubliclyReadable`; if an ancestor
+  fails (non-readable, project-scoped, deleted, or members/private), the chain is truncated
+  at that point — that ancestor and all shallower ancestors are omitted. This prevents
+  id/title leakage of gated ancestors (oracle parity: gated === absent).
 - **Oracle parity:** nonexistent, deleted, and non-readable pages all return `404` with
   `PAGE_NOT_FOUND_MESSAGE`.
 

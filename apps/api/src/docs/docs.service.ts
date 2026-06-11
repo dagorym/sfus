@@ -221,8 +221,14 @@ export class DocsService {
    *
    * Walks the parent chain via parentId in the DB. Ancestry is built in reverse
    * (deepest-first) then reversed for display order (root → immediate parent).
-   * Non-readable ancestors are still included (breadcrumb is navigational,
-   * the page itself passed the gate).
+   *
+   * Security contract (oracle parity, P12):
+   * - Every ancestor is routed through isPagePubliclyReadable before its id or title
+   *   is included. If an ancestor fails the gate (non-readable, project-scoped, deleted,
+   *   or members/private visibility), the chain is truncated at that point — neither that
+   *   ancestor nor any shallower ancestor appears in the response. This prevents id and
+   *   title leakage for non-public nodes. The chain truncation (not a per-item skip) avoids
+   *   creating a positional existence side channel.
    */
   private async buildBreadcrumbs(page: DocsPageEntity): Promise<DocsBreadcrumbItem[]> {
     const breadcrumbs: DocsBreadcrumbItem[] = [];
@@ -230,7 +236,11 @@ export class DocsService {
 
     while (currentParentId !== null) {
       const ancestor = await this.pageRepository.findOne({ where: { id: currentParentId } });
-      if (!ancestor) break;
+      // Ancestor missing or fails the visibility gate: truncate the chain here.
+      // Do not expose id/title for any gated ancestor (oracle parity — gated === absent).
+      if (!ancestor || ancestor.status !== "published" || !this.isPagePubliclyReadable(ancestor)) {
+        break;
+      }
       breadcrumbs.push({ id: ancestor.id, title: ancestor.title, path: ancestor.path });
       currentParentId = ancestor.parentId;
     }
