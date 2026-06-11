@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-5/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-5/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st5-verifier-20260611",
+  "documentation_accuracy_summary": [
+    "ACCURATE. docs/features/documents.md adds a comprehensive section covering all 4 routes with correct response shapes, error tables, DoS guard parameters matching implementation constants exactly (DOCS_DIFF_MAX_BODY_BYTES=512,000 bytes, DOCS_DIFF_MAX_LINES=5,000 lines), the at-cap behavior, the route ordering note update, and constants table entries. All documented values match the code. The only inaccuracy is a cosmetic comment in docs.types.ts:49 ('~25 billion cells' should be '~25 million cells'), which does not affect the user-facing documentation."
+  ],
+  "note_finding_count": 2,
+  "pass_label": null,
+  "status": "complete",
+  "task_id": "ST-5",
+  "test_sufficiency_summary": [
+    "SUFFICIENT. computeLineDiff: 11 unit tests (edge cases, empty inputs, determinism, type pinning, fixed-input oracle). getPageHistory: oracle parity for null/deleted/members pages, empty revisions, full DocsRevisionMetaShape mapping. getRevisionByNumber: oracle parity, editorUser relation. getDiff: all validation branches (equal revisions, non-positive inputs, missing page/revisions), happy path with hunk assertions. DoS guard: fromRev/toRev byte cap, fromRev/toRev line cap, exception messages name the violated limit, at-cap bodies pass, constants pinned to 512000/5000 (proves named constants, not env vars). rollbackPage: new revisionNumber higher than target, non-destructive body copy, BadRequest for invalid input, oracle parity 404s, save+update called inside transaction. Controller delegation: all 4 routes, error propagation, auth gate ordering verified. Integration: rollback non-destructive 3-revision lifecycle, getPageHistory ordering, getPageHistory 404 for deleted page, DoS guard propagation at controller layer."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
