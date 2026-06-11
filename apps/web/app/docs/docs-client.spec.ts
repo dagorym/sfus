@@ -356,3 +356,277 @@ describe("docs-client.ts — module-level contracts (AC4)", () => {
     expect(pathBlock).not.toContain('credentials: "include"');
   });
 });
+
+// ---------------------------------------------------------------------------
+// ST-8 Write helpers — createDocPage, addDocRevision, renameDocPage (AC1)
+// ---------------------------------------------------------------------------
+
+describe("docs-client.ts — createDocPage write helper (ST-8/AC1)", () => {
+  it("is exported as an async function", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    expect(source).toContain("export async function createDocPage");
+  });
+
+  it("sends a POST request to /api/docs", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "createDocPage");
+    expect(block).toContain('method: "POST"');
+    expect(block).toContain("`${apiBase}/docs`");
+  });
+
+  it("includes credentials and content-type header (session-authenticated route)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "createDocPage");
+    expect(block).toContain('credentials: "include"');
+    expect(block).toContain('"content-type": "application/json"');
+  });
+
+  it("serializes the input as JSON in the request body", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "createDocPage");
+    expect(block).toContain("JSON.stringify(input)");
+  });
+
+  it("returns the page from the response envelope (data.page)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "createDocPage");
+    expect(block).toContain("data.page");
+  });
+
+  it("throws on any error response using extractErrorMessage", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "createDocPage");
+    expect(block).toContain("throw new Error");
+    expect(block).toContain("extractErrorMessage");
+  });
+});
+
+describe("docs-client.ts — addDocRevision write helper (ST-8/AC1)", () => {
+  it("is exported as an async function", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    expect(source).toContain("export async function addDocRevision");
+  });
+
+  it("sends a POST request to /api/docs/:id/revisions", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "addDocRevision");
+    expect(block).toContain('method: "POST"');
+    expect(block).toContain("/revisions");
+    expect(block).toContain("encodeURIComponent(pageId)");
+  });
+
+  it("includes credentials and content-type header", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "addDocRevision");
+    expect(block).toContain('credentials: "include"');
+    expect(block).toContain('"content-type": "application/json"');
+  });
+
+  it("returns the updated page from the response envelope (data.page)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "addDocRevision");
+    expect(block).toContain("data.page");
+  });
+
+  it("throws a LockConflictError on 409 when error.details contains lockedByUserId", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "addDocRevision");
+    expect(block).toContain("status === 409");
+    expect(block).toContain("lockedByUserId");
+    expect(block).toContain("lockConflict");
+  });
+
+  it("attaches lock conflict details to the thrown error object", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "addDocRevision");
+    // The error is augmented with { lockConflict: details }
+    expect(block).toContain("lockConflict: details");
+  });
+});
+
+describe("docs-client.ts — renameDocPage write helper (ST-8/AC1)", () => {
+  it("is exported as an async function", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    expect(source).toContain("export async function renameDocPage");
+  });
+
+  it("sends a PATCH request to /api/docs/:id", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "renameDocPage");
+    expect(block).toContain('method: "PATCH"');
+    expect(block).toContain("encodeURIComponent(pageId)");
+  });
+
+  it("includes credentials and content-type header", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "renameDocPage");
+    expect(block).toContain('credentials: "include"');
+    expect(block).toContain('"content-type": "application/json"');
+  });
+
+  it("returns the renamed page from the response envelope (data.page)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "renameDocPage");
+    expect(block).toContain("data.page");
+  });
+
+  it("throws on any error response using extractErrorMessage", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "renameDocPage");
+    expect(block).toContain("throw new Error");
+    expect(block).toContain("extractErrorMessage");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-8 Lock helpers — acquireDocLock, releaseDocLock (AC2)
+// ---------------------------------------------------------------------------
+
+describe("docs-client.ts — acquireDocLock write helper (ST-8/AC2)", () => {
+  it("is exported as an async function", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    expect(source).toContain("export async function acquireDocLock");
+  });
+
+  it("sends a POST request to /api/docs/:id/lock", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "acquireDocLock");
+    expect(block).toContain('method: "POST"');
+    expect(block).toContain("/lock");
+    expect(block).toContain("encodeURIComponent(pageId)");
+  });
+
+  it("includes credentials header (authenticated route)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "acquireDocLock");
+    expect(block).toContain('credentials: "include"');
+  });
+
+  it("returns the updated lock state from the response envelope (data.lock)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "acquireDocLock");
+    expect(block).toContain("data.lock");
+  });
+
+  it("throws a LockConflictError on 409 with holder details from error.details", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "acquireDocLock");
+    expect(block).toContain("status === 409");
+    expect(block).toContain("lockedByUserId");
+    // error object augmented with .lockConflict
+    expect(block).toContain("lockConflict");
+  });
+
+  it("throws a plain Error for non-409 failures", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "acquireDocLock");
+    expect(block).toContain("throw new Error");
+    expect(block).toContain("extractErrorMessage");
+  });
+});
+
+describe("docs-client.ts — releaseDocLock write helper (ST-8/AC2)", () => {
+  it("is exported as an async function", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    expect(source).toContain("export async function releaseDocLock");
+  });
+
+  it("sends a DELETE request to /api/docs/:id/lock", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "releaseDocLock");
+    expect(block).toContain('method: "DELETE"');
+    expect(block).toContain("/lock");
+    expect(block).toContain("encodeURIComponent(pageId)");
+  });
+
+  it("includes credentials header", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "releaseDocLock");
+    expect(block).toContain('credentials: "include"');
+  });
+
+  it("throws on any error response using extractErrorMessage", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "releaseDocLock");
+    expect(block).toContain("throw new Error");
+    expect(block).toContain("extractErrorMessage");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-8 LockConflictError type helpers (AC2)
+// ---------------------------------------------------------------------------
+
+describe("docs-client.ts — LockConflictError helpers (ST-8/AC2)", () => {
+  it("exports the LockConflictDetails interface with lockedByUserId and lockExpiresAt", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    expect(source).toContain("export interface LockConflictDetails");
+    expect(source).toContain("lockedByUserId: string");
+    expect(source).toContain("lockExpiresAt: string | null");
+  });
+
+  it("exports LockConflictError type as Error & { lockConflict: LockConflictDetails }", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    expect(source).toContain("export type LockConflictError");
+    expect(source).toContain("lockConflict: LockConflictDetails");
+  });
+
+  it("exports isLockConflictError type guard that checks lockConflict property", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    expect(source).toContain("export function isLockConflictError");
+    expect(source).toContain('"lockConflict" in err');
+  });
+
+  it("isLockConflictError returns false for plain Errors without lockConflict", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = source.slice(
+      source.indexOf("export function isLockConflictError"),
+      source.indexOf("\n\n/**\n * Acquires")
+    );
+    expect(block).toContain("err instanceof Error");
+    expect(block).toContain('"lockConflict" in err');
+  });
+
+  // Behavioral test: isLockConflictError at runtime
+  it("isLockConflictError returns true for an error with lockConflict attached", async () => {
+    const { isLockConflictError } = await import("./docs-client");
+    const err = Object.assign(new Error("locked"), {
+      lockConflict: { lockedByUserId: "user-123", lockExpiresAt: null }
+    });
+    expect(isLockConflictError(err)).toBe(true);
+  });
+
+  it("isLockConflictError returns false for a plain Error", async () => {
+    const { isLockConflictError } = await import("./docs-client");
+    expect(isLockConflictError(new Error("plain error"))).toBe(false);
+  });
+
+  it("isLockConflictError returns false for non-Error values", async () => {
+    const { isLockConflictError } = await import("./docs-client");
+    expect(isLockConflictError("string")).toBe(false);
+    expect(isLockConflictError(null)).toBe(false);
+    expect(isLockConflictError(42)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ST-8 Write helpers: multi-segment path encoding for pageId routes (AC1)
+// ---------------------------------------------------------------------------
+
+describe("docs-client.ts — write helpers use encodeURIComponent on pageId (ST-8/AC1)", () => {
+  const writeHelpers = [
+    "addDocRevision",
+    "renameDocPage",
+    "acquireDocLock",
+    "releaseDocLock",
+  ];
+
+  it.each(writeHelpers)(
+    "%s encodes pageId with encodeURIComponent before constructing the URL",
+    async (fnName) => {
+      const source = await readAppFile("app/docs/docs-client.ts");
+      const block = extractFn(source, fnName);
+      expect(block).toContain("encodeURIComponent(pageId)");
+    }
+  );
+});
