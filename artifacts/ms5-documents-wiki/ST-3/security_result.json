@@ -1,0 +1,25 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-3/security_report.md",
+    "artifacts/ms5-documents-wiki/ST-3/security_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st3-security-20260610",
+  "documentation_sufficiency_summary": [
+    "SUFFICIENT (unchanged). docs/features/documents.md documents the complete Write API contract: single-gate authorization, 401-before-403 ordering, moderator/admin requirement, write-path oracle parity (404), slug/title validation, both throttle labels, P10 transactional atomicity, and module wiring.",
+    "docs/features/authorization.md includes DocsService.assertDocWriteAccess in the gate table (moderator/admin for site scope, extensible for project scope) and reiterates 'gate before any data operation; 401 no session, 403 insufficient role'.",
+    "docs/development/testing.md documents the SFUS_DB_INTEGRATION=1 opt-in and DB_* env contract needed to run the now-genuine atomicity proof. No documentation defects."
+  ],
+  "note_finding_count": 3,
+  "outcome": "PASS",
+  "pass_label": "security-2-reverify",
+  "status": "complete",
+  "task_id": "ms5-documents-wiki/ST-3",
+  "test_sufficiency_summary": [
+    "PASS for the authorization seam (unchanged): assertDocWriteAccess unit/integration tests cover null/'user' -> 403, moderator/admin -> pass, deny-by-default on unknown scope, and routing through AuthorizationService.hasGlobalRole. Controller tests assert the seam is invoked BEFORE the service write and that 401 (resolveSession throw) precedes 403, for both write routes.",
+    "PASS for input validation / oracle parity (unchanged): slug charset/length, title length, missing-parent 400, path_hash collision 409, and addRevision nonexistent/deleted -> identical 404 (PAGE_NOT_FOUND_MESSAGE).",
+    "RESOLVED for P10 transactional atomicity: the prior WARNING is CLOSED. The dedicated mid-sequence-failure rollback test now exercises the real DataSource transaction and a real unique-index violation, then asserts no orphan page/revision rows survive after rollback. The harness registers the docs entities so the proof is runnable against the migrated schema. The integration suite remains opt-in via SFUS_DB_INTEGRATION=1 (skips cleanly in CI) - an unchanged execution-environment limitation, captured as a NOTE.",
+    "Throttle attachment and module wiring remain correct in source (ThrottleGuard + ThrottleLabel on both write routes; ThrottleModule imported by DocsModule)."
+  ],
+  "warning_finding_count": 0
+}
