@@ -88,7 +88,7 @@ Stripped from the public shape (internal-only): `scopeType`, `projectId`, `categ
 
 | Field | Type | Notes |
 |---|---|---|
-| `at` | string (ISO-8601) | Timestamp of the latest activity. For a real reply (`isReply=true` in the primitive), this is the reply's `createdAt`. For an opening-post fallback (`isReply=false`), this is the topic's `createdAt`. |
+| `at` | string (ISO-8601) | Timestamp of the latest activity. For a real reply (`isReply=true` in the primitive), this is the latest NON-DELETED reply's `createdAt`, resolved directly from the posts table (not from `topic.lastPostAt`) so a soft-deleted latest reply cannot leave a stale date. For an opening-post fallback (`isReply=false`), this is the topic's `createdAt`. |
 | `author` | `{ username: string; displayName: string \| null }` | Author of that activity post. |
 
 **Aggregate stats semantics (ST3):**
@@ -269,7 +269,7 @@ Only non-deleted topics (`deletedAt IS NULL`) are returned.
 | Field | Type | Notes |
 |---|---|---|
 | `author` | `PublicAuthorShape` | Reply author when `isReply` is true; opening-post author when `isReply` is false |
-| `at` | `Date \| null` | `createdAt` of the latest non-deleted reply when `isReply` is true; `null` when the fallback is the opening post |
+| `at` | `Date \| null` | `createdAt` of the latest NON-DELETED reply when `isReply` is true, resolved directly from the posts table so a soft-deleted latest reply cannot produce a stale last-activity date; `null` when the fallback is the opening post (`isReply=false`) |
 | `isReply` | boolean | `true` when the last activity is a real non-deleted reply; `false` when the activity falls back to the opening post |
 
 `resolveTopicLastActivity` (primitive) — accepts a list of topic IDs and an `openingAuthors` map (topicId → `PublicAuthorShape`) and returns `Map<topicId, TopicLastActivity | null>`. Issues a single grouped SQL query (no window functions) to find the latest non-deleted post per topic, joined to the `users` table. When no non-deleted reply exists for a topic, falls back to the matching entry in `openingAuthors` and sets `isReply: false`. Returns `null` only when neither a reply nor an opening-author entry is available. Intended for direct consumption by ST3 board-level aggregation, which needs the `isReply` flag to distinguish a real reply from an opening-post fallback.
