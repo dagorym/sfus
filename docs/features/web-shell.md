@@ -36,6 +36,8 @@ error surface (`error.tsx`) are part of the shell.
 | `/forums/[boardSlug]` | public | board view — 4-column topic table (Topic / Replies / Created / Last reply); paginated 20/page; see [forums](forums.md#web-surfaces-st16) |
 | `/forums/[boardSlug]/[topicSlug]` | public | topic view (paginated posts, reply form, moderation controls); see [forums](forums.md#web-surfaces-st16) |
 | `/forums/[boardSlug]/new-topic` | session | create-topic form; guests redirected to `/login?next=<path>`; see [forums](forums.md#web-surfaces-st16) |
+| `/docs` | public | Documents wiki index — shows site root page tree; see [documents](documents.md#web-surface-st-7) |
+| `/docs/<path>` | public | Documents wiki catch-all page view with breadcrumbs and sanitized Markdown body; see [documents](documents.md#web-surface-st-7) |
 | `/users/<username>` | public | minimal public profile (five fields only: username, displayName, avatar, bio, joinDate); fetches `GET /api/users/:username`; 404 renders a "not found" message; avatar via `UserAvatar` (see below) |
 | `/admin` | admin | dashboard landing page — links to all four admin sections; requires `admin` role (see below) |
 | `/admin/blog[...]`, `/admin/pages[...]`, `/admin/navigation`, `/admin/forums` | admin | client-gated admin management; the API role checks are the enforcement boundary |

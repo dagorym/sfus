@@ -602,6 +602,59 @@ the SHA-256 hash stored in `path_hash`. Input format: `${scopeType}:${scopeId ??
 | `DOCS_DIFF_MAX_LINES` | `5000` | Max revision body line count accepted by the diff endpoint; exceeded → 400 |
 | `DOCS_LOCK_TTL_MINUTES_DEFAULT` | `30` | Default soft-lock TTL when `DOCS_LOCK_TTL_MINUTES` env var is absent or invalid |
 
+## Web surface (ST-7)
+
+The public web surface for the Documents wiki lives in `apps/web/app/docs/`.
+
+### Routes
+
+| Route | Access | Component |
+|---|---|---|
+| `/docs` | public | `DocsIndexPage` (`apps/web/app/docs/page.tsx`) |
+| `/docs/<path>` | public (catch-all) | `DocsPageView` (`apps/web/app/docs/[...path]/page.tsx`) |
+
+### DocsIndexPage (`/docs`)
+
+Fetches the site root page tree via `getDocPageTree()` and displays a flat list of pages
+with links to `/docs/<path>`. Anonymous and non-staff visitors see a read-only list.
+Staff (moderator/admin — via `hasGlobalRole(session.user, "moderator")`) see a
+"Create page" affordance linking to `/docs/new` (the ST-8 authoring route, not yet built).
+Loading and error states are handled in-page; an empty tree renders a "No pages have been
+published yet." message.
+
+### DocsPageView (`/docs/<path>`)
+
+Resolves the full slash-joined path from the Next.js catch-all parameter (`params.path`),
+fetches the page via `getDocPageByPath(fullPath)`, and renders:
+
+- A breadcrumb trail (`<nav aria-label="Breadcrumb">`) ordered root → immediate parent →
+  current page, using `page.breadcrumbs` from the API response.
+- The current revision body via the shared `MarkdownRenderer` component.
+- A lock indicator banner when `page.lock.isLocked` is `true` and `lockExpiresAt` is in
+  the future (visible to all visitors).
+
+Staff (moderator/admin) see Edit, "Acquire lock", and History affordances as a
+client-side defense-in-depth gate. These links target `/docs/<path>/edit` and
+`/docs/<path>/history` (ST-8 and ST-9 authoring routes, not yet built). The API is the
+real enforcement boundary.
+
+**Not-found state:** when `getDocPageByPath` returns `null` (a `404` from the API), the
+page renders "Document not found." without distinguishing existence from visibility
+(oracle parity — mirrors the API's P12 contract).
+
+### docs-client.ts
+
+`apps/web/app/docs/docs-client.ts` provides three public read helpers:
+
+| Function | API endpoint | Notes |
+|---|---|---|
+| `getDocPageTree(parentPath?)` | `GET /api/docs` or `GET /api/docs?parentPath=` | Returns `DocsTreeItem[] \| null`; null on 404 |
+| `getDocPageByPath(path)` | `GET /api/docs/<path>` | Returns `DocsPageShape \| null`; null on 404 |
+| `getRecentDocEdits(limit?)` | `GET /api/docs/recent` | Returns `DocsRecentEditShape[]`; never null |
+
+All three use the shared error-envelope read pattern (`payload.error.message` →
+`payload.message` → fallback string).
+
 ## Route ordering note
 
 `GET /api/docs/recent`, the ST-5 routes (`GET /:id/history`,
