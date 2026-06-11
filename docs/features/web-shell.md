@@ -85,8 +85,9 @@ with five sections:
    `/forums`. The hero copy describes Milestone 5: a full Documents wiki with hierarchical page
    tree, breadcrumb navigation, per-edit revision history, side-by-side diffs, rollback, and
    soft locking, built on top of the earlier milestone content.
-2. **Highlights grid** — five cards: Documents wiki (first), Community forums, Blog with
-   threaded comments, Standalone pages and revision history, Public member profiles and avatars.
+2. **Highlights grid** — six cards: Documents wiki (first), Community forums, Blog with
+   threaded comments, Standalone pages and revision history, Dynamic navigation and media
+   uploads, Public member profiles and avatars.
 3. **"What's new in Milestone 5"** — two-column layout:
    - _Recent document activity_ column: `RecentDocActivity` client component
      (`apps/web/components/recent-doc-activity.tsx`) fetches up to 5 recent doc edits via
