@@ -79,6 +79,7 @@ Returns the page's current revision body plus an ordered breadcrumb ancestry arr
 | `visibility` | `DocsVisibility` | |
 | `breadcrumbs` | `DocsBreadcrumbItem[]` | Ordered root → immediate parent |
 | `currentRevision` | `DocsRevisionShape \| null` | |
+| `lock` | `DocsLockState` | Always present; reflects current lock state (see [Soft locking](#soft-locking)) |
 | `createdAt` | Date | |
 | `updatedAt` | Date | |
 
@@ -445,6 +446,120 @@ updates `current_revision_id`. The target and all intermediate revisions are pre
 | 404 | Page not found or deleted; or target revision not found |
 | 429 | Rate limit exceeded |
 
+## Soft locking
+
+### Overview
+
+The soft-lock subsystem allows a staff member (moderator or admin) to acquire an exclusive
+editing lock on a wiki page for a configurable TTL. The lock is advisory: it blocks other
+non-staff users from write paths when a non-expired foreign lock exists, but it does not
+prevent reads.
+
+### Lock lifecycle
+
+- **Acquire** (`POST /api/docs/:id/lock`): sets the lock on the page for the actor. If the
+  actor already holds the lock, the expiry is refreshed (same TTL from now).
+- **Release** (`DELETE /api/docs/:id/lock`): clears the lock fields. Idempotent — no error
+  when the page is already unlocked or the lock has expired.
+- **Expiry:** when `lockExpiresAt <= now` the lock is treated as free; expired lock fields
+  are not cleaned up until the next acquire or release. No background job is needed.
+
+### POST /api/docs/:id/lock — acquire or refresh the soft lock
+
+Acquires or refreshes the soft lock on a wiki page.
+
+Authorization: moderator or admin only (`assertDocWriteAccess` with `scopeType='site'`).
+
+Throttle label: `doc-page-edit`.
+
+**Response:** `200` with `{ lock: DocsLockResultShape }` containing the new lock state.
+
+`DocsLockResultShape` fields:
+
+| Field | Type | Notes |
+|---|---|---|
+| `pageId` | string (UUID) | |
+| `lock` | `DocsLockState` | New lock state immediately after acquire/refresh |
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| 401 | No active session |
+| 403 | Actor does not have moderator or admin role |
+| 404 | Page not found or deleted |
+| 409 | Page locked by a different non-expired holder (response body includes holder metadata — see below) |
+| 429 | Rate limit exceeded |
+
+**409 conflict body:** when a non-expired foreign lock blocks acquisition, the response
+includes `DocsLockConflictInfo` under a `lock` key:
+
+| Field | Type | Notes |
+|---|---|---|
+| `lockedByUserId` | string (UUID) | UUID of the current lock holder |
+| `lockExpiresAt` | Date | Expiry time of the current lock |
+
+**Staff override:** actors with admin or moderator role can always acquire or release any
+lock, even a non-expired foreign lock.
+
+### DELETE /api/docs/:id/lock — release the soft lock
+
+Releases the soft lock on a wiki page.
+
+Authorization: moderator or admin only (`assertDocWriteAccess`). Additionally, a non-holder,
+non-staff actor receives `403` (see below).
+
+Throttle label: `doc-page-edit`.
+
+**Response:** `204 No Content` on success. Idempotent when the page is not locked or the
+lock has expired.
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| 401 | No active session |
+| 403 | Actor does not have moderator or admin role; or actor is not the lock holder and does not have staff role |
+| 404 | Page not found or deleted |
+| 429 | Rate limit exceeded |
+
+### Lock checks on write paths
+
+`DocsService.assertNotForeignLocked(page, actorUserId, actorGlobalRole)` is called inside
+the transaction of every mutating operation:
+
+- `addRevision` (edit)
+- `renamePage` (rename)
+- `softDeletePage` (delete)
+- `rollbackPage` (rollback)
+
+When an active foreign lock exists, each of these paths throws `409 ConflictException`
+with the same `DocsLockConflictInfo` holder metadata as the acquire endpoint.
+
+An **expired lock** (lockExpiresAt ≤ now) is treated as free: `assertNotForeignLocked`
+returns without error and the write proceeds. Actors with admin or moderator role are never
+blocked by a foreign lock (staff override).
+
+### DocsLockState (read response field)
+
+Every `GET /api/docs/*path` response includes `lock: DocsLockState` in the `DocsPageShape`:
+
+| Field | Type | Notes |
+|---|---|---|
+| `isLocked` | boolean | `true` only when an active, non-expired lock exists |
+| `lockedByUserId` | `string \| null` | UUID of the lock holder; `null` when not locked |
+| `lockedAt` | `Date \| null` | Time the lock was last acquired/refreshed; `null` when not locked |
+| `lockExpiresAt` | `Date \| null` | Expiry time; `null` when not locked |
+
+When the lock has expired, `isLocked` is `false` and all other fields are `null`.
+
+### Lock TTL configuration
+
+The TTL is read from `DOCS_LOCK_TTL_MINUTES` (see [launch.md](../operations/launch.md)).
+The resolved value is injected as `DocsConfig.lockTtlMinutes` via the `DOCS_CONFIG` token in
+`DocsModule`. The TTL is applied as milliseconds (`lockTtlMinutes × 60 × 1000`) when writing
+`lockExpiresAt`.
+
 ## Shared utilities
 
 ### DocsService.computePathHash(scopeType, scopeId, path)
@@ -461,11 +576,13 @@ the SHA-256 hash stored in `path_hash`. Input format: `${scopeType}:${scopeId ??
 | `RECENT_DOCS_MAX_LIMIT` | `20` | Hard cap on recent-feed page count |
 | `DOCS_DIFF_MAX_BODY_BYTES` | `512000` (512 KB) | Max revision body size (UTF-8 bytes) accepted by the diff endpoint; exceeded → 400 |
 | `DOCS_DIFF_MAX_LINES` | `5000` | Max revision body line count accepted by the diff endpoint; exceeded → 400 |
+| `DOCS_LOCK_TTL_MINUTES_DEFAULT` | `30` | Default soft-lock TTL when `DOCS_LOCK_TTL_MINUTES` env var is absent or invalid |
 
 ## Route ordering note
 
-`GET /api/docs/recent`, and all ST-5 routes (`GET /:id/history`,
-`GET /:id/revisions/:revisionNumber`, `GET /:id/diff`, `POST /:id/rollback`) are
-registered **before** `GET /api/docs/*path` in `DocsController`. This ordering is
-required: literal and parameterised routes must be declared before the `*path` catch-all
-so NestJS resolves them correctly rather than treating their path segments as wiki paths.
+`GET /api/docs/recent`, the ST-5 routes (`GET /:id/history`,
+`GET /:id/revisions/:revisionNumber`, `GET /:id/diff`, `POST /:id/rollback`), and the
+ST-6 lock routes (`POST /:id/lock`, `DELETE /:id/lock`) are all registered **before**
+`GET /api/docs/*path` in `DocsController`. This ordering is required: literal and
+parameterised routes must be declared before the `*path` catch-all so NestJS resolves
+them correctly rather than treating their path segments as wiki paths.

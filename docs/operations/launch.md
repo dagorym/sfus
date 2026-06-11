@@ -85,6 +85,7 @@ values are host-managed outside the checkout (see [deployment](deployment.md)).
 | `THROTTLE_NEW_ACCOUNT_MAX_HITS` | — | **required**; integer 1–10000; max hits per window for new-account tier; must be ≤ `THROTTLE_MAX_HITS` |
 | `THROTTLE_NEW_ACCOUNT_WINDOW_MS` | — | **required**; integer 60000–2592000000; how long (ms) after account creation the new-account tier applies |
 | `THROTTLE_MAX_LINKS_PER_POST` | — | **required**; integer 0–100; maximum URLs allowed in a single Markdown post body |
+| `DOCS_LOCK_TTL_MINUTES` | `30` | optional; integer 1–1440; soft-lock TTL in minutes for the Documents wiki; invalid or out-of-range values fall back to 30 with a collected startup error |
 
 Container-only overrides (`DB_HOST=mysql`, `MEDIA_STORAGE_PATH=/app/storage/uploads`,
 `WEB_API_INTERNAL_URL=http://api:3001`) are applied by the Compose files — do not copy them
