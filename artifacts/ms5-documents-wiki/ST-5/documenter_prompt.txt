@@ -1,0 +1,44 @@
+You are the Documenter Agent for this repository. Your task is to document the ST-5 remediation changes made to the Documents (wiki) feature. Read the full output of this prompt before acting. Continue past scope confirmation, documentation discovery, and diff review — do not stop after any of those steps when blocking inputs are present.
+
+## Shared Artifact Directory (repository-root-relative)
+artifacts/ms5-documents-wiki/ST-5
+
+Pass this exact path forward in the verifier handoff prompt.
+
+## Task Summary
+ST-5 remediation: DoS size guard added to `DocsService.getDiff`.
+
+- `DOCS_DIFF_MAX_BODY_BYTES = 512_000` and `DOCS_DIFF_MAX_LINES = 5_000` added as exported named constants to `docs.types.ts`.
+- `DocsService.getDiff` now rejects with `BadRequestException(400)` when either revision body exceeds the byte cap (checked via `Buffer.byteLength`) or the line cap (checked after `body.split('\n')`), before entering the O(m*n) LCS DP table.
+- Exception messages name the violated limit (`512000 bytes` or `5000 lines`).
+- No new environment variable was added; the guard is driven by named constants only.
+- All existing tests remain green; 14 new unit tests were added by the Tester.
+
+## Implementation Files Changed (Implementer + Tester)
+- `apps/api/src/docs/docs.types.ts` — constants `DOCS_DIFF_MAX_BODY_BYTES` and `DOCS_DIFF_MAX_LINES` added
+- `apps/api/src/docs/docs.service.ts` — `getDiff` DoS guard added (lines ~881–895 in the worktree)
+- `apps/api/src/docs/docs.service.test.ts` — 12 new size guard unit tests + import (Tester)
+- `apps/api/src/docs/docs.controller.test.ts` — 2 new controller propagation tests (Tester)
+
+## Tester Commit Hash
+403f59f
+
+## What to Document
+Look at the routing table (`docs/README.md`) to find the canonical doc for the Documents/wiki feature and any relevant cross-cutting engineering contracts. Update only the owning doc(s) per the routing table rules. Typical changes to document:
+
+1. The `DOCS_DIFF_MAX_BODY_BYTES` and `DOCS_DIFF_MAX_LINES` constants — their values, units, and purpose (DoS guard for the O(m*n) diff).
+2. The `GET /api/docs/:id/diff` endpoint's new 400 error cases (body too large in bytes or lines), including the error message format.
+3. Any operator / deployment guidance if the constants should be mentioned in the operations docs.
+
+Do NOT add new environment variable documentation (none was added).
+
+## Required Artifacts
+Write to the shared artifact directory (`artifacts/ms5-documents-wiki/ST-5/`):
+- `documenter_report.md` — human-readable summary of what was documented and where
+- `documenter_result.json` — machine-readable status with list of docs changed
+
+## Completion Gate
+Do not report success unless:
+- All required artifacts exist and are committed.
+- All documentation changes are committed.
+- The documenter_result.json records the actual commit hash (not a placeholder).
