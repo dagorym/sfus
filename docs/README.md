@@ -15,6 +15,7 @@ and skip the rest.
 | [features/pages.md](features/pages.md) | standalone pages, revisions/restore, reserved slugs | `apps/api/src/pages/`, `apps/web/app/pages/`, `apps/web/app/[slug]/`, `apps/web/app/admin/pages/` |
 | [features/navigation.md](features/navigation.md) | nav items, visibility + publication-leak filtering, shell rendering | `apps/api/src/navigation/`, `apps/web/components/navigation.tsx`, `apps/web/app/admin/navigation/` |
 | [features/forums.md](features/forums.md) | forum categories and boards — admin management API, scoping/visibility model, reorder contract | `apps/api/src/forums/` |
+| [features/documents.md](features/documents.md) | wiki page tree, read API (path resolution, tree, breadcrumbs, recent feed), oracle-parity contract, computePathHash | `apps/api/src/docs/`, `apps/web/app/docs/` |
 | [features/web-shell.md](features/web-shell.md) | layout/branding, route map, protected-route session handling, landing page, API path targeting | `apps/web/app/layout.tsx`, `apps/web/app/page.tsx`, `apps/web/next.config.mjs`, new web routes |
 
 ## Development docs — cross-cutting engineering contracts
