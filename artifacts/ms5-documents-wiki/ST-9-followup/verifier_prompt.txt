@@ -1,0 +1,45 @@
+Your role is 'verifier'. Your task is as follows:
+
+Task summary:
+- ST-9 carry-over defect fix (ms5 plan): getDocDiff in apps/web/app/docs/docs-client.ts was fixed so that a 400 response from the diff endpoint surfaces the friendly message ("This diff is unavailable because one or more revisions are too large to compare.") directly, instead of delegating to extractErrorMessage which would return the raw API error string. The tester confirmed the previously-red test now passes and no other specs regressed.
+
+Acceptance criteria verified by tester:
+- AC1: docs-client-history.spec.ts 'throws a too large to compare error on 400' PASSES (was previously RED)
+- AC2: No docs web spec regressions — 7 files / 298 tests all pass
+- AC3: Lint passes with 0 warnings/errors
+- AC4: next build completes successfully
+
+Implementation branch:
+- ms5-st9fix-implementer-20260611 (implementation commit: 9eda14b)
+
+Tester branch (worktree):
+- ms5-st9fix-tester-20260611
+- Tester made no test changes (existing tests already covered AC1; no test commit was made)
+
+Files changed by implementer:
+- apps/web/app/docs/docs-client.ts (getDocDiff 400 branch only — 5-line change, removed extractErrorMessage call, now throws hardcoded friendly string)
+
+Test commands run by tester:
+- npx --yes pnpm@10.0.0 --dir <worktree>/apps/web exec vitest run app/docs/docs-client-history.spec.ts (36/36 PASS)
+- npx --yes pnpm@10.0.0 --dir <worktree>/apps/web exec vitest run app/docs/ (298/298 PASS)
+- npx --yes pnpm@10.0.0 --dir <worktree>/apps/web exec vitest run (856/856 PASS; 2 worktree-env failures confirmed pre-existing)
+- npx --yes pnpm@10.0.0 --filter @sfus/web lint (PASS)
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec next build (PASS)
+
+Verifier scope:
+- Confirm that the implementer branch (ms5-st9fix-implementer-20260611) merges cleanly into ms5.
+- Confirm that after merge, the full web spec suite is green and no docs spec regressions exist.
+- Confirm lint and next build pass on the merged state.
+- Confirm the fix is correct: getDocDiff 400 branch should throw the hardcoded friendly string, not the raw API error.
+- No documentation review is required — this is a pure defect fix with no user-visible feature changes.
+
+Startup behavior:
+- Begin verification immediately if the implementation branch, tester branch, and acceptance criteria context are present.
+- Do not stop after activation, scope confirmation, or branch inspection when verification can proceed.
+- Infer missing comparison-base or artifact-path details from repository context when safe, and label those choices as assumptions.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-9-followup
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

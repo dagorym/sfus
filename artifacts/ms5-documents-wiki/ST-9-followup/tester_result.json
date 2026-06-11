@@ -1,0 +1,28 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-9-followup/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-9-followup/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-9-followup/verifier_prompt.txt"
+  ],
+  "branch_name": "ms5-st9fix-tester-20260611",
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 --dir <worktree>/apps/web exec vitest run app/docs/docs-client-history.spec.ts",
+    "npx --yes pnpm@10.0.0 --dir <worktree>/apps/web exec vitest run app/docs/",
+    "npx --yes pnpm@10.0.0 --dir <worktree>/apps/web exec vitest run",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web lint",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web exec next build"
+  ],
+  "pass_fail_totals": {
+    "docs_spec_files": 7,
+    "docs_tests_failed": 0,
+    "docs_tests_passed": 298,
+    "web_suite_tests_failed": 0,
+    "web_suite_tests_passed": 856
+  },
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST-9-followup",
+  "test_commit_hash": "No Changes Made",
+  "test_files_changed": [],
+  "unmet_acceptance_criteria": []
+}
