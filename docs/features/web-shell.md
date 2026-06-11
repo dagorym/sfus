@@ -33,7 +33,7 @@ error surface (`error.tsx`) are part of the shell.
 | `/pages` | public | published pages index; see [pages](pages.md) |
 | `/pages/:slug`, `/:slug` | public | see [pages](pages.md) |
 | `/forums` | public | forum category/board index; see [forums](forums.md#web-surfaces-st16) |
-| `/forums/[boardSlug]` | public | board view (paginated topics); see [forums](forums.md#web-surfaces-st16) |
+| `/forums/[boardSlug]` | public | board view — 4-column topic table (Topic / Replies / Created / Last reply); paginated 20/page; see [forums](forums.md#web-surfaces-st16) |
 | `/forums/[boardSlug]/[topicSlug]` | public | topic view (paginated posts, reply form, moderation controls); see [forums](forums.md#web-surfaces-st16) |
 | `/forums/[boardSlug]/new-topic` | session | create-topic form; guests redirected to `/login?next=<path>`; see [forums](forums.md#web-surfaces-st16) |
 | `/users/<username>` | public | minimal public profile (five fields only: username, displayName, avatar, bio, joinDate); fetches `GET /api/users/:username`; 404 renders a "not found" message; avatar via `UserAvatar` (see below) |

@@ -580,7 +580,16 @@ Board and topic slugs are resolved by fetching the public category listing and m
 
 **Forum index (`page.tsx`)** — calls `listCategories()` (wraps `GET /api/forums/categories`). Renders categories as sections, each containing a semantic `<table>` of boards with four columns: Board (name linked to `/forums/<slug>`, optional description), Topics, Posts, and Last Post. Topics and Posts values come directly from `board.topicCount` and `board.postCount`; no client-side recomputation. Last Post shows the absolute date via `toLocaleDateString()` and a profile link (`displayName ?? username`, username `encodeURIComponent`-encoded) pointing to `/users/<username>`; "No posts yet" when `board.lastPost` is `null`. Non-site or non-public boards never appear (filtered by the API). Empty states: "Unable to load forum categories." (error), "Loading…", "No forum boards are available yet."
 
-**Board view (`[boardSlug]/page.tsx`)** — resolves the board from the category listing, then calls `listTopics(boardId, { page, pageSize: 20 })`. Renders a paginated topic list. Each row shows pinned/locked badges, author, reply count, and last-post date. Authenticated members see a `+ New Topic` link; unauthenticated visitors see `Sign in to create a topic` linking to `/login?next=<board>/new-topic`.
+**Board view (`[boardSlug]/page.tsx`)** — resolves the board from the category listing, then calls `listTopics(boardId, { page, pageSize: 20 })`. Renders topics in a semantic `<table>` with four columns:
+
+| Column | Content |
+|---|---|
+| **Topic** | Title linked to `/forums/<boardSlug>/<topicSlug>` (both `encodeURIComponent`-encoded). Pinned and Locked badges appear inline in the link when applicable. |
+| **Replies** | `topic.replyCount` as a plain number. |
+| **Created** | Author profile link (`displayName ?? username`, username `encodeURIComponent`-encoded) to `/users/<username>`, then the absolute creation date via `toLocaleDateString()`. |
+| **Last reply** | Author profile link + absolute `lastPostAt` via `toLocaleDateString()` when `replyCount > 0` and `lastPostAuthor` is non-null; a dash ("—") otherwise. |
+
+Pagination controls (Previous / Next) are shown when `totalPages > 1`. Authenticated members see a `+ New Topic` link; unauthenticated visitors see `Sign in to create a topic` linking to `/login?next=<board>/new-topic`. No `dangerouslySetInnerHTML` is used.
 
 **Topic view (`[boardSlug]/[topicSlug]/page.tsx`)** — resolves the board and topic, then calls `listPosts(topicId, { page, pageSize: 20 })`. Renders topic body and each post body through `MarkdownRenderer`. Provides a quote affordance (Quote button) and a reply form with `MentionAutocomplete` and `ImageUpload`. Moderator controls are shown to moderator/admin sessions (client-gated; API is the enforcement boundary).
 
