@@ -180,8 +180,14 @@ export interface DocsRecentQuery {
 export interface CreateDocPageInput {
   /** Page title (1–255 chars). */
   title: string;
-  /** URL slug (1–255 chars, a-z 0-9 hyphen only). */
-  slug: string;
+  /**
+   * URL slug (1–255 chars, a-z 0-9 hyphen only). Optional — when omitted or blank
+   * the server auto-derives a slug from the title (lowercase, non-alphanumeric runs
+   * replaced with hyphens, leading/trailing hyphens stripped). If the derived slug
+   * collides with an existing path, a numeric suffix ("-2", "-3", …) is appended
+   * until the path is unique.
+   */
+  slug?: string;
   /** Initial Markdown body (may be empty string). */
   body: string;
   /** Optional edit summary for revision #1. */

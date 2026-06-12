@@ -190,9 +190,7 @@ export class DocsController {
     if (typeof body?.title !== "string" || body.title.trim().length === 0) {
       throw new BadRequestException("title must be a non-empty string.");
     }
-    if (typeof body?.slug !== "string" || body.slug.trim().length === 0) {
-      throw new BadRequestException("slug must be a non-empty string.");
-    }
+    // slug is optional: when omitted or blank the service auto-derives it from the title.
     const page = await this.docsService.createPage(session.user.id, body);
     return { page };
   }

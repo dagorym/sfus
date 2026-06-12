@@ -627,7 +627,16 @@ export class DocsService {
     input: CreateDocPageInput
   ): Promise<DocWriteResultShape> {
     // --- Input validation ---
-    this.validateSlug(input.slug);
+    // Determine whether the caller supplied an explicit, non-blank slug.
+    const isExplicitSlug =
+      typeof input.slug === "string" && input.slug.trim().length > 0;
+
+    if (isExplicitSlug) {
+      // Explicit slug: validate exactly as before (400 on invalid format/length).
+      this.validateSlug(input.slug!);
+    }
+    // Derived-slug case: no pre-validation here — derivation always produces a valid slug.
+
     this.validateTitle(input.title);
 
     // --- Parent resolution ---
@@ -645,22 +654,86 @@ export class DocsService {
       parentPath = parent.path;
     }
 
-    // --- Derive path, depth, path_hash ---
     const depth = parentDepth + 1;
-    const derivedPath = parentPath ? `${parentPath}/${input.slug}` : input.slug;
-    const pathHash = this.computePathHash("site", null, derivedPath);
 
     // --- Transactional write (P10): page + revision + pointer ---
     const pageId = crypto.randomUUID();
     const revisionId = crypto.randomUUID();
 
     return this.pageRepository.manager.transaction(async (em) => {
-      // Check path_hash collision inside the transaction.
-      const existing = await em.findOne(DocsPageEntity, {
-        where: { scopeType: "site", scopeId: IsNull(), pathHash }
-      });
-      if (existing) {
-        throw new ConflictException("A page with this path already exists in this scope.");
+      // -----------------------------------------------------------------------
+      // Slug resolution (inside transaction for race safety)
+      //
+      // EXPLICIT slug: preserve existing behavior — use as-is, 409 on collision.
+      // DERIVED slug: auto-derive from title and append "-2", "-3", … until unique.
+      //   Scoped to auto-derived path only so explicit-slug callers still get 409.
+      // -----------------------------------------------------------------------
+      let finalSlug = "";
+      let finalPath = "";
+      let finalPathHash = "";
+
+      if (isExplicitSlug) {
+        // Explicit path: compute once, 409 on any collision (existing behavior).
+        finalSlug = input.slug!.trim();
+        finalPath = parentPath ? `${parentPath}/${finalSlug}` : finalSlug;
+        finalPathHash = this.computePathHash("site", null, finalPath);
+
+        const existing = await em.findOne(DocsPageEntity, {
+          where: { scopeType: "site", scopeId: IsNull(), pathHash: finalPathHash }
+        });
+        if (existing) {
+          throw new ConflictException("A page with this path already exists in this scope.");
+        }
+      } else {
+        // Derived slug: build a URL-safe base from the title, then suffix until unique.
+        //
+        // Algorithm:
+        //   1. Lowercase the title.
+        //   2. Replace every run of characters outside [a-z0-9] with a single hyphen.
+        //   3. Trim leading/trailing hyphens.
+        //   4. Fall back to "page" when no alphanumeric characters remain.
+        //   5. Cap base to 250 chars (leaves room for "-NNN" within the 255-char limit),
+        //      then re-trim any trailing hyphens introduced by the truncation.
+        //   6. Try the base slug; if the path already exists append "-2", "-3", …
+        //      until the path_hash is free.  This loop runs inside the transaction so
+        //      the chosen slug is still unique at commit time.
+        let baseSlug = input.title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+
+        if (baseSlug.length === 0) {
+          baseSlug = "page";
+        }
+        // Truncate to 250 chars and re-trim trailing hyphens.
+        if (baseSlug.length > 250) {
+          baseSlug = baseSlug.substring(0, 250).replace(/-+$/, "");
+          if (baseSlug.length === 0) {
+            baseSlug = "page";
+          }
+        }
+
+        let candidate = baseSlug;
+        let found = false;
+        // Upper bound keeps the loop finite; in practice, collisions are rare.
+        for (let suffix = 1; suffix <= 10_000; suffix += 1) {
+          const candidatePath = parentPath ? `${parentPath}/${candidate}` : candidate;
+          const candidateHash = this.computePathHash("site", null, candidatePath);
+          const collision = await em.findOne(DocsPageEntity, {
+            where: { scopeType: "site", scopeId: IsNull(), pathHash: candidateHash }
+          });
+          if (!collision) {
+            finalSlug = candidate;
+            finalPath = candidatePath;
+            finalPathHash = candidateHash;
+            found = true;
+            break;
+          }
+          candidate = `${baseSlug}-${suffix + 1}`;
+        }
+        if (!found) {
+          throw new ConflictException("Unable to derive a unique slug for this page after many attempts.");
+        }
       }
 
       // 1. Insert page row (current_revision_id still NULL at this point).
@@ -669,9 +742,9 @@ export class DocsService {
         scopeType: "site" as const,
         scopeId: null,
         title: input.title,
-        slug: input.slug,
-        path: derivedPath,
-        pathHash,
+        slug: finalSlug,
+        path: finalPath,
+        pathHash: finalPathHash,
         parentId,
         depth,
         visibility: "public" as const,
@@ -704,7 +777,7 @@ export class DocsService {
       return {
         id: pageId,
         title: input.title,
-        path: derivedPath,
+        path: finalPath,
         depth,
         parentId,
         currentRevisionId: revisionId,

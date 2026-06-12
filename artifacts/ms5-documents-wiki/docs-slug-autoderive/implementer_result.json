@@ -1,0 +1,38 @@
+{
+  "status": "complete",
+  "stage": "implementer",
+  "task": "docs-slug-autoderive",
+  "branch": "ms5-docslug-implementer-20260612",
+  "filesChanged": [
+    "apps/api/src/docs/docs.types.ts",
+    "apps/api/src/docs/docs.controller.ts",
+    "apps/api/src/docs/docs.service.ts"
+  ],
+  "validation": {
+    "typecheck": "pass",
+    "lint": "pass",
+    "build": "pass",
+    "tests": {
+      "passed": 1294,
+      "failed": 2,
+      "skipped": 30,
+      "expectedFailures": [
+        {
+          "file": "apps/api/src/docs/docs.controller.test.ts",
+          "testName": "throws BadRequestException (400) for missing slug in body guard (AC3)",
+          "reason": "Stale assertion: blank slug now succeeds with auto-derived slug instead of 400"
+        },
+        {
+          "file": "apps/api/src/docs/docs.service.test.ts",
+          "testName": "throws BadRequestException (400) for empty slug",
+          "reason": "Stale assertion: empty slug now succeeds with auto-derived slug instead of 400"
+        }
+      ]
+    }
+  },
+  "artifacts": [
+    "artifacts/ms5-documents-wiki/docs-slug-autoderive/implementer_report.md",
+    "artifacts/ms5-documents-wiki/docs-slug-autoderive/implementer_result.json",
+    "artifacts/ms5-documents-wiki/docs-slug-autoderive/tester_prompt.txt"
+  ]
+}
