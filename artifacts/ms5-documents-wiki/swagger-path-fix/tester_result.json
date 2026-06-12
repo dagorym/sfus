@@ -1,0 +1,21 @@
+{
+  "status": "pass",
+  "subtask": "swagger-path-fix",
+  "branch": "ms5-swaggerfix-tester-20260612",
+  "test_commit": "No Changes Made",
+  "test_files_added_or_modified": [],
+  "commands_run": [
+    "git diff --stat ms5...HEAD",
+    "pnpm --filter @sfus/api test"
+  ],
+  "pass_total": 1295,
+  "fail_total": 0,
+  "skip_total": 30,
+  "unmet_acceptance_criteria": [],
+  "artifacts_written": [
+    "artifacts/ms5-documents-wiki/swagger-path-fix/tester_report.md",
+    "artifacts/ms5-documents-wiki/swagger-path-fix/tester_result.json",
+    "artifacts/ms5-documents-wiki/swagger-path-fix/documenter_prompt.txt"
+  ],
+  "notes": "Documentation-only remediation pass. No product or test code changed this pass. Swagger is already correctly mounted at /api/swagger. Suite passes: 1295 tests passed, 30 skipped (integration tests require DB). Documenter must append ADR amendment to docs/architecture/milestone-1-foundation-decisions.md ~line 36."
+}
