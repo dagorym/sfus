@@ -1,0 +1,33 @@
+{
+  "status": "pass",
+  "subtask": "ST-12-shell-fix",
+  "branch": "ms5-st12shell-tester-20260612",
+  "test_commit": "8c102fda9b9e688dfabe4a2c632ce18a7e0105dd",
+  "test_files_modified": [
+    "apps/web/app/public-shell.spec.ts"
+  ],
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/web --dir <worktree> exec vitest run",
+    "npx --yes pnpm@10.0.0 --filter @sfus/web --dir /home/tstephen/repos/sfus exec eslint 'app/public-shell.spec.ts' --max-warnings=0"
+  ],
+  "tests_passed": 873,
+  "tests_failed": 0,
+  "env_only_failures": {
+    "count": 2,
+    "files": [
+      "components/authoring-components.spec.ts",
+      "components/user-avatar.spec.ts"
+    ],
+    "reason": "ERR_MODULE_NOT_FOUND for react due to missing node_modules in fresh worktree"
+  },
+  "acceptance_criteria": {
+    "AC1": "pass",
+    "AC2": "pass"
+  },
+  "unmet_acceptance_criteria": [],
+  "artifact_files_written": [
+    "artifacts/ms5-documents-wiki/ST-12-shell-fix/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-12-shell-fix/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-12-shell-fix/documenter_prompt.txt"
+  ]
+}

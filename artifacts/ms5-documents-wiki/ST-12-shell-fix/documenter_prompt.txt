@@ -1,0 +1,47 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST-12 shell fix (MS5 follow-on): apps/web/app/layout.tsx updated from Milestone 4 to Milestone 5 branding. Brand eyebrow changed to "Milestone 5 Content Platform", footer changed to "Built for the Milestone 5 content launch baseline.", and metadata description updated to include the Documents wiki and reference Milestone 5. The public-shell.spec.ts layout assertions were correspondingly updated to assert M5 strings and assert no M4/M3/M2/M1 remain.
+
+Acceptance criteria validated:
+- AC1: layout.tsx brand eyebrow = "Milestone 5 Content Platform"; footer = "Built for the Milestone 5 content launch baseline."; metadata description references Milestone 5 and includes documents/wiki content type. No "Milestone 4" or "Milestone 3" string remains in layout.tsx. PASS.
+- AC2: public-shell.spec.ts layout-shell assertions updated to Milestone 5 and pass. Full web suite: 873 tests pass, 0 failures (2 env-only React singleton failures in authoring-components.spec.ts and user-avatar.spec.ts are pre-existing worktree env failures unrelated to this change). PASS.
+
+Implementation branch or worktree context:
+- Implementer worktree: /home/tstephen/repos/worktrees/ms5-st12shell-implementer-20260612 (branch: ms5-st12shell-implementer-20260612)
+- Tester worktree: /home/tstephen/repos/worktrees/ms5-st12shell-tester-20260612 (branch: ms5-st12shell-tester-20260612)
+- Base branch: ms5
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/layout.tsx (Implementer: M4→M5 branding)
+- apps/web/app/public-shell.spec.ts (Tester: updated layout assertions M4→M5)
+
+Test commit:
+- 8c102fda9b9e688dfabe4a2c632ce18a7e0105dd
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/web --dir <worktree> exec vitest run
+- npx --yes pnpm@10.0.0 --filter @sfus/web --dir /home/tstephen/repos/sfus exec eslint 'app/public-shell.spec.ts' --max-warnings=0
+
+Final test outcomes:
+- 873 tests pass, 0 failures. public-shell.spec.ts: 6/6 pass. Env-only failures (2 files, React singleton missing node_modules) are not regressions from this change.
+
+Documentation context:
+- docs/features/web-shell.md is the owning doc for the public shell/layout. It should be checked and updated to reflect M5 branding strings.
+- If docs/features/web-shell.md references Milestone 4 branding (eyebrow, footer, description), update to Milestone 5.
+- The change is cosmetic branding only; no API, auth, or navigation contracts changed.
+
+Plan and diff context:
+- Plan: plans/ms5-documents-wiki-plan.md (ST-12 shell fix subtask)
+- Comparison base: ms5 branch (the tester branch ms5-st12shell-tester-20260612 was branched from the implementer branch which was branched from ms5)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-12-shell-fix
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
