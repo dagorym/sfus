@@ -50,7 +50,7 @@ Content management uses one reusable gate per service instead of inline role che
 | `PagesService.assertAdminManagementAccess(role)` | `admin` | every admin pages handler |
 | `NavigationService.assertAdminManagementAccess(role)` | `admin` | every admin navigation handler |
 | `BlogService.assertModerationAccess(role)` | `moderator` or `admin` | comment moderation + lock/unlock handlers |
-| `DocsService.assertDocWriteAccess(role, scopeTypeOrPage)` | `moderator` or `admin` for site-scope; extensible for project-scope | `POST /api/docs`, `POST /api/docs/:id/revisions` |
+| `DocsService.assertDocWriteAccess(role, scopeTypeOrPage)` | `moderator` or `admin` for site-scope; extensible for project-scope | `POST /api/docs`, `POST /api/docs/:id/revisions`, `PATCH /api/docs/:id`, `DELETE /api/docs/:id`, `POST /api/docs/:id/rollback`, `POST /api/docs/:id/lock`, `DELETE /api/docs/:id/lock` |
 | Media upload role check (in `MediaController`) | `admin` for `blog-post`/`standalone-page` uploads; any session for `blog-comment` | `POST /api/media/upload` |
 
 Every gated handler calls its gate **before any data operation**. The uniform error contract:
