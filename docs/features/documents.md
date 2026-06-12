@@ -169,7 +169,7 @@ Throttle label: `doc-page-create`.
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `title` | string | yes | 1–255 chars |
-| `slug` | string | yes | 1–255 chars; `[a-z0-9-]` only |
+| `slug` | string | no | Optional. URL slug (`[a-z0-9-]` only, 1–255 chars when provided). When omitted or blank, auto-derived from the title: lowercased, non-alphanumeric runs replaced with a single hyphen, leading/trailing hyphens stripped; falls back to `"page"` when no alphanumeric characters remain. Collision-safe: a numeric suffix (`-2`, `-3`, …) is appended when the derived path already exists in this scope (checked inside the transaction). Explicit slugs are validated and return `409` on collision. |
 | `body` | string | yes | Markdown content (may be empty) |
 | `summary` | string | no | Edit summary for revision #1 |
 | `parentPath` | string | no | Full path of the parent page |
@@ -181,10 +181,10 @@ Throttle label: `doc-page-create`.
 
 | Status | Condition |
 |---|---|
-| 400 | Invalid slug or title; or parent specified but does not exist |
+| 400 | Invalid explicit slug or title; or parent specified but does not exist |
 | 401 | No active session |
 | 403 | Actor does not have moderator or admin role |
-| 409 | `path_hash` collision — a page with the same full path already exists in this scope |
+| 409 | Explicit slug collision — a page with the same full path already exists in this scope (auto-derived slugs avoid this via numeric suffixing) |
 | 429 | Rate limit exceeded |
 
 ### POST /api/docs/:id/revisions — append a revision to an existing page
@@ -296,6 +296,7 @@ Throttle label: `doc-page-edit`.
 ### Slug and title validation
 
 `validateSlug` enforces: non-empty string, 1–255 chars, pattern `[a-z0-9-]` only.
+Called only when the caller supplies an explicit slug on create or rename; auto-derived slugs bypass this validator.
 `validateTitle` enforces: non-empty string, 1–255 chars.
 Both throw `400 BadRequestException` on failure.
 
