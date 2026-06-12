@@ -1,0 +1,53 @@
+You are the Documenter Agent for this project. Begin immediately — do not stop after scope confirmation or
+diff review; continue through to writing any required doc change and committing your artifacts.
+
+## Task
+
+This is a documentation verification task for a dev-environment config change in the MS5 Documents wiki
+subtask (ST-6). The implementer added `DOCS_LOCK_TTL_MINUTES=30` to `apps/api/.env.example` and
+`apps/api/.env` so that the dev API `.env` templates match the env var already wired in
+`apps/api/src/config/environment.ts` (optional; default 30; integer 1–1440).
+
+All tests passed. No product code changed. Your job is to verify that existing documentation remains
+accurate and make a change ONLY if something is now inaccurate or missing.
+
+## Files Changed by Implementer
+
+- `apps/api/.env.example` — added "Documents wiki contract (Milestone 5, ST-6)" block with `DOCS_LOCK_TTL_MINUTES=30`
+- `apps/api/.env` — added `DOCS_LOCK_TTL_MINUTES=30` under a Milestone 5 comment
+
+## Files Changed by Tester
+
+No test changes were made. Existing `apps/api/src/config/environment.test.ts` already covered the
+`DOCS_LOCK_TTL_MINUTES` parsing behavior fully (7 tests, all passing).
+
+## Documentation to Verify
+
+1. **`docs/operations/launch.md` (line ~88)** — already documents `DOCS_LOCK_TTL_MINUTES` with value `30`,
+   range `1–1440`, and description `optional; integer 1–1440; soft-lock TTL in minutes for the Documents wiki;
+   invalid or out-of-range values fall back to 30 with a collected startup error`. Cross-check this entry
+   against `apps/api/.env.example` (the new block comment) and `apps/api/src/config/environment.ts`
+   (the `parseOptionalInteger` call with `{ min: 1, max: 1440, defaultValue: 30 }`). Make a doc change ONLY
+   if anything is now inaccurate or inconsistent.
+
+2. Any other "env contract" documentation (e.g., `docs/features/` pages that reference docs-wiki env vars,
+   if any) — verify consistency. Use `docs/README.md` as the documentation routing table to find relevant docs.
+
+## Optional Recommendation (from Tester)
+
+There is currently no test that asserts `.env.example` completeness against the `environment.ts` schema —
+i.e., no test verifying that every env key consumed by `environment.ts` has an entry in `.env.example`.
+If this is appropriate to note in `docs/deferred-tasks.md` (under a docs/testing deferred-scope entry),
+you may do so per the deferred-tasks editing policy (only during a planning cycle). If not appropriate now,
+note it in your documenter report for the Verifier/Coordinator.
+
+## Shared Artifact Directory
+
+`artifacts/ms5-documents-wiki/dev-env-config` (repository-root-relative)
+
+## Completion Gate
+
+Do not report success unless:
+1. All required artifacts exist and are committed: `documenter_report.md`, `documenter_result.json`.
+2. Any doc change made (or explicit "no change needed" determination) is documented in `documenter_report.md`.
+3. All changes are committed on the correct branch (not `main` or `ms5`).
