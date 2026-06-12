@@ -10,11 +10,11 @@ bar · [launch](../operations/launch.md) for web env vars
 
 ## Shared shell
 
-`apps/web/app/layout.tsx` renders the header (eyebrow `Milestone 3 Content Platform`, brand
+`apps/web/app/layout.tsx` renders the header (eyebrow `Milestone 5 Content Platform`, brand
 `Star Frontiers US`), the dynamic [navigation](navigation.md) bar, and the footer
-(`Star Frontiers US · Public foundation shell` / `Built for the Milestone 3 content launch
-baseline.`). Site metadata description: `Blog, standalone pages, and site navigation for the
-Star Frontiers US Milestone 3 content platform.`
+(`Star Frontiers US · Public foundation shell` / `Built for the Milestone 5 content launch
+baseline.`). Site metadata description: `Documents wiki, community forums, blog, standalone
+pages, and site navigation for the Star Frontiers US Milestone 5 content platform.`
 
 Styling stays on the locked baseline: CSS Modules per component/page plus global CSS
 custom-property tokens in `app/globals.css`. Branded `404` (`not-found.tsx`) and runtime
