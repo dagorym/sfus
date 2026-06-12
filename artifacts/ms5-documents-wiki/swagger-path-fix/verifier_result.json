@@ -1,0 +1,42 @@
+{
+  "verdict": "CONDITIONAL PASS",
+  "status": "complete",
+  "branch": "ms5-swaggerfix-verifier-20260612",
+  "comparison_base": "ms5",
+  "commits_reviewed": {
+    "implementer": "c32af68",
+    "tester": "e96d9ab",
+    "documenter": "e1b4e3b"
+  },
+  "test_result": {
+    "suite": "@sfus/api",
+    "method": "vitest run --root <worktree>/apps/api with node_modules symlinked from main workspace",
+    "passed": 1296,
+    "skipped": 30,
+    "failed": 0
+  },
+  "acceptance_criteria": {
+    "AC1": "PASS",
+    "AC2": "PASS",
+    "AC3": "PARTIAL — three target docs updated correctly; ADR not updated (see WARNING)",
+    "AC4": "PARTIAL — stale reference at docs/architecture/milestone-1-foundation-decisions.md:36",
+    "AC5": "NOTE — unit-level guard is adequate given test-harness constraints; live verification needed post-merge"
+  },
+  "findings": [
+    {
+      "severity": "WARNING",
+      "file": "docs/architecture/milestone-1-foundation-decisions.md",
+      "line": 36,
+      "summary": "ADR still references Swagger at /api/docs; not updated by documenter",
+      "blocking": false
+    },
+    {
+      "severity": "NOTE",
+      "file": "apps/api/src/index.test.ts",
+      "line": "180-196",
+      "summary": "Regression guard is unit-level; live HTTP assertion not feasible in test-harness; adequate given Coordinator post-merge verification",
+      "blocking": false
+    }
+  ],
+  "condition_to_pass": "Add a note to docs/architecture/milestone-1-foundation-decisions.md:36 indicating the Swagger path was moved to /api/swagger in MS5 to resolve the Documents API collision."
+}
