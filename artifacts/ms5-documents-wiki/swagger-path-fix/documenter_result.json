@@ -1,0 +1,15 @@
+{
+  "status": "success",
+  "documentation_commit": "e1b4e3b",
+  "branch": "ms5-swaggerfix-documenter-20260612",
+  "story": "swagger-path-fix",
+  "artifact_directory": "artifacts/ms5-documents-wiki/swagger-path-fix",
+  "files_changed": [
+    "docs/operations/launch.md",
+    "docs/development/api-conventions.md",
+    "apps/api/README.md"
+  ],
+  "files_not_changed": [
+    "docs/features/documents.md"
+  ]
+}

@@ -1,0 +1,58 @@
+You are the Verifier Agent for the swagger-path-fix story on branch
+ms5-swaggerfix-documenter-20260612.
+
+## Task
+Verify that the Swagger-path-fix change is correct, complete, and consistent across
+implementation, tests, and documentation.
+
+## Context
+Swagger UI was previously mounted at /api/docs, which collided with the Milestone 5
+Documents wiki API namespace (GET /api/docs and GET /api/docs/* routes). The implementer
+moved Swagger to /api/swagger and the OpenAPI JSON to /api/swagger/openapi.json in
+apps/api/src/index.ts. The Documents API /api/docs/* is unchanged.
+
+## Full Modified-File Surface
+
+**Implementer changes:**
+- apps/api/src/index.ts — SwaggerModule.setup path changed from "api/docs" to "api/swagger";
+  jsonDocumentUrl changed from "api/docs/openapi.json" to "api/swagger/openapi.json".
+
+**Tester changes:**
+- apps/api/src/index.test.ts — test assertions updated to match new Swagger paths.
+
+**Documenter changes:**
+- docs/operations/launch.md — "Swagger (dev)" URL updated to http://localhost:3001/api/swagger.
+- docs/development/api-conventions.md — Routing & Swagger section updated; paths changed to
+  /api/swagger and /api/swagger/openapi.json; brief collision-avoidance note added.
+- apps/api/README.md — Swagger path updated to /api/swagger (+ /api/swagger/openapi.json).
+
+## Verification Scope
+
+1. Confirm apps/api/src/index.ts uses "api/swagger" and "api/swagger/openapi.json" (not
+   "api/docs").
+2. Confirm apps/api/src/index.test.ts assertions match the new /api/swagger paths.
+3. Confirm docs/operations/launch.md shows http://localhost:3001/api/swagger.
+4. Confirm docs/development/api-conventions.md shows /api/swagger and /api/swagger/openapi.json
+   with the collision note; confirm no stale /api/docs-as-Swagger references remain.
+5. Confirm apps/api/README.md shows /api/swagger (+ /api/swagger/openapi.json).
+6. Confirm docs/features/documents.md (if it exists) was NOT changed and its /api/docs/*
+   contract is intact.
+7. Confirm no other documentation files outside the three edited ones contain stale
+   /api/docs references that refer to Swagger (as opposed to the Documents wiki API).
+8. Confirm all documentation changes and artifacts are committed on branch
+   ms5-swaggerfix-documenter-20260612.
+
+## Artifact Directory
+artifacts/ms5-documents-wiki/swagger-path-fix
+
+## Completion Gate
+Report success only after all required artifacts exist and are committed:
+- documenter_report.md
+- documenter_result.json
+- verifier_prompt.txt
+- verifier_report.md
+- verifier_result.json
+
+Do not stop after review-scope establishment or diff inspection — continue through the full
+verification checklist, write verifier_report.md and verifier_result.json to the artifact
+directory, commit them, and report the outcome.
