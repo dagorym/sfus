@@ -2,6 +2,16 @@
 
 Final, plan-level, read-only feature review.
 
+> **Update (2026-06-12) — review re-assessed after follow-up resolution.**
+> The two follow-up items from the original CONDITIONAL PASS have both been
+> implemented and merged into the coordination base branch `ms5` through full
+> Implementer → Tester → Documenter → Verifier cycles (each Verifier: PASS). This
+> reviewer has independently re-verified both against the files on this branch
+> (not against verdict labels) and finds both **RESOLVED**. With no blocking or
+> warning findings and both prior conditions cleared, the re-assessed final
+> outcome is **PASS**. See the new "Follow-up resolution (2026-06-12)" section
+> below; the original findings/history are preserved unchanged for the record.
+
 ## Feature plan reviewed
 
 - `plans/ms5-documents-wiki-plan.md` — the approved Milestone 5 plan (ST-1 … ST-12,
@@ -112,6 +122,7 @@ DoS caps); `launch.md` env-var row; `authorization.md` gate cross-link;
 ### NOTE
 
 1. **Stale global shell milestone label (out-of-plan-scope; actionable follow-up).**
+   **[RESOLVED 2026-06-12 — see "Follow-up resolution" below.]**
    `apps/web/app/layout.tsx` still renders Milestone 4 copy in three places — the brand
    eyebrow `"Milestone 4 Content Platform"` (line 29), the metadata description
    (line 14), and the footer `"Built for the Milestone 4 content launch baseline."`
@@ -123,6 +134,7 @@ DoS caps); `launch.md` env-var row; `authorization.md` gate cross-link;
    emitted below. Severity is NOTE (cosmetic copy, no behavioral/security impact).
 
 2. **`authorization.md` gate table lists only the two create/edit write routes.**
+   **[RESOLVED 2026-06-12 — see "Follow-up resolution" below.]**
    `docs/features/authorization.md` line 53 shows `assertDocWriteAccess` covering
    `POST /api/docs` and `POST /api/docs/:id/revisions`, but the same gate also guards
    `PATCH /api/docs/:id`, `DELETE /api/docs/:id`, `POST /api/docs/:id/rollback`, and the
@@ -169,7 +181,82 @@ DoS caps); `launch.md` env-var row; `authorization.md` gate cross-link;
    `docs/features/authorization.md` `assertDocWriteAccess` row to enumerate all gated
    write routes (rename, delete, rollback, lock acquire/release), not only create/edit.
 
+## Follow-up resolution (2026-06-12)
+
+The user directed that both follow-up items from the original CONDITIONAL PASS be
+fixed. The Coordinator implemented and merged each into the coordination base branch
+`ms5` through a full Implementer → Tester → Documenter → Verifier cycle (each
+Verifier verdict: PASS). This reviewer re-verified both **directly against the files
+on this branch**, not on faith and not via verdict labels. Both are **RESOLVED**.
+
+**Follow-up #1 — global web shell refreshed to Milestone 5: RESOLVED.**
+Verified in `apps/web/app/layout.tsx`:
+- Brand eyebrow is now `"Milestone 5 Content Platform"` (line 29).
+- Footer is now `"Built for the Milestone 5 content launch baseline."` (line 46).
+- `metadata.description` (line 14) references Milestone 5 and includes the Documents
+  wiki: `"Documents wiki, community forums, blog, standalone pages, and site
+  navigation for the Star Frontiers US Milestone 5 content platform."`
+- A repository grep for `milestone (3|4|three|four)` over `layout.tsx` returns **no
+  hits** — no stale "Milestone 4"/"Milestone 3" strings remain in the global shell.
+
+Verified in `docs/features/web-shell.md` "Shared shell" section (lines 13–17): it now
+documents the eyebrow `Milestone 5 Content Platform`, the footer `Built for the
+Milestone 5 content launch baseline.`, and the Milestone 5 metadata description —
+matching `layout.tsx` exactly. The earlier "Milestone 3 Content Platform" staleness is
+gone.
+
+Verified in `apps/web/app/public-shell.spec.ts`: the layout assertions now require the
+Milestone 5 eyebrow, footer, and description strings (lines 71–75) and assert that no
+`Milestone 1`–`Milestone 4` strings remain in either `page.tsx` or `layout.tsx`
+(lines 43–45, 76–79).
+
+Scope-hygiene note confirmed: feature-historical "Milestone 3/4" mentions retained in
+`markdown-editor.tsx`, `image-upload.tsx`, `markdown-renderer.tsx`, and feature spec
+headers are intentional (they record when each feature was introduced) and are NOT the
+global shell — correctly left untouched.
+
+Merge evidence on `ms5`: `52cb0cd` (web-shell doc), `acc5e3c` (documenter artifacts),
+`8230dbc` (verifier PASS for the ST-12 shell fix), plus the `layout.tsx` /
+`public-shell.spec.ts` changes.
+
+**Follow-up #2 — `authorization.md` gate table completed: RESOLVED.**
+Verified in `docs/features/authorization.md` line 53: the `DocsService.assertDocWriteAccess`
+row's "Used by" column now enumerates **all seven** gated write routes — `POST /api/docs`,
+`POST /api/docs/:id/revisions`, `PATCH /api/docs/:id`, `DELETE /api/docs/:id`,
+`POST /api/docs/:id/rollback`, `POST /api/docs/:id/lock`, `DELETE /api/docs/:id/lock`.
+
+Cross-checked against `apps/api/src/docs/docs.controller.ts`: each of the seven write
+handlers calls `assertDocWriteAccess` after session resolution — `@Post()` (gate at
+line 188), `@Post(":id/revisions")` (247), `@Patch(":id")` (310), `@Delete(":id")` (366),
+`@Post(":id/rollback")` (537), `@Post(":id/lock")` (589), and `@Delete(":id/lock")` (631).
+Seven routes, seven gate calls — the documented list now matches the code exactly with no
+over- or under-statement.
+
+Merge evidence on `ms5`: `c5bb823` (implementer, doc-only), `e9a516d` (tester),
+`11e91aa` (docs completion), `f8caebb` (documenter artifacts), `56ae6bb` (verifier PASS
+confirming all 7 routes listed).
+
+**No new issues** surfaced during re-verification. The remaining NOTEs (#3
+`DocsTreeItem.hasChildren` hardcoded `false`, and the #4 informational carry-overs)
+were already non-blocking, non-gating, and are unchanged by these resolutions.
+
 ## Final outcome
+
+**PASS.** *(Re-assessed 2026-06-12, upgraded from the original CONDITIONAL PASS.)*
+
+Milestone 5 (Documents Wiki) is feature-complete and correct against
+`plans/ms5-documents-wiki-plan.md`, with all 12 subtasks plus the ST-9-followup delivered,
+all security obligations discharged to final PASS, and full documentation coverage. There
+are **zero blocking and zero warning findings**, and both prior CONDITIONAL conditions are
+now cleared: the stale global-shell milestone label (follow-up #1) and the incomplete
+`authorization.md` gate table (follow-up #2) have each been fixed and merged into `ms5`
+via dedicated I→T→D→V cycles (each Verifier PASS) and independently re-verified here
+against the code/docs. The only remaining NOTEs are minor/cosmetic and informational and
+do not gate the milestone. With no open conditions remaining, the verdict is **PASS**.
+
+---
+
+### Original final outcome (2026-06-11, superseded by the PASS above; retained for record)
 
 **CONDITIONAL PASS.**
 
