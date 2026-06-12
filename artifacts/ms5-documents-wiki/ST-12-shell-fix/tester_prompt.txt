@@ -1,0 +1,46 @@
+Your role is 'tester'. Your task is to update and run the layout-shell assertions in:
+
+  apps/web/app/public-shell.spec.ts
+
+Background
+----------
+The implementer updated apps/web/app/layout.tsx (global web shell) from Milestone 4 to
+Milestone 5. The three specific changes made were:
+
+1. metadata.description:
+   OLD: "Community forums, blog, standalone pages, and site navigation for the Star Frontiers US
+        Milestone 4 content platform."
+   NEW: "Documents wiki, community forums, blog, standalone pages, and site navigation for the
+        Star Frontiers US Milestone 5 content platform."
+
+2. Brand eyebrow:
+   OLD: "Milestone 4 Content Platform"
+   NEW: "Milestone 5 Content Platform"
+
+3. Footer text:
+   OLD: "Built for the Milestone 4 content launch baseline."
+   NEW: "Built for the Milestone 5 content launch baseline."
+
+Your Work
+---------
+Update apps/web/app/public-shell.spec.ts layout-shell assertions as follows:
+
+- Assert the layout source CONTAINS "Milestone 5 Content Platform"
+- Assert the layout source CONTAINS "Built for the Milestone 5 content launch baseline."
+- Assert the layout source CONTAINS the new M5 description string:
+  "Documents wiki, community forums, blog, standalone pages, and site navigation for the Star
+  Frontiers US Milestone 5 content platform."
+- Assert the layout source does NOT contain "Milestone 4" (any occurrence)
+- Assert the layout source does NOT contain "Milestone 3" (any occurrence)
+
+Remove or update any assertions that check for the old Milestone 4 strings.
+
+Run the spec after your changes to confirm all assertions pass.
+
+Allowed files (create/edit only these):
+- apps/web/app/public-shell.spec.ts
+
+Validation: run the spec with vitest or the project test command and confirm all tests pass.
+
+Artifacts: write tester_report.md and tester_result.json to
+artifacts/ms5-documents-wiki/ST-12-shell-fix/
