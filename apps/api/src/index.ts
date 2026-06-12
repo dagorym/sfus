@@ -55,7 +55,7 @@ export const apiBootstrap = async (): Promise<void> => {
      * CSP is irrelevant and the default helmet CSP would interfere with
      * Swagger UI rendering when swaggerEnabled=true.
      *
-     * Swagger UI exception: Swagger UI is conditionally mounted at /api/docs.
+     * Swagger UI exception: Swagger UI is conditionally mounted at /api/swagger.
      * helmet's default CSP blocks Swagger UI inline styles and scripts.
      * Rather than adding Swagger-specific CSP allowances to every response,
      * CSP is omitted entirely from the API (JSON endpoints have no need for
@@ -84,8 +84,8 @@ export const apiBootstrap = async (): Promise<void> => {
         .build();
       const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
 
-      SwaggerModule.setup("api/docs", app, swaggerDocument, {
-        jsonDocumentUrl: "api/docs/openapi.json"
+      SwaggerModule.setup("api/swagger", app, swaggerDocument, {
+        jsonDocumentUrl: "api/swagger/openapi.json"
       });
     }
 
