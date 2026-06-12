@@ -1,0 +1,36 @@
+{
+  "status": "success",
+  "task_id": "authz-doc-fix",
+  "branch_name": "ms5-authzdoc-implementer-20260612",
+  "pass_label": "follow-up-2",
+  "code_commit_hash": "No Changes Made",
+  "changed_files": [],
+  "validation_commands": [
+    "npx --prefix apps/api jest docs"
+  ],
+  "validation_outcome": "No validation run required; no code changes were made. All seven assertDocWriteAccess authorization gates confirmed present in apps/api/src/docs/docs.controller.ts. This is a documentation-only fix.",
+  "task_summary": "Documentation-only fix (Reviewer Follow-up #2). Confirm no code change is needed for the authorization.md gate table gap: assertDocWriteAccess gates 7 write routes but the 'Used by' column in docs/features/authorization.md lists only 2. The full gated route set is verified in code; only the doc table is incorrect.",
+  "acceptance_criteria": [
+    "No product code change is required — assertDocWriteAccess is already called on all 7 write routes in docs.controller.ts.",
+    "Existing test suite passes unchanged.",
+    "Documenter must update docs/features/authorization.md gate table 'Used by' column to list all 7 gated routes."
+  ],
+  "test_location_guidance": [
+    "apps/api/src/docs/docs.controller.test.ts — primary controller test file",
+    "apps/api/src/docs/docs.service.test.ts — service unit tests",
+    "apps/api/src/docs/docs.service.integration.test.ts — integration tests"
+  ],
+  "implementation_context": [
+    "No code was changed. This pass only confirms the existing authorization gates are correct.",
+    "assertDocWriteAccess is called at the top of each write handler in apps/api/src/docs/docs.controller.ts:",
+    "  - POST /api/docs: createPage() line 188",
+    "  - POST /api/docs/:id/revisions: addRevision() line 247",
+    "  - PATCH /api/docs/:id: renamePage() line 310",
+    "  - DELETE /api/docs/:id: softDeletePage() line 366",
+    "  - POST /api/docs/:id/rollback: rollbackPage() line 537",
+    "  - POST /api/docs/:id/lock: acquireLock() line 589",
+    "  - DELETE /api/docs/:id/lock: releaseLock() line 631",
+    "The Documenter must update docs/features/authorization.md gate table 'Used by' column (around line 53) from 'POST /api/docs, POST /api/docs/:id/revisions' to list all 7 routes above."
+  ],
+  "expected_validation_failures": []
+}
