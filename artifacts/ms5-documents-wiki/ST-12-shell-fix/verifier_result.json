@@ -1,0 +1,24 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-12-shell-fix/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-12-shell-fix/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st12shell-verifier-20260612",
+  "documentation_accuracy_summary": [
+    "docs/features/web-shell.md Shared shell section accurately reflects layout.tsx: eyebrow Milestone 5 Content Platform, footer line Built for the Milestone 5 content launch baseline., and metadata description including Documents wiki, community forums, blog, standalone pages, and site navigation for the Star Frontiers US Milestone 5 content platform. All match exactly.",
+    "No stale Milestone 4 or Milestone 3 wording remains in the Shared shell section.",
+    "Feature-historical Milestone 3/4 mentions in markdown-editor.tsx, image-upload.tsx, markdown-renderer.tsx, and spec header comments are correctly untouched \u2014 those are accurate references to when those features were introduced, not global shell strings."
+  ],
+  "note_finding_count": 0,
+  "pass_label": "PASS",
+  "status": "complete",
+  "task_id": "ST-12-shell-fix",
+  "test_sufficiency_summary": [
+    "public-shell.spec.ts directly reads layout.tsx and asserts the exact Milestone 5 eyebrow string (Milestone 5 Content Platform), footer string (Built for the Milestone 5 content launch baseline.), and metadata description (including Documents wiki) are present.",
+    "Tests explicitly assert absence of Milestone 4, 3, 2, and 1 strings in layout.tsx, preventing regression to any older milestone string.",
+    "The spec covers the full shell contract change. Coverage is sufficient for a string-only edit to a single file."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
