@@ -1,0 +1,58 @@
+You are the Verifier Agent for the swagger-path-fix story on branch ms5-swaggerfix-documenter-20260612.
+
+## Task
+Verify that the swagger-path-fix change is correctly implemented, tested, and documented, then report pass/fail with evidence.
+
+## Required Actions
+Continue in the same run — do not stop after activation or scope establishment when blocking inputs are present.
+
+## Branch and Base
+- Worktree branch: ms5-swaggerfix-documenter-20260612
+- Compare against: ms5
+
+## Shared Artifact Directory
+artifacts/ms5-documents-wiki/swagger-path-fix
+
+## Full Modified-File Review Surface
+All files changed by Implementer, Tester, and Documenter across the chain:
+
+### Implementer changes (swagger path relocation)
+- apps/api/src/index.ts — Swagger mounted at api/swagger (was api/docs)
+- docs/operations/launch.md — updated Swagger URL reference
+- docs/development/api-conventions.md — updated Swagger URL reference
+- apps/api/README.md — updated Swagger URL reference
+
+### Tester changes
+- apps/api/src/index.test.ts (or similar) — tests covering the swagger path
+- (check tester_report.md in the artifact directory for the exact list)
+
+### Documenter changes
+- docs/architecture/milestone-1-foundation-decisions.md — amendment sub-bullet appended
+  below the original Milestone-1 Swagger path decision (Framework Baseline section, line ~36)
+
+## What to Verify
+
+1. **Code correctness**: `apps/api/src/index.ts` mounts Swagger at `api/swagger`, not `api/docs`.
+2. **Documentation consistency**: All four docs files updated by the Implementer now reference `/api/swagger`.
+3. **ADR amendment**: `docs/architecture/milestone-1-foundation-decisions.md` retains the original
+   Milestone-1 `/api/docs` line and has an amendment sub-bullet for the Milestone-5 relocation to
+   `/api/swagger`. The original line must NOT have been deleted or overwritten.
+4. **Tests pass**: Check that the test suite references the correct path.
+5. **No namespace collision**: Confirm there is no remaining route or reference that still serves Swagger at `/api/docs`.
+6. **Artifact completeness**: The following artifacts must all exist and be committed in
+   `artifacts/ms5-documents-wiki/swagger-path-fix/`:
+   - implementer_report.md
+   - implementer_result.json
+   - tester_report.md
+   - tester_result.json
+   - documenter_report.md
+   - documenter_result.json
+   - verifier_prompt.txt
+
+## Completion Gate
+Report SUCCESS only when:
+- All required artifacts listed above exist and are committed.
+- The ADR amendment is committed (documentation commit: 5423470c2d6071e4e79b7c6aa10d89cbdb48bc64).
+- All verifiable checks above pass.
+
+Report FAIL with specifics if any check fails or any required artifact is missing.

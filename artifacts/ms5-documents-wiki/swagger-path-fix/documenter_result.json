@@ -1,0 +1,10 @@
+{
+  "status": "success",
+  "story": "swagger-path-fix",
+  "documentation_commit": "5423470c2d6071e4e79b7c6aa10d89cbdb48bc64",
+  "files_changed": [
+    "docs/architecture/milestone-1-foundation-decisions.md"
+  ],
+  "artifact_directory": "artifacts/ms5-documents-wiki/swagger-path-fix",
+  "branch": "ms5-swaggerfix-documenter-20260612"
+}
