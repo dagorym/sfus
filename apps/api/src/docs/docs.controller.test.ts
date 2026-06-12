@@ -471,11 +471,19 @@ describe("DocsController: createPage (ST-3 AC1, AC3, AC4, AC5)", () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it("throws BadRequestException (400) for missing slug in body guard (AC3)", async () => {
+  // AC3 regression: blank slug is no longer a 400 — slug is now optional.
+  it("resolves successfully (201) when slug is blank and title is provided (AC3 auto-derive, G)", async () => {
     const controller = makeWriteController();
-    await expect(
-      controller.createPage(makeFakeRequest(), { title: "T", slug: "  ", body: "b" })
-    ).rejects.toThrow(BadRequestException);
+    const result = await controller.createPage(makeFakeRequest(), { title: "T", slug: "  ", body: "b" });
+    expect(result).toHaveProperty("page");
+    expect(result.page.path).toBe("my-page"); // mock returns makeWriteResult() path "my-page"
+  });
+
+  // G. Controller: omitted slug → 201 (not 400)
+  it("resolves successfully (201) when slug is omitted entirely (G: omitted slug not 400)", async () => {
+    const controller = makeWriteController();
+    const result = await controller.createPage(makeFakeRequest(), { title: "T", body: "b" } as never);
+    expect(result).toHaveProperty("page");
   });
 
   it("propagates ConflictException (409) from service on path_hash collision (AC3)", async () => {
