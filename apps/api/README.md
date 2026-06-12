@@ -7,8 +7,8 @@ NestJS API serving every backend surface under the global `/api` prefix.
 - host-run local port: `3001`; global prefix: `/api`
 - liveness `/api/health/live`; readiness `/api/health/ready` (DB + reviewed-migration checks,
   `503` when not ready)
-- Swagger `/api/docs` (+ `/api/docs/openapi.json`) — on by default outside production, gated
-  by `API_SWAGGER_ENABLED`
+- Swagger `/api/swagger` (+ `/api/swagger/openapi.json`) — on by default outside production,
+  gated by `API_SWAGGER_ENABLED`
 - startup **never** runs migrations; `node dist/index.js migration:run` (or the
   `migration:run` script) is the only schema-application path
 - the process fails fast when any required env variable is missing or invalid

@@ -31,9 +31,10 @@ All other helmet defaults apply (e.g. `X-Content-Type-Options: nosniff`,
 ## Routing & Swagger
 
 - Global prefix `api` — every controller route is served under `/api/...`.
-- Swagger UI at `/api/docs` (+ generated document at `/api/docs/openapi.json`), enabled when
-  `API_SWAGGER_ENABLED` is truthy; the default is on outside production
-  (`nodeEnv !== "production"`).
+- Swagger UI at `/api/swagger` (+ generated document at `/api/swagger/openapi.json`), enabled
+  when `API_SWAGGER_ENABLED` is truthy; the default is on outside production
+  (`nodeEnv !== "production"`). The mount was moved from `/api/docs` to `/api/swagger` to avoid
+  colliding with the Documents wiki API namespace (`/api/docs/*`).
 
 ## Process entrypoint
 

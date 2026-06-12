@@ -160,7 +160,7 @@ curl -fsS http://localhost:3000/health/ready
 | homepage | `http://localhost:3000/` |
 | web live / ready | `http://localhost:3000/health/live` · `/health/ready` (static — no dependency checks) |
 | API live / ready | `http://localhost:3001/api/health/live` · `/api/health/ready` |
-| Swagger (dev) | `http://localhost:3001/api/docs` |
+| Swagger (dev) | `http://localhost:3001/api/swagger` |
 | blog / login / register | `http://localhost:3000/blog` · `/login` · `/register` |
 | admin surfaces | `http://localhost:3000/admin/blog` · `/admin/pages` · `/admin/navigation` (admin role) |
 
