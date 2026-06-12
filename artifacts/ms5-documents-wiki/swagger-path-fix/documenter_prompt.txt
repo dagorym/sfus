@@ -1,0 +1,66 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- RUNTIME BUG FIX: Swagger UI was mounted at api/docs, colliding with the Milestone 5
+  Documents API GET /api/docs wiki index endpoint (which returned Swagger HTML instead of
+  the documents tree JSON).
+- The implementer moved Swagger UI to api/swagger: SwaggerModule.setup is now called with
+  path "api/swagger" and jsonDocumentUrl "api/swagger/openapi.json".
+- The tester updated index.test.ts to assert the new path and added an AC2 regression guard
+  that asserts SwaggerModule.setup is never called with "api/docs".
+- All 1296 @sfus/api tests pass (30 skipped = DB integration tests requiring SFUS_DB_INTEGRATION=1).
+
+Acceptance criteria validated:
+- AC1: SwaggerModule.setup is called with "api/swagger" and jsonDocumentUrl "api/swagger/openapi.json" when swaggerEnabled=true — PASS
+- AC2: Regression guard confirms Swagger is NOT mounted at "api/docs" (unit-level guard) — PASS
+- AC3: Full @sfus/api suite green after test updates — PASS (1296 passed, 30 skipped)
+
+Implementation branch or worktree context:
+- Implementer worktree: /home/tstephen/repos/worktrees/ms5-swaggerfix-implementer-20260612 (branch: ms5-swaggerfix-implementer-20260612)
+- Tester worktree: /home/tstephen/repos/worktrees/ms5-swaggerfix-tester-20260612 (branch: ms5-swaggerfix-tester-20260612)
+- Base branch: ms5
+- To compare the implementation change: git diff ms5..ms5-swaggerfix-implementer-20260612 -- apps/api/src/index.ts
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/index.ts (Implementer: SwaggerModule.setup path changed from api/docs to api/swagger)
+- apps/api/src/index.test.ts (Tester: updated Swagger path assertions and added AC2 regression guard)
+
+Test commit:
+- e96d9ab9c7342cfa543802dadb87e18f2950632d
+
+Commands executed:
+- /home/tstephen/repos/sfus/node_modules/.bin/vitest run --root <worktree>/apps/api src/index.test.ts
+- /home/tstephen/repos/sfus/node_modules/.bin/vitest run --root <worktree>/apps/api
+
+Final test outcomes:
+- index.test.ts: 6/6 passed (including updated AC1 test and new AC2 regression guard)
+- Full @sfus/api suite: 1296 passed, 30 skipped (DB integration), 0 failed
+
+Documentation context:
+- docs/operations/launch.md (~line 163): "Swagger (dev) | http://localhost:3001/api/docs" — update to /api/swagger
+- docs/development/api-conventions.md (~line 34): "Swagger UI at /api/docs (+ .../api/docs/openapi.json)" — update to /api/swagger and /api/swagger/openapi.json
+- apps/api/README.md (~line 10): references /api/docs for Swagger — update to /api/swagger
+- All three docs should note WHY the path changed: /api/docs is now owned by the Documents API
+  wiki index endpoint (GET /api/docs returns the documents tree JSON), so Swagger was moved to
+  /api/swagger to eliminate the collision.
+
+Plan and diff context:
+- Plan file: plans/ms5-documents-wiki-plan.md (the swagger path fix is a runtime bug fix subtask)
+- Shared artifact directory: artifacts/ms5-documents-wiki/swagger-path-fix
+- If the exact plan-path or documentation convention must be inferred, use repository context
+  from docs/README.md and label the choice as an assumption.
+
+Startup behavior:
+- If branch/worktree context and enough story and diff context are present, begin documentation
+  work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details
+  from repository context when repository evidence is sufficient, and label those choices as
+  assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review
+  when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/swagger-path-fix
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
