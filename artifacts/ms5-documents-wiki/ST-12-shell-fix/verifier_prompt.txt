@@ -1,0 +1,49 @@
+Your role is 'verifier'. Your task is as follows:
+
+Task summary:
+- ST-12 shell fix (MS5 follow-on): apps/web/app/layout.tsx updated from Milestone 4 to
+  Milestone 5 branding. Brand eyebrow changed to "Milestone 5 Content Platform", footer
+  changed to "Built for the Milestone 5 content launch baseline.", and metadata description
+  updated to include the Documents wiki and reference Milestone 5. The public-shell.spec.ts
+  layout assertions were correspondingly updated to assert M5 strings. The documenter updated
+  docs/features/web-shell.md "Shared shell" section to match.
+
+Documenter branch / worktree context:
+- Branch: ms5-st12shell-documenter-20260612
+- Documenter worktree: /home/tstephen/repos/worktrees/ms5-st12shell-documenter-20260612
+- Documentation commit: 52cb0cd
+- Base branch: ms5
+
+All files modified across Implementer, Tester, and Documenter stages:
+- apps/web/app/layout.tsx (Implementer: M4->M5 branding strings)
+- apps/web/app/public-shell.spec.ts (Tester: layout assertions updated M4->M5)
+- docs/features/web-shell.md (Documenter: Shared shell section updated to M5 strings)
+
+Artifacts to verify exist and are committed:
+- artifacts/ms5-documents-wiki/ST-12-shell-fix/documenter_report.md
+- artifacts/ms5-documents-wiki/ST-12-shell-fix/documenter_result.json
+- artifacts/ms5-documents-wiki/ST-12-shell-fix/verifier_prompt.txt
+
+Acceptance criteria:
+- AC1: layout.tsx brand eyebrow = "Milestone 5 Content Platform"; footer = "Built for the
+  Milestone 5 content launch baseline."; metadata description references Milestone 5 and
+  includes documents/wiki content type. No "Milestone 4" or "Milestone 3" string remains
+  in layout.tsx. PASS (verified by tester).
+- AC2: public-shell.spec.ts layout-shell assertions updated to Milestone 5 and pass. Full
+  web suite: 873 tests pass, 0 failures. PASS (verified by tester).
+- AC3 (documentation): docs/features/web-shell.md "Shared shell" section matches the
+  current layout.tsx strings exactly. No stale milestone references remain in that section.
+
+Startup behavior:
+- If blocking inputs are present, begin verification immediately and continue in the same run.
+- Do not stop after scope confirmation or diff inspection when verification work can proceed.
+- Infer missing context from repository evidence and label those choices as assumptions.
+
+Completion gate:
+- Do not report success unless:
+  1. The documentation fix in docs/features/web-shell.md exactly matches layout.tsx strings.
+  2. All three documenter artifacts exist: documenter_report.md, documenter_result.json,
+     verifier_prompt.txt.
+  3. All changes (documentation fix + artifacts) are committed on branch
+     ms5-st12shell-documenter-20260612.
+  4. documenter_result.json records the actual documentation commit hash (52cb0cd).
