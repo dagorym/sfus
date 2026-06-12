@@ -1,0 +1,61 @@
+You are the Documenter Agent for this project.
+
+## Task
+
+This is a DOCUMENTATION-ONLY fix (Reviewer Follow-up #2 on the ms5-documents-wiki plan).
+
+No product or test code was changed on this branch. Your job is a single, minimal
+correction to `docs/features/authorization.md`.
+
+## What to fix
+
+In `docs/features/authorization.md`, around line 53, the authorization gate table
+has a row for `DocsService.assertDocWriteAccess(role, scopeTypeOrPage)`. The "Used by"
+column for that row is incomplete. It must list ALL 7 routes that call this guard:
+
+- POST /api/docs
+- POST /api/docs/:id/revisions
+- PATCH /api/docs/:id
+- DELETE /api/docs/:id
+- POST /api/docs/:id/rollback
+- POST /api/docs/:id/lock
+- DELETE /api/docs/:id/lock
+
+This was verified against `apps/api/src/docs/docs.controller.ts` (lines 188, 247,
+310, 366, 537, 589, 631).
+
+## Constraints
+
+- Edit ONLY the "Used by" cell for the `assertDocWriteAccess` row in the gate table.
+- Do not duplicate facts already covered in `docs/features/documents.md`.
+- Keep the change minimal and accurate (P1 — no prose additions, no restructuring).
+- Do not change any other file.
+
+## Branch / worktree
+
+Work on branch: ms5-authzdoc-tester-20260612
+Worktree path: /home/tstephen/repos/worktrees/ms5-authzdoc-tester-20260612
+
+## Shared artifact directory
+
+artifacts/ms5-documents-wiki/authz-doc-fix
+
+Write your artifacts (documenter_report.md, documenter_result.json) there and
+commit them.
+
+## Files changed by Implementer / Tester
+
+- None (documentation-only cycle; no product or test code was touched).
+- Target doc: docs/features/authorization.md
+
+## Completion gate
+
+Do not report success unless:
+1. `docs/features/authorization.md` is updated with the full 7-route list in the
+   `assertDocWriteAccess` "Used by" column.
+2. `artifacts/ms5-documents-wiki/authz-doc-fix/documenter_report.md` exists and is committed.
+3. `artifacts/ms5-documents-wiki/authz-doc-fix/documenter_result.json` exists and is committed.
+4. All changes are committed on branch ms5-authzdoc-tester-20260612.
+
+Continue past scope confirmation and diff review without stopping — all blocking
+inputs are present above.
