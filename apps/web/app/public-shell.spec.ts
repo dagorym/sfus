@@ -67,12 +67,13 @@ describe("public web shell source contracts", () => {
     expect(docsExploreIdx).toBeGreaterThan(-1);
     expect(forumsExploreIdx).toBeGreaterThan(-1);
     expect(docsExploreIdx).toBeLessThan(forumsExploreIdx);
-    // layout.tsx chrome: MS4 shell copy unchanged by ST-12 (only page.tsx was updated to MS5)
-    expect(layoutSource).toContain("Milestone 4 Content Platform");
-    expect(layoutSource).toContain("Built for the Milestone 4 content launch baseline.");
+    // layout.tsx chrome: updated to MS5 branding by ST-12 shell fix
+    expect(layoutSource).toContain("Milestone 5 Content Platform");
+    expect(layoutSource).toContain("Built for the Milestone 5 content launch baseline.");
     expect(layoutSource).toContain(
-      "Community forums, blog, standalone pages, and site navigation for the Star Frontiers US Milestone 4 content platform."
+      "Documents wiki, community forums, blog, standalone pages, and site navigation for the Star Frontiers US Milestone 5 content platform."
     );
+    expect(layoutSource).not.toContain("Milestone 4");
     expect(layoutSource).not.toContain("Milestone 3");
     expect(layoutSource).not.toContain("Milestone 2");
     expect(layoutSource).not.toContain("Milestone 1");
