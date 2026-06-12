@@ -1,0 +1,15 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/authz-doc-fix/documenter_report.md",
+    "artifacts/ms5-documents-wiki/authz-doc-fix/documenter_result.json",
+    "artifacts/ms5-documents-wiki/authz-doc-fix/verifier_prompt.txt"
+  ],
+  "branch_name": "ms5-authzdoc-documenter-20260612",
+  "documentation_commit_hash": "11e91aa",
+  "documentation_files_changed": [
+    "docs/features/authorization.md"
+  ],
+  "pass_label": null,
+  "status": "success",
+  "task_id": "authz-doc-fix"
+}
