@@ -1,0 +1,83 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- The Implementer changed POST /api/docs (createPage) so that `slug` is now optional in CreateDocPageInput.
+  When slug is omitted or blank, the service auto-derives a URL-safe slug from the title:
+  lowercase, non-alphanumeric runs replaced with a single hyphen, leading/trailing hyphens stripped,
+  fallback to "page" when no alphanumeric characters remain.
+  If the derived path already exists in the same scope, a numeric suffix (-2, -3, ...) is appended
+  until the path is unique (checked inside the transaction for race safety).
+  The explicit-slug path is unchanged: explicit slugs are validated and return 409 on collision.
+- The Tester removed two stale 400-rejection assertions, replaced them with success assertions,
+  and added 12 new tests covering all auto-derivation behaviors (A-G). All 1306 tests pass.
+
+Acceptance criteria validated:
+- A: omitted slug → resolves with derived path (title "Hello World" → path "hello-world")
+- B: blank slug → resolves with derived path (same algorithm as omitted)
+- C: slug collision → -2 suffix appended; both creates succeed with distinct paths
+- D: degenerate title (no alphanumerics, e.g. "!!!") → fallback slug "page"; second page with same title → "page-2"
+- E: explicit slug preserved as-is; second call with same explicit slug → ConflictException (409)
+- F: derived slug under a parent path → "parent/child-page" with correct depth
+- G (controller): omitted slug → 201 success (not 400)
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms5-docslug-tester-20260612
+- Branch: ms5-docslug-tester-20260612
+- Implementer commit: 544f3d4 ("feat(docs): auto-derive slug from title when POST /api/docs omits slug")
+- Tester commit: 02c4609 ("test(docs): add slug auto-derivation coverage and fix stale blank-slug assertions")
+- This branch is ahead of ms5 (the coordination branch for the ms5-documents-wiki plan).
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/docs/docs.types.ts       (CreateDocPageInput.slug changed from required to optional)
+- apps/api/src/docs/docs.controller.ts  (removed slug validation guard; comment added)
+- apps/api/src/docs/docs.service.ts     (createPage: added derive-and-suffix logic)
+- apps/api/src/docs/docs.controller.test.ts  (Tester: stale test replaced, G tests added)
+- apps/api/src/docs/docs.service.test.ts     (Tester: stale test replaced, A-F tests added)
+
+Test commit:
+- 02c4609
+
+Commands executed:
+- pnpm --filter @sfus/api test (1306 passed, 30 skipped integration tests)
+- pnpm --filter @sfus/api lint (PASS, 0 warnings)
+- pnpm --filter @sfus/api typecheck (PASS, no errors)
+
+Final test outcomes:
+- 1306 tests passed, 0 failed, 30 skipped (integration tests require DB_INTEGRATION env)
+- Lint: clean
+- Typecheck: clean
+
+Documentation context:
+- PRIMARY FILE: docs/features/documents.md
+  - POST /api/docs request-body table (~line 172): change the `slug` row from required ("yes")
+    to optional ("no" or "optional"). Update the description to read something like:
+    "Optional. URL slug (a-z, 0-9, hyphen, 1-255 chars). When omitted or blank, auto-derived
+    from the title (lowercase, non-alphanumeric runs -> single hyphen, leading/trailing hyphens
+    stripped, fallback to 'page' for no-alphanumeric titles). Collision-safe: numeric suffix
+    (-2, -3, ...) appended when the path already exists in this scope."
+  - Update any surrounding prose that describes the create-page request body to document
+    the auto-derivation behavior and collision-suffixing.
+  - Reconcile any other place in the documents.md that states slug is required for the
+    docs create endpoint.
+
+Plan and diff context:
+- Plan file: plans/ms5-documents-wiki-plan.md (consult for overall MS5 context)
+- Base for diff: ms5 branch (this subtask's coordination base)
+  - The implementer branch/tester branch is ahead of ms5 by 2 commits (implementer + tester)
+- Infer any missing documentation conventions from existing docs/features/ files (e.g., blog.md,
+  forums.md) to maintain consistent table and prose style.
+
+Startup behavior:
+- Blocking inputs (files, branch context, documentation target) are all present.
+  Begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details
+  from repository context when repository evidence is sufficient, and label those choices
+  as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review
+  when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/docs-slug-autoderive
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
