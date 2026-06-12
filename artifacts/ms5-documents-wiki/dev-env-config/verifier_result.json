@@ -1,0 +1,24 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/dev-env-config/verifier_report.md",
+    "artifacts/ms5-documents-wiki/dev-env-config/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-devenv-verifier-20260612",
+  "documentation_accuracy_summary": [
+    "docs/operations/launch.md line 88 row is accurate: optional, default 30, integer 1-1440, soft-lock TTL description.",
+    "Documenter confirmed no change was needed; the row was already present and correct prior to this subtask.",
+    "The .env.example comment block and launch.md row are consistent with environment.ts implementation."
+  ],
+  "note_finding_count": 0,
+  "pass_label": "PASS",
+  "status": "complete",
+  "task_id": "ms5-st6-dev-env-config",
+  "test_sufficiency_summary": [
+    "environment.test.ts 17/17 pass; test coverage for DOCS_LOCK_TTL_MINUTES includes: absent (default 30), valid integer, boundary min=1, boundary max=1440, above-max error, below-min error, non-integer error.",
+    "Full @sfus/api suite: 1295 passed, 30 skipped (integration tests); no regressions.",
+    "Coverage is sufficient for the scope of this config-only change; no new tests required."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}
