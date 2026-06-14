@@ -1,0 +1,45 @@
+{
+  "status": "success",
+  "task_id": "ST-9-followup",
+  "task_summary": "ST-9 carry-over defect fix (ms5-documents-wiki): getDocDiff in apps/web/app/docs/docs-client.ts now surfaces the friendly 'too large to compare' message directly when the diff endpoint returns 400, instead of the raw API message. Documentation was already accurate — docs/features/documents.md already described the friendly diff-size-cap message behavior.",
+  "branch_name": "ms5-st9fix-documenter-20260611",
+  "documentation_commit_hash": "none — no documentation changes required; docs/features/documents.md was already accurate",
+  "documentation_files_changed": [],
+  "commands_run": [
+    "Read docs/features/documents.md — verified diff-size-cap friendly-message behavior already documented",
+    "Read apps/web/app/docs/docs-client.ts — confirmed getDocDiff 400 branch now throws hardcoded friendly message matching documentation",
+    "Diff analysis: implementer commit 9eda14b is an internal behavior correction aligning code to already-documented intent"
+  ],
+  "final_test_outcomes": [
+    "PASS: docs-client-history.spec.ts 36/36 (tester verified: 'throws a too large to compare error on 400' now GREEN)",
+    "PASS: docs web suite 7 files / 298 tests — no regressions",
+    "PASS: broader web suite 856 tests pass",
+    "PASS: lint and next build clean"
+  ],
+  "assumptions": [
+    "No documentation change needed: docs/features/documents.md already accurately describes the friendly diff-size-cap message behavior (DocsHistoryPage section, line ~714, and docs-client.ts table row for getDocDiff)",
+    "No new in-code documentation required: existing JSDoc on getDocDiff already states 'Throws on 400 (size cap exceeded — surfaces a friendly message)'"
+  ],
+  "acceptance_criteria": [
+    "getDocDiff throws a friendly 'too large to compare' message (not a raw API error) when the server returns 400",
+    "docs/features/documents.md accurately reflects this behavior",
+    "All docs web tests pass including the previously-red ST-9 test"
+  ],
+  "implementation_context": [
+    "Branch: ms5-st9fix-documenter-20260611 (carries implementer commit 9eda14b and tester artifacts)",
+    "Implementer branch: ms5-st9fix-implementer-20260611 (code commit 9eda14b)",
+    "Tester branch: ms5-st9fix-tester-20260611 (no test changes — existing tests already covered the behavior)"
+  ],
+  "all_modified_files": [
+    "apps/web/app/docs/docs-client.ts (implementer: getDocDiff 400 branch now throws hardcoded friendly message)"
+  ],
+  "plan_context": [
+    "Plan: plans/ms5-documents-wiki-plan.md (ST-9 carry-over defect fix)",
+    "Fix: internal behavior correction — code now matches the already-documented intent in docs/features/documents.md",
+    "No new feature — no new documentation required"
+  ],
+  "convention_guidance": [
+    "docs/README.md routing table: per-subsystem contracts live in docs/features/; Documents wiki covered by docs/features/documents.md",
+    "docs/features/documents.md was already accurate; no update needed"
+  ]
+}

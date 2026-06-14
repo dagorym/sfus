@@ -10,11 +10,11 @@ bar · [launch](../operations/launch.md) for web env vars
 
 ## Shared shell
 
-`apps/web/app/layout.tsx` renders the header (eyebrow `Milestone 3 Content Platform`, brand
+`apps/web/app/layout.tsx` renders the header (eyebrow `Milestone 5 Content Platform`, brand
 `Star Frontiers US`), the dynamic [navigation](navigation.md) bar, and the footer
-(`Star Frontiers US · Public foundation shell` / `Built for the Milestone 3 content launch
-baseline.`). Site metadata description: `Blog, standalone pages, and site navigation for the
-Star Frontiers US Milestone 3 content platform.`
+(`Star Frontiers US · Public foundation shell` / `Built for the Milestone 5 content launch
+baseline.`). Site metadata description: `Documents wiki, community forums, blog, standalone
+pages, and site navigation for the Star Frontiers US Milestone 5 content platform.`
 
 Styling stays on the locked baseline: CSS Modules per component/page plus global CSS
 custom-property tokens in `app/globals.css`. Branded `404` (`not-found.tsx`) and runtime
@@ -36,8 +36,10 @@ error surface (`error.tsx`) are part of the shell.
 | `/forums/[boardSlug]` | public | board view — 4-column topic table (Topic / Replies / Created / Last reply); paginated 20/page; see [forums](forums.md#web-surfaces-st16) |
 | `/forums/[boardSlug]/[topicSlug]` | public | topic view (paginated posts, reply form, moderation controls); see [forums](forums.md#web-surfaces-st16) |
 | `/forums/[boardSlug]/new-topic` | session | create-topic form; guests redirected to `/login?next=<path>`; see [forums](forums.md#web-surfaces-st16) |
+| `/docs` | public | Documents wiki index — shows site root page tree; see [documents](documents.md#web-surface-st-7) |
+| `/docs/<path>` | public | Documents wiki catch-all page view with breadcrumbs and sanitized Markdown body; see [documents](documents.md#web-surface-st-7) |
 | `/users/<username>` | public | minimal public profile (five fields only: username, displayName, avatar, bio, joinDate); fetches `GET /api/users/:username`; 404 renders a "not found" message; avatar via `UserAvatar` (see below) |
-| `/admin` | admin | dashboard landing page — links to all four admin sections; requires `admin` role (see below) |
+| `/admin` | admin | dashboard landing page — links to all five admin sections; requires `admin` role (see below) |
 | `/admin/blog[...]`, `/admin/pages[...]`, `/admin/navigation`, `/admin/forums` | admin | client-gated admin management; the API role checks are the enforcement boundary |
 | `/health/live`, `/health/ready` | public | static JSON `{ status: "ok", service: "web", check: "live" \| "ready" }` — **no dependency checks**; web readiness says nothing about API/DB health |
 
@@ -65,37 +67,43 @@ protected by the API, not by the page.
 
 1. Calls `resolveProtectedSession("/admin")` on mount; no session → redirect to `/login?next=/admin`; `onboardingRequired` → redirect to `/onboarding/username`.
 2. Checks `hasGlobalRole(session.user, "admin")`; non-admin authenticated sessions receive an "Admin access required." error panel.
-3. On success, renders a dashboard with four labelled section links and short descriptions:
+3. On success, renders a dashboard with five labelled section links and short descriptions:
    - **Blog** (`/admin/blog`) — manage blog posts
    - **Pages** (`/admin/pages`) — manage standalone pages
    - **Navigation** (`/admin/navigation`) — configure site navigation items
    - **Forums** (`/admin/forums`) — manage forum categories and boards
+   - **Documents** (`/docs`) — manage wiki pages: create, edit, lock, and roll back pages in the public docs area
 
 **Navigation entry:** `apps/web/components/navigation.tsx` renders an `Admin` nav link to `/admin` only when a session is present, `session.user.onboardingRequired` is `false`, and `hasGlobalRole(session.user, "admin")` is `true`. The link is absent for guest, onboarding, and non-admin member sessions. The link receives the active-link style when the pathname is `/admin` or starts with `/admin/`.
 
 ## Landing page
 
-`apps/web/app/page.tsx` is a server component (no fetches/effects) refreshed for Milestone 4
+`apps/web/app/page.tsx` is a server component (no fetches/effects) refreshed for Milestone 5
 with five sections:
 
-1. **Hero** — primary CTA "Visit the forums" → `/forums`; secondary CTA "Read the blog" →
-   `/blog`. The hero copy describes Milestone 4: community forums, @mentions with public member
-   profiles, member avatars, and anti-spam rate limiting built on top of the earlier content
-   milestones. No "Milestone 3" text remains.
-2. **Highlights grid** — six cards: Community forums, Blog with threaded comments, Standalone
-   pages and revision history, Dynamic navigation and media uploads, Public member profiles and
-   avatars, Anti-spam and rate limiting.
-3. **"What's new in Milestone 4"** — two-column layout:
+1. **Hero** — primary CTA "Browse the wiki" → `/docs`; secondary CTA "Visit the forums" →
+   `/forums`. The hero copy describes Milestone 5: a full Documents wiki with hierarchical page
+   tree, breadcrumb navigation, per-edit revision history, side-by-side diffs, rollback, and
+   soft locking, built on top of the earlier milestone content.
+2. **Highlights grid** — six cards: Documents wiki (first), Community forums, Blog with
+   threaded comments, Standalone pages and revision history, Dynamic navigation and media
+   uploads, Public member profiles and avatars.
+3. **"What's new in Milestone 5"** — two-column layout:
+   - _Recent document activity_ column: `RecentDocActivity` client component
+     (`apps/web/components/recent-doc-activity.tsx`) fetches up to 5 recent doc edits via
+     `getRecentDocEdits(5)` (`GET /api/docs/recent`); loading / "No document activity yet." /
+     non-fatal "Could not load recent document activity." states; "Browse the wiki →" link at
+     `/docs`. Page paths in links come directly from the API response.
    - _Recent forum activity_ column: `RecentForumActivity` client component
      (`apps/web/components/recent-forum-activity.tsx`) fetches up to 5 topics via
      `listRecentTopics({ limit: 5 })` (`GET /api/forums/recent`); loading / "No forum activity
      yet." / non-fatal "Could not load recent forum activity." states; "View the forums →" link
      at `/forums`. Board and topic slugs in links are `encodeURIComponent`-encoded.
-   - _Recent posts_ column: `RecentPostsFeed` client component (unchanged; loading / "No posts
-     yet." / non-fatal "Could not load recent posts." states); "View all posts →" link at `/blog`.
-4. **Explore section** — forums entry (first), blog index, about, navigation admin, and member
-   profiles. No `dangerouslySetInnerHTML` anywhere; all text is React text nodes.
-5. **Runtime notes** — two meta cards: frontend-to-API contract and current content scope.
+4. **Explore section** — Documents wiki entry (first), then forums, blog index, about,
+   navigation admin, and member profiles. No `dangerouslySetInnerHTML` anywhere; all text is
+   React text nodes.
+5. **Runtime notes** — two meta cards: frontend-to-API contract and current content scope
+   (Documents wiki, forums, blog, standalone pages, navigation, and media).
 
 The `/about` link targets the top-level catch-all route; if no `about` page is published it
 resolves to a "not published" message by design.

@@ -1,0 +1,52 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Implements ST-4: PATCH /api/docs/:id (rename with atomic subtree path rewrite) and DELETE /api/docs/:id (soft-delete with 409 on non-deleted children). Also fixes the resolveParent parentId-branch asymmetry carried forward from ST-3 verifier.
+
+Modified files:
+- apps/api/src/docs/docs.service.ts
+- apps/api/src/docs/docs.controller.ts
+- apps/api/src/docs/docs.types.ts
+
+Acceptance criteria to validate (from Planner):
+- AC1: Slug rename rewrites page and all descendants path/path_hash in a single transaction; mid-rewrite failure leaves all paths at pre-rename values (schema-enforced integration proof, P10).
+- AC2: Title-only rename does not alter any path/path_hash.
+- AC3: Soft-deleting a leaf page sets status=deleted, preserves revisions, removes page from all public reads.
+- AC4: Soft-deleting a page with non-deleted children returns 409 with a clear message; no partial state.
+- AC5: Both PATCH and DELETE routes are gated by assertDocWriteAccess (staff-only for site scope).
+
+Create test files in:
+- Unit tests: apps/api/src/docs/docs.service.test.ts (add new describe blocks for renamePage and softDeletePage)
+- Controller tests: apps/api/src/docs/docs.controller.test.ts (add PATCH :id and DELETE :id route tests)
+- Integration spec: apps/api/src/docs/docs.service.integration.test.ts (extend with atomicity proof for rename and 409 for delete-with-children; gated on SFUS_DB_INTEGRATION=1)
+- Note: also fix cleanupThrowawayRows in apps/api/src/pages/integration-test-support.ts to clean up docs_pages/docs_revisions rows created by docs integration tests (ST-3 carry-forward hygiene)
+
+Implementation context for testing:
+- renamePage (docs.service.ts): when slug changes, derives new path = parent_prefix/new_slug, checks path_hash collision inside transaction, updates page row, then scans descendants via LIKE prefix on the transaction entity manager and updates each descendant path/path_hash. Title-only: only updates the title column.
+- softDeletePage (docs.service.ts): loads page, counts non-deleted children (status=published, parentId=pageId). 409 if count > 0. Otherwise sets status=deleted; revisions untouched.
+- resolveParent fix (docs.service.ts): parentId branch now adds status=published filter — parity with by-parentPath branch. Prevents creating children under soft-deleted parents.
+- PATCH :id controller (docs.controller.ts): calls resolveSession (401), assertDocWriteAccess (403), then docsService.renamePage. Returns 200 {page}.
+- DELETE :id controller (docs.controller.ts): calls resolveSession (401), assertDocWriteAccess (403), then docsService.softDeletePage. Returns 204 No Content.
+- RenameDocPageInput (docs.types.ts): { slug?: string; title?: string } — at least one must be provided.
+- Both routes throttled via ThrottleGuard with THROTTLE_LABEL_DOC_EDIT label.
+- Descendant rewrite is done in-process (load all matching the oldPath/ prefix, then update each) to stay within TypeORM transaction boundaries and be MySQL 5.7.44 compatible.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec tsc -p tsconfig.json
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-4
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

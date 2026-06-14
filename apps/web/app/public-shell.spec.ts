@@ -37,12 +37,15 @@ describe("public web shell source contracts", () => {
 
     expect(pageSource).toContain("Chart the next frontier for Star Frontiers US.");
     expect(pageSource).toContain("Public Landing Experience");
-    // MS4 copy: no Milestone 2 or Milestone 3 references remain; MS4 capabilities are described
+    // MS5 copy: no stale Milestone 2, 3 or 4 labels remain in page.tsx
+    // (approved behavior change: MS4 landing copy replaced by MS5 copy per ST-12)
     expect(pageSource).not.toContain("This Milestone 2 foundation delivers");
     expect(pageSource).not.toContain("Milestone 2");
     expect(pageSource).not.toContain("Milestone 3");
-    expect(pageSource).toContain("Milestone 4");
-    // MS4: /forums, /blog and /about links are visible on the homepage
+    expect(pageSource).not.toContain("Milestone 4");
+    expect(pageSource).toContain("Milestone 5");
+    // MS5: /docs, /forums, /blog and /about links are visible on the homepage
+    expect(pageSource).toContain('href="/docs"');
     expect(pageSource).toContain('href="/forums"');
     expect(pageSource).toContain('href="/blog"');
     expect(pageSource).toContain('href="/about"');
@@ -51,12 +54,26 @@ describe("public web shell source contracts", () => {
     // page.tsx remains a server component — no fetch() or useEffect at top level
     expect(pageSource).not.toMatch(/\bfetch\s*\(/);
     expect(pageSource).not.toContain("useEffect(");
-    // MS4 shell copy: layout.tsx chrome must use updated MS4 strings with no older-milestone remnants
-    expect(layoutSource).toContain("Milestone 4 Content Platform");
-    expect(layoutSource).toContain("Built for the Milestone 4 content launch baseline.");
+    // MS5: RecentDocActivity imported and rendered in what's-new section
+    expect(pageSource).toContain("RecentDocActivity");
+    expect(pageSource).toContain("recent-doc-activity");
+    // MS5: What's new heading references Milestone 5
+    expect(pageSource).toContain("Milestone 5");
+    // MS5: Documents wiki highlight card present in highlights grid
+    expect(pageSource).toContain("Documents wiki");
+    // MS5: /docs explore entry appears before /forums in explore section
+    const docsExploreIdx = pageSource.indexOf('href="/docs"');
+    const forumsExploreIdx = pageSource.indexOf('href="/forums"');
+    expect(docsExploreIdx).toBeGreaterThan(-1);
+    expect(forumsExploreIdx).toBeGreaterThan(-1);
+    expect(docsExploreIdx).toBeLessThan(forumsExploreIdx);
+    // layout.tsx chrome: updated to MS5 branding by ST-12 shell fix
+    expect(layoutSource).toContain("Milestone 5 Content Platform");
+    expect(layoutSource).toContain("Built for the Milestone 5 content launch baseline.");
     expect(layoutSource).toContain(
-      "Community forums, blog, standalone pages, and site navigation for the Star Frontiers US Milestone 4 content platform."
+      "Documents wiki, community forums, blog, standalone pages, and site navigation for the Star Frontiers US Milestone 5 content platform."
     );
+    expect(layoutSource).not.toContain("Milestone 4");
     expect(layoutSource).not.toContain("Milestone 3");
     expect(layoutSource).not.toContain("Milestone 2");
     expect(layoutSource).not.toContain("Milestone 1");

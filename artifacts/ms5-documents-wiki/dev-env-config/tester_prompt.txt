@@ -1,0 +1,45 @@
+Your role is 'tester'. Your task is as follows:
+
+Verify that the `DOCS_LOCK_TTL_MINUTES` addition to the API .env templates is
+correct and consistent with the code and documentation, and that the full test
+suite remains green.
+
+## Modified Files
+
+- `apps/api/.env.example` — new Documents wiki block added before the Database block
+- `apps/api/.env` — new `DOCS_LOCK_TTL_MINUTES=30` line added after the Milestone 4 throttle block
+
+## Acceptance Criteria
+
+1. `DOCS_LOCK_TTL_MINUTES` appears in both `apps/api/.env.example` and `apps/api/.env` with value `30`.
+2. The variable name, default (30), and range (1–1440) in the .env templates are exactly consistent with:
+   - `apps/api/src/config/environment.ts` (`parseOptionalInteger` call with `{ min: 1, max: 1440, defaultValue: 30 }`)
+   - `docs/operations/launch.md` (table row for `DOCS_LOCK_TTL_MINUTES`)
+3. The block style in `.env.example` matches the existing Milestone 3 / Milestone 4 grouped blocks (comment header, description with range/default, assignment).
+4. No code files were changed; this is a template-only change.
+5. The full API test suite passes, including the env-parsing tests at `apps/api/src/config/environment.test.ts`.
+
+## Test File Location
+
+- Primary: `apps/api/src/config/environment.test.ts` (17 tests, all covering `DOCS_LOCK_TTL_MINUTES` scenarios as added by ST-6)
+
+## Validation Commands
+
+```
+pnpm --filter ./apps/api run lint
+pnpm --filter ./apps/api run typecheck
+pnpm --filter ./apps/api exec vitest run src/config/environment.test.ts
+pnpm --filter ./apps/api run test
+```
+
+## Implementation Context
+
+- No behavioral code was changed. `environment.ts` already has the `parseOptionalInteger` call for `DOCS_LOCK_TTL_MINUTES`; the templates were simply missing the var.
+- The var is optional with a built-in default of 30, so the API boots correctly even if the var is absent — the template addition is for developer clarity and full-stack compose correctness.
+- The full-stack compose API service reads `apps/api/.env` via `env_file`, so adding the var there ensures the compose environment also sees the explicit value.
+- No compose file changes are needed (no override required for this optional var).
+- Note: the repo does not currently have a test asserting `.env.example` completeness vs the env schema. Adding such a test would be beneficial but is not required for this subtask.
+
+## Shared Artifact Directory
+
+`artifacts/ms5-documents-wiki/dev-env-config/`

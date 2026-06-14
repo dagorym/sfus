@@ -1,0 +1,9 @@
+{
+  "status": "pass",
+  "documentationCommit": "fed0ff0",
+  "filesModified": [
+    "docs/features/documents.md"
+  ],
+  "artifactDir": "artifacts/ms5-documents-wiki/ST-4",
+  "notes": "Added PATCH /api/docs/:id (rename with atomic subtree path rewrite), DELETE /api/docs/:id (soft-delete with children guard), and parent-resolution note. Cross-parent move explicitly noted as deferred. All claims verified against implementation source."
+}

@@ -1,0 +1,29 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-3/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-3/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st3-verifier-20260610",
+  "documentation_accuracy_summary": [
+    "SUFFICIENT. docs/features/documents.md adds a complete Write API contract: single-gate authorization, 401-before-403 ordering, moderator/admin requirement, write-path oracle parity (404), slug/title validation rules, both throttle labels (doc-page-create, doc-page-edit), P10 transactional atomicity, full request/response/error tables, DocWriteResultShape shape, and module wiring.",
+    "docs/features/authorization.md adds DocsService.assertDocWriteAccess to the gate table with the correct scope-type annotation and extensibility note, and cross-links to documents.md.",
+    "docs/development/testing.md adds section 6 for the DocsService DB integration spec with correct run instructions and opt-in gate description.",
+    "No documentation defects identified. All documented behavior matches the implementation."
+  ],
+  "note_finding_count": 3,
+  "pass_label": "CONDITIONAL PASS",
+  "status": "completed",
+  "task_id": "ms5-ST-3",
+  "test_sufficiency_summary": [
+    "PASS for AC1 (createPage): transaction integrity verified with em.save\u00d72 + em.update\u00d71 spy checks; path derivation for nested pages; returned shape including revisionNumber=1 and currentRevisionId.",
+    "PASS for AC2 (addRevision): revision bump to #2 (and defensive null-last-revision path for #1), new currentRevisionId distinct from old, 404 oracle parity for nonexistent and deleted pages.",
+    "PASS for AC3 (validation and collision): empty slug, invalid chars, >255 slug, empty title, >255 title, missing-parent 400, path_hash collision 409 \u2014 all covered.",
+    "PASS for AC4 (throttle attachment and module wiring): ThrottleGuard decorators verified by source; docs-module.test.ts verifies imports array length includes ThrottleModule/AuthModule via the fakeEnvironment pattern. Metadata-reflection assertion absent (NOTE finding).",
+    "PASS for AC5 (assertDocWriteAccess single gate): null/undefined/'user' \u2192 403; moderator/admin \u2192 pass; deny-by-default on unknown scope; DocsPageEntity overload; hasGlobalRole routing; controller invocation ordering (assertSpy before createPage/addRevision); 401 propagation.",
+    "WARNING for P10 (atomicity injection): The dedicated mid-sequence failure test substitutes a fake manager and exercises no real DB transaction. Real-schema tests (createPage, duplicate, addRevision) do exercise the real manager.transaction when SFUS_DB_INTEGRATION=1 is set, but those do not inject failures. Rollback is not demonstrated by any executed test. Product code is correct.",
+    "Integration suite (8 tests) skips cleanly without SFUS_DB_INTEGRATION=1, consistent with the repo's DB-gated integration convention. The suite is not included in the test:integration script \u2014 documented in testing.md as a direct vitest invocation."
+  ],
+  "verdict": "CONDITIONAL PASS",
+  "warning_finding_count": 1
+}

@@ -1,0 +1,54 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Final Reviewer Follow-up #2: complete the assertDocWriteAccess gate-table row in docs/features/authorization.md to list all seven routes gated by that function (POST /api/docs, POST /api/docs/:id/revisions, PATCH /api/docs/:id, DELETE /api/docs/:id, POST /api/docs/:id/rollback, POST /api/docs/:id/lock, DELETE /api/docs/:id/lock).
+
+Acceptance criteria to verify:
+- docs/features/authorization.md gate table 'Used by' cell for assertDocWriteAccess lists all seven routes: POST /api/docs, POST /api/docs/:id/revisions, PATCH /api/docs/:id, DELETE /api/docs/:id, POST /api/docs/:id/rollback, POST /api/docs/:id/lock, DELETE /api/docs/:id/lock.
+- No other rows, sections, or files were changed.
+- Documentation commit 11e91aa is on branch ms5-authzdoc-documenter-20260612.
+- All three artifacts (documenter_report.md, documenter_result.json, verifier_prompt.txt) exist and are committed.
+
+Implementation branch or worktree context:
+- Branch: ms5-authzdoc-documenter-20260612 (branched from ms5-authzdoc-tester-* / ms5)
+- Worktree: /home/tstephen/repos/worktrees/ms5-authzdoc-documenter-20260612
+- Documentation commit: 11e91aa
+- No code changes — documentation-only fix.
+
+Files modified by the Implementer, Tester, and Documenter:
+- docs/features/authorization.md
+
+Commands executed:
+- Read docs/features/authorization.md (confirmed incomplete gate-table row at line 53)
+- Read apps/api/src/docs/docs.controller.ts (verified all seven write routes call assertDocWriteAccess)
+- Edit docs/features/authorization.md (minimal single-cell update to gate table Used-by column)
+- git add docs/features/authorization.md
+- git commit (doc hash: 11e91aa)
+
+Final test outcomes:
+- No test changes required; purely a documentation correction.
+- All seven assertDocWriteAccess call sites in docs.controller.ts verified against the updated table.
+
+Plan or evaluation context guidance:
+- This is Final Reviewer Follow-up #2 for ms5-documents-wiki.
+- The only required change is the gate-table Used-by column for assertDocWriteAccess.
+- Shared artifact directory: artifacts/ms5-documents-wiki/authz-doc-fix
+
+Convention-file guidance:
+- docs/features/ contains per-subsystem contracts; authorization.md owns the gate-table.
+- diff-first editing: change only the affected cell, preserve all surrounding structure.
+- Per-route detail already lives in documents.md; do not duplicate it here.
+
+Updated documentation files:
+- docs/features/authorization.md
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/authz-doc-fix
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

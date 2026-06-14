@@ -1,0 +1,12 @@
+{
+  "status": "pass",
+  "documentation_commit": "06f6b7d973e1fa0244ae8212c7c2e391d972db5a",
+  "files_changed": [
+    "docs/features/documents.md"
+  ],
+  "files_checked_no_change": [
+    "docs/guides/content-management.md"
+  ],
+  "summary": "Updated docs/features/documents.md to document optional slug with auto-derivation and collision-safe suffixing for POST /api/docs. Changed slug row Required from yes to no, added full description of auto-derive algorithm and numeric suffixing, clarified 400 applies to explicit slug only, updated 409 row to note explicit-only collision, and added note that validateSlug is bypassed for auto-derived slugs. PATCH rename contract unchanged.",
+  "blocking": false
+}

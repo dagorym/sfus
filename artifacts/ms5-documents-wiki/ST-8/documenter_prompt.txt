@@ -1,0 +1,60 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST-8: Staff-gated authoring surface in public /docs area. DocsNewPage (/docs/new) and DocsEditPage (/docs/edit/[...path]) forms wired to ST-3 create/edit, ST-4 rename, ST-6 lock endpoints. Extended docs-client.ts with write helpers (createDocPage, addDocRevision, renameDocPage, acquireDocLock, releaseDocLock). Lock acquire/release UX with 409 holder/expiry messaging from error.details. Client-side staff gate via hasGlobalRole (defense-in-depth); server gate authoritative.
+- Testing added: docs-new-page.spec.ts (34 tests), docs-edit-page.spec.ts (56 tests), docs-client.spec.ts extended with 38 write-helper tests (75 total). All 772 tests pass in the worktree run; 2 test files blocked by worktree env artifact (missing node_modules / React not found — not ST-8 defects).
+
+Acceptance criteria validated:
+- AC1: A staff user can create a page (optionally under a parent) and edit an existing page from /docs, producing a new revision.
+- AC2: Acquiring a lock shows a clear indicator; editing while another holds an active lock surfaces the 409 holder/expiry message from error.details; release works.
+- AC3: A non-staff user cannot reach the authoring UI (client gate); a forced API call still fails at the server gate (assertDocWriteAccess → 403). The server gate is authoritative — client gate behavior verified with rendering specs.
+- AC4: next build and lint pass; authoring components are generic (no UI rewrite needed to switch server gate from staff to members).
+
+Implementation branch or worktree context:
+- Branch: ms5-st8-tester-20260611
+- Worktree: /home/tstephen/repos/worktrees/ms5-st8-tester-20260611
+- Compare against ms5 (or the implementer branch ms5-st8-implementer-20260611) to see the full ST-8 diff
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/docs/new/page.tsx (DocsNewPage — new file)
+- apps/web/app/docs/edit/[...path]/page.tsx (DocsEditPage — new file)
+- apps/web/app/docs/docs-client.ts (write helpers added)
+- apps/web/app/docs/docs.module.css (form and lock styles added)
+- apps/web/app/docs/[...path]/page.tsx (staff affordances: Edit/History/Acquire lock links)
+- apps/web/app/docs/docs-new-page.spec.ts (tester — new file)
+- apps/web/app/docs/docs-edit-page.spec.ts (tester — new file)
+- apps/web/app/docs/docs-client.spec.ts (tester — extended)
+
+Test commit:
+- 3e24a8a
+
+Commands executed:
+- /home/tstephen/repos/sfus/node_modules/.bin/vitest run --root /home/tstephen/repos/worktrees/ms5-st8-tester-20260611/apps/web
+- npx --yes pnpm@10.0.0 lint (main repo)
+
+Final test outcomes:
+- 772 tests pass; 0 failures from test logic
+- 2 test files blocked by worktree env (React module not found — pre-existing issue, not ST-8)
+- AC1-AC4 all verified by source-audit and behavioral specs
+
+Documentation context:
+- docs/features/documents.md is the canonical docs feature spec — update to cover: /docs/new (create page form), /docs/edit/<path> (edit page form), lock acquire/release UX, client staff gate pattern, and the write helpers in docs-client.ts
+- The authoring surface is client-gated (defense-in-depth) via resolveProtectedSession + hasGlobalRole('moderator'); server gate (assertDocWriteAccess) is authoritative
+- Lock conflict messaging: 409 responses from POST /api/docs/:id/lock and POST /api/docs/:id/revisions surface holder user ID and expiry via error.details.{lockedByUserId, lockExpiresAt}
+- Component genericity: no role name other than 'moderator' in gate conditions — switching to a broader role requires only server-side change
+
+Plan and diff context:
+- Active plan: plans/ms5-documents-wiki-plan.md
+- ST-8 is in the ms5-documents-wiki plan
+- Compare: git diff ms5..ms5-st8-tester-20260611 -- apps/web/app/docs/
+
+Startup behavior:
+- If branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-8
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

@@ -1,0 +1,32 @@
+{
+  "status": "pass",
+  "subtask": "ST-5",
+  "plan": "ms5-documents-wiki",
+  "testCommitHash": "403f59f",
+  "integrationTestStatus": "skipped",
+  "integrationTestNote": "SFUS_DB_INTEGRATION=1 not set; integration suite skips cleanly. Pre-existing rollback P10 test covers transactional invariant when DB is present.",
+  "testsTotal": 1149,
+  "testsSkipped": 23,
+  "testsPassed": 1149,
+  "testsFailed": 0,
+  "newTestsAdded": 14,
+  "newTestFiles": [
+    "apps/api/src/docs/docs.service.test.ts",
+    "apps/api/src/docs/docs.controller.test.ts"
+  ],
+  "artifactsWritten": [
+    "artifacts/ms5-documents-wiki/ST-5/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-5/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-5/documenter_prompt.txt"
+  ],
+  "acceptanceCriteria": {
+    "DOCS_DIFF_MAX_BODY_BYTES_constant_in_docs_types": "pass",
+    "DOCS_DIFF_MAX_LINES_constant_in_docs_types": "pass",
+    "getDiff_checks_byteLength_before_split": "pass",
+    "getDiff_checks_lineCount_before_LCS": "pass",
+    "oversized_body_rejected_400_with_clear_message": "pass",
+    "at_or_below_cap_produces_same_diff_output": "pass",
+    "no_new_environment_variable": "pass",
+    "all_existing_validations_green": "pass"
+  }
+}

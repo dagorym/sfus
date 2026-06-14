@@ -1,0 +1,24 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/docs-edit-save-crash/implementer_report.md",
+    "artifacts/ms5-documents-wiki/docs-edit-save-crash/tester_prompt.txt",
+    "artifacts/ms5-documents-wiki/docs-edit-save-crash/implementer_result.json"
+  ],
+  "branch_name": "ms5-docsedit-implementer-20260613",
+  "changed_files": [
+    "apps/web/app/docs/docs-client.ts",
+    "apps/web/app/docs/edit/[...path]/page.tsx",
+    "apps/web/app/docs/history/[...path]/page.tsx"
+  ],
+  "code_commit_hash": "cea1fb6",
+  "pass_label": "PASS",
+  "status": "SUCCESS",
+  "task_id": "docs-edit-save-crash",
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/web run lint",
+    "npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/web run typecheck",
+    "npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/web run test",
+    "npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/web run build"
+  ],
+  "validation_outcome": "PASS: lint clean, typecheck clean, 944/944 tests pass (0 regressions), next build clean."
+}

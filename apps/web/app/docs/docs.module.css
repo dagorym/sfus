@@ -1,0 +1,402 @@
+/* ---------------------------------------------------------------------------
+ * Docs module styles
+ * Shared by the /docs index page and /docs/[...path] page view.
+ * --------------------------------------------------------------------------- */
+
+.container {
+  display: grid;
+  gap: var(--space-lg);
+  padding: clamp(var(--space-xl), 5vw, var(--space-3xl));
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--surface-radius-large) + 4px);
+  background:
+    linear-gradient(180deg, rgba(122, 162, 255, 0.08), rgba(9, 19, 33, 0.92)),
+    var(--color-background-elevated);
+  box-shadow: var(--shadow-soft);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-accent-strong);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.description {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+}
+
+.error {
+  margin: 0;
+  color: #ffb4b4;
+}
+
+/* ---------------------------------------------------------------------------
+ * Breadcrumbs
+ * --------------------------------------------------------------------------- */
+
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.breadcrumbSeparator {
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+.breadcrumbLink {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.breadcrumbLink:hover {
+  text-decoration: underline;
+}
+
+.breadcrumbCurrent {
+  color: var(--color-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Page tree list
+ * --------------------------------------------------------------------------- */
+
+.treeList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.treeItem {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.75rem;
+}
+
+.treeLink {
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.treeLink:hover {
+  color: var(--color-accent);
+}
+
+.treeChildrenHint {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Staff affordances
+ * --------------------------------------------------------------------------- */
+
+.staffActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md, 0.75rem);
+  margin-top: var(--space-md, 0.75rem);
+}
+
+.actionButton,
+.secondaryActionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.actionButton {
+  border: 0;
+  background: var(--color-accent);
+  color: #05101c;
+}
+
+.secondaryActionButton {
+  border: 1px solid var(--color-border-strong);
+  background: rgba(122, 162, 255, 0.08);
+  color: var(--color-text);
+}
+
+/* ---------------------------------------------------------------------------
+ * Lock indicator
+ * --------------------------------------------------------------------------- */
+
+.lockBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 200, 50, 0.08);
+  border: 1px solid rgba(255, 200, 50, 0.3);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+}
+
+.lockIcon {
+  flex-shrink: 0;
+  color: rgba(255, 200, 50, 0.85);
+}
+
+.lockHeldIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(122, 255, 140, 0.9);
+}
+
+/* ---------------------------------------------------------------------------
+ * Authoring forms (new page / edit page)
+ * --------------------------------------------------------------------------- */
+
+.form {
+  display: grid;
+  gap: var(--space-md, 0.75rem);
+  max-width: 42rem;
+}
+
+.formLabel {
+  display: grid;
+  gap: 0.3rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.formHint {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.formInput {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+  background: rgba(6, 13, 23, 0.78);
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.saveSuccess {
+  margin: 0;
+  color: rgba(122, 255, 140, 0.9);
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * History list (revision log)
+ * --------------------------------------------------------------------------- */
+
+.historyList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.historyItem {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(6, 13, 23, 0.5);
+  flex-wrap: wrap;
+}
+
+.historyRevNum {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--color-accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.historyMeta {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  flex: 1;
+  min-width: 0;
+}
+
+.historySummary {
+  font-size: 0.88rem;
+  color: var(--color-text);
+  flex-basis: 100%;
+  margin-top: 0.15rem;
+}
+
+.historyActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.historyActionBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid var(--color-border-strong);
+  background: rgba(122, 162, 255, 0.08);
+  color: var(--color-text);
+}
+
+.historyActionBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.historyActionBtnDanger {
+  border-color: rgba(255, 100, 100, 0.4);
+  background: rgba(255, 100, 100, 0.07);
+  color: rgba(255, 180, 180, 0.95);
+}
+
+/* ---------------------------------------------------------------------------
+ * Diff view (side-by-side)
+ * --------------------------------------------------------------------------- */
+
+.diffContainer {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.diffTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  white-space: pre;
+}
+
+.diffTable td,
+.diffTable th {
+  padding: 0.1rem 0.6rem;
+  vertical-align: top;
+  border: none;
+}
+
+.diffHeaderRow th {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(6, 13, 23, 0.6);
+  white-space: normal;
+}
+
+.diffLineUnchanged td {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.diffLineAdded td {
+  background: rgba(80, 200, 100, 0.09);
+  color: rgba(140, 255, 160, 0.95);
+}
+
+.diffLineAdded td:first-child {
+  background: rgba(80, 200, 100, 0.04);
+  color: var(--color-text-muted);
+}
+
+.diffLineRemoved td {
+  background: rgba(220, 80, 80, 0.09);
+  color: rgba(255, 160, 160, 0.95);
+}
+
+.diffLineRemoved td:last-child {
+  background: rgba(220, 80, 80, 0.04);
+  color: var(--color-text-muted);
+}
+
+.diffLineGutter {
+  width: 2.5rem;
+  text-align: right;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  user-select: none;
+  padding-right: 0.8rem;
+  border-right: 1px solid var(--color-border);
+}
+
+.diffLineDivider {
+  width: 1px;
+  background: var(--color-border);
+  padding: 0;
+}
+
+/* Revision selector controls */
+.diffControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.diffControlGroup {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.diffControlLabel {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.diffSelect {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(6, 13, 23, 0.78);
+  color: var(--color-text);
+  font-size: 0.88rem;
+}

@@ -9,12 +9,13 @@ production. API contract details live in the feature docs: [blog](../features/bl
 
 ## Accessing the admin dashboard
 
-Sign in with an account whose global role is `admin`. An **Admin** link appears in the site navigation bar and links to `/admin`. That dashboard page lists all four admin management areas:
+Sign in with an account whose global role is `admin`. An **Admin** link appears in the site navigation bar and links to `/admin`. That dashboard page lists all five admin management areas:
 
 - **Blog** — `/admin/blog`
 - **Pages** — `/admin/pages`
 - **Navigation** — `/admin/navigation`
 - **Forums** — `/admin/forums`
+- **Documents** — `/docs` (create, edit, lock, and roll back wiki pages in the public docs area)
 
 The Admin nav link is not shown for guest visitors, members still in onboarding, or authenticated members without the `admin` role.
 
@@ -194,3 +195,102 @@ Site navigation is database-driven; changes appear on the next page load without
 Items linking to unpublished blog posts or pages are automatically hidden from guests and
 non-admin members until the target is published; admins always see every item
 (see [navigation](../features/navigation.md)).
+
+## Wiki pages (Documents)
+
+The public `/docs` area is a hierarchical wiki editable by moderators and admins
+(collectively "staff"). The server enforces all access — client-side gates are
+defense-in-depth only.
+
+API contract details live in [features/documents.md](../features/documents.md).
+
+### Reading wiki pages (guests and members)
+
+- `/docs` — root page index listing all published top-level wiki pages.
+- `/docs/<path>` — a single published wiki page with breadcrumb trail and Markdown body.
+
+### Creating a wiki page (staff)
+
+1. Sign in with a `moderator` or `admin` account.
+2. Go to `/docs` and click **Create page** (visible to staff only), or navigate directly
+   to `/docs/new`.
+   - To create a sub-page under an existing one, the "Create page" affordance on the
+     index appends `?parentPath=<path>` automatically; you can also add it manually.
+3. Fill in **Title** (required), **Slug** (optional — leave blank to let the server
+   derive it from the title), optional **Summary**, and **Body** (Markdown).
+4. Click **Create page**. On success you are redirected to the newly created page at
+   `/docs/<path>`.
+
+### Editing a wiki page (staff)
+
+1. Sign in and navigate to the wiki page you want to edit at `/docs/<path>`.
+2. Click **Edit** (visible to staff only) or navigate directly to `/docs/edit/<path>`.
+3. Edit **Title**, **Slug**, **Summary**, and **Body** as needed.
+   - **Changing the slug** rewrites the page's URL and all descendant page paths.
+4. Click **Save revision** to append a new revision. The previous revision is preserved.
+   Clicking **Cancel** returns you to the page view without saving.
+
+### Lock acquire and release (staff)
+
+A soft lock signals to other editors that a page is being actively edited. It is advisory:
+the server rejects writes from a non-holder when a non-expired foreign lock exists.
+
+- On the edit form (`/docs/edit/<path>`), click **Acquire lock** to claim the lock for
+  yourself. The lock expires automatically after the configured TTL (default 30 minutes).
+  Acquiring a lock you already hold refreshes the expiry.
+- Click **Release lock** to release it early so others can edit immediately.
+- When you hold the lock, a "Lock held" indicator is shown next to the lock button.
+- A lock banner is also shown on the read view (`/docs/<path>`) to all visitors when
+  the page is actively locked.
+
+### Viewing revision history and comparing revisions (all users)
+
+Any visitor can view the full revision history of a wiki page by navigating to
+`/docs/history/<path>` (e.g. `/docs/history/getting-started/installation`), or by
+clicking the **History** link on the page view at `/docs/<path>` (visible to all
+logged-in staff; the link is not shown to guests).
+
+The history page shows a list of all revisions in reverse chronological order. Each entry
+shows the editor (or original author), the edit summary, and the date and time.
+
+To compare any two revisions:
+
+1. Use the **From (older)** and **To (newer)** dropdowns in the "Compare Revisions"
+   section. When the page loads with two or more revisions the two most recent are
+   pre-selected.
+2. The side-by-side diff loads automatically when the selection changes. Added lines are
+   highlighted on the right; removed lines on the left; unchanged lines appear in both
+   columns.
+3. If either selected revision is too large (over 512 KB or 5,000 lines), the UI shows
+   a "too large to compare" message instead of the diff.
+
+### Rolling back a wiki page (staff)
+
+Staff (moderators and admins) can restore any earlier revision without deleting
+intermediate history. Rollback is non-destructive: it creates a new revision whose
+content equals the target, so the full revision trail is always preserved.
+
+1. Sign in with a `moderator` or `admin` account.
+2. Navigate to the wiki page at `/docs/<path>` and click **History**, or go directly to
+   `/docs/history/<path>`.
+3. Find the revision you want to restore in the list. Click **Roll back** on that row.
+4. The page reloads the history list. A success message confirms the rollback and shows
+   the new revision number. The diff selectors are updated to compare the rolled-back
+   source revision with the newly created revision.
+5. Visit `/docs/<path>` to confirm the current content.
+
+If the page is locked by another user at the time of rollback, the server returns `409`
+and an error message is shown. Staff members (admin/moderator) can override a foreign
+lock by acquiring it on the edit page before rolling back.
+
+### Lock-conflict (409) messages
+
+If the lock is already held by someone else, a `409 Conflict` response is returned and
+the edit form displays a banner:
+
+> **Lock held by user ID `<uuid>`. Expires `<date/time>`.**
+
+`lockedByUserId` is the UUID of the current holder; `lockExpiresAt` is when the lock
+expires. Wait for the lock to expire or ask the holder to release it. Staff members
+(admin/moderator) can always override a foreign lock by simply acquiring it — the server
+allows staff to take over any lock.

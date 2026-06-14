@@ -1,0 +1,46 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Documentation-only fix (Reviewer Follow-up #2). Confirm no code change is needed for the authorization.md gate table gap: assertDocWriteAccess gates 7 write routes but the 'Used by' column in docs/features/authorization.md lists only 2. The full gated route set is verified in code; only the doc table is incorrect.
+
+Modified files:
+- None
+
+Acceptance criteria to validate (from Planner):
+- No product code change is required — assertDocWriteAccess is already called on all 7 write routes in docs.controller.ts.
+- Existing test suite passes unchanged.
+- Documenter must update docs/features/authorization.md gate table 'Used by' column to list all 7 gated routes.
+
+Create test files in:
+- apps/api/src/docs/docs.controller.test.ts — primary controller test file
+- apps/api/src/docs/docs.service.test.ts — service unit tests
+- apps/api/src/docs/docs.service.integration.test.ts — integration tests
+
+Implementation context for testing:
+- No code was changed. This pass only confirms the existing authorization gates are correct.
+- assertDocWriteAccess is called at the top of each write handler in apps/api/src/docs/docs.controller.ts:
+-   - POST /api/docs: createPage() line 188
+-   - POST /api/docs/:id/revisions: addRevision() line 247
+-   - PATCH /api/docs/:id: renamePage() line 310
+-   - DELETE /api/docs/:id: softDeletePage() line 366
+-   - POST /api/docs/:id/rollback: rollbackPage() line 537
+-   - POST /api/docs/:id/lock: acquireLock() line 589
+-   - DELETE /api/docs/:id/lock: releaseLock() line 631
+- The Documenter must update docs/features/authorization.md gate table 'Used by' column (around line 53) from 'POST /api/docs, POST /api/docs/:id/revisions' to list all 7 routes above.
+
+Suggested test command(s):
+- npx --prefix apps/api jest docs
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/authz-doc-fix
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

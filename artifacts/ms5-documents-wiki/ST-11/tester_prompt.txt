@@ -1,0 +1,43 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- ST-11 - Forums last-activity cleanup: (1) derive board lastPost timestamp from latest non-deleted reply instead of topic.lastPostAt, and (2) populate TopicLastActivity.at with the resolved reply createdAt (previously always null).
+
+Modified files:
+- apps/api/src/forums/forums.service.ts
+- apps/api/src/forums/forums.types.ts
+
+Acceptance criteria to validate (from Planner):
+- AC1: Board lastPost activity reflects the latest non-deleted reply; a soft-deleted latest reply no longer drives the displayed last-activity date.
+- AC2: TopicLastActivity.at is now populated with the resolved reply createdAt when isReply=true (no longer always null). The field remains null when the activity falls back to the opening post (isReply=false).
+- AC3: The full @sfus/api suite stays green (224 forums.service tests, 1287 total).
+
+Create test files in:
+- apps/api/src/forums/forums.service.test.ts - add/update specs proving the non-deleted-reply timestamp derivation (activity.at populated from query) and the absence of the always-null field in the reply case.
+
+Implementation context for testing:
+- resolveTopicLastActivity: added addSelect('post.created_at', 'createdAt') to the raw query so the latest non-deleted reply's createdAt is returned alongside its author. The result now sets at: reply.createdAt (a Date) when a reply exists, and at: null for the opening-post fallback.
+- listPublicCategories and getPublicBoard: effectiveAt for the reply case changed from 'activity.isReply ? (topic.lastPostAt ?? topic.createdAt) : topic.createdAt' to 'activity.isReply ? (activity.at ?? topic.lastPostAt ?? topic.createdAt) : topic.createdAt'. The fallback to topic.lastPostAt ensures existing test stubs (which don't supply createdAt in lastActivityRows) continue to pass; the real DB path uses activity.at.
+- TopicLastActivity.at JSDoc: updated to document that at is populated (non-null) when isReply=true, and null only for the opening-post fallback case.
+- BoardLastPostShape.at JSDoc: updated to document that at is derived from the latest NON-DELETED reply's createdAt.
+- P7 count: TopicLastActivity.at had 3 construction sites in forums.service.ts (result.set with at: null x2 -> now at: reply.createdAt for the reply case) and 2 effectiveAt derivation sites. The type definition in forums.types.ts was updated in JSDoc only (type remains Date | null for the opening-post fallback case). Total usages updated: 5 sites across 2 files.
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 test
+- npx --yes pnpm@10.0.0 --filter @sfus/api exec tsc -p tsconfig.json
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-11
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

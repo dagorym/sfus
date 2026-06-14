@@ -1,0 +1,37 @@
+{
+  "status": "success",
+  "subtask": "ST-6",
+  "plan": "ms5-documents-wiki",
+  "remediation_pass": 1,
+  "branch": "ms5-st6-implementer-20260611",
+  "implementation_commit": "c914da4",
+  "changed_files": [
+    "apps/api/src/common/filters/json-exception.filter.ts",
+    "apps/api/src/docs/docs.controller.ts",
+    "apps/api/src/docs/docs.service.ts",
+    "apps/api/src/docs/docs.controller.test.ts",
+    "apps/api/src/docs/docs.service.test.ts"
+  ],
+  "fixes_applied": [
+    "BLOCKING-1: JsonExceptionFilter now passes through error.details when HttpException body contains a details field; ConflictException lock-conflict throws updated to use details key",
+    "BLOCKING-2: acquireLock controller now returns DocsLockResultShape directly (pageId, lock) not double-nested { lock: DocsLockResultShape }",
+    "WARNING-1: softDeletePage lock check moved inside pageRepository.manager.transaction for TOCTOU consistency"
+  ],
+  "validation_commands": [
+    "npx tsc --noEmit --project apps/api/tsconfig.json",
+    "npx vitest run --passWithNoTests",
+    "npx eslint apps/api/src/common/filters/json-exception.filter.ts apps/api/src/docs/docs.controller.ts apps/api/src/docs/docs.service.ts apps/api/src/docs/docs.controller.test.ts apps/api/src/docs/docs.service.test.ts",
+    "npx tsc --project apps/api/tsconfig.json"
+  ],
+  "validation_outcome": "all_pass",
+  "test_results": {
+    "passed": 1851,
+    "skipped": 26,
+    "failed": 0
+  },
+  "artifact_files": [
+    "artifacts/ms5-documents-wiki/ST-6/implementer_report.md",
+    "artifacts/ms5-documents-wiki/ST-6/implementer_result.json",
+    "artifacts/ms5-documents-wiki/ST-6/tester_prompt.txt"
+  ]
+}

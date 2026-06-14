@@ -1,0 +1,77 @@
+{
+  "status": "complete",
+  "feature": "Milestone 5 — Documents Wiki",
+  "plan": "plans/ms5-documents-wiki-plan.md",
+  "branch_name": "ms5-reviewer-20260612",
+  "diff_base": "6ad5ae56f6b7ee3db430e8adb78c1915968a6e25",
+  "diff_head": "ms5",
+  "final_outcome": "PASS",
+  "prior_final_outcome": "CONDITIONAL PASS",
+  "reassessed_on": "2026-06-12",
+  "blocking_finding_count": 0,
+  "warning_finding_count": 0,
+  "note_finding_count": 4,
+  "subtasks_reviewed": [
+    "ST-1", "ST-2", "ST-3", "ST-4", "ST-5", "ST-6",
+    "ST-7", "ST-8", "ST-9", "ST-9-followup", "ST-10", "ST-11", "ST-12"
+  ],
+  "subtask_verifier_verdicts": {
+    "ST-1": "PASS", "ST-2": "PASS", "ST-3": "PASS", "ST-4": "PASS",
+    "ST-5": "PASS", "ST-6": "PASS", "ST-7": "PASS", "ST-8": "PASS",
+    "ST-9": "PASS", "ST-9-followup": "PASS", "ST-10": "PASS",
+    "ST-11": "PASS", "ST-12": "PASS"
+  },
+  "security_review": {
+    "required_subtasks": ["ST-2", "ST-3", "ST-4", "ST-5"],
+    "outcomes": {
+      "ST-2": "PASS (breadcrumb-gating remediation verified; 0 blocking/0 warning)",
+      "ST-3": "PASS (atomicity-proof remediation verified; 0 blocking/0 warning)",
+      "ST-4": "PASS (0 blocking/0 warning)",
+      "ST-5": "PASS (diff-DoS-cap remediation verified; 0 blocking/0 warning)"
+    },
+    "trust_boundary_consistency": "Uniform: single assertDocWriteAccess seam, shared oracle-parity 404 (PAGE_NOT_FOUND_MESSAGE), breadcrumb chain truncation on first gated ancestor, diff size cap before O(m*n) allocation."
+  },
+  "follow_up_feature_requests": [
+    "[RESOLVED 2026-06-12] Refresh the global web-shell to Milestone 5: update apps/web/app/layout.tsx (brand eyebrow 'Milestone 4 Content Platform' line 29, metadata.description line 14, footer line 46) and the docs/features/web-shell.md 'Shared shell' section (currently 'Milestone 3 Content Platform', lines 13-17) so no stale Milestone 3/4 labels remain; next build and lint pass. Consider a milestone-agnostic shell label so future milestones need no layout edit. Distinct from ST-12, which only refreshed page.tsx and was correctly not auto-fixed (outside every subtask's allowed files).",
+    "[RESOLVED 2026-06-12] Optional low-priority doc top-up: extend the docs/features/authorization.md assertDocWriteAccess row to enumerate all gated write routes (rename, delete, rollback, lock acquire/release), not just create/edit."
+  ],
+  "follow_up_resolution": {
+    "reassessed_on": "2026-06-12",
+    "all_resolved": true,
+    "items": [
+      {
+        "id": "follow-up-1",
+        "title": "Global web shell refreshed to Milestone 5",
+        "status": "RESOLVED",
+        "verified_against": [
+          "apps/web/app/layout.tsx: eyebrow 'Milestone 5 Content Platform' (line 29); footer 'Built for the Milestone 5 content launch baseline.' (line 46); metadata.description references Milestone 5 and Documents wiki (line 14); grep for 'milestone (3|4|three|four)' returns no hits",
+          "docs/features/web-shell.md 'Shared shell' section (lines 13-17) updated to match layout.tsx exactly (Milestone 5 eyebrow/footer/description)",
+          "apps/web/app/public-shell.spec.ts layout assertions updated to Milestone 5 (lines 71-79); also guards no Milestone 1-4 strings in page.tsx/layout.tsx"
+        ],
+        "merged_via": "Implementer -> Tester -> Documenter -> Verifier (Verifier PASS); ms5 commits include 52cb0cd (web-shell doc), acc5e3c (documenter artifacts), 8230dbc (verifier PASS)",
+        "scope_hygiene": "Feature-historical 'Milestone 3/4' mentions retained in markdown-editor.tsx, image-upload.tsx, markdown-renderer.tsx and feature spec headers are intentional (feature-introduction provenance), NOT the global shell."
+      },
+      {
+        "id": "follow-up-2",
+        "title": "authorization.md gate table completed",
+        "status": "RESOLVED",
+        "verified_against": [
+          "docs/features/authorization.md line 53: DocsService.assertDocWriteAccess 'Used by' column now lists all seven write routes: POST /api/docs, POST /api/docs/:id/revisions, PATCH /api/docs/:id, DELETE /api/docs/:id, POST /api/docs/:id/rollback, POST /api/docs/:id/lock, DELETE /api/docs/:id/lock",
+          "apps/api/src/docs/docs.controller.ts: each of the seven write handlers calls assertDocWriteAccess (gate calls at lines 188, 247, 310, 366, 537, 589, 631) -- seven routes, seven gate calls, exact match"
+        ],
+        "merged_via": "Implementer -> Tester -> Documenter -> Verifier (Verifier PASS); ms5 commits include c5bb823 (implementer doc-only), e9a516d (tester), 11e91aa (docs completion), f8caebb (documenter artifacts), 56ae6bb (verifier PASS)"
+      }
+    ],
+    "new_issues_found": "none"
+  },
+  "notes": [
+    "[RESOLVED 2026-06-12] Stale global shell milestone label in layout.tsx and web-shell.md (out-of-plan-scope; actionable -> follow-up #1; cosmetic, NOTE severity). Fixed and merged into ms5 via dedicated I->T->D->V cycle (Verifier PASS); re-verified directly against layout.tsx, web-shell.md, and public-shell.spec.ts.",
+    "[RESOLVED 2026-06-12] authorization.md gate table lists only the two create/edit write routes though the same gate also guards rename/delete/rollback/lock (incomplete, not wrong). Fixed and merged into ms5 via dedicated I->T->D->V cycle (Verifier PASS); authorization.md line 53 now lists all 7 routes, cross-checked against the 7 assertDocWriteAccess calls in docs.controller.ts.",
+    "DocsTreeItem.hasChildren is hardcoded false; no caller populates it; no plan AC requires it.",
+    "Carried-over informational items (verified non-blocking): docs integration suites DB-gated via SFUS_DB_INTEGRATION=1; rollback mid-transaction-failure proof inferred, not dedicated; DocsPageShape.parentId exposes a gated parent's opaque UUID but no public id-based lookup exists; cross-parent move/reparent deferred per plan; write controllers pass literal 'site' scope to assertDocWriteAccess (correct for M5, no project docs)."
+  ],
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/reviewer_report.md",
+    "artifacts/ms5-documents-wiki/reviewer_result.json"
+  ]
+}

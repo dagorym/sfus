@@ -1,0 +1,24 @@
+{
+  "status": "success",
+  "task_id": "docs-slug-autoderive",
+  "branch": "ms5-docslug-tester-20260612",
+  "test_commit_hash": "02c4609",
+  "test_files_modified": [
+    "apps/api/src/docs/docs.controller.test.ts",
+    "apps/api/src/docs/docs.service.test.ts"
+  ],
+  "commands_run": [
+    "pnpm --filter @sfus/api test",
+    "pnpm --filter @sfus/api lint",
+    "pnpm --filter @sfus/api typecheck"
+  ],
+  "tests_passed": 1306,
+  "tests_failed": 0,
+  "tests_skipped": 30,
+  "unmet_acceptance_criteria": [],
+  "artifact_files_written": [
+    "artifacts/ms5-documents-wiki/docs-slug-autoderive/tester_report.md",
+    "artifacts/ms5-documents-wiki/docs-slug-autoderive/tester_result.json",
+    "artifacts/ms5-documents-wiki/docs-slug-autoderive/documenter_prompt.txt"
+  ]
+}

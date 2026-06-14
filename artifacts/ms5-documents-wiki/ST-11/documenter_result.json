@@ -1,0 +1,15 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-11/documenter_report.md",
+    "artifacts/ms5-documents-wiki/ST-11/documenter_result.json",
+    "artifacts/ms5-documents-wiki/ST-11/verifier_prompt.txt"
+  ],
+  "branch_name": "ms5-st11-documenter-20260611",
+  "documentation_commit_hash": "2122a58fd525ef48ba6c6c168914f4ed03b9125c",
+  "documentation_files_changed": [
+    "docs/features/forums.md"
+  ],
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST-11"
+}

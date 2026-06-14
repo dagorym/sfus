@@ -1,0 +1,30 @@
+{
+  "status": "SUCCESS",
+  "task_id": "docs-edit-save-crash",
+  "branch_name": "ms5-docsedit-tester-20260613",
+  "test_commit_hash": "6fbaf6c",
+  "test_files_modified": [
+    "apps/web/app/docs/docs-client.spec.ts",
+    "apps/web/app/docs/docs-edit-page.spec.ts",
+    "apps/web/app/docs/docs-history-page.spec.ts"
+  ],
+  "commands_run": [
+    "pnpm install --dir /home/tstephen/repos/worktrees/ms5-docsedit-tester-20260613",
+    "pnpm --filter @sfus/web --dir /home/tstephen/repos/worktrees/ms5-docsedit-tester-20260613 run test (baseline: 2250 passed)",
+    "pnpm --filter @sfus/web --dir /home/tstephen/repos/worktrees/ms5-docsedit-tester-20260613 run test (after new tests: 2287 passed)",
+    "pnpm --filter @sfus/web --dir /home/tstephen/repos/worktrees/ms5-docsedit-tester-20260613 run lint",
+    "pnpm --filter @sfus/web --dir /home/tstephen/repos/worktrees/ms5-docsedit-tester-20260613 run typecheck",
+    "pnpm --filter @sfus/web --dir /home/tstephen/repos/worktrees/ms5-docsedit-tester-20260613 run build"
+  ],
+  "pass_count": 2287,
+  "fail_count": 0,
+  "skip_count": 30,
+  "new_tests_added": 37,
+  "validation_outcome": "PASS: 2287 tests pass (37 new tests added; 0 regressions); lint clean; typecheck clean; next build clean",
+  "unmet_acceptance_criteria": [],
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/docs-edit-save-crash/tester_report.md",
+    "artifacts/ms5-documents-wiki/docs-edit-save-crash/tester_result.json",
+    "artifacts/ms5-documents-wiki/docs-edit-save-crash/documenter_prompt.txt"
+  ]
+}

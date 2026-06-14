@@ -1,0 +1,24 @@
+{
+  "status": "complete",
+  "task_id": "authz-doc-fix",
+  "branch_name": "ms5-authzdoc-verifier-20260612",
+  "pass_label": "PASS",
+  "verdict": "PASS",
+  "blocking_finding_count": 0,
+  "warning_finding_count": 0,
+  "note_finding_count": 0,
+  "test_sufficiency_summary": [
+    "No test changes required or expected for a documentation-only fix.",
+    "Tester stage confirmed existing test suite passes without modification."
+  ],
+  "documentation_accuracy_summary": [
+    "The updated \"Used by\" cell in authorization.md now lists all 7 routes: POST /api/docs, POST /api/docs/:id/revisions, PATCH /api/docs/:id, DELETE /api/docs/:id, POST /api/docs/:id/rollback, POST /api/docs/:id/lock, DELETE /api/docs/:id/lock.",
+    "Each of these 7 handlers was independently confirmed in apps/api/src/docs/docs.controller.ts to call this.docsService.assertDocWriteAccess() before any data operation.",
+    "The change is accurate: the doc now matches the code.",
+    "No other rows, sections, or files were modified."
+  ],
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/authz-doc-fix/verifier_report.md",
+    "artifacts/ms5-documents-wiki/authz-doc-fix/verifier_result.json"
+  ]
+}

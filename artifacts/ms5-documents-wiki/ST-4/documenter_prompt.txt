@@ -1,0 +1,73 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Validate ST-4 implementation: PATCH /api/docs/:id rename (slug + descendant path rewrite, title-only, atomicity), DELETE /api/docs/:id soft-delete (leaf and 409 on non-deleted children), assertDocWriteAccess guard on both routes, and resolveParent parentId-branch status=published fix from ST-3. Unit, controller, and DB-gated integration tests all pass.
+
+Acceptance criteria validated:
+- AC1: Slug rename rewrites parent page and all descendants path/path_hash in a single transaction; unit test verifies em.update called 3x for parent+2 descendants; integration test with DB proves atomicity and verifies mid-rewrite failure leaves all paths at pre-rename values (P10).
+- AC2: Title-only rename does not alter any path/path_hash; unit test verifies createQueryBuilder not called, em.update called once with only {title}.
+- AC3: Soft-deleting a leaf page sets status=deleted, preserves revisions, removes page from all public reads; unit test verifies update({id}, {status:'deleted'}) called; integration test confirms status in DB and revisions intact.
+- AC4: Soft-deleting a page with non-deleted children returns 409 ConflictException with message containing 'child'; no update is called; integration test creates parent+child and verifies 409 + parent remains published.
+- AC5: Both PATCH and DELETE routes are gated by assertDocWriteAccess (staff-only for site scope); controller tests verify assertSpy called before service spy on all success paths, and 403 propagation for non-staff.
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms5-st4-tester-20260611
+- Branch: ms5-st4-tester-20260611
+- Implementer branch: ms5 (merged up to commit e7c88aa feat(docs): implement ST-4 tree management rename and soft-delete)
+- Comparison base: ms5 branch at commit e7c88aa (before tester branch diverged)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/docs/docs.service.ts (renamePage, softDeletePage, resolveParent)
+- apps/api/src/docs/docs.controller.ts (PATCH :id, DELETE :id routes)
+- apps/api/src/docs/docs.types.ts (RenameDocPageInput)
+- apps/api/src/docs/docs.service.test.ts (tester, new tests)
+- apps/api/src/docs/docs.controller.test.ts (tester, new tests)
+- apps/api/src/docs/docs.service.integration.test.ts (tester, new tests + cleanup fix)
+- apps/api/src/pages/integration-test-support.ts (tester, docsPageIds parameter added)
+
+Test commit:
+- 159d110
+
+Commands executed:
+- npx pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st4-tester-20260611 install
+- npx pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st4-tester-20260611 --filter @sfus/api run lint
+- npx pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st4-tester-20260611 --filter @sfus/api run typecheck
+- npx pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st4-tester-20260611 --filter @sfus/api run test
+- npx pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st4-tester-20260611 --filter @sfus/web run test
+- git -C /home/tstephen/repos/worktrees/ms5-st4-tester-20260611 branch --show-current
+
+Final test outcomes:
+- API unit suite: 1149 passed, 0 failed, 23 skipped across 36 test files (33 passed files, 3 skipped files).
+- docs.service.test.ts: 94 tests pass (up from 72 pre-ST-4); covers renamePage AC1/AC2, softDeletePage AC3/AC4, resolveParent fix.
+- docs.controller.test.ts: 52 tests pass (up from 36 pre-ST-4); covers PATCH/DELETE route delegation, auth ordering AC5, 400/401/403/404/409 propagation.
+- docs.service.integration.test.ts: 12 tests skipped (SFUS_DB_INTEGRATION=1 not set in CI environment — correct behavior); 4 new integration tests are correctly structured to drive real DB transactions when flag is set.
+- Web suite: 626 passed, 0 failed.
+- Lint: clean (no warnings).
+- TypeScript typecheck: clean (no errors).
+- Integration tests: SKIPPED — SFUS_DB_INTEGRATION=1 not set. Tests will drive real atomicity proof when DB is available.
+
+Documentation context:
+- New PATCH /api/docs/:id (rename) and DELETE /api/docs/:id (soft-delete) endpoints added — should be documented in the docs API feature doc.
+- RenameDocPageInput type (slug?, title?, at-least-one validation) is new public API input contract.
+- Soft-delete behavior: status='deleted', data preserved, page hidden from all public reads.
+- 409 ConflictException on delete when non-deleted children exist — error semantics should be documented.
+- assertDocWriteAccess guard (staff-only for site scope) applies to both new routes.
+- resolveParent fix: parentId branch now filters soft-deleted parents (status=published required), matching parentPath branch behavior.
+- THROTTLE_LABEL_DOC_EDIT throttle guard applies to both PATCH and DELETE routes.
+- Relevant feature doc: docs/features/ — likely docs/features/docs.md or similar; infer from docs/README.md routing table if exact path is unknown.
+
+Plan and diff context:
+- Plan path: artifacts/ms5-documents-wiki/plan.md (or infer from docs/README.md routing table).
+- Comparison base: ms5 branch (the coordination branch for this milestone); tester branch ms5-st4-tester-20260611 diverged from ms5 at commit e7c88aa.
+- Implementer artifacts in: artifacts/ms5-documents-wiki/ST-4/ (implementer_report.md, implementer_result.json, tester_prompt.txt).
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-4
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

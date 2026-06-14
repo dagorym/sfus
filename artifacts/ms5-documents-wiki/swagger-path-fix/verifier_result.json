@@ -1,0 +1,23 @@
+{
+  "status": "complete",
+  "task_id": "swagger-path-fix",
+  "pass": 2,
+  "branch": "ms5-swaggerfix-verifier-20260612",
+  "verdict": "PASS",
+  "blocking_count": 0,
+  "warning_count": 0,
+  "note_count": 0,
+  "test_sufficiency": "Sufficient. index.test.ts asserts api/swagger path and includes an explicit regression guard against api/docs. Full @sfus/api suite: 1295 tests pass.",
+  "documentation_accuracy": "Accurate. All four required doc locations updated. ADR original text preserved; amendment note adjacent at line 37. No stale operative Swagger references remain.",
+  "security_assessment": "No security concerns. Path-string-only change; Swagger gate unchanged.",
+  "acceptance_criteria": {
+    "AC1": "PASS",
+    "AC2": "PASS",
+    "AC3": "PASS",
+    "AC4": "PASS"
+  },
+  "artifact_files": [
+    "artifacts/ms5-documents-wiki/swagger-path-fix/verifier_report.md",
+    "artifacts/ms5-documents-wiki/swagger-path-fix/verifier_result.json"
+  ]
+}

@@ -1,0 +1,54 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- Verify and document DOCS_LOCK_TTL_MINUTES env-variable addition to apps/api/.env.example and apps/api/.env (dev-env config follow-on, Milestone 5 ST-6).
+
+Acceptance criteria to verify:
+- DOCS_LOCK_TTL_MINUTES=30 is present in apps/api/.env.example with a comment that describes it as optional, default 30, integer 1-1440, soft-lock TTL for Documents wiki, fallback-to-30 on invalid.
+- DOCS_LOCK_TTL_MINUTES=30 is present in apps/api/.env.
+- docs/operations/launch.md env-contract table row for DOCS_LOCK_TTL_MINUTES is accurate (default 30, optional, integer 1-1440, soft-lock TTL, fallback-to-30 on invalid).
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms5-devenv-documenter-20260612
+- Branch: ms5-devenv-documenter-20260612 (built on tester branch ms5-devenv-tester-*)
+- Implementer commit: 2981331f4ca88aa137a2d0a728a4857ad8f924b6 (apps/api/.env.example and apps/api/.env changes)
+- Tester: no test changes made (tester_result test_commit: 'No Changes Made')
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/.env.example (implementer: added DOCS_LOCK_TTL_MINUTES block)
+- apps/api/.env (implementer: added DOCS_LOCK_TTL_MINUTES=30)
+- docs/operations/launch.md (not modified this cycle; verified accurate at line 88)
+
+Commands executed:
+- grep -n 'DOCS_LOCK_TTL_MINUTES' apps/api/.env.example
+- grep -n 'DOCS_LOCK_TTL_MINUTES' apps/api/.env
+- Read docs/operations/launch.md (verified row at line 88)
+
+Final test outcomes:
+- AC1 pass: DOCS_LOCK_TTL_MINUTES=30 present in apps/api/.env.example with correct comment block
+- AC2 pass: DOCS_LOCK_TTL_MINUTES=30 present in apps/api/.env
+- AC3 pass: launch.md row accurately describes variable (optional, default 30, integer 1-1440, soft-lock TTL, fallback-to-30 on invalid)
+- environment tests: 17/17 passed, full API suite: 1295/1295 passed (from tester)
+
+Plan or evaluation context guidance:
+- Plan: docs/plans/ms5.md (Milestone 5), subtask ST-6: dev-env config for DOCS_LOCK_TTL_MINUTES
+- Env var already wired in apps/api/src/config/environment.ts (optional, default 30, integer 1-1440) and documented in launch.md from a prior ST-6 cycle; this cycle closed the .env.example/.env drift.
+
+Convention-file guidance:
+- docs/operations/launch.md is the canonical env-variable contract per its own header.
+- apps/api/.env.example and apps/api/.env are templates; production values are host-managed.
+- No in-code documentation policy applies to .env template files.
+
+Updated documentation files:
+- None
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/dev-env-config
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

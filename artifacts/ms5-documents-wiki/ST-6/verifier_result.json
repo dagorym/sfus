@@ -1,0 +1,28 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-6/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-6/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st6-verifier-20260611",
+  "documentation_accuracy_summary": [
+    "docs/features/documents.md: POST lock 200 shape documented as { pageId, lock: DocsLockState } matching implementation. 409 body with error.details.lockedByUserId and error.details.lockExpiresAt is accurate. softDelete transactional lock check documented. DocsLockState read-response field documented.",
+    "docs/development/api-conventions.md: optional error.details field added with reference to the lock 409 use case. Accurate.",
+    "docs/operations/launch.md: DOCS_LOCK_TTL_MINUTES row documents default 30, range 1-1440, fallback behavior. Accurate.",
+    "No inaccuracies, omissions, or contradictions found."
+  ],
+  "note_finding_count": 1,
+  "pass_label": "pass2",
+  "status": "complete",
+  "task_id": "ST-6",
+  "test_sufficiency_summary": [
+    "11 dedicated unit tests in json-exception.filter.test.ts cover the BLOCKING-1 fix (details passthrough) and all backward-compatibility cases.",
+    "docs.service.test.ts covers: AC1 (acquireLock shape, TTL, same-holder refresh), AC2 (409 with details), AC3 (releaseLock idempotent, holder release), AC4 (staff override release), AC5 (non-holder 403), AC6 (all four write paths reject with 409 under foreign lock), AC7 (expired lock treated as free for acquireLock and assertNotForeignLocked), AC8 (moderator/admin bypass for both acquireLock and assertNotForeignLocked), AC10 (toPageShape lock field always present, expired lock \u2192 all-null).",
+    "docs.controller.test.ts covers AC11 (both lock endpoints call assertDocWriteAccess before acting; 401/403 propagation).",
+    "config/environment.test.ts covers AC9 (absent\u219230, valid\u2192used, OOR\u2192error+default, non-integer\u2192error+default).",
+    "1225 unit tests pass; 26 integration tests skip cleanly without SFUS_DB_INTEGRATION=1.",
+    "Coverage is sufficient for all acceptance criteria. No meaningful gaps detected."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}

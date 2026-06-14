@@ -1,0 +1,16 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-6/documenter_report.md",
+    "artifacts/ms5-documents-wiki/ST-6/documenter_result.json",
+    "artifacts/ms5-documents-wiki/ST-6/verifier_prompt.txt"
+  ],
+  "branch_name": "ms5-st6-documenter-20260611",
+  "documentation_commit_hash": "1babe9a",
+  "documentation_files_changed": [
+    "docs/features/documents.md",
+    "docs/development/api-conventions.md"
+  ],
+  "pass_label": "remediation-pass-1",
+  "status": "success",
+  "task_id": "ST-6"
+}

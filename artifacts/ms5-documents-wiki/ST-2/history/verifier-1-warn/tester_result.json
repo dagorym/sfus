@@ -1,0 +1,35 @@
+{
+  "status": "success",
+  "subtask": "ST-2",
+  "plan": "ms5-documents-wiki",
+  "branch": "ms5-st2-tester-20260610",
+  "test_commit_hash": "e1583eb",
+  "test_files_added": [
+    "apps/api/src/docs/docs.service.test.ts",
+    "apps/api/src/docs/docs.controller.test.ts"
+  ],
+  "test_files_modified": [
+    "apps/api/src/docs/docs-module.test.ts"
+  ],
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 --filter @sfus/api --dir /home/tstephen/repos/worktrees/ms5-st2-tester-20260610 test",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api --dir /home/tstephen/repos/worktrees/ms5-st2-tester-20260610 lint",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api --dir /home/tstephen/repos/worktrees/ms5-st2-tester-20260610 typecheck"
+  ],
+  "tests_passed": 1065,
+  "tests_skipped": 11,
+  "tests_failed": 0,
+  "acceptance_criteria": {
+    "AC1": "PASS",
+    "AC2": "PASS",
+    "AC3": "PASS",
+    "AC4": "PASS",
+    "AC5": "PASS"
+  },
+  "unmet_acceptance_criteria": [],
+  "artifact_files_written": [
+    "artifacts/ms5-documents-wiki/ST-2/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-2/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-2/documenter_prompt.txt"
+  ]
+}

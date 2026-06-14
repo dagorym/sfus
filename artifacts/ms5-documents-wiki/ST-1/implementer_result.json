@@ -1,0 +1,23 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-1/implementer_report.md",
+    "artifacts/ms5-documents-wiki/ST-1/tester_prompt.txt",
+    "artifacts/ms5-documents-wiki/ST-1/implementer_result.json"
+  ],
+  "branch_name": "ms5-st1-implementer-20260610",
+  "changed_files": [
+    "apps/api/src/docs/docs.module.ts"
+  ],
+  "code_commit_hash": "20565ae",
+  "pass_label": "remediation-1",
+  "status": "SUCCESS",
+  "task_id": "ST-1",
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 lint (main repo root)",
+    "npx --yes pnpm@10.0.0 typecheck (main repo root)",
+    "npx --yes pnpm@10.0.0 test (main repo root)",
+    "vitest run --root apps/api (worktree: 1003 tests pass including 20 docs tests)",
+    "tsc -p apps/api/tsconfig.json (worktree API tsc build: clean)"
+  ],
+  "validation_outcome": "ALL PASS. Lint: clean. Typecheck: clean. Tests: 1003 passed/11 skipped (20 new docs tests pass). tsc build: clean."
+}

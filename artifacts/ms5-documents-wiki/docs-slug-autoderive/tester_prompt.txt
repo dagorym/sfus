@@ -1,0 +1,97 @@
+TESTER HANDOFF: docs slug auto-derivation (POST /api/docs)
+
+== Background ==
+
+The implementer changed the POST /api/docs createPage route so that `slug` is now optional.
+When slug is omitted or blank, the API derives a slug from the title (lowercase, non-alphanumeric
+runs → single hyphen, leading/trailing hyphens stripped, fallback to "page" for no-alphanumeric
+titles). If the derived path already exists, a numeric suffix is appended ("-2", "-3", …) until
+the path is unique. The explicit-slug path is unchanged (still 409s on collision).
+
+Files changed:
+  apps/api/src/docs/docs.types.ts       — CreateDocPageInput.slug: string → slug?: string
+  apps/api/src/docs/docs.controller.ts  — removed hard "slug must be a non-empty string" guard
+  apps/api/src/docs/docs.service.ts     — createPage: added derive-and-suffix logic
+
+== Step 1: Fix stale test assertions (NOW FAILING) ==
+
+The following tests assert that a blank/missing slug yields a 400. They must be REMOVED or updated
+because the behavior now succeeds (the slug is derived from the title):
+
+  1. apps/api/src/docs/docs.controller.test.ts
+     Test name: "throws BadRequestException (400) for missing slug in body guard (AC3)"
+     Location: ~line 474–479
+     Input: { title: "T", slug: "  ", body: "b" }
+     Was: rejects with BadRequestException
+     Now: SUCCEEDS (slug derived as "t" or similar from title "T")
+     Action: Remove or replace this test. If replacing, assert 201 with a derived slug.
+
+  2. apps/api/src/docs/docs.service.test.ts
+     Test name: "throws BadRequestException (400) for empty slug"
+     Location: ~line 897–902
+     Input: { title: "T", slug: "", body: "b" }
+     Was: rejects with BadRequestException
+     Now: SUCCEEDS (slug derived as "t")
+     Action: Remove or replace this test. If replacing, assert the returned path is "t".
+
+Confirm these are the ONLY two failing tests before proceeding (all other 1294 tests pass).
+
+== Step 2: Add new test coverage ==
+
+Add the following tests in apps/api/src/docs/docs.service.test.ts (and/or the controller test as
+appropriate):
+
+A. Omitted slug → 201 with derived slug
+   - Call createPage with { title: "Hello World", body: "..." } (no slug field)
+   - Assert: resolves (no exception), returned path equals "hello-world"
+   - Assert: the page is retrievable at path "hello-world" (via findOne by path_hash)
+
+B. Blank slug → 201 with derived slug
+   - Call createPage with { title: "Hello World", slug: "", body: "..." }
+   - Same assertions as (A).
+
+C. Slug collision → suffix appended, both succeed with distinct paths
+   - Create page 1: { title: "My Page", body: "..." } → path should be "my-page"
+   - Create page 2: { title: "My Page", body: "..." } (same title, same parent)
+   - Assert page 2 succeeds and returns path "my-page-2"
+   - Assert page 1 and page 2 have DISTINCT paths
+
+D. Degenerate title (no alphanumerics) → fallback to "page"
+   - Call createPage with { title: "!!!", body: "..." }
+   - Assert returned path equals "page"
+   - Creating a second page with title "!!!" yields path "page-2"
+
+E. Explicit slug still honored as-is
+   - Call createPage with { title: "T", slug: "custom-slug", body: "..." }
+   - Assert returned path equals "custom-slug"
+   - Call createPage again with { title: "T2", slug: "custom-slug", body: "..." }
+   - Assert the second call throws ConflictException (409)
+
+F. Derived slug under a parent path
+   - Create a parent page with slug "parent"
+   - Create a child with { title: "Child Page", body: "..." } and parentId/parentPath pointing to parent
+   - Assert returned path equals "parent/child-page"
+
+G. Controller: omitted slug → 201 (not 400)
+   In docs.controller.test.ts, add a test that POST with { title: "T", body: "b" } (no slug)
+   resolves successfully and does not throw BadRequestException.
+
+== Step 3: Documenter carry-forward ==
+
+Tell the Documenter:
+  - docs/features/documents.md must be updated:
+    - POST /api/docs request-body table (~line 172): change the `slug` row from required ("yes")
+      to optional. Update the description to read something like:
+      "Optional. URL slug (a-z, 0-9, hyphen, 1–255 chars). When omitted or blank, auto-derived
+      from the title. Collision-safe: numeric suffix (-2, -3, …) appended when the path already exists."
+    - The surrounding prose should document the auto-derivation and collision-suffixing behavior.
+    - Any other place in the docs that states the slug is required for the docs create endpoint
+      should be reconciled.
+
+== Summary of expected test failure categories ==
+
+The only failures are:
+  1. Controller test: "throws BadRequestException (400) for missing slug in body guard (AC3)"
+  2. Service test: "throws BadRequestException (400) for empty slug"
+
+No other test categories should be failing. Lint and typecheck are clean.

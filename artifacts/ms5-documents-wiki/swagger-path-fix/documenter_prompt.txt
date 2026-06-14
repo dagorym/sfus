@@ -1,0 +1,59 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Documentation-only remediation for the swagger-path-fix (Verifier-1 WARNING). The Implementer confirmed that the Swagger endpoint is already correctly mounted at /api/swagger in product code (apps/api/src/index.ts) — no code change was made this pass. The only remaining change is a one-line ADR amendment note in the historical Milestone 1 architecture decisions doc. The Tester confirmed no product or test code changed this remediation pass and the @sfus/api suite passes (1295 tests passed, 30 skipped).
+
+Acceptance criteria validated:
+- No product/test code diff this remediation pass — confirmed via `git diff --stat ms5...HEAD` showing only artifacts and previously-committed swagger-fix code/doc changes.
+- @sfus/api test suite passes: 1295 tests passed, 30 skipped (integration tests skipped; no DB required).
+- documenter_prompt.txt written directing the ADR amendment (this file).
+
+Implementation branch or worktree context:
+- Tester worktree: /home/tstephen/repos/worktrees/ms5-swaggerfix-tester-20260612
+- Branch: ms5-swaggerfix-tester-20260612
+- Comparison base: ms5 branch
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/index.ts (swagger mount path changed from /api/docs to /api/swagger — prior pass, already committed)
+- apps/api/src/index.test.ts (tests updated for new swagger path — prior pass, already committed)
+- apps/api/README.md (swagger path updated — prior pass, already committed)
+- docs/development/api-conventions.md (swagger path updated — prior pass, already committed)
+- docs/operations/launch.md (swagger path updated — prior pass, already committed)
+- docs/architecture/milestone-1-foundation-decisions.md (TARGET for this documenter pass — NOT yet amended)
+
+Test commit:
+- No Changes Made
+
+Commands executed:
+- git diff --stat ms5...HEAD
+- pnpm --filter @sfus/api test
+
+Final test outcomes:
+- Test Files: 34 passed, 3 skipped (37 total)
+- Tests: 1295 passed, 30 skipped (1325 total)
+- Integration test suites skipped (require SFUS_DB_INTEGRATION=1 + DB credentials)
+- No test failures
+
+Documentation context:
+- TARGET FILE: docs/architecture/milestone-1-foundation-decisions.md
+- TARGET LINE: ~line 36, which currently reads:
+    `- Swagger/OpenAPI is included in Milestone 1 at \`/api/docs\`.`
+- REQUIRED CHANGE: Append an ADR amendment note AFTER that line (do NOT rewrite or delete the original decision text). ADR convention: append an amendment note that explains what changed and when/why.
+- The amendment should note that the Swagger mount path was relocated from /api/docs to /api/swagger in Milestone 5 to resolve a namespace collision with the Documents wiki API (/api/docs became the Documents wiki namespace).
+- No other doc changes are needed for this pass — api-conventions.md, launch.md, and README.md were already updated in the prior swagger-fix pass.
+
+Plan and diff context:
+- Plan: plans/ms5.md (or equivalent ms5 plan file in the repo)
+- Subtask: swagger-path-fix remediation (Verifier-1 WARNING)
+- Comparison base: ms5 branch
+
+Startup behavior:
+- If branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/swagger-path-fix
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

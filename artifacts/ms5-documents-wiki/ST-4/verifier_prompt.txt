@@ -1,0 +1,77 @@
+Your role is 'verifier'. Your task is as follows:
+
+## Story
+
+ST-4: Documents tree management — PATCH /api/docs/:id (rename: slug rewrite of self and all
+descendants, or title-only with no path changes) and DELETE /api/docs/:id (soft-delete:
+status=deleted, revisions preserved, disappears from public reads, 409 when page has
+non-deleted children). Both routes gated by assertDocWriteAccess (staff-only for site
+scope) and throttled. Also fixed: resolveParent now rejects soft-deleted parents on both
+the parentId and parentPath branches (status='published' filter applied to both).
+Cross-parent move/reparent is OUT OF SCOPE (deferred).
+
+## Branch and worktree
+
+Branch: ms5-st4-documenter-20260611
+Comparison base: ms5
+
+## Full modified-file review surface
+
+Files changed by Implementer:
+- apps/api/src/docs/docs.service.ts (renamePage, softDeletePage, resolveParent fix)
+- apps/api/src/docs/docs.controller.ts (PATCH :id, DELETE :id routes)
+- apps/api/src/docs/docs.types.ts (RenameDocPageInput interface)
+
+Files changed by Tester:
+- apps/api/src/docs/docs.service.test.ts
+- apps/api/src/docs/docs.controller.test.ts
+- apps/api/src/docs/docs.service.integration.test.ts
+
+Files changed by Documenter:
+- docs/features/documents.md (documentation commit: fed0ff0)
+
+Artifacts:
+- artifacts/ms5-documents-wiki/ST-4/documenter_report.md
+- artifacts/ms5-documents-wiki/ST-4/documenter_result.json
+- artifacts/ms5-documents-wiki/ST-4/verifier_prompt.txt (this file)
+
+## Verification scope
+
+1. **Implementation correctness** — verify that the diff on branch ms5-st4-documenter-20260611
+   relative to ms5 correctly implements:
+   - Slug rename: rewrites page path/path_hash and all descendants' path/path_hash in a
+     single transaction; 409 on collision.
+   - Title-only rename: only updates title, no path changes.
+   - Soft-delete: sets status='deleted'; revisions preserved; 409 when non-deleted children
+     exist.
+   - resolveParent: status='published' filter on both parentId and parentPath branches.
+   - Both PATCH and DELETE routes session-gated (401), assertDocWriteAccess (403), throttled (429).
+
+2. **Test coverage** — verify that tests cover the key scenarios: slug rename, title-only,
+   descendant path rewrite, 409 collision, soft-delete happy path, 409 on children, 404 not
+   found, 401/403 auth gates, resolveParent soft-deleted-parent rejection.
+
+3. **Documentation accuracy** — verify that docs/features/documents.md accurately describes:
+   - PATCH /api/docs/:id request/response/errors including the deferred cross-parent note.
+   - DELETE /api/docs/:id request/response/errors including the children guard.
+   - Parent resolution note (soft-deleted parents rejected).
+
+4. **No regressions** — verify that no previously documented behavior has been incorrectly
+   removed or altered.
+
+## Completion gate
+
+Do NOT report success unless:
+- All required artifacts exist and are committed:
+  - artifacts/ms5-documents-wiki/ST-4/documenter_report.md
+  - artifacts/ms5-documents-wiki/ST-4/documenter_result.json
+  - artifacts/ms5-documents-wiki/ST-4/verifier_prompt.txt
+  - (plus implementer and tester artifacts already present)
+- All changes are committed on branch ms5-st4-documenter-20260611.
+- The documentation commit (fed0ff0) is reachable in the branch history.
+
+## Startup instruction
+
+Begin verification work immediately. Infer any missing context from the repository and the
+diff. Do not stop after activation or scope restatement — continue through the full
+verification workflow in the same run.

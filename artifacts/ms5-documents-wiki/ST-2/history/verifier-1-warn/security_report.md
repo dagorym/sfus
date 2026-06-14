@@ -1,0 +1,53 @@
+Security Review Report
+
+Scope reviewed:
+- Specialist security review of MS5 ST-2 (Documents read API), read-only product code review against coordination base branch ms5.
+- Reviewed: apps/api/src/docs/docs.service.ts (DocsService.getPageByPath, listPageTree, listRecentEdits, isPagePubliclyReadable, computePathHash, buildBreadcrumbs).
+- Reviewed: apps/api/src/docs/docs.controller.ts (GET /api/docs, GET /api/docs/recent, GET /api/docs/*path).
+- Reviewed: apps/api/src/docs/docs.module.ts, docs.types.ts, and app.module.ts wiring (DocsController is the only docs read entrypoint).
+- Reviewed tests: docs.service.test.ts, docs.controller.test.ts, docs-module.test.ts for oracle-parity and central-gate proof.
+- Reviewed docs: docs/features/documents.md and docs/README.md routing row.
+- Cross-checked the established ForumsService.isBoardPubliclyReadable / listRecentTopics pattern and AuthorizationService.evaluate() semantics for an anonymous actor.
+
+Why specialist review was triggered:
+- ST-2 introduces new publicly-reachable, unauthenticated read paths whose correctness is a visibility/leak boundary.
+- Any defect can expose gated or non-published document content or create an existence oracle (P12).
+- Planner marked ST-2 'Security review: required'.
+
+Acceptance criteria / plan reference:
+- plans/ms5-documents-wiki-plan.md (ST-2 acceptance criteria AC1-AC5).
+- Security focus areas supplied by the coordinator: (1) oracle parity P12, (2) central-gate authorization routing, (3) project-scope isolation, (4) published/public/site-only reads incl. recent feed, (5) injection/lookup integrity and limit bounding.
+
+Findings
+
+BLOCKING
+- None
+
+WARNING
+- apps/api/src/docs/docs.service.ts:227-241 - buildBreadcrumbs includes EVERY ancestor (id, title, path) with no scope/status/visibility guard; non-readable, project-scoped, or deleted ancestors are deliberately included (confirmed by code comment lines 224-225 and docs/features/documents.md:63).
+  Focus area 3 requires that a project-scoped (or otherwise gated) page can NEVER surface in any unauthenticated read, including via breadcrumb ancestry of a published descendant. The breadcrumb is the one read path that does not route ancestors through isPagePubliclyReadable. There is no DB FK or scope-consistency constraint on docs_pages.parent_id (migration 1781308800000 has no parent_id FK and no scope CHECK), so the schema does not prevent a published-public site page from having a project-scoped, members/private, or deleted ancestor. In that case the breadcrumb leaks the ancestor id and human-readable title to anonymous callers. Exposure is bounded today (the materialized child path already embeds ancestor slugs, and the cross-scope/cross-visibility tree that triggers it must be created by the not-yet-implemented ST-3 write path), so this is not an exploitable leak in ST-2 in isolation. Remediate before ST-3 lands: filter breadcrumb ancestors through isPagePubliclyReadable (or at minimum exclude scopeType!=='site' and status!=='published'), and stop omitted ancestors from being silently skipped in a way that distinguishes hidden from absent.
+
+NOTE
+- apps/api/src/docs/docs.service.test.ts:231-260 - Breadcrumb tests only cover a readable site ancestor; no negative test asserts behavior when an ancestor is project-scoped, members/private, or deleted.
+  The oracle-parity and scope-isolation test set is otherwise strong (53 service + 24 controller tests proving identical PAGE_NOT_FOUND_MESSAGE for nonexistent/deleted/non-readable and evaluate()-routing via spies), but the breadcrumb-ancestry leak surface flagged in the WARNING finding is unverified by any test. Add a negative breadcrumb test alongside the WARNING remediation.
+- apps/api/src/docs - Docs test suite could not be re-executed in the isolated security worktree because workspace node_modules are not installed there (vitest reports 'Cannot find package @nestjs/common'); review relied on static analysis plus the tester's reported run (1065 passed / 0 failed).
+  Not a code defect. The downstream verifier stage runs the suite in a fully installed environment. Recorded for traceability so the CONDITIONAL PASS is not misread as an independently re-run green suite.
+
+Test sufficiency assessment:
+- Strong for the page-level oracle and central gate: service and controller tests assert identical NotFoundException(PAGE_NOT_FOUND_MESSAGE) across nonexistent, deleted, members, and private cases, and use evaluate() spies to prove every visibility decision (getPageByPath, listPageTree, listRecentEdits, parent lookup) routes through AuthorizationService.evaluate() with the anonymous actor { userId: null, globalRole: '' } and no inline predicate.
+- Scope isolation is covered: project-scoped pages are asserted absent from listPageTree results and from the recent-feed allow-list; isPagePubliclyReadable short-circuits scopeType!=='site' without calling evaluate().
+- Recent-feed limit bounding is covered: default=5, cap=20, provided-limit honored.
+- GAP: no negative test for breadcrumb ancestry when an ancestor is non-readable / project-scoped / deleted (see WARNING + NOTE).
+- Tester reported the full api suite green (1065 passed, 11 skipped integration, 0 failed); local re-run blocked only by uninstalled worktree deps.
+
+Documentation / operational guidance assessment:
+- docs/features/documents.md accurately documents the oracle-parity contract (P12), scope exclusion, central-gate routing, the anonymous actor, the three endpoints, the recent-feed limit (default 5 / max 20), and the route-ordering requirement (recent before *path).
+- Concern: documents.md:63 explicitly states 'Non-readable ancestors are included; the breadcrumb is navigational' — this documents the WARNING-finding behavior as intended. When the breadcrumb is remediated, this doc line must be updated to describe the ancestor filtering instead.
+- computePathHash input format and the oracle-parity constant are documented for the ST-3 write path.
+
+Artifacts written:
+- artifacts/ms5-documents-wiki/ST-2/security_report.md
+- artifacts/ms5-documents-wiki/ST-2/security_result.json
+
+Outcome:
+- CONDITIONAL PASS

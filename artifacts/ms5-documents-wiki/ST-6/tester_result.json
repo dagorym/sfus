@@ -1,0 +1,54 @@
+{
+  "stage": "tester",
+  "plan": "ms5-documents-wiki",
+  "subtask": "ST-6",
+  "pass": "remediation-pass-1",
+  "result": "PASS",
+  "branch": "ms5-st6-tester-20260611",
+  "substantive_commit": "9481932",
+  "date": "2026-06-11",
+  "validations": {
+    "tests": { "passed": 1287, "failed": 0, "skipped": 30, "result": "PASS" },
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "build": "PASS"
+  },
+  "findings": [
+    {
+      "id": "BLOCKING-1",
+      "severity": "BLOCKING",
+      "description": "JsonExceptionFilter did not forward details from HttpException body",
+      "status": "VERIFIED",
+      "tests_added": 11,
+      "file": "apps/api/src/common/filters/json-exception.filter.test.ts"
+    },
+    {
+      "id": "BLOCKING-2",
+      "severity": "BLOCKING",
+      "description": "acquireLock returned nested shape instead of flat { pageId, lock }",
+      "status": "VERIFIED",
+      "tests_added": 0,
+      "note": "Pre-existing controller test already asserts flat shape"
+    },
+    {
+      "id": "WARNING-1",
+      "severity": "WARNING",
+      "description": "softDeletePage ran un-transactionally",
+      "status": "VERIFIED",
+      "tests_added": 0,
+      "note": "AC6 test updated by implementer; 8 ST-4 regression tests updated by tester to use manager.transaction stubs"
+    }
+  ],
+  "files_changed": [
+    {
+      "path": "apps/api/src/common/filters/json-exception.filter.test.ts",
+      "type": "new",
+      "description": "11 HTTP-layer tests for JsonExceptionFilter (BLOCKING-1)"
+    },
+    {
+      "path": "apps/api/src/docs/docs.service.test.ts",
+      "type": "modified",
+      "description": "Updated makeSoftDeleteDocsService and two inline stubs to use manager.transaction; fixed 2 pre-existing lint errors"
+    }
+  ]
+}

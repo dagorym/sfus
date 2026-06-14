@@ -1,0 +1,35 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST-10: added a "Documents" entry to the adminSections array in apps/web/app/admin/page.tsx, linking to /docs with a description (create, edit, lock, roll back wiki pages in the public docs area). Consistent in tone/format with the existing Blog/Pages/Navigation/Forums entries.
+
+Status from tester: PASS
+Test commit: 50bdff4
+Tester branch: ms5-st10-tester-20260611
+
+Modified files (Implementer + Tester):
+- apps/web/app/admin/page.tsx — implementation: new Documents entry in adminSections const array
+- apps/web/app/admin/admin-dashboard.spec.ts — tests: 3 new assertions + 1 updated count assertion
+
+Acceptance criteria validated:
+- AC1: PASS — admin dashboard shows "Documents" card linking to /docs with accurate description
+- AC2: PASS — next build and lint pass (main repo; worktree env artifact blocked in tester worktree)
+
+Implementation context:
+The new entry is:
+  {
+    href: "/docs",
+    label: "Documents",
+    description: "Manage wiki pages: create, edit, lock, and roll back pages in the public docs area."
+  }
+Added to adminSections after the Forums entry in apps/web/app/admin/page.tsx.
+
+Shared artifact directory (repository-root-relative): artifacts/ms5-documents-wiki/ST-10
+
+Your deliverables are: documenter_report.md and documenter_result.json in artifacts/ms5-documents-wiki/ST-10, plus any documentation updates required.
+
+Before writing documentation, consult docs/README.md (the documentation routing table) to identify which doc(s) own the admin dashboard feature surface. Update the owning doc to reflect the Documents link addition.
+
+Do NOT continue into verifier work. Report success only after all required artifacts exist and all changes are committed. Do not stop after scope confirmation, documentation discovery, or diff review when blocking inputs are present — proceed directly through documentation work in the same run.
+
+Completion gate: Do not report success unless all required artifacts exist and all changes are committed on your worktree branch.

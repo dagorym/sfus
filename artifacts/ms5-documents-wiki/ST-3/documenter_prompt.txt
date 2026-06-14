@@ -1,0 +1,83 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST-3 implements the Documents wiki write API for the sfus API (DocsService.createPage,
+  DocsService.addRevision, DocsService.assertDocWriteAccess, DocsController write routes,
+  DocsModule wiring). The implementation is complete and all tests pass. Two tester passes
+  have been completed: the first rewrote the P10 atomicity test to use a real-DB
+  constraint-violation pattern (commit 95f165a); the second closed a shared-harness gap by
+  registering DocsPageEntity and DocsRevisionEntity in integration-test-support.ts so the
+  atomicity proof is runnable against a real DB (commit befe65f).
+
+Acceptance criteria validated:
+- AC1: createPage — page + revision#1 + current_revision_id pointer in single transaction — PASS
+- AC2: addRevision — revision_number increment + pointer update + 404 oracle parity — PASS
+- AC3: slug/title validation, missing-parent 400, path_hash collision 409; P10 atomicity via real-DB constraint injection — PASS
+- AC4: ThrottleGuard + ThrottleModule + AuthModule wired in DocsModule — PASS
+- AC5: assertDocWriteAccess single gate; null/user → 403; mod/admin → pass; 401 precedes 403 — PASS
+
+Implementation branch or worktree context:
+- Branch: ms5-st3-tester-20260610
+- Worktree: /home/tstephen/repos/worktrees/ms5-st3-tester-20260610
+- Compare against base: ms5 (the plan coordination branch)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/docs/docs.service.ts — createPage, addRevision, assertDocWriteAccess,
+  validateSlug, validateTitle, resolveParent, computePathHash methods
+- apps/api/src/docs/docs.controller.ts — POST /api/docs, POST /api/docs/:id/revisions routes
+- apps/api/src/docs/docs.types.ts — CreateDocPageInput, AddDocRevisionInput,
+  DocWriteResultShape types
+- apps/api/src/docs/docs.module.ts — ThrottleModule + AuthModule wiring
+- apps/api/src/docs/docs.service.integration.test.ts — P10 atomicity test (real-DB pattern)
+- apps/api/src/pages/integration-test-support.ts — DocsPageEntity + DocsRevisionEntity added
+
+Test commit:
+- befe65f (harness gap closed — this pass)
+- 95f165a (P10 atomicity test rewrite — prior tester pass)
+
+Commands executed:
+- eslint apps/api/src/pages/integration-test-support.ts --max-warnings=0
+- tsc -p apps/api/tsconfig.json --noEmit
+- vitest run --root apps/api/src --passWithNoTests
+- tsc -p apps/api/tsconfig.json
+
+Final test outcomes:
+- Test Files: 33 passed | 3 skipped (36)
+- Tests: 1111 passed | 19 skipped (1130)
+- docs.service.integration.test.ts: 8 tests skipped (SFUS_DB_INTEGRATION=1 not set — expected)
+- Lint: PASS; Typecheck: PASS; API tsc build: PASS
+- Harness is now correctly wired; ST-3 atomicity proof runnable against real DB
+
+Documentation context:
+- docs/features/documents.md (if it exists) — update or create to document the write API:
+  createPage and addRevision endpoints, assertDocWriteAccess authorization contract,
+  ThrottleModule + AuthModule wiring, DocWriteResultShape response shape, error codes
+  (400, 403, 404, 409, 429)
+- docs/development/api-conventions.md — check if DocWriteResultShape and the new write-API
+  error codes need to be added or updated
+- docs/README.md is the routing table — consult it first to find the canonical docs to update;
+  follow its "Writing documentation" rules exactly
+
+Plan and diff context:
+- Plan path: plans/ms5-documents-wiki-plan.md
+- Base branch for diff: ms5
+
+Startup behavior:
+- If branch/worktree context and enough story and diff context are present, begin documentation
+  work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details
+  from repository context when repository evidence is sufficient, and label those choices as
+  assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review
+  when documentation work can proceed.
+
+Deferred items (do not document as resolved):
+- resolveParent by parentId does not filter status='published' (deferred to ST-4 soft-delete)
+- addRevision passes hardcoded 'site' scope to assertDocWriteAccess (deferred to future project scope work)
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
+- Required artifacts: documenter_report.md, documenter_result.json, verifier_prompt.txt

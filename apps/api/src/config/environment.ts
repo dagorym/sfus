@@ -9,6 +9,13 @@ export interface ApplicationEnvironment {
   nodeEnv: NodeEnvironment;
   apiPort: number;
   swaggerEnabled: boolean;
+  docs: {
+    /**
+     * Soft-lock TTL in minutes (DOCS_LOCK_TTL_MINUTES).
+     * Default: 30 minutes. Range: 1–1440 minutes (1 minute to 24 hours).
+     */
+    lockTtlMinutes: number;
+  };
   media: {
     uploadMaxSizeBytes: number;
     /** Tighter size cap applied to avatar uploads only (MEDIA_AVATAR_UPLOAD_MAX_SIZE_BYTES). */
@@ -252,6 +259,17 @@ export const loadEnvironment = (
     errors.push("THROTTLE_NEW_ACCOUNT_MAX_HITS must be less than or equal to THROTTLE_MAX_HITS.");
   }
 
+  // ---------------------------------------------------------------------------
+  // Docs / wiki configuration
+  // ---------------------------------------------------------------------------
+
+  const docsLockTtlMinutes = parseOptionalInteger(
+    source.DOCS_LOCK_TTL_MINUTES,
+    "DOCS_LOCK_TTL_MINUTES",
+    { min: 1, max: 1440, defaultValue: 30 },
+    errors
+  );
+
   if (errors.length > 0) {
     throw new Error(`Invalid API environment configuration:\n- ${errors.join("\n- ")}`);
   }
@@ -260,6 +278,9 @@ export const loadEnvironment = (
     nodeEnv,
     apiPort,
     swaggerEnabled,
+    docs: {
+      lockTtlMinutes: docsLockTtlMinutes
+    },
     media: {
       uploadMaxSizeBytes: mediaUploadMaxSizeBytes,
       avatarUploadMaxSizeBytes: mediaAvatarUploadMaxSizeBytes,
@@ -398,6 +419,32 @@ const parseBoolean = (
 
   errors.push(`${name} must be a boolean value (true/false).`);
   return defaultValue;
+};
+
+/**
+ * Like `parseInteger` but allows the env var to be absent/empty, falling back
+ * to a `defaultValue` in that case. Still validates range when a value is set.
+ */
+const parseOptionalInteger = (
+  value: string | undefined,
+  name: string,
+  range: { min: number; max: number; defaultValue: number },
+  errors: string[]
+): number => {
+  const normalized = value?.trim() || "";
+
+  if (!normalized) {
+    return range.defaultValue;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+
+  if (!Number.isInteger(parsed) || parsed < range.min || parsed > range.max) {
+    errors.push(`${name} must be an integer between ${range.min} and ${range.max}.`);
+    return range.defaultValue;
+  }
+
+  return parsed;
 };
 
 const mimeTypePattern = /^[a-zA-Z0-9!#$&\-^_]+\/[a-zA-Z0-9!#$&\-^_.+]+$/;

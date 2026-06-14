@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-7/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-7/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st7-verifier-20260611",
+  "documentation_accuracy_summary": [
+    "Documenter confirmed no documentation changes were needed for the remediation. The existing ST-7 section in docs/features/documents.md correctly describes getDocPageByPath(path) calling GET /api/docs/<path> \u2014 path encoding is an internal implementation detail. docs/features/web-shell.md route rows are accurate. No inaccuracies, omissions, or contradictions found."
+  ],
+  "note_finding_count": 1,
+  "pass_label": "pass2",
+  "status": "pass",
+  "task_id": "ST-7",
+  "test_sufficiency_summary": [
+    "644 tests pass (vitest run in installed-module env). 4 new behavioral mock-fetch tests in docs-client.spec.ts intercept globalThis.fetch at runtime and assert on the actual URL string: AC1 (multi-segment path uses literal '/' not %2F), AC2 (single-segment root path unchanged), AC3 (reserved chars within a segment encoded, AC3 nested path \u2014 segments encoded, slashes preserved). Source-audit tests also assert the split/map/join pattern. All AC1-AC4 are covered. No gaps remain from the first-pass WARNING."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}

@@ -1,0 +1,22 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-7/implementer_report.md",
+    "artifacts/ms5-documents-wiki/ST-7/tester_prompt.txt",
+    "artifacts/ms5-documents-wiki/ST-7/implementer_result.json"
+  ],
+  "branch_name": "ms5-st7-implementer-20260611",
+  "changed_files": [
+    "apps/web/app/docs/docs-client.ts",
+    "apps/web/app/docs/page.tsx"
+  ],
+  "code_commit_hash": "250169a",
+  "pass_label": "remediation-1",
+  "status": "success",
+  "task_id": "ST-7",
+  "validation_commands": [
+    "pnpm --dir apps/web lint",
+    "pnpm --dir apps/web build",
+    "pnpm --dir apps/web test -- --testPathPattern=docs --no-coverage"
+  ],
+  "validation_outcome": "All green: lint 0 warnings, production Next.js build succeeded, 711 tests passed (includes 35 docs-page, 17 docs-index, 33 docs-client specs)."
+}

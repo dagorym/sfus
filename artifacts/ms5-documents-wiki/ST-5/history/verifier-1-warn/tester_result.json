@@ -1,0 +1,33 @@
+{
+  "status": "pass",
+  "test_commit": "26009f9",
+  "test_files_modified": [
+    "apps/api/src/docs/docs.service.test.ts",
+    "apps/api/src/docs/docs.controller.test.ts",
+    "apps/api/src/docs/docs.service.integration.test.ts"
+  ],
+  "unit_tests": {
+    "total": 1172,
+    "passed": 1149,
+    "skipped": 23,
+    "failed": 0
+  },
+  "integration_tests": {
+    "status": "skipped",
+    "reason": "SFUS_DB_INTEGRATION=1 not set",
+    "new_integration_tests": 3
+  },
+  "typecheck": "clean",
+  "lint": "clean",
+  "acceptance_criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "pass"
+  },
+  "artifacts_written": [
+    "artifacts/ms5-documents-wiki/ST-5/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-5/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-5/documenter_prompt.txt"
+  ]
+}

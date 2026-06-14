@@ -1,0 +1,23 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-5/implementer_report.md",
+    "artifacts/ms5-documents-wiki/ST-5/tester_prompt.txt",
+    "artifacts/ms5-documents-wiki/ST-5/implementer_result.json"
+  ],
+  "branch_name": "ms5-st5-implementer-20260611",
+  "changed_files": [
+    "apps/api/src/docs/docs.types.ts",
+    "apps/api/src/docs/docs.service.ts"
+  ],
+  "code_commit_hash": "8d41a96",
+  "pass_label": null,
+  "status": "success",
+  "task_id": null,
+  "validation_commands": [
+    "pnpm -r --filter ./apps/api run typecheck",
+    "pnpm -r --filter ./apps/api run lint",
+    "pnpm -r --filter ./apps/api run test",
+    "pnpm -r --filter ./apps/api run build"
+  ],
+  "validation_outcome": "all pass \u2014 typecheck: clean, lint: clean, test: 1149 passed / 23 skipped (integration tests skipped, no DB), build: clean"
+}

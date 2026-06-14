@@ -15,6 +15,7 @@ and skip the rest.
 | [features/pages.md](features/pages.md) | standalone pages, revisions/restore, reserved slugs | `apps/api/src/pages/`, `apps/web/app/pages/`, `apps/web/app/[slug]/`, `apps/web/app/admin/pages/` |
 | [features/navigation.md](features/navigation.md) | nav items, visibility + publication-leak filtering, shell rendering | `apps/api/src/navigation/`, `apps/web/components/navigation.tsx`, `apps/web/app/admin/navigation/` |
 | [features/forums.md](features/forums.md) | forum categories and boards — admin management API, scoping/visibility model, reorder contract | `apps/api/src/forums/` |
+| [features/documents.md](features/documents.md) | wiki page tree, read API (path resolution, tree, breadcrumbs, recent feed), oracle-parity contract, computePathHash | `apps/api/src/docs/`, `apps/web/app/docs/` |
 | [features/web-shell.md](features/web-shell.md) | layout/branding, route map, protected-route session handling, landing page, API path targeting | `apps/web/app/layout.tsx`, `apps/web/app/page.tsx`, `apps/web/next.config.mjs`, new web routes |
 
 ## Development docs — cross-cutting engineering contracts
@@ -37,7 +38,7 @@ and skip the rest.
 
 | Doc | Scope |
 |---|---|
-| [guides/content-management.md](guides/content-management.md) | admin/member how-tos: publish posts, comments/moderation, pages, navigation |
+| [guides/content-management.md](guides/content-management.md) | admin/member how-tos: publish posts, comments/moderation, pages, navigation, wiki pages |
 | [architecture/](architecture/) | locked architecture/deployment decisions (per milestone) — inputs to implementation, not to be reopened casually |
 | [deferred-tasks.md](deferred-tasks.md) | deferred work register — planners read and append during planning cycles only |
 | `cicd/docs/cicd.md` | CI/CD validation runner, config contracts, GitHub workflow shims (lives next to the scripts) |

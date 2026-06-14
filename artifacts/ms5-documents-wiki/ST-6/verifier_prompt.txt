@@ -1,0 +1,65 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST-6 (Documents soft-lock) REMEDIATION documenter pass — correct docs to match final code after Verifier-driven remediation. Changes: (1) POST /api/docs/:id/lock 200 shape corrected to { pageId, lock: DocsLockState } (single-nested, no result wrapper); (2) POST /api/docs/:id/lock 409 corrected to show error.details.lockedByUserId and error.details.lockExpiresAt (not a top-level lock key); (3) DELETE /api/docs/:id marked fully transactional and foreign-lock 409 documented; (4) api-conventions.md documents the optional error.details field in the error envelope contract.
+
+Acceptance criteria to verify:
+- docs/features/documents.md POST /api/docs/:id/lock 200 response description matches { pageId, lock: DocsLockState } (single-nested)
+- docs/features/documents.md POST /api/docs/:id/lock 409 response shows error.details.lockedByUserId and error.details.lockExpiresAt (not a top-level lock key)
+- docs/features/documents.md DELETE /api/docs/:id documents fully transactional operation and foreign-lock 409
+- docs/development/api-conventions.md documents optional error.details field in error envelope contract
+- No other documented behavior changed or removed
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms5-st6-documenter-20260611
+- Branch: ms5-st6-documenter-20260611 (branched from ms5-st6-tester-20260611)
+- Implementer commit: c914da4 (on ms5-st6-implementer-20260611)
+- Tester commit: 9481932 (on ms5-st6-tester-20260611)
+- Documenter documentation commit: 1babe9a
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/common/filters/json-exception.filter.ts (implementer: added extractDetails, error.details passthrough)
+- apps/api/src/docs/docs.service.ts (implementer: fixed acquireLock return shape, softDeletePage now transactional, assertNotForeignLocked uses details:)
+- apps/api/src/docs/docs.controller.ts (implementer: acquireLock returns DocsLockResultShape directly)
+- apps/api/src/docs/docs.types.ts (implementer: DocsLockResultShape type definition)
+- apps/api/src/docs/docs.module.ts (implementer: module wiring)
+- apps/api/src/config/environment.ts (implementer: DOCS_LOCK_TTL_MINUTES config)
+- apps/api/src/common/filters/json-exception.filter.test.ts (tester: 11 new tests for error.details passthrough)
+- apps/api/src/docs/docs.service.test.ts (tester: updated softDeletePage stubs to use manager.transaction)
+- docs/features/documents.md (documenter: correct lock 409/200 shapes and softDelete transaction note)
+- docs/development/api-conventions.md (documenter: document optional error.details field)
+
+Commands executed:
+- git -C /home/tstephen/repos/worktrees/ms5-st6-documenter-20260611 branch --show-current
+- git -C /home/tstephen/repos/worktrees/ms5-st6-documenter-20260611 add docs/features/documents.md docs/development/api-conventions.md
+- git -C /home/tstephen/repos/worktrees/ms5-st6-documenter-20260611 commit -m '...' (doc commit 1babe9a)
+
+Final test outcomes:
+- All tests pass on tester branch (1287 passed, 0 failed, 30 skipped — from tester_result.json)
+- No new test runs performed by documenter (documentation-only edits)
+
+Plan or evaluation context guidance:
+- Plan: plans/ms5-documents-wiki.md, ST-6 subtask
+- Tester handoff: artifacts/ms5-documents-wiki/ST-6/documenter_prompt.txt
+- Shared artifact directory: artifacts/ms5-documents-wiki/ST-6
+
+Convention-file guidance:
+- docs/README.md is the documentation routing table
+- docs/features/documents.md covers the Documents subsystem contract
+- docs/development/api-conventions.md covers the cross-cutting API error envelope
+- docs/operations/launch.md is the canonical env-variable contract (no changes needed)
+
+Updated documentation files:
+- docs/features/documents.md
+- docs/development/api-conventions.md
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-6
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

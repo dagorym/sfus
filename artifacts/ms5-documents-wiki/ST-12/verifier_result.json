@@ -1,0 +1,20 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-12/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-12/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st12-verifier-20260611",
+  "documentation_accuracy_summary": [
+    "Accurate after remediation. docs/features/web-shell.md now correctly describes: (1) MS5 hero with 'Browse the wiki' -> /docs primary CTA and 'Visit the forums' -> /forums secondary CTA; (2) six highlights cards listed in order matching page.tsx exactly (Documents wiki first); (3) what's-new two-column layout with Recent document activity column (RecentDocActivity component, getRecentDocEdits(5), loading/empty/error states, Browse the wiki link) and Recent forum activity column; (4) explore section Documents wiki entry first; (5) runtime notes content scope including Documents wiki. The layout.tsx shell-title M3/M4 discrepancy in the Shared shell section is pre-existing and outside ST-12 scope, recorded as NOTE."
+  ],
+  "note_finding_count": 1,
+  "pass_label": "pass2",
+  "status": "complete",
+  "task_id": "ST-12",
+  "test_sufficiency_summary": [
+    "Sufficient. The 157-line recent-doc-activity.spec.ts (apps/web/components/recent-doc-activity.spec.ts) covers all required behaviors: 'use client' declaration, getRecentDocEdits import, DocsRecentEditShape type import, loading/empty/error states, error-before-loading check ordering, useState/useEffect usage, limit-5 call, /docs/<edit.path> link href, editor displayName/username fallback, Unknown editor fallback, editedAt toLocaleDateString, dangerouslySetInnerHTML absence, key={edit.pageId}, and the Browse-the-wiki CTA in page.tsx. public-shell.spec.ts assertions updated to cover no stale M4 labels in page.tsx, MS5 copy presence, /docs href before /forums in explore section, RecentDocActivity import, and server-component constraints. 927 specs pass upstream."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}

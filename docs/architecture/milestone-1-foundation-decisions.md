@@ -34,6 +34,7 @@ They do not authorize Milestone 2+ feature work such as auth, blog, forums, docs
 - Backend framework: current stable NestJS.
 - API style: REST only.
 - Swagger/OpenAPI is included in Milestone 1 at `/api/docs`.
+  - (Amended in Milestone 5: relocated to `/api/swagger` to avoid colliding with the Documents wiki API namespace `/api/docs`.)
 - Swagger is enabled by default in local development and disabled by default in production unless explicitly enabled.
 
 ### Database And Persistence

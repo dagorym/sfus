@@ -215,4 +215,65 @@ describe("loadEnvironment", () => {
       })
     ).toThrowError("MEDIA_STORAGE_PATH is required.");
   });
+
+  // ST-6 AC9: DOCS_LOCK_TTL_MINUTES parsing
+
+  it("uses default 30 when DOCS_LOCK_TTL_MINUTES is absent (AC9: absent → default 30)", () => {
+    const env = loadEnvironment(process.cwd(), {
+      ...createValidEnvironment(),
+      DOCS_LOCK_TTL_MINUTES: undefined
+    });
+    expect(env.docs.lockTtlMinutes).toBe(30);
+  });
+
+  it("uses provided valid value when DOCS_LOCK_TTL_MINUTES is set (AC9: valid integer 1-1440)", () => {
+    const env = loadEnvironment(process.cwd(), {
+      ...createValidEnvironment(),
+      DOCS_LOCK_TTL_MINUTES: "60"
+    });
+    expect(env.docs.lockTtlMinutes).toBe(60);
+  });
+
+  it("accepts boundary value 1 for DOCS_LOCK_TTL_MINUTES (AC9: min=1)", () => {
+    const env = loadEnvironment(process.cwd(), {
+      ...createValidEnvironment(),
+      DOCS_LOCK_TTL_MINUTES: "1"
+    });
+    expect(env.docs.lockTtlMinutes).toBe(1);
+  });
+
+  it("accepts boundary value 1440 for DOCS_LOCK_TTL_MINUTES (AC9: max=1440)", () => {
+    const env = loadEnvironment(process.cwd(), {
+      ...createValidEnvironment(),
+      DOCS_LOCK_TTL_MINUTES: "1440"
+    });
+    expect(env.docs.lockTtlMinutes).toBe(1440);
+  });
+
+  it("uses default 30 and collects an error when DOCS_LOCK_TTL_MINUTES is out of range (AC9: out-of-range → default 30 + error)", () => {
+    expect(() =>
+      loadEnvironment(process.cwd(), {
+        ...createValidEnvironment(),
+        DOCS_LOCK_TTL_MINUTES: "1441"
+      })
+    ).toThrowError("DOCS_LOCK_TTL_MINUTES must be an integer between 1 and 1440.");
+  });
+
+  it("uses default 30 and collects an error when DOCS_LOCK_TTL_MINUTES is below minimum (AC9: below-range → default 30 + error)", () => {
+    expect(() =>
+      loadEnvironment(process.cwd(), {
+        ...createValidEnvironment(),
+        DOCS_LOCK_TTL_MINUTES: "0"
+      })
+    ).toThrowError("DOCS_LOCK_TTL_MINUTES must be an integer between 1 and 1440.");
+  });
+
+  it("uses default 30 and collects an error when DOCS_LOCK_TTL_MINUTES is a non-integer (AC9: invalid → default 30 + error)", () => {
+    expect(() =>
+      loadEnvironment(process.cwd(), {
+        ...createValidEnvironment(),
+        DOCS_LOCK_TTL_MINUTES: "not-a-number"
+      })
+    ).toThrowError("DOCS_LOCK_TTL_MINUTES must be an integer between 1 and 1440.");
+  });
 });

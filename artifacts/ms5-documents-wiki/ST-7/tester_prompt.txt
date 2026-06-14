@@ -1,0 +1,42 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Remediation pass 1: fix nested doc page path encoding in getDocPageByPath so multi-segment paths like 'getting-started/installation' resolve correctly against GET /api/docs/*path. Express does not decode %2F in wildcard routes; per-segment encoding preserves literal slash separators. Also removed redundant session !== undefined guard in DocsIndexPage.
+
+Modified files:
+- apps/web/app/docs/docs-client.ts
+- apps/web/app/docs/page.tsx
+
+Acceptance criteria to validate (from Planner):
+- AC1: getDocPageByPath constructs a URL with literal '/' separators for multi-segment paths (e.g. 'getting-started/installation' -> GET /api/docs/getting-started/installation, not %2F-encoded)
+- AC2: Single-segment root-level paths continue to work (unaffected by the fix)
+- AC3: Reserved characters within a path segment are still percent-encoded (encodeURIComponent applied per segment)
+- AC4: All pre-existing ST-7 ACs (AC1-AC4 from the plan) remain satisfied
+
+Create test files in:
+- apps/web/app/docs/docs-client.spec.ts — existing spec file for the docs client
+- The test at line 157 asserts encodeURIComponent is present in source but does not verify correctness for multi-segment paths; replace or augment it with a behavioral test that mocks fetch and asserts the URL keeps literal slashes for nested paths
+
+Implementation context for testing:
+- Fix: path.split('/').map(encodeURIComponent).join('/') replaces encodeURIComponent(path) in getDocPageByPath (docs-client.ts ~line 129)
+- The new local variable encodedPath is assigned before the fetch call so the URL can be inspected in tests
+- session != null already excludes undefined via loose equality; removed the redundant && session !== undefined in DocsIndexPage (page.tsx line 55)
+
+Suggested test command(s):
+- pnpm --dir apps/web lint
+- pnpm --dir apps/web build
+- pnpm --dir apps/web test -- --testPathPattern=docs --no-coverage
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-7
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

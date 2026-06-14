@@ -1,11 +1,15 @@
 import Link from "next/link";
+import { RecentDocActivity } from "../components/recent-doc-activity";
 import { RecentForumActivity } from "../components/recent-forum-activity";
-import { RecentPostsFeed } from "../components/recent-posts-feed";
 import styles from "./page.module.css";
 
 const apiBasePath = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api";
 
 const highlights = [
+  {
+    title: "Documents wiki",
+    body: "A hierarchical wiki with breadcrumb navigation, per-edit revision history, side-by-side diffs, rollback, and soft locking to prevent edit collisions. Staff can create, edit, rename, and soft-delete pages; the full tree is publicly readable."
+  },
   {
     title: "Community forums",
     body: "Discuss Star Frontiers in threaded topic boards. Members can create topics and reply; moderators can pin, lock, and move threads. @mentions link to public member profiles."
@@ -25,10 +29,6 @@ const highlights = [
   {
     title: "Public member profiles and avatars",
     body: "Every member gets a public profile page at /users/<username> showing their display name, bio, and avatar. Avatars are uploaded via the media API and linked to the user account."
-  },
-  {
-    title: "Anti-spam and rate limiting",
-    body: "All write endpoints are protected by per-user throttle guards. Repeated rapid submissions are rejected before they reach the database, keeping the community clean."
   }
 ];
 
@@ -40,23 +40,24 @@ export default function HomePage() {
           <p className={styles.eyebrow}>Public Landing Experience</p>
           <h2 className={styles.title}>Chart the next frontier for Star Frontiers US.</h2>
           <p className={styles.description}>
-            Milestone 4 brings community forums to the Star Frontiers US website — threaded topic
-            boards, @mentions with public member profiles, member avatars, and anti-spam rate
-            limiting, built on top of the blog, standalone pages, media uploads, and dynamic
-            navigation delivered in earlier milestones.
+            Milestone 5 brings a full Documents wiki to the Star Frontiers US website — a
+            hierarchical page tree with breadcrumb navigation, per-edit revision history,
+            side-by-side diffs, rollback, and soft locking, built on top of the community
+            forums, blog, standalone pages, media uploads, and dynamic navigation delivered
+            in earlier milestones.
           </p>
         </div>
         <div className={styles.actions}>
-          <Link className={styles.primaryAction} href="/forums">
-            Visit the forums
+          <Link className={styles.primaryAction} href="/docs">
+            Browse the wiki
           </Link>
-          <Link className={styles.secondaryAction} href="/blog">
-            Read the blog
+          <Link className={styles.secondaryAction} href="/forums">
+            Visit the forums
           </Link>
         </div>
       </section>
 
-      <section className={styles.grid} aria-label="Milestone 4 highlights">
+      <section className={styles.grid} aria-label="Milestone 5 highlights">
         {highlights.map((item) => (
           <article className={styles.card} key={item.title}>
             <h3 className={styles.cardTitle}>{item.title}</h3>
@@ -65,21 +66,21 @@ export default function HomePage() {
         ))}
       </section>
 
-      <section className={styles.whatsNew} aria-label="What&apos;s new in Milestone 4">
-        <h2 className={styles.sectionHeading}>What&apos;s new in Milestone 4</h2>
+      <section className={styles.whatsNew} aria-label="What&apos;s new in Milestone 5">
+        <h2 className={styles.sectionHeading}>What&apos;s new in Milestone 5</h2>
         <div className={styles.whatsNewGrid}>
+          <div className={styles.feedColumn}>
+            <h3 className={styles.columnHeading}>Recent document activity</h3>
+            <RecentDocActivity />
+            <Link href="/docs" className={styles.blogIndexLink}>
+              Browse the wiki →
+            </Link>
+          </div>
           <div className={styles.feedColumn}>
             <h3 className={styles.columnHeading}>Recent forum activity</h3>
             <RecentForumActivity />
             <Link href="/forums" className={styles.blogIndexLink}>
               View the forums →
-            </Link>
-          </div>
-          <div className={styles.feedColumn}>
-            <h3 className={styles.columnHeading}>Recent posts</h3>
-            <RecentPostsFeed />
-            <Link href="/blog" className={styles.blogIndexLink}>
-              View all posts →
             </Link>
           </div>
         </div>
@@ -88,6 +89,12 @@ export default function HomePage() {
       <section className={styles.exploreSection} aria-label="Explore the site">
         <h2 className={styles.sectionHeading}>Explore the site</h2>
         <ul className={styles.exploreList}>
+          <li>
+            <Link href="/docs" className={styles.exploreLink}>
+              Documents wiki
+            </Link>
+            <span className={styles.exploreDesc}> — browse the hierarchical wiki with revision history and breadcrumb navigation</span>
+          </li>
           <li>
             <Link href="/forums" className={styles.exploreLink}>
               Forums
@@ -132,11 +139,13 @@ export default function HomePage() {
         </article>
         <article className={styles.metaCard}>
           <p className={styles.metaLabel}>Current content scope</p>
-          <p className={styles.metaValue}>Forums, blog, standalone pages, navigation, and media</p>
+          <p className={styles.metaValue}>Documents wiki, forums, blog, standalone pages, navigation, and media</p>
           <p className={styles.metaBody}>
-            Members participate in forum discussions and leave threaded blog comments. Admins
-            publish posts and standalone pages, manage site navigation, and attach images via the
-            media upload API. Moderators and admins keep content clean across forums and blog.
+            Staff create and maintain a hierarchical Documents wiki with full revision history,
+            diffs, rollback, and soft locking. Members participate in forum discussions and leave
+            threaded blog comments. Admins publish posts and standalone pages, manage site
+            navigation, and attach images via the media upload API. Moderators and admins keep
+            content clean across the wiki, forums, and blog.
           </p>
         </article>
       </section>

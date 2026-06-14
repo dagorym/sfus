@@ -1,0 +1,89 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- Fix edit-page and rollback-page crash: after a successful write (addDocRevision, renameDocPage, rollbackDocPage) the client was storing the partial DocWriteResultShape into page state typed as DocsPageShape, causing a TypeError crash when render code accessed page.lock.isLocked (undefined on the partial shape). Fix: add DocWriteResultShape to docs-client, retype the three write helpers (and createDocPage) to return it, and update the edit and history pages to re-fetch the full page via getDocPageByPath after every write instead of calling setPage with the partial.
+
+Modified files:
+- apps/web/app/docs/docs-client.ts
+- apps/web/app/docs/edit/[...path]/page.tsx
+- apps/web/app/docs/history/[...path]/page.tsx
+
+Acceptance criteria to validate (from Planner):
+- AC1: DocWriteResultShape interface exported from docs-client.ts with id, title, path, depth, parentId, currentRevisionId, revisionNumber, createdAt, updatedAt (string dates).
+- AC2: addDocRevision, renameDocPage, rollbackDocPage typed to return DocWriteResultShape; createDocPage also retyped consistently (new/page.tsx only reads .path, typecheck stays green).
+- AC3: edit/[...path]/page.tsx handleSubmit re-fetches full page via getDocPageByPath(finalPath) after write; setPage called with full DocsPageShape, not partial; form fields re-baselined.
+- AC4: edit/[...path]/page.tsx: activeForeignLock and render-side lock accesses are null-safe (p.lock?.isLocked, page.lock?.lockExpiresAt).
+- AC5: edit/[...path]/page.tsx: router.replace to new edit URL if path changed; re-fetch failure surfaces non-fatal error without crashing; saveSuccess set accurately.
+- AC6: history/[...path]/page.tsx handleRollback re-fetches full page via getDocPageByPath before setPage; no setPage(partial) call.
+- AC7: Lint, typecheck, all 944 existing tests pass, next build clean.
+
+Create test files in:
+- apps/web/app/docs/docs-edit-page.spec.ts — regression tests for edit page save flow
+- apps/web/app/docs/docs-history-page.spec.ts — regression tests for rollback flow
+- apps/web/app/docs/docs-client.spec.ts — regression tests for DocWriteResultShape type and updated return types
+
+Implementation context for testing:
+- DocWriteResultShape is a lightweight interface: id, title, path, depth, parentId, currentRevisionId, revisionNumber, createdAt, updatedAt. It does NOT contain lock, currentRevision, breadcrumbs, or visibility.
+- The API write contract is CORRECT and must NOT change; only the web-client type assumptions and post-write state handling changed.
+- addDocRevision / renameDocPage / rollbackDocPage now declare Promise<DocWriteResultShape>. Their internal JSON casts use AddDocRevisionResult / { page: DocWriteResultShape } respectively.
+- edit page handleSubmit: renames first (stores write result path), then addDocRevision (stores write result path), then calls getDocPageByPath(finalPath). On success: setPage(refreshed), re-baseline all form fields, router.replace if path changed. On re-fetch failure: setError(non-fatal message), setSaveSuccess(true) since the write succeeded.
+- history page handleRollback: calls rollbackDocPage (returns DocWriteResultShape), then getDocPageByPath(writeResult.path) and setPage(refreshed); reloads history as before.
+- activeForeignLock guard changed from p.lock.isLocked to p.lock?.isLocked (and lockExpiresAt); same null-safe change applied to render-side page.lock?.lockExpiresAt in the lock banner.
+- The CREATE flow (new/page.tsx) is NOT changed and was not affected; it only reads .path which exists on DocWriteResultShape.
+- All 944 existing tests pass because the existing test suite uses source-analysis patterns; the Tester must add regression tests for the new re-fetch behavior (see tester handoff for required coverage).
+- Validation run from worktree: install deps first with: npx --yes pnpm@10.0.0 --dir <worktree> install --frozen-lockfile
+
+Suggested test command(s):
+- npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/web run lint
+- npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/web run typecheck
+- npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/web run test
+- npx --yes pnpm@10.0.0 --dir <worktree-root> --filter @sfus/web run build
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/docs-edit-save-crash
+
+Required regression tests (Tester must add these — they are the exact gap that shipped the crash):
+
+EDIT PAGE REGRESSION TESTS (add to docs-edit-page.spec.ts):
+(a) Mock addDocRevision to return a DocWriteResultShape (no lock/currentRevision/breadcrumbs).
+    Mock getDocPageByPath to return a full DocsPageShape. Verify that after clicking Save Revision
+    with a successful 201 response, the page does NOT crash, getDocPageByPath is called to re-fetch,
+    the returned full page is applied to state, and the success banner appears.
+(b) Rename-then-save path: mock renameDocPage to return DocWriteResultShape with a new path, mock
+    addDocRevision likewise, mock getDocPageByPath to return the full page at the new path.
+    Verify getDocPageByPath is called with the new path and router.replace is called with the
+    new edit URL.
+(c) Re-fetch failure after save: mock addDocRevision to return DocWriteResultShape, mock
+    getDocPageByPath to throw. Verify the page does NOT crash, a non-fatal error message is shown,
+    and saveSuccess is still set (the save itself succeeded).
+
+HISTORY PAGE ROLLBACK REGRESSION TESTS (add to docs-history-page.spec.ts):
+(d) Mock rollbackDocPage to return a DocWriteResultShape (no lock/currentRevision). Mock
+    getDocPageByPath to return a full DocsPageShape. Verify that after rollback, the page does NOT
+    crash, getDocPageByPath is called with the page path, and the full refreshed page is applied.
+
+DOCS-CLIENT TYPE TESTS (add to docs-client.spec.ts):
+(e) Verify DocWriteResultShape is exported from docs-client.ts with expected fields
+    (id, title, path, depth, parentId, currentRevisionId, revisionNumber, createdAt, updatedAt)
+    and does NOT include lock, currentRevision, breadcrumbs, or visibility.
+(f) Verify addDocRevision, renameDocPage, rollbackDocPage, and createDocPage are typed to return
+    DocWriteResultShape (source-analysis check).
+
+Documenter carry-forward notes (pass these to the Documenter after testing passes):
+- docs/features/documents.md already documents DocWriteResultShape for these write endpoints
+  (~lines 205/237/446); verify those sections match the new interface fields.
+- Update the edit-flow prose (~line 672, "On load, the page is fetched by path...") to state
+  that the editor re-fetches the full page via GET /api/docs/:path after a successful save,
+  ensuring lock/breadcrumbs/currentRevision are always populated from the authoritative read.
+- Reconcile docs/features/web-shell.md only if it describes the old partial setPage behavior.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

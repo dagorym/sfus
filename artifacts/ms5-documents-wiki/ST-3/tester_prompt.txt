@@ -1,0 +1,52 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- REMEDIATION PASS (no product change): Re-confirmed all ST-3 validations still green after verifier-1-warn pass. Updated tester_prompt.txt to direct the Tester to rewrite the P10 atomicity-injection test to exercise the real DataSource transaction (failure injected via unique-constraint violation, mirroring the Pages integration spec), so rollback is actually observed in the DB rather than asserted against a fake manager.
+
+Modified files:
+- None
+
+Acceptance criteria to validate (from Planner):
+- AC1: createPage — persists docs_pages row + docs_revisions row (revision_number=1) + current_revision_id pointer in a single transaction; returns DocWriteResultShape.
+- AC2: addRevision — increments revision_number, updates current_revision_id pointer in a single transaction; 404 oracle parity for nonexistent/deleted pages.
+- AC3: Slug/title validation (charset, length, empty), missing-parent 400, path_hash collision 409. P10: atomicity proven by a schema-enforced integration test using the REAL DataSource.manager.transaction with failure injected via unique-constraint violation.
+- AC4: ThrottleGuard attached to both write routes; ThrottleModule + AuthModule wired into DocsModule.register(environment).
+- AC5: assertDocWriteAccess is the single gate before any data operation on every write path; null/undefined/'user' → 403; moderator/admin → pass; 401 precedes 403.
+
+Create test files in:
+- apps/api/src/docs/docs.service.integration.test.ts — ONLY file to change; replace the P10 atomicity-injection test (lines 239-315) with a real-transaction version mirroring pages.service.integration.test.ts lines 241-318.
+- apps/api/src/docs/docs.service.test.ts — DO NOT change; all 72 unit tests must continue to pass.
+- apps/api/src/docs/docs.controller.test.ts — DO NOT change.
+- apps/api/src/docs/docs-module.test.ts — DO NOT change.
+
+Implementation context for testing:
+- NO PRODUCT CODE WAS CHANGED in this remediation pass. docs.service.ts, docs.controller.ts, docs.types.ts, docs.module.ts are identical to the code commit 6ee19db.
+- The verifier (CONDITIONAL PASS) and security reviewer both confirmed that the product code is CORRECT: createPage (docs.service.ts lines 426-484) and addRevision (docs.service.ts lines 517-565) both wrap their writes in this.pageRepository.manager.transaction.
+- The schema enforces uq_docs_revisions_page_revision_number (page_id, revision_number) and fk_docs_pages_current_revision_id / fk_docs_revisions_page_id ON DELETE CASCADE — the same constraint pattern used by the Pages integration spec.
+- The ONLY gap is in docs.service.integration.test.ts lines 239-315: the P10 test replaces the manager with a fake patchedManager whose transaction() just calls the callback and whose em.save never writes to the DB. No real TypeORM SAVEPOINT or rollback is exercised.
+- The fix: replace the fake-manager test with a test-local real transaction (on pageRepo.manager.transaction) that injects a second revision insert with a duplicate revision_number to violate uq_docs_revisions_page_revision_number, exactly mirroring the pattern in apps/api/src/pages/pages.service.integration.test.ts lines 241-318.
+- Entity classes for the test: DocsPageEntity (docs/entities/docs-page.entity.ts), DocsRevisionEntity (docs/entities/docs-revision.entity.ts). The scope_type field is 'site' and scope_id is null for site-scoped docs pages.
+- Required imports are already present in the integration test file (DocsPageEntity, DocsRevisionEntity, DataSource, Repository, crypto).
+- After the fix, the test must still skip cleanly when SFUS_DB_INTEGRATION=1 is not set (the existing describe.skipIf guard covers this).
+- Do NOT add a new it.todo — the previous implementer_result.json noted 'P10 atomicity injection' as a tester item; the rewrite of the existing test closes it.
+- Deferred informational items (do NOT fix in ST-3): resolveParent by parentId does not filter status='published' (asymmetry vs parentPath path — deferred to ST-4 soft-delete); addRevision passes hardcoded 'site' scope to assertDocWriteAccess (deferred to when project scope is introduced).
+
+Suggested test command(s):
+- pnpm --dir /home/tstephen/repos/worktrees/ms5-st3-implementer-20260610 lint
+- pnpm --dir /home/tstephen/repos/worktrees/ms5-st3-implementer-20260610 typecheck
+- pnpm --dir /home/tstephen/repos/worktrees/ms5-st3-implementer-20260610 test
+- pnpm --filter @sfus/api exec tsc --noEmit
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-3
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

@@ -1,0 +1,22 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/swagger-path-fix/implementer_report.md",
+    "artifacts/ms5-documents-wiki/swagger-path-fix/tester_prompt.txt",
+    "artifacts/ms5-documents-wiki/swagger-path-fix/implementer_result.json"
+  ],
+  "branch_name": "ms5-swaggerfix-implementer-20260612",
+  "changed_files": [
+    "apps/api/src/index.ts"
+  ],
+  "code_commit_hash": "c32af68",
+  "pass_label": null,
+  "status": "success",
+  "task_id": null,
+  "validation_commands": [
+    "pnpm --filter=api lint",
+    "pnpm --filter=api typecheck",
+    "pnpm --filter=api test",
+    "pnpm --filter=api build"
+  ],
+  "validation_outcome": "lint: clean. typecheck: clean. test: 1295 passed, 30 skipped (suite ran against main workspace; one test in index.test.ts is expected to fail after merge per approved plan \u2014 see expected_validation_failures). build: clean."
+}

@@ -1,0 +1,24 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-3/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-3/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st3-verifier-20260610",
+  "documentation_accuracy_summary": [
+    "PASS. docs/features/documents.md accurately documents: assertDocWriteAccess as single gate, 401-before-403 ordering, moderator/admin requirement, write-path oracle parity (same 404 as read paths), slug charset/length validation, title length validation, both throttle labels (doc-page-create, doc-page-edit), P10 transactional atomicity with rollback guarantee, DocsModule.register wiring (AuthModule + ThrottleModule), DocWriteResultShape fields.",
+    "docs/features/authorization.md gate table accurately reflects assertDocWriteAccess: moderator/admin for site-scope, extensible for project-scope, with correct 401/403 error contract and link to documents.md.",
+    "docs/development/testing.md section 6 accurately documents: SFUS_DB_INTEGRATION=1 opt-in gate, DB_* env contract, direct vitest run command (not included in test:integration npm script), skips cleanly when unset. No documentation inaccuracies."
+  ],
+  "note_finding_count": 3,
+  "pass_label": null,
+  "status": "complete",
+  "task_id": "ST-3",
+  "test_sufficiency_summary": [
+    "PASS with one WARNING (cleanup harness). Unit coverage: assertDocWriteAccess tests all role/scope combinations (null/user/moderator/admin, entity overload, deny-by-default for unknown scope, routing through AuthorizationService.hasGlobalRole); createPage tests transaction integrity (save\u00d72 + update\u00d71 verified by spy counts), all validation error paths (empty/long slug, invalid charset, empty/long title, missing parent, path_hash collision); addRevision tests revision number bump (\u21922), pointer update, 404 for nonexistent/deleted, 400 for invalid title. Controller unit tests verify: resolveSession called before assertDocWriteAccess for both write routes; 401 propagates from resolveSession before 403 from assertDocWriteAccess; ThrottleGuard metadata present on both routes; body-guard 400 paths; ConflictException 409 and NotFoundException 404 propagation.",
+    "Integration test coverage (opt-in, real-DB): P10 atomicity proven by genuine DB-level unique-constraint violation rollback (not a mock); duplicate path_hash rejection; createPage inserts page+revision+pointer (AC1); addRevision produces revision #2 with updated pointer (AC2).",
+    "The cleanup harness defect (WARNING) means integration test data accumulates across runs but does not affect individual test assertions or the P10 atomicity proof validity."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 1
+}

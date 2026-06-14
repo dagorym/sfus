@@ -1,0 +1,15 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-12/documenter_report.md",
+    "artifacts/ms5-documents-wiki/ST-12/documenter_result.json",
+    "artifacts/ms5-documents-wiki/ST-12/verifier_prompt.txt"
+  ],
+  "branch_name": "ms5-st12-documenter-20260611",
+  "documentation_commit_hash": "ce9524bc888465990ede62d9e1b55f94fbce1270",
+  "documentation_files_changed": [
+    "docs/features/web-shell.md"
+  ],
+  "pass_label": null,
+  "status": "success",
+  "task_id": "ST-12"
+}

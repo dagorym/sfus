@@ -1,0 +1,75 @@
+Your role is 'verifier'. Your task is as follows:
+
+Task: Verify the docs-slug-autoderive subtask for the ms5-documents-wiki plan.
+
+The Implementer made slug optional in POST /api/docs (createPage) with auto-derivation and
+collision-safe suffixing. The Tester added 14 tests covering all A-G acceptance criteria.
+The Documenter updated docs/features/documents.md to document the new optional/auto-derived/
+collision-suffixed contract.
+
+Branch context:
+- Base coordination branch: ms5
+- Documenter branch: ms5-docslug-documenter-20260612
+- Implementer commit: 544f3d4 ("feat(docs): auto-derive slug from title when POST /api/docs omits slug")
+- Tester commit: 02c4609 ("test(docs): add slug auto-derivation coverage and fix stale blank-slug assertions")
+- Documenter commit: 06f6b7d ("docs(documents): document optional slug with auto-derivation for POST /api/docs")
+
+Shared artifact directory: artifacts/ms5-documents-wiki/docs-slug-autoderive/
+
+Files modified by the Implementer (do NOT modify):
+- apps/api/src/docs/docs.types.ts       (CreateDocPageInput.slug changed to optional)
+- apps/api/src/docs/docs.controller.ts  (removed slug validation guard for create path)
+- apps/api/src/docs/docs.service.ts     (createPage: derive-and-suffix logic added)
+
+Files modified by the Tester (do NOT modify):
+- apps/api/src/docs/docs.controller.test.ts
+- apps/api/src/docs/docs.service.test.ts
+
+Files modified by the Documenter:
+- docs/features/documents.md
+
+Verification checklist:
+
+(a) CODE — verify the implementation makes slug optional with correct derive-and-suffix behavior:
+  - docs.types.ts: slug field is optional (not required) in CreateDocPageInput
+  - docs.service.ts createPage: when slug is omitted or blank, derives slug from title
+    (lowercase, non-alphanumeric runs -> single hyphen, strip leading/trailing hyphens,
+    fallback "page" when no alphanumerics remain)
+  - docs.service.ts createPage: collision-safe numeric suffix (-2, -3, ...) appended
+    when derived path already exists in same scope; check is inside the transaction
+  - docs.controller.ts: explicit slug validation guard removed from create path
+
+(b) TESTS — verify the tests cover all A-G behaviors and pass:
+  - A: omitted slug -> derived path (title "Hello World" -> path "hello-world")
+  - B: blank slug -> derived path (same algorithm as omitted)
+  - C: collision -> -2 suffix appended; both creates succeed with distinct paths
+  - D: degenerate title (no alphanumerics) -> fallback "page"; second -> "page-2"
+  - E: explicit slug preserved as-is; second call with same explicit slug -> 409
+  - F: derived slug under parent path -> correct depth and "parent/child-page" path
+  - G (controller): omitted slug -> 201 success (not 400)
+  - Run pnpm --filter @sfus/api test and confirm all 1306 tests pass, 0 fail
+  - Run pnpm --filter @sfus/api lint and pnpm --filter @sfus/api typecheck (must be clean)
+
+(c) DOCUMENTATION — verify docs/features/documents.md accurately describes the new contract:
+  - POST /api/docs request-body table: slug row Required column shows "no" (not "yes")
+  - slug description covers: optional, [a-z0-9-] 1-255 chars when provided,
+    auto-derivation algorithm (lowercase, non-alphanumeric runs, strip hyphens, fallback "page"),
+    collision-safe numeric suffixing checked inside the transaction,
+    explicit slugs validated and return 409 on collision
+  - 400 error row: says "explicit slug" (not generic "slug")
+  - 409 error row: clarifies it applies to explicit slug collision; notes auto-derived slugs avoid it
+  - "Slug and title validation" section: notes validateSlug is called only for explicit slugs
+  - The PATCH /api/docs/:id rename contract is UNCHANGED (slug still "one of slug/title required")
+  - docs/guides/content-management.md line 219: already describes slug as optional (should be unchanged)
+  - No other doc file requires a slug-required update for the docs CREATE endpoint
+
+Completion gate:
+- Report success only after all three checks (a), (b), and (c) are confirmed.
+- If any check fails, report a blocking failure with specifics.
+- All required artifacts must exist in artifacts/ms5-documents-wiki/docs-slug-autoderive/ and all
+  changes must be committed on the documenter branch before reporting success.
+- Continue past review-scope establishment, convention discovery, and diff inspection when
+  blocking inputs are present — do not stop before completing all checks.
+
+Write artifacts to: artifacts/ms5-documents-wiki/docs-slug-autoderive/
+Required artifacts: verifier_report.md, verifier_result.json

@@ -30,6 +30,8 @@ import { BlogCommentEntity } from "../blog/entities/blog-comment.entity";
 import { BlogPostEntity } from "../blog/entities/blog-post.entity";
 import { BlogPostTagEntity } from "../blog/entities/blog-post-tag.entity";
 import { NavigationItemEntity } from "../navigation/entities/navigation-item.entity";
+import { DocsPageEntity } from "../docs/entities/docs-page.entity";
+import { DocsRevisionEntity } from "../docs/entities/docs-revision.entity";
 
 /** DB connection options read from environment variables. */
 export interface IntegrationDbOptions {
@@ -101,7 +103,9 @@ export async function createIntegrationDataSource(
       BlogCommentEntity,
       StandalonePageEntity,
       PageRevisionEntity,
-      NavigationItemEntity
+      NavigationItemEntity,
+      DocsPageEntity,
+      DocsRevisionEntity
     ],
     extra: {
       connectionLimit: 2,
@@ -140,15 +144,24 @@ export async function insertThrowawayUser(ds: DataSource): Promise<string> {
 
 /**
  * Remove throwaway rows created during an integration test run.
- * Deletes standalone_pages rows by id (cascade removes page_revisions).
- * Deletes the throwaway user by id.
+ *
+ * Accepts two sets of ids:
+ *  - `pageIds`      — standalone_pages rows (cascade removes page_revisions).
+ *  - `docsPageIds`  — docs_pages rows (cascade removes docs_revisions).
+ *  - `userIds`      — users rows.
+ *
+ * Both FK cycles (standalone_pages.current_revision_id and
+ * docs_pages.current_revision_id) are broken by nulling the pointer before
+ * the delete, which is required on MySQL without deferred constraints.
  */
 export async function cleanupThrowawayRows(
   ds: DataSource,
   pageIds: string[],
-  userIds: string[]
+  userIds: string[],
+  docsPageIds: string[] = []
 ): Promise<void> {
   const pageRepo = ds.getRepository(StandalonePageEntity);
+  const docsPageRepo = ds.getRepository(DocsPageEntity);
   const userRepo = ds.getRepository(UserEntity);
 
   for (const pageId of pageIds) {
@@ -158,6 +171,17 @@ export async function cleanupThrowawayRows(
       [pageId]
     );
     await pageRepo.delete({ id: pageId });
+  }
+
+  for (const docsPageId of docsPageIds) {
+    // Null the FK pointer before deleting to avoid cycle (docs_pages → docs_revisions).
+    await ds.query(
+      "UPDATE docs_pages SET current_revision_id = NULL WHERE id = ?",
+      [docsPageId]
+    );
+    // Delete docs_revisions referencing this page first (no cascade defined in TypeORM).
+    await ds.query("DELETE FROM docs_revisions WHERE page_id = ?", [docsPageId]);
+    await docsPageRepo.delete({ id: docsPageId });
   }
 
   for (const userId of userIds) {

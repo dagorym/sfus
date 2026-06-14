@@ -1,0 +1,61 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST-8 adds the staff-gated authoring UI in the public /docs area: /docs/new (create form) and /docs/edit/<path> (edit form), reusing the shared MarkdownEditor, wired to the create/edit (ST-3), rename (ST-4), and lock (ST-6) endpoints. Lock acquire/release UX with a lock indicator and 409 holder/expiry messaging (read from error.details). Authoring UI client-gated to moderator/admin (defense-in-depth; the server gate is authoritative).
+
+Acceptance criteria to verify:
+- AC1: /docs/new creates a page via POST /api/docs; optional ?parentPath= supported
+- AC2: /docs/edit/<path> edits via POST /api/docs/:id/revisions; rename (PATCH) fires when title/slug changed
+- AC3: Lock acquire/release UX present; 409 surfaces holder/expiry from error.details
+- AC4: Client-side staff gate (moderator/admin); server assertDocWriteAccess is the real gate
+
+Implementation branch or worktree context:
+- Branch: ms5-st8-documenter-20260611 (documenter branch, branched from tester branch)
+- Base branch for comparison: ms5
+- Documenter documentation commit: 8ebbcaca4f9a269681ee9e57c0c1b305a08a5885
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/web/app/docs/new/page.tsx — DocsNewPage: /docs/new create form (staff-gated)
+- apps/web/app/docs/edit/[...path]/page.tsx — DocsEditPage: /docs/edit/<path> edit form with lock UX
+- apps/web/app/docs/docs-client.ts — write helpers: createDocPage/addDocRevision/renameDocPage/acquireDocLock/releaseDocLock + isLockConflictError/LockConflictError types
+- apps/web/app/docs/docs.module.css — CSS for authoring UI elements (lockBanner, staffActions, formLabel, etc.)
+- apps/web/app/docs/[...path]/page.tsx — Edit/Acquire-lock/History affordance links for staff
+- apps/web/app/docs/docs-new-page.spec.ts — create form unit tests (added by Tester)
+- apps/web/app/docs/docs-edit-page.spec.ts — edit form unit tests (added by Tester)
+- apps/web/app/docs/docs-client.spec.ts — write helper coverage (modified by Tester)
+- docs/features/documents.md — expanded Web surface section: /docs/new, /docs/edit/<path>, lock UX, docs-client write helpers table
+- docs/guides/content-management.md — added Wiki pages (Documents) how-to section
+- docs/README.md — updated content-management.md scope description to include wiki pages
+
+Commands executed:
+- None
+
+Final test outcomes:
+- Tester pass: 772 tests passed, 0 failed. AC1-AC4 all pass (from tester_result.json).
+
+Plan or evaluation context guidance:
+- Plan: plans/ms5-documents-wiki-plan.md, story ST-8
+- Documentation impact from plan matched the implementation. Key route note: edit is /docs/edit/<path>, not /docs/<path>/edit (App Router forbids static segment after catch-all).
+- Comparison base: ms5
+
+Convention-file guidance:
+- docs/features/documents.md owns the Documents API and web surface documentation
+- docs/guides/content-management.md owns staff/admin how-to walkthroughs
+- docs/README.md is the documentation routing table
+
+Updated documentation files:
+- docs/features/documents.md
+- docs/guides/content-management.md
+- docs/README.md
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-8
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Verify that documented routes, behaviors, and lock-conflict messaging match the actual code.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

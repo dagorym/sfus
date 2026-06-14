@@ -1,0 +1,55 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST-2 (Documents read API) — REMEDIATION PASS 1. The breadcrumb ancestry visibility leak in DocsService.buildBreadcrumbs has been fixed (project-scoped, deleted, and private/members ancestors are now silently truncated from the breadcrumbs chain). Three negative breadcrumb ancestor tests were added to confirm truncation behavior. All prior AC1–AC5 tests continue to pass. docs/features/documents.md has been updated by the Implementer to reflect the new ancestor filtering behavior (line ~63 area).
+
+Acceptance criteria validated:
+- AC1: GET /api/docs/*path resolves published site page, returns current revision body and ordered breadcrumb ancestry. Non-readable ancestors are now filtered; chain is truncated at the first gated ancestor.
+- AC2: Oracle parity (P12) preserved. Nonexistent, deleted, and non-readable pages all return identical NotFoundException(PAGE_NOT_FOUND_MESSAGE). Non-readable ancestors in breadcrumbs are silently truncated, not distinguished.
+- AC3: GET /api/docs tree/children returns only site-scoped, published, publicly-readable pages. Project-scoped pages excluded.
+- AC4: GET /api/docs/recent returns recent publicly-readable site-scope non-deleted edits. Limit default=5, max=20.
+- AC5: Every visibility decision routes through AuthorizationService.evaluate() with anonymous actor. No inline re-derived predicates.
+- NEW: Negative breadcrumb ancestor test validated: public page with project-scoped, deleted, or private ancestor returns empty breadcrumbs — no error, no id/title leakage.
+
+Implementation branch or worktree context:
+- Worktree: /home/tstephen/repos/worktrees/ms5-st2-tester-20260610
+- Branch: ms5-st2-tester-20260610
+- Base comparison: ms5 branch (main plan branch for milestone 5 documents wiki)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/api/src/docs/docs.service.ts (Implementer — buildBreadcrumbs now checks isPagePubliclyReadable for each ancestor)
+- docs/features/documents.md (Implementer — breadcrumb ancestor filtering behavior described, ~line 63 area)
+- apps/api/src/docs/docs.service.test.ts (Tester — 3 negative breadcrumb ancestor tests added)
+
+Test commit:
+- bc26d3248735c4b37f040505ccd7e44e5af857c5
+
+Commands executed:
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 typecheck
+- npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st2-tester-20260610 test
+
+Final test outcomes:
+- All tests pass: 1714 passed, 11 skipped (integration tests, expected), 0 failed.
+- docs.service.test.ts: 45 tests passed (3 new negative breadcrumb ancestor tests added).
+- docs.controller.test.ts: 20 tests passed (no changes required).
+
+Documentation context:
+- docs/features/documents.md is the primary doc to verify — it was modified by the Implementer to document ancestor filtering behavior in breadcrumbs (changed from "Non-readable ancestors are included" to truncation description).
+- The key behavioral change: buildBreadcrumbs now truncates the chain at the first non-readable ancestor. No error is thrown; the page is returned with shorter (possibly empty) breadcrumbs. This preserves oracle parity (P12): gated ancestor === absent ancestor in the response.
+- Verify that the documents.md documentation accurately describes: (1) truncation semantics (chain cut, not per-item skip), (2) which ancestor states cause truncation (project-scoped, deleted, private, members), (3) that no error is thrown for the target page itself.
+
+Plan and diff context:
+- Plan path: plans/ directory (look for ms5 or milestone-5 documents plan); infer from repository context if exact file name differs.
+- Comparison base: ms5 branch (the milestone 5 plan branch). Diff ms5-st2-tester-20260610 against ms5 to see all ST-2 implementer and tester changes.
+
+Startup behavior:
+- If branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-2
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

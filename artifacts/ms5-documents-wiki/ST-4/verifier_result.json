@@ -1,0 +1,29 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-4/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-4/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st4-verifier-20260611",
+  "documentation_accuracy_summary": [
+    "PATCH /api/docs/:id section is accurate: slug-change subtree rewrite, title-only no-op, deferred cross-parent move note, RenameDocPageInput table, full 400/401/403/404/409/429 error table, throttle label doc-page-edit.",
+    "DELETE /api/docs/:id section is accurate: 204 response, status='deleted', revisions preserved, 409 children guard, full 401/403/404/409/429 error table, throttle label.",
+    "Parent resolution section accurately documents both parentId and parentPath branches filtering status='published' with 400 'Parent page does not exist.' for soft-deleted parents.",
+    "DocWriteResultShape.revisionNumber description is slightly misleading for rename responses (see NOTE). No other contradictions or missing documentation items found.",
+    "Overall documentation accurately reflects the implemented and tested behavior."
+  ],
+  "note_finding_count": 4,
+  "pass_label": "PASS",
+  "status": "pass",
+  "task_id": "ST-4",
+  "test_sufficiency_summary": [
+    "AC1 (slug rename + subtree rewrite, P10): ADEQUATE. Unit tests verify em.update is called for parent + each descendant (3 calls for parent+child+grandchild); integration test proves real parent+child path rewrite; atomicity proxy test proves DB-level rollback. Minor gap: no real renamePage() fault-injection rollback test and no sibling no-over-match regression test (both NOTE).",
+    "AC2 (title-only, no path change): STRONG. Two unit tests verify em.update called once with only the title field, and em.createQueryBuilder not invoked.",
+    "AC3 (soft-delete sets status='deleted', revisions preserved): STRONG. Unit + integration tests confirm update with status='deleted' and revisions preserved; integration test checks DB state after leaf delete.",
+    "AC4 (409 on non-deleted children, no partial state): STRONG. Unit tests verify ConflictException thrown with 'child' in message, and update NOT called. Integration test confirms 409 and parent remains 'published'.",
+    "AC5 (assertDocWriteAccess gates both routes, 401 \u2192 403 ordering): STRONG. Controller tests verify invocationCallOrder (assert before service call), called with ('moderator','site'), propagates 401/403/404/409 for both PATCH and DELETE. Service tests cover null/undefined/user-role rejection and moderator/admin clearance.",
+    "resolveParent fix: ADEQUATE. Unit test confirms soft-deleted parent via parentId throws BadRequestException; published parent passes through; both branches filter status='published' in code."
+  ],
+  "verdict": "PASS",
+  "warning_finding_count": 0
+}

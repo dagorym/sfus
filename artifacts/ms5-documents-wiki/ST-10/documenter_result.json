@@ -1,0 +1,16 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-10/documenter_report.md",
+    "artifacts/ms5-documents-wiki/ST-10/documenter_result.json",
+    "artifacts/ms5-documents-wiki/ST-10/verifier_prompt.txt"
+  ],
+  "branch_name": "ms5-st10-documenter-20260611",
+  "documentation_commit_hash": "fd23aad13b2f342ba66667fe1baf60ecf557da7b",
+  "documentation_files_changed": [
+    "docs/features/web-shell.md",
+    "docs/guides/content-management.md"
+  ],
+  "pass_label": null,
+  "status": "success",
+  "task_id": null
+}

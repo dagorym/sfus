@@ -1,0 +1,87 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST-3 remediation: Documents wiki write API documentation verification pass. The write-API docs (docs/features/documents.md Write API section, docs/features/authorization.md assertDocWriteAccess cross-link, docs/development/testing.md section 6) were already written in the initial documenter pass. This remediation pass verifies all three files are accurate against the updated implementation: the P10 atomicity integration test now drives a real DataSource transaction (constraint-violation rollback proof via uq_docs_revisions_page_revision_number), and apps/api/src/pages/integration-test-support.ts now registers DocsPageEntity and DocsRevisionEntity so the spec is fully runnable against a real DB. All documentation verified accurate — no changes required.
+
+Acceptance criteria to verify:
+- AC1: POST /api/docs creates page + revision #1 + sets current_revision_id in a single transaction (PASS)
+- AC2: POST /api/docs/:id/revisions bumps revision_number, updates current_revision_id, title, updated_at in a transaction (PASS)
+- AC3: ConflictException (409) on path_hash collision; BadRequestException (400) on invalid slug/title or missing parent (PASS)
+- AC4: ThrottleGuard attached to both write routes; ThrottleModule and AuthModule wired into DocsModule.register(environment) (PASS)
+- AC5: assertDocWriteAccess is the SINGLE authorization gate; site scope requires moderator/admin via AuthorizationService.hasGlobalRole; future project-scope rules add a branch inside the method with no call-site changes (PASS)
+- P10 atomicity proof: real-DB transaction test via uq_docs_revisions_page_revision_number constraint violation confirms rollback (PASS — remediation fix)
+
+Implementation branch or worktree context:
+- Documenter branch: ms5-st3-documenter-20260610 (remediation pass, branched from tester branch, which is branched from ms5)
+- Comparison base: ms5
+- Documentation commit: eb6c4e2 (initial ST-3 doc write — verified accurate for remediation; no new commit)
+- Remediation changes: apps/api/src/docs/docs.service.integration.test.ts (real-DB P10 atomicity proof) and apps/api/src/pages/integration-test-support.ts (DocsPageEntity/DocsRevisionEntity registered)
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/docs/docs.service.ts (assertDocWriteAccess, createPage, addRevision, validateSlug, validateTitle, resolveParent)
+- apps/api/src/docs/docs.controller.ts (createPage handler, addRevision handler, ThrottleGuard decorators, AuthService constructor param)
+- apps/api/src/docs/docs.types.ts (CreateDocPageInput, AddDocRevisionInput, DocWriteResultShape)
+- apps/api/src/docs/docs.module.ts (AuthModule.register, ThrottleModule.register added to imports)
+- apps/api/src/docs/docs.service.test.ts (27 new service unit tests)
+- apps/api/src/docs/docs.controller.test.ts (16 new controller unit tests)
+- apps/api/src/docs/docs.service.integration.test.ts (real-DB P10 atomicity proof — REMEDIATION)
+- apps/api/src/docs/docs-module.test.ts (module wiring tests)
+- apps/api/src/pages/integration-test-support.ts (DocsPageEntity and DocsRevisionEntity registered — REMEDIATION)
+- docs/features/documents.md (documenter initial pass: added Write API section; remediation: verified accurate)
+- docs/features/authorization.md (documenter initial pass: cross-linked assertDocWriteAccess; remediation: verified accurate)
+- docs/development/testing.md (documenter initial pass: added docs integration test section 6; remediation: verified accurate)
+
+Commands executed:
+- git -C worktree branch --show-current -> ms5-st3-documenter-20260610
+- myteam get role documenter
+- myteam get skill execution-start
+- myteam get skill documenter/preflight
+- python3 .myteam/documenter/preflight/resolve_preflight.py
+- git -C worktree diff ms5 --name-only
+- git -C worktree diff ms5 -- docs/development/testing.md
+- git -C worktree diff ms5 -- docs/features/documents.md
+- Read docs/features/documents.md
+- Read docs/features/authorization.md
+- Read docs/development/testing.md
+- Read apps/api/src/docs/docs.service.ts
+- Read apps/api/src/docs/docs.service.integration.test.ts
+- Read apps/api/src/pages/integration-test-support.ts
+- git -C worktree log --oneline -- docs/development/testing.md
+
+Final test outcomes:
+- Unit test suite: all pass (confirmed by tester)
+- Integration suite: real-DB atomicity proof passes with SFUS_DB_INTEGRATION=1 (confirmed by tester)
+- Integration suite: skips cleanly without SFUS_DB_INTEGRATION=1 (confirmed by tester)
+- No documentation changes required: all three docs verified accurate against remediation code
+- Documentation commit eb6c4e2: docs-only changes to 3 files (carried forward from initial documenter pass)
+
+Plan or evaluation context guidance:
+- Plan: plans/ms5-documents-wiki-plan.md, subtask ST-3
+- Documentation Impact (from plan): extend docs/features/documents.md with write/authorization contract; cross-link assertDocWriteAccess from docs/features/authorization.md; document current state only; verify every claim against code (P1)
+- Remediation scope: verify accuracy of existing docs against code after test-infra changes; update testing.md if needed for real-DB transaction and harness registration
+- Comparison base for diff: ms5
+- Verifier should compare ms5-st3-documenter-20260610 against ms5 to see all ST-3 changes
+
+Convention-file guidance:
+- Documentation lives in docs/features/ for per-subsystem contracts
+- Write API and auth gate facts are documented in docs/features/documents.md; the authorization.md cross-link avoids duplication
+- In-code docblocks on service methods (assertDocWriteAccess, createPage, addRevision) already document security contracts
+- docs/development/testing.md section 6 documents the docs integration spec accurately: runnable via direct vitest (not test:integration npm script), gated on SFUS_DB_INTEGRATION=1
+- The real-DB atomicity proof (constraint violation rollback) is an internal test implementation detail — not user-visible documentation; the existing P10 reference in testing.md is sufficient
+- Deferred items NOT documented: resolveParent-by-parentId status filter (ST-4), addRevision hardcoded site scope (future)
+
+Updated documentation files:
+- docs/features/documents.md (verified accurate — no changes needed)
+- docs/features/authorization.md (verified accurate — no changes needed)
+- docs/development/testing.md (verified accurate — no changes needed)
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-3
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

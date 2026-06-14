@@ -1,0 +1,22 @@
+{
+  "status": "pass",
+  "subtask": "ST-12-shell-fix",
+  "role": "documenter",
+  "documentation_commit": "52cb0cd",
+  "branch": "ms5-st12shell-documenter-20260612",
+  "files_changed": [
+    "docs/features/web-shell.md"
+  ],
+  "changes": [
+    {
+      "file": "docs/features/web-shell.md",
+      "section": "Shared shell",
+      "description": "Updated eyebrow, footer, and metadata description strings from Milestone 3 to Milestone 5, matching apps/web/app/layout.tsx exactly."
+    }
+  ],
+  "artifacts_written": [
+    "artifacts/ms5-documents-wiki/ST-12-shell-fix/documenter_report.md",
+    "artifacts/ms5-documents-wiki/ST-12-shell-fix/documenter_result.json",
+    "artifacts/ms5-documents-wiki/ST-12-shell-fix/verifier_prompt.txt"
+  ]
+}

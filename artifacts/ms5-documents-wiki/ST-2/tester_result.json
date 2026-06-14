@@ -1,0 +1,35 @@
+{
+  "status": "success",
+  "subtask": "ST-2",
+  "plan": "ms5-documents-wiki",
+  "branch": "ms5-st2-tester-20260610",
+  "test_commit": "bc26d3248735c4b37f040505ccd7e44e5af857c5",
+  "test_files_modified": [
+    "apps/api/src/docs/docs.service.test.ts"
+  ],
+  "test_files_verified_unchanged": [
+    "apps/api/src/docs/docs.controller.test.ts"
+  ],
+  "commands_run": [
+    "npx --yes pnpm@10.0.0 lint",
+    "npx --yes pnpm@10.0.0 typecheck",
+    "npx --yes pnpm@10.0.0 --dir /home/tstephen/repos/worktrees/ms5-st2-tester-20260610 test"
+  ],
+  "pass_total": 1714,
+  "skip_total": 11,
+  "fail_total": 0,
+  "acceptance_criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "pass",
+    "AC5": "pass",
+    "NEW_negative_breadcrumb_ancestor": "pass"
+  },
+  "unmet_acceptance_criteria": [],
+  "artifact_files_written": [
+    "artifacts/ms5-documents-wiki/ST-2/tester_report.md",
+    "artifacts/ms5-documents-wiki/ST-2/tester_result.json",
+    "artifacts/ms5-documents-wiki/ST-2/documenter_prompt.txt"
+  ]
+}

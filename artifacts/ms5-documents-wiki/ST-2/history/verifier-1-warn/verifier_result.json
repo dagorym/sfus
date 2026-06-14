@@ -1,0 +1,24 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-2/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-2/verifier_result.json"
+  ],
+  "blocking_finding_count": 0,
+  "branch_name": "ms5-st2-verifier-20260610",
+  "documentation_sufficiency_summary": [
+    "docs/features/documents.md accurately describes all three endpoints, response shapes, oracle-parity rule (P12), scope exclusion, authorization routing, limit defaults/cap, route ordering requirement, computePathHash input format, and DocsService constants. All claims verified against the implementation.",
+    "docs/features/documents.md:63 documents the WARNING-finding behavior ('Non-readable ancestors are included; the breadcrumb is navigational') accurately for the current code. Must be updated when the breadcrumb filtering fix lands.",
+    "docs/README.md routing table row is present with correct scope and code paths."
+  ],
+  "note_finding_count": 3,
+  "outcome": "CONDITIONAL PASS",
+  "pass_label": "CONDITIONAL PASS",
+  "status": "completed",
+  "task_id": "ST-2",
+  "test_sufficiency_summary": [
+    "Strong for AC1–AC5: service tests prove oracle-parity 404 for nonexistent/deleted/members/private pages, evaluate() spy assertions confirm central-gate routing for all read paths, scope isolation and limit bounding are covered.",
+    "GAP: no negative breadcrumb test for non-readable/project-scoped/deleted ancestor. Must be added alongside the breadcrumb filtering fix before ST-3.",
+    "Tester reported 1065 passed, 0 failed, 11 skipped (DB integration gated). New docs.service.test.ts and docs.controller.test.ts cannot be re-run in isolated worktree (absent node_modules); verified correct by static inspection."
+  ],
+  "warning_finding_count": 2
+}

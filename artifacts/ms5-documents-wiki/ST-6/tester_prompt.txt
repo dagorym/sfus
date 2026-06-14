@@ -1,0 +1,108 @@
+Your role is 'tester'. Your task is as follows:
+
+## Context
+
+This is a REMEDIATION PASS for ST-6 (Documents soft-lock). The implementer (remediation pass 1, commit c914da4 on branch ms5-st6-implementer-20260611) has resolved 2 BLOCKING and 1 WARNING findings from verifier-1-fail. You must write tests, update existing assertions, and confirm all validations pass.
+
+## Shared artifact directory
+
+`artifacts/ms5-documents-wiki/ST-6/`
+
+## Modified files
+
+- `apps/api/src/common/filters/json-exception.filter.ts`
+- `apps/api/src/docs/docs.controller.ts`
+- `apps/api/src/docs/docs.service.ts`
+- `apps/api/src/docs/docs.controller.test.ts` (assertions already updated)
+- `apps/api/src/docs/docs.service.test.ts` (assertions already updated)
+
+## What changed
+
+### BLOCKING-1 fix: 409 holder metadata now survives JsonExceptionFilter
+
+The `JsonExceptionFilter` now extracts an optional `details` field from the HttpException response body and includes it at `error.details` in the HTTP response envelope. The two lock-conflict `ConflictException` throws in `docs.service.ts` now use `{ message, details: { lockedByUserId, lockExpiresAt } }` (previously used `lock` key which was stripped). The HTTP 409 response body is now:
+
+```json
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "This page is currently locked by another user...",
+    "statusCode": 409,
+    "details": {
+      "lockedByUserId": "<uuid>",
+      "lockExpiresAt": "<ISO date>"
+    }
+  },
+  "request": { ... }
+}
+```
+
+### BLOCKING-2 fix: acquireLock 200 shape corrected
+
+The controller `acquireLock` now returns `DocsLockResultShape` directly: `{ pageId, lock: DocsLockState }`. Previously it returned `{ lock: { pageId, lock: DocsLockState } }` (double-nested).
+
+### WARNING-1 fix: softDeletePage lock check now inside transaction
+
+`softDeletePage` is now fully transactional. The page load, `assertNotForeignLocked` call, child count, and status update all execute inside `pageRepository.manager.transaction`.
+
+## Required tester actions
+
+### 1. Add HTTP-layer / exception-filter test for 409 details passthrough (CRITICAL GAP)
+
+The verifier specifically flagged that no test exercises the HTTP response body after the JsonExceptionFilter processes a ConflictException. You MUST add a test proving that a 409 ConflictException with holder metadata in the `details` field produces an HTTP response body with `error.details.lockedByUserId` and `error.details.lockExpiresAt`.
+
+Location: The existing filter test file is at `apps/api/src/common/filters/`. If no filter test exists, create one at `apps/api/src/common/filters/json-exception.filter.test.ts`. The test should:
+- Construct a `JsonExceptionFilter` with a mock logger
+- Call it with a mock host configured to respond to a `ConflictException` that has `{ message, details: { lockedByUserId, lockExpiresAt } }`
+- Assert that the JSON response body contains `error.details.lockedByUserId` and `error.details.lockExpiresAt`
+- Also assert backward compatibility: a `ConflictException` without a `details` field produces NO `error.details` field in the response
+
+### 2. Verify acquireLock controller test now asserts flat shape
+
+The implementer updated `docs.controller.test.ts` line ~1215 to assert `expect(result).toEqual(makeLockResult())` instead of `{ lock: makeLockResult() }`. Confirm this passes and the assertion matches `{ pageId: 'page-1', lock: { isLocked: true, lockedByUserId: 'user-1', lockedAt: <Date>, lockExpiresAt: <Date> } }`.
+
+### 3. Verify softDeletePage in-transaction lock check
+
+The implementer updated `docs.service.test.ts` to use a transaction manager mock for the softDeletePage AC6 test. Verify the test correctly exercises the transactional code path and the 409 is still thrown when a foreign lock is active.
+
+### 4. Run all validations and confirm they pass
+
+```bash
+npx tsc --noEmit --project apps/api/tsconfig.json
+npx vitest run --passWithNoTests
+npx eslint apps/api/src/common/filters/json-exception.filter.ts apps/api/src/docs/docs.controller.ts apps/api/src/docs/docs.service.ts apps/api/src/docs/docs.controller.test.ts apps/api/src/docs/docs.service.test.ts
+```
+
+Expected: 0 typecheck errors, all tests pass.
+
+## Documenter note (pass to Documenter in tester_prompt)
+
+The final 409 shape for `POST /api/docs/:id/lock` and for write-path lock conflicts is:
+
+```json
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "...",
+    "statusCode": 409,
+    "details": {
+      "lockedByUserId": "<uuid>",
+      "lockExpiresAt": "<ISO 8601 date string>"
+    }
+  },
+  "request": { ... }
+}
+```
+
+The `details` key is present ONLY on lock-conflict 409 responses. The Documenter must update `docs/features/documents.md` lines 490-498 to reflect this shape (replacing the old claim about a `lock` key at the top level of the error body). The Documenter should also note in `docs/development/api-conventions.md` that the error envelope supports an optional `error.details` field for structured context on specific error types.
+
+## Acceptance criteria reference
+
+- AC1: POST /api/docs/:id/lock 200 response → `{ pageId, lock: DocsLockState }` (no double-nesting)
+- AC2: POST /api/docs/:id/lock 409 when foreign non-expired lock → response includes `error.details.lockedByUserId` and `error.details.lockExpiresAt`
+- AC6: addRevision/renamePage/softDeletePage/rollbackPage 409 when foreign lock → same `error.details` shape
+
+## Branch and worktree
+
+Branch: `ms5-st6-implementer-20260611`
+Worktree: `/home/tstephen/repos/worktrees/ms5-st6-implementer-20260611`

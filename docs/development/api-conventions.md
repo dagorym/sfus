@@ -31,9 +31,10 @@ All other helmet defaults apply (e.g. `X-Content-Type-Options: nosniff`,
 ## Routing & Swagger
 
 - Global prefix `api` — every controller route is served under `/api/...`.
-- Swagger UI at `/api/docs` (+ generated document at `/api/docs/openapi.json`), enabled when
-  `API_SWAGGER_ENABLED` is truthy; the default is on outside production
-  (`nodeEnv !== "production"`).
+- Swagger UI at `/api/swagger` (+ generated document at `/api/swagger/openapi.json`), enabled
+  when `API_SWAGGER_ENABLED` is truthy; the default is on outside production
+  (`nodeEnv !== "production"`). The mount was moved from `/api/docs` to `/api/swagger` to avoid
+  colliding with the Documents wiki API namespace (`/api/docs/*`).
 
 ## Process entrypoint
 
@@ -57,6 +58,12 @@ All other helmet defaults apply (e.g. `X-Content-Type-Options: nosniff`,
 
 - `code` comes from the exception body's `error` field when present, else the HTTP status
   name; normalized to `UPPER_SNAKE_CASE`.
+- `details` (optional): a structured object providing domain-specific context for the
+  error. Present only when the throwing code sets a `details` key on the exception body
+  (e.g. lock-conflict metadata). Absent on all other errors — no `details` key in the
+  response (backward-compatible). Example: the 409 lock-conflict from
+  `POST /api/docs/:id/lock` includes `error.details.lockedByUserId` and
+  `error.details.lockExpiresAt`.
 - Non-`HttpException` errors always become
   `{ code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred.", statusCode: 500 }`.
 - Web clients should read `payload.error.message` first, then `payload.message`, then fall
@@ -191,6 +198,7 @@ that exceed the configured cap (`THROTTLE_MAX_LINKS_PER_POST`).
   `MilestoneThreeContentFoundation1748736000000`,
   `MilestoneFourForumsFoundation1780890123767`,
   `UserBioAndAvatar1780892561355`,
-  `ForumDescriptionLength1780893000000`.
+  `ForumDescriptionLength1780893000000`,
+  `MilestoneFiveDocumentsFoundation1781308800000`.
 - Schema rollback policy is forward-fix only — see
   [deployment](../operations/deployment.md).

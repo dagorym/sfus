@@ -1,0 +1,36 @@
+{
+  "status": "pass",
+  "subtask": "ST-12-shell-fix",
+  "milestone": "ms5",
+  "role": "implementer",
+  "files_changed": [
+    "apps/web/app/layout.tsx"
+  ],
+  "changes": [
+    {
+      "location": "metadata.description (line 13-14)",
+      "old": "Community forums, blog, standalone pages, and site navigation for the Star Frontiers US Milestone 4 content platform.",
+      "new": "Documents wiki, community forums, blog, standalone pages, and site navigation for the Star Frontiers US Milestone 5 content platform."
+    },
+    {
+      "location": "brandEyebrow (line 29)",
+      "old": "Milestone 4 Content Platform",
+      "new": "Milestone 5 Content Platform"
+    },
+    {
+      "location": "footerText (line 46)",
+      "old": "Built for the Milestone 4 content launch baseline.",
+      "new": "Built for the Milestone 5 content launch baseline."
+    }
+  ],
+  "grep_check": {
+    "pattern": "Milestone 4|Milestone 3",
+    "file": "apps/web/app/layout.tsx",
+    "result": "no matches — clean"
+  },
+  "validation": {
+    "lint": "pre-existing worktree environment failure (node_modules not installed); compilation successful",
+    "next_build": "compiled successfully; static prerender failed due to pre-existing React singleton mismatch in worktree env; main repo build unaffected"
+  },
+  "blocking_issues": []
+}

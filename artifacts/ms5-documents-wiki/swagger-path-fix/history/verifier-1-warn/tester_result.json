@@ -1,0 +1,51 @@
+{
+  "status": "pass",
+  "subtask": "swagger-path-fix",
+  "plan": "ms5-documents-wiki",
+  "branch": "ms5-swaggerfix-tester-20260612",
+  "test_commit": "e96d9ab9c7342cfa543802dadb87e18f2950632d",
+  "test_files_modified": [
+    "apps/api/src/index.test.ts"
+  ],
+  "commands_run": [
+    "/home/tstephen/repos/sfus/node_modules/.bin/vitest run --root /home/tstephen/repos/worktrees/ms5-swaggerfix-tester-20260612/apps/api src/index.test.ts",
+    "/home/tstephen/repos/sfus/node_modules/.bin/vitest run --root /home/tstephen/repos/worktrees/ms5-swaggerfix-tester-20260612/apps/api"
+  ],
+  "test_results": {
+    "targeted_run": {
+      "test_files": 1,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0
+    },
+    "full_suite": {
+      "test_files_passed": 34,
+      "test_files_skipped": 3,
+      "tests_passed": 1296,
+      "tests_skipped": 30,
+      "tests_failed": 0
+    }
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "description": "SwaggerModule.setup called with api/swagger and jsonDocumentUrl api/swagger/openapi.json when swaggerEnabled=true",
+      "status": "pass"
+    },
+    {
+      "id": "AC2",
+      "description": "Regression guard: Swagger not mounted at api/docs (unit-level guard, full-boot not feasible without DB)",
+      "status": "pass"
+    },
+    {
+      "id": "AC3",
+      "description": "Full @sfus/api suite green after test updates",
+      "status": "pass"
+    }
+  ],
+  "artifacts_written": [
+    "artifacts/ms5-documents-wiki/swagger-path-fix/tester_report.md",
+    "artifacts/ms5-documents-wiki/swagger-path-fix/tester_result.json",
+    "artifacts/ms5-documents-wiki/swagger-path-fix/documenter_prompt.txt"
+  ]
+}

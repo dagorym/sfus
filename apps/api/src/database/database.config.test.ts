@@ -12,6 +12,7 @@ const environment: ApplicationEnvironment = {
   nodeEnv: "development",
   apiPort: 3001,
   swaggerEnabled: true,
+  docs: { lockTtlMinutes: 30 },
   media: {
     uploadMaxSizeBytes: 5242880,
     avatarUploadMaxSizeBytes: 1048576,
@@ -87,7 +88,8 @@ describe("database config", () => {
       "MilestoneThreeContentFoundation1748736000000",
       "MilestoneFourForumsFoundation1780890123767",
       "UserBioAndAvatar1780892561355",
-      "ForumDescriptionLength1780893000000"
+      "ForumDescriptionLength1780893000000",
+      "MilestoneFiveDocumentsFoundation1781308800000"
     ]);
   });
 

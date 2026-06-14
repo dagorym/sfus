@@ -1,0 +1,40 @@
+Your role is 'tester'. Your task is as follows:
+
+Task summary:
+- ST-9 carry-over defect fix: getDocDiff 400 branch now surfaces friendly 'too large to compare' message instead of raw API error string.
+
+Modified files:
+- apps/web/app/docs/docs-client.ts
+
+Acceptance criteria to validate (from Planner):
+- AC2: getDocDiff on 400 response throws message matching /too large to compare/i (was throwing raw API message 'Diff size exceeds limit.').
+- All 36 tests in docs-client-history.spec.ts remain green.
+- No regressions in docs-client.spec.ts or other docs specs.
+
+Create test files in:
+- apps/web/app/docs/docs-client-history.spec.ts — primary target for ST-9 defect confirmation
+- apps/web/app/docs/docs-client.spec.ts — full docs client suite (regression guard)
+
+Implementation context for testing:
+- Root cause: getDocDiff 400 branch called extractErrorMessage(payload, friendlyFallback). extractErrorMessage prefers payload.error.message ('Diff size exceeds limit.') over the fallback, so the friendly message was never thrown.
+- Fix: removed extractErrorMessage from the 400 branch; now throws 'This diff is unavailable because one or more revisions are too large to compare.' directly.
+- Only apps/web/app/docs/docs-client.ts was changed (lines 414-421, -5/+1).
+- The 404-null and generic non-ok branches are unchanged.
+
+Suggested test command(s):
+- vitest run --root apps/web apps/web/app/docs/docs-client-history.spec.ts
+- vitest run --root apps/web apps/web/app/docs/
+
+Existing validations expected to fail only because approved behavior changed:
+- None
+
+Startup behavior:
+- If acceptance criteria and implementation context are present, begin testing work immediately and continue in the same run.
+- Infer missing test-location or test-command details from repository conventions when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, directory discovery, artifact-directory confirmation, or framework discovery when testing can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-9-followup
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

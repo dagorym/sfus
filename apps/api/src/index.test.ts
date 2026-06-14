@@ -155,7 +155,7 @@ describe("apiBootstrap", () => {
     state.bootstrapLogger.error.mockClear();
   });
 
-  it("boots the API with the /api prefix and serves Swagger at /api/docs when enabled", async () => {
+  it("boots the API with the /api prefix and serves Swagger at /api/swagger when enabled", async () => {
     const { apiBootstrap } = await import("./index.js");
 
     await apiBootstrap();
@@ -166,14 +166,33 @@ describe("apiBootstrap", () => {
     });
     expect(state.mockApp.setGlobalPrefix).toHaveBeenCalledWith("api");
     expect(state.createDocument).toHaveBeenCalledTimes(1);
+    // AC1: Swagger must be mounted at api/swagger (not api/docs, which collides with Documents API)
     expect(state.setupSwagger).toHaveBeenCalledWith(
-      "api/docs",
+      "api/swagger",
       state.mockApp,
       { openapi: "3.0.0" },
-      { jsonDocumentUrl: "api/docs/openapi.json" }
+      { jsonDocumentUrl: "api/swagger/openapi.json" }
     );
     expect(state.mockApp.listen).toHaveBeenCalledWith(3001, "0.0.0.0");
     expect(state.createMigrationDataSource).not.toHaveBeenCalled();
+  });
+
+  it("AC2 regression guard: Swagger is NOT mounted at api/docs (would shadow Documents API GET /api/docs)", async () => {
+    // Guard against regression to the colliding path. SwaggerModule.setup must never be called
+    // with "api/docs" because that path is owned by the Documents API wiki index endpoint.
+    // A full-boot integration test is not feasible here because test-harness.ts deliberately
+    // omits NestJS (to avoid DB requirements) and SwaggerModule.setup requires INestApplication.
+    // This unit guard ensures a future regression to the colliding path fails the suite.
+    const { apiBootstrap } = await import("./index.js");
+
+    await apiBootstrap();
+
+    const swaggerCalls = state.setupSwagger.mock.calls as unknown[][];
+    expect(swaggerCalls.length).toBe(1);
+    // The first argument (path) must not be "api/docs"
+    expect(swaggerCalls[0][0]).not.toBe("api/docs");
+    // Confirm it is "api/swagger"
+    expect(swaggerCalls[0][0]).toBe("api/swagger");
   });
 
   it("registers helmet middleware with HSTS disabled and CSP disabled (AC2)", async () => {

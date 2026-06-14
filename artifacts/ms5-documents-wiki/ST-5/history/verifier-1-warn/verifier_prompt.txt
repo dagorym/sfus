@@ -1,0 +1,64 @@
+Your role is 'verifier'. Your task is as follows:
+
+Original task summary:
+- ST-5 implements revision history (GET /api/docs/:id/history), single-revision fetch (GET /api/docs/:id/revisions/:revisionNumber), deterministic line-level diff (GET /api/docs/:id/diff?from=&to=), and non-destructive rollback (POST /api/docs/:id/rollback) for the Documents wiki.
+
+Acceptance criteria to verify:
+- AC1: GET /api/docs/:id/history returns revisions ordered by revision_number ASC with author/editor/summary/timestamp; non-readable page returns same 404 as ST-2 (PAGE_NOT_FOUND_MESSAGE)
+- AC2: GET /api/docs/:id/diff returns deterministic line-level diff via static DocsService.computeLineDiff() — added/removed/unchanged hunks
+- AC3: POST /api/docs/:id/rollback creates new highest-numbered revision equal to target; updates current_revision_id; prior revisions preserved (non-destructive); transactional (P10)
+- AC4: Rollback gated by assertDocWriteAccess (staff-only); user-role receives 403
+
+Implementation branch or worktree context:
+- Branch: ms5-st5-documenter-20260611 (worktree from tester branch ms5-st5-tester-20260611)
+- Base branch for comparison: ms5
+- Implementer commit: 73a0598 feat(docs): ST-5 revision history, diff, rollback
+- Tester commit: 26009f9 test(docs): add ST-5 history/diff/rollback unit and integration tests
+- Documenter commit: 80fe6ce docs(documents): add ST-5 revision history, diff, and rollback section
+
+Files modified by the Implementer, Tester, and Documenter:
+- apps/api/src/docs/docs.service.ts (getPageHistory, getRevisionByNumber, getDiff + static computeLineDiff, rollbackPage, toRevisionMetaShape)
+- apps/api/src/docs/docs.controller.ts (GET :id/history, GET :id/revisions/:revisionNumber, GET :id/diff, POST :id/rollback — all before *path catch-all)
+- apps/api/src/docs/docs.types.ts (DocsRevisionMetaShape, DocsHistoryShape, DocsSingleRevisionShape, DocsDiffHunk, DocsDiffShape, DocRollbackInput)
+- apps/api/src/docs/docs.service.test.ts (ST-5 unit tests)
+- apps/api/src/docs/docs.controller.test.ts (ST-5 controller tests)
+- apps/api/src/docs/docs.service.integration.test.ts (ST-5 integration tests)
+- docs/features/documents.md (new Revision history, diff, and rollback section; updated route ordering note)
+
+Commands executed:
+- git diff ms5..HEAD --name-only (to identify changed files)
+- Read docs/features/documents.md (existing documentation)
+- Read apps/api/src/docs/docs.types.ts (ST-5 type shapes)
+- Read apps/api/src/docs/docs.controller.ts (ST-5 routes and JSDoc)
+- Read apps/api/src/docs/docs.service.ts lines 756-1050 (ST-5 service methods)
+- git add docs/features/documents.md
+- git commit -m 'docs(documents): add ST-5 revision history, diff, and rollback section'
+
+Final test outcomes:
+- All ST-5 unit tests passing (docs.service.test.ts, docs.controller.test.ts)
+- All ST-5 integration tests passing (docs.service.integration.test.ts)
+- Full @sfus/api suite green (tester-confirmed)
+
+Plan or evaluation context guidance:
+- Plan: plans/ms5-documents-wiki-plan.md, ST-5 section
+- Documentation impact per plan: extend docs/features/documents.md with revisions/diff/rollback section
+- Artifact directory: artifacts/ms5-documents-wiki/ST-5
+
+Convention-file guidance:
+- docs/development/api-conventions.md — error envelope, API conventions
+- docs/development/testing.md — validation matrix, P1-P12 prevention patterns
+- docs/README.md — documentation routing table (docs/features/documents.md is the canonical feature doc)
+
+Updated documentation files:
+- docs/features/documents.md
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-5
+
+Verification scope:
+- Review implementation, tests, and updated documentation together.
+- Infer missing plan-source, convention-file, or artifact-path details from repository context when safe.
+- Continue in the same run when blockers are absent.
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

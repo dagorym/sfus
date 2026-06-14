@@ -1,0 +1,64 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- Fix for the edit-page and rollback-page crash: after a successful write (addDocRevision, renameDocPage, rollbackDocPage) the client was storing a partial DocWriteResultShape into page state typed as DocsPageShape, causing a TypeError crash when render code accessed page.lock.isLocked (undefined on the partial shape). Fix: DocWriteResultShape added to docs-client.ts, write helpers retyped to return it, and both the edit and history pages updated to re-fetch the full page via getDocPageByPath after every write instead of calling setPage with the partial result. Tester added 37 crash-regression tests across 3 spec files; all 2287 tests pass.
+
+Acceptance criteria validated:
+- AC1: DocWriteResultShape exported from docs-client.ts with id/title/path/depth/parentId/currentRevisionId/revisionNumber/createdAt/updatedAt; NOT lock/currentRevision/breadcrumbs/visibility
+- AC2: addDocRevision, renameDocPage, rollbackDocPage, createDocPage typed to return DocWriteResultShape
+- AC3: edit page handleSubmit re-fetches full page via getDocPageByPath(finalPath); setPage called with full DocsPageShape; form fields re-baselined
+- AC4: activeForeignLock and render-side lock accesses are null-safe (p.lock?.isLocked, page.lock?.lockExpiresAt)
+- AC5: router.replace to new edit URL if path changed; re-fetch failure surfaces non-fatal error; saveSuccess set accurately
+- AC6: history page handleRollback re-fetches full page via getDocPageByPath before setPage
+- AC7: lint clean, typecheck clean, 2287 tests pass (37 new), next build clean
+
+Implementation branch or worktree context:
+- Implementation branch: ms5-docsedit-implementer-20260613 (code commit: cea1fb6)
+- Tester branch: ms5-docsedit-tester-20260613 (test commit: 6fbaf6c)
+- Base branch: ms5
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/docs/docs-client.ts (Implementer: added DocWriteResultShape; retyped write helpers to return it)
+- apps/web/app/docs/edit/[...path]/page.tsx (Implementer: handleSubmit re-fetches via getDocPageByPath after save)
+- apps/web/app/docs/history/[...path]/page.tsx (Implementer: handleRollback re-fetches via getDocPageByPath before setPage)
+- apps/web/app/docs/docs-client.spec.ts (Tester: DocWriteResultShape field tests and write-helper return-type tests)
+- apps/web/app/docs/docs-edit-page.spec.ts (Tester: post-save re-fetch and crash-regression tests)
+- apps/web/app/docs/docs-history-page.spec.ts (Tester: rollback re-fetch crash-regression tests)
+
+Test commit:
+- 6fbaf6c
+
+Commands executed:
+- pnpm install --dir /home/tstephen/repos/worktrees/ms5-docsedit-tester-20260613
+- pnpm --filter @sfus/web --dir /home/tstephen/repos/worktrees/ms5-docsedit-tester-20260613 run test (baseline: 2250 passed)
+- pnpm --filter @sfus/web --dir /home/tstephen/repos/worktrees/ms5-docsedit-tester-20260613 run test (after new tests: 2287 passed)
+- pnpm --filter @sfus/web --dir /home/tstephen/repos/worktrees/ms5-docsedit-tester-20260613 run lint
+- pnpm --filter @sfus/web --dir /home/tstephen/repos/worktrees/ms5-docsedit-tester-20260613 run typecheck
+- pnpm --filter @sfus/web --dir /home/tstephen/repos/worktrees/ms5-docsedit-tester-20260613 run build
+
+Final test outcomes:
+- PASS: 2287 tests pass (37 new; 0 regressions); lint clean; typecheck clean; next build clean
+- docs-client.spec.ts: 94 tests (61 new) — DocWriteResultShape field coverage, write-helper return types
+- docs-edit-page.spec.ts: 67 tests (11 new) — post-save re-fetch, rename path-change, null-safe lock
+- docs-history-page.spec.ts: 52 tests (7 new) — rollback re-fetch via getDocPageByPath before setPage
+
+Documentation context:
+- docs/features/documents.md (~line 205/237/446): verify DocWriteResultShape is already documented for write endpoints (POST /api/docs, POST /api/docs/:id/revisions, POST /api/docs/:id/rollback, PATCH /api/docs/:id) and that the listed fields match the interface (id, title, path, depth, parentId, currentRevisionId, revisionNumber, createdAt, updatedAt — no lock/currentRevision/breadcrumbs/visibility)
+- docs/features/documents.md (~line 672, edit-flow prose "On load, the page is fetched by path..."): update to state the editor re-fetches the full page via GET /api/docs/:path after a successful save, ensuring lock/breadcrumbs/currentRevision are always populated from the authoritative read
+- docs/features/web-shell.md: reconcile only if it describes the old partial-setPage behavior where setPage was called with the write result directly
+
+Plan and diff context:
+- Plan: plans/ms5-documents-wiki-plan.md (docs-edit-save-crash subtask)
+- Comparison base: ms5 branch (code commit cea1fb6 on ms5-docsedit-implementer-20260613, test commit 6fbaf6c on ms5-docsedit-tester-20260613)
+- Infer plan section, comparison base, and documentation conventions from repository context if specific line numbers differ
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/docs-edit-save-crash
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

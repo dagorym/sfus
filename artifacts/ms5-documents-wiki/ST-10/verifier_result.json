@@ -1,0 +1,32 @@
+{
+  "status": "complete",
+  "subtask": "ST-10",
+  "plan": "plans/ms5-documents-wiki-plan.md",
+  "branch": "ms5-st10-verifier-20260611",
+  "comparison_base": "ms5",
+  "date": "2026-06-11",
+  "verdict": "PASS",
+  "blocking_finding_count": 0,
+  "warning_finding_count": 0,
+  "note_finding_count": 1,
+  "notes": [
+    {
+      "file": "apps/web/app/docs/docs-client-history.spec.ts",
+      "line": 267,
+      "summary": "Pre-existing ST-9 defect: getDocDiff 400-response behavioral test fails because extractErrorMessage returns the API error message instead of the friendly 'too large to compare' fallback. Genuine code defect (not an env artifact), introduced in ST-9, present on ms5 base. Outside ST-10 scope. Surfaced for Coordinator awareness.",
+      "scope_attribution": "ST-9 carry-over",
+      "blocks_st10": false
+    }
+  ],
+  "acceptance_criteria": {
+    "AC1": "PASS",
+    "AC2": "PASS"
+  },
+  "test_sufficiency": "Sufficient — 22 tests cover the Documents link, label, description content, section count, and all pre-existing structural contracts. Coverage matches the additive scope.",
+  "documentation_accuracy": "Accurate — docs/features/web-shell.md and docs/guides/content-management.md correctly reflect five admin sections, with the Documents entry matching the implementation href, label, and description.",
+  "security_finding": "None — no security surface change; admin gate and API enforcement unchanged.",
+  "artifact_files_written": [
+    "artifacts/ms5-documents-wiki/ST-10/verifier_report.md",
+    "artifacts/ms5-documents-wiki/ST-10/verifier_result.json"
+  ]
+}

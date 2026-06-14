@@ -1,0 +1,34 @@
+{
+  "status": "success",
+  "task_id": "ST-11",
+  "task_summary": "ST-11 - Forums last-activity cleanup: (1) derive board lastPost timestamp from latest non-deleted reply instead of topic.lastPostAt, and (2) populate TopicLastActivity.at with the resolved reply createdAt (previously always null).",
+  "branch_name": "ms5-st11-implementer-20260611",
+  "code_commit_hash": "c4bf36f",
+  "changed_files": [
+    "apps/api/src/forums/forums.service.ts",
+    "apps/api/src/forums/forums.types.ts"
+  ],
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 lint",
+    "npx --yes pnpm@10.0.0 typecheck",
+    "npx --yes pnpm@10.0.0 test",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec tsc -p tsconfig.json"
+  ],
+  "validation_outcome": "All validations passed. Lint: 0 warnings/errors. Typecheck: clean. Test: 1287 passed (30 skipped integration tests). API tsc build: clean.",
+  "acceptance_criteria": [
+    "AC1: Board lastPost activity reflects the latest non-deleted reply; a soft-deleted latest reply no longer drives the displayed last-activity date.",
+    "AC2: TopicLastActivity.at is now populated with the resolved reply createdAt when isReply=true (no longer always null). The field remains null when the activity falls back to the opening post (isReply=false).",
+    "AC3: The full @sfus/api suite stays green (224 forums.service tests, 1287 total)."
+  ],
+  "test_location_guidance": [
+    "apps/api/src/forums/forums.service.test.ts - add/update specs proving the non-deleted-reply timestamp derivation (activity.at populated from query) and the absence of the always-null field in the reply case."
+  ],
+  "implementation_context": [
+    "resolveTopicLastActivity: added addSelect('post.created_at', 'createdAt') to the raw query so the latest non-deleted reply's createdAt is returned alongside its author. The result now sets at: reply.createdAt (a Date) when a reply exists, and at: null for the opening-post fallback.",
+    "listPublicCategories and getPublicBoard: effectiveAt for the reply case changed from 'activity.isReply ? (topic.lastPostAt ?? topic.createdAt) : topic.createdAt' to 'activity.isReply ? (activity.at ?? topic.lastPostAt ?? topic.createdAt) : topic.createdAt'. The fallback to topic.lastPostAt ensures existing test stubs (which don't supply createdAt in lastActivityRows) continue to pass; the real DB path uses activity.at.",
+    "TopicLastActivity.at JSDoc: updated to document that at is populated (non-null) when isReply=true, and null only for the opening-post fallback case.",
+    "BoardLastPostShape.at JSDoc: updated to document that at is derived from the latest NON-DELETED reply's createdAt.",
+    "P7 count: TopicLastActivity.at had 3 construction sites in forums.service.ts (result.set with at: null x2 -> now at: reply.createdAt for the reply case) and 2 effectiveAt derivation sites. The type definition in forums.types.ts was updated in JSDoc only (type remains Date | null for the opening-post fallback case). Total usages updated: 5 sites across 2 files."
+  ],
+  "expected_validation_failures": []
+}

@@ -1,0 +1,44 @@
+{
+  "status": "success",
+  "subtask_id": "ST-5",
+  "branch": "ms5-st5-implementer-20260611",
+  "branch_name": "ms5-st5-implementer-20260611",
+  "code_commit_hash": "73a0598d2e062576d4d1242064fe63ceff1b3fa8",
+  "task_summary": "ST-5: Implements revision history (GET /api/docs/:id/history), single-revision fetch (GET /api/docs/:id/revisions/:revisionNumber), deterministic line-level diff (GET /api/docs/:id/diff?from=&to=), and non-destructive rollback (POST /api/docs/:id/rollback) for the Documents wiki.",
+  "changed_files": [
+    "apps/api/src/docs/docs.service.ts",
+    "apps/api/src/docs/docs.controller.ts",
+    "apps/api/src/docs/docs.types.ts"
+  ],
+  "acceptance_criteria": [
+    "AC1: GET /api/docs/:id/history returns revisions ordered by revision_number ASC with author/editor/summary/timestamp; non-readable page returns same 404 as ST-2 (oracle parity via DocsService.PAGE_NOT_FOUND_MESSAGE).",
+    "AC2: GET /api/docs/:id/diff returns deterministic line-level diff (added/removed/unchanged hunks) via static DocsService.computeLineDiff() — testable against fixed inputs with no DB.",
+    "AC3: POST /api/docs/:id/rollback creates new highest-numbered revision equal to target content; updates current_revision_id; all prior revisions preserved (non-destructive); wrapped in transaction (P10).",
+    "AC4: Rollback gated by assertDocWriteAccess (staff-only for site scope); user-role caller receives 403."
+  ],
+  "test_location_guidance": [
+    "apps/api/src/docs/docs.service.test.ts — add unit tests for getPageHistory, getRevisionByNumber, getDiff (static computeLineDiff with fixed inputs), rollbackPage",
+    "apps/api/src/docs/docs.controller.test.ts — add unit tests for GET :id/history, GET :id/revisions/:n, GET :id/diff, POST :id/rollback routes",
+    "apps/api/src/docs/docs.service.integration.test.ts — extend with rollback non-destructive proof and history/diff 404-parity assertions (DB-gated SFUS_DB_INTEGRATION=1)"
+  ],
+  "implementation_context": [
+    "getPageHistory(pageId): loads page with isPagePubliclyReadable gate (oracle-parity 404 if not published or readable); finds all revisions for the page ordered by revisionNumber ASC with author/editorUser relations; maps each to DocsRevisionMetaShape via toRevisionMetaShape private helper.",
+    "getRevisionByNumber(pageId, revisionNumber): same page visibility gate; findOne by (pageId, revisionNumber); NotFoundException(PAGE_NOT_FOUND_MESSAGE) if revision is missing.",
+    "getDiff(pageId, fromRevNumber, toRevNumber): validates from/to are positive integers and not equal (BadRequestException); page visibility gate; parallel-loads both revisions (Promise.all); splits body on newline; calls static DocsService.computeLineDiff(fromLines, toLines).",
+    "DocsService.computeLineDiff(fromLines, toLines): STATIC method — LCS DP table (m x n), backtrack to produce {type, line} ops, reverse to document order, merge adjacent same-type ops into DocsDiffHunk[]. No external deps; deterministic. Tester calls DocsService.computeLineDiff([...],[...]) directly with fixed string arrays to pin expected output.",
+    "rollbackPage(actorUserId, pageId, input): validateRevisionNumber (positive integer); transaction: load page (404 if missing/deleted); load target revision by revisionNumber (404 if missing); find highest existing revisionNumber; insert new revision with target body/title, editorUserId=actorUserId, summary=Rolled back to revision N; update page current_revision_id+title; return DocWriteResultShape.",
+    "Oracle parity: getPageHistory, getRevisionByNumber, and getDiff all throw NotFoundException(DocsService.PAGE_NOT_FOUND_MESSAGE) for non-readable/deleted/nonexistent pages — identical to ST-2 read errors.",
+    "assertDocWriteAccess called by controller BEFORE rollbackPage; no inline role check inside service.",
+    "Route ordering: GET :id/history, GET :id/revisions/:revisionNumber, GET :id/diff, POST :id/rollback all declared BEFORE the GET *path catch-all in the controller to prevent route shadowing.",
+    "POST :id/rollback uses ThrottleGuard + THROTTLE_LABEL_DOC_EDIT (consistent with other write routes).",
+    "New types in docs.types.ts: DocsRevisionMetaShape, DocsHistoryShape, DocsSingleRevisionShape, DocsDiffHunk, DocsDiffShape, DocRollbackInput."
+  ],
+  "validation_commands": [
+    "npx --yes pnpm@10.0.0 lint",
+    "npx --yes pnpm@10.0.0 typecheck",
+    "npx --yes pnpm@10.0.0 test",
+    "npx --yes pnpm@10.0.0 --filter @sfus/api exec tsc -p tsconfig.json"
+  ],
+  "validation_outcome": "PASS — lint 0 warnings, typecheck 0 errors, 1149 tests passed (23 DB-gated skips), API tsc build clean",
+  "expected_validation_failures": []
+}

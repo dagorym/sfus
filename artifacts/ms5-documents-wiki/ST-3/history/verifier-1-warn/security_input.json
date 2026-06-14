@@ -1,0 +1,60 @@
+{
+  "status": "completed",
+  "task_id": "ms5-ST-3",
+  "branch_name": "ms5-st3-security-20260610",
+  "pass_label": "CONDITIONAL PASS",
+  "outcome": "CONDITIONAL PASS",
+  "review_scope_summary": [
+    "MS5 ST-3 Documents write API and the assertDocWriteAccess authorization seam (the wiki write trust boundary).",
+    "Product code reviewed: apps/api/src/docs/docs.service.ts (assertDocWriteAccess, createPage, addRevision, validateSlug, validateTitle, resolveParent, computePathHash / path / depth derivation); apps/api/src/docs/docs.controller.ts (POST /api/docs, POST /api/docs/:id/revisions, ThrottleGuard wiring, session/role propagation); apps/api/src/docs/docs.types.ts; apps/api/src/docs/docs.module.ts.",
+    "Supporting context reviewed: apps/api/src/authorization/authorization.service.ts (hasGlobalRole/evaluate), apps/api/src/auth/auth.service.ts (resolveSession/mapUser), apps/api/src/docs/entities/docs-page.entity.ts, apps/api/src/database/migrations/1781308800000-milestone-five-documents-foundation.ts, apps/api/src/common/throttle/throttle.guard.ts.",
+    "Tests reviewed: docs.service.test.ts, docs.controller.test.ts, docs.service.integration.test.ts (P10 atomicity injection), docs-module.test.ts.",
+    "Docs reviewed: docs/features/documents.md (write/authz contract), docs/features/authorization.md.",
+    "Method: read-only review; no product or test files modified. Diff compared against coordination base branch ms5."
+  ],
+  "risk_basis": [
+    "Planner marked ST-3 'Security review: required': it introduces the wiki write-authorization seam and trust boundary - the single gate every current and future write path depends on.",
+    "A defect here means unauthorized writes, privilege escalation, data-integrity corruption (orphaned page rows / dangling current_revision_id), injection, or an existence oracle for writers."
+  ],
+  "plan_reference": [
+    "plans/ms5-documents-wiki-plan.md (ST-3 acceptance criteria AC1-AC5 and P10 atomicity).",
+    "docs/features/documents.md Write API contract and docs/features/authorization.md gate table."
+  ],
+  "findings": [
+    {
+      "severity": "WARNING",
+      "category": "test-assurance / transactional integrity (P10)",
+      "file": "apps/api/src/docs/docs.service.integration.test.ts",
+      "line": "239-315",
+      "summary": "The P10 mid-sequence-failure atomicity test is a mock illusion: it replaces pageRepository.manager with a fake patchedManager whose transaction() just invokes the callback, and whose em.save never writes to the DB (first call returns the entity without persisting, second call throws). No real TypeORM transaction, SAVEPOINT, or rollback is exercised, so the 'no orphaned page row / no dangling pointer' assertions pass trivially - nothing was ever written. The inline comment (lines 232-237) claiming TypeORM wraps the three statements in one SAVEPOINT and a throw triggers a real rollback is contradicted by the test, which bypasses the real manager.transaction entirely.",
+      "why_it_matters": "The headline P10 rollback guarantee is asserted but NOT proven by any executed test. NOTE: the product code is correct - createPage (docs.service.ts:426-484) and addRevision (docs.service.ts:517-565) both wrap their multi-statement sequences in this.pageRepository.manager.transaction, and the schema enforces the FK (fk_docs_pages_current_revision_id, fk_docs_revisions_page_id ON DELETE CASCADE) and unique (uq_docs_pages_scope_path_hash, uq_docs_revisions_page_revision_number) constraints that make rollback atomic at the engine level. So this is a test/assurance gap (false confidence + future-regression masking), not a product defect. Remediation (Tester, non-blocking): make the failure-injection test exercise the real DataSource transaction (e.g. inject the failure via a unique-constraint violation or a real em hook) so the actual rollback is observed in the DB, or downgrade the test's claim. The whole integration suite is additionally skipped unless SFUS_DB_INTEGRATION=1, so even the real-schema happy-path / duplicate / addRevision atomicity coverage does not run in CI."
+    },
+    {
+      "severity": "NOTE",
+      "category": "concurrency / data-integrity robustness",
+      "file": "apps/api/src/docs/docs.service.ts",
+      "line": "525-529",
+      "summary": "addRevision computes nextRevisionNumber by reading the current max revision_number and adding 1 inside the transaction. Two concurrent edits to the same page can compute the same next number.",
+      "why_it_matters": "No data corruption occurs: the unique index uq_docs_revisions_page_revision_number (page_id, revision_number) rejects the duplicate, converting the race into a DB error (surfaced as 500) rather than a silent overwrite or duplicate-number row. Safe from a security/integrity standpoint; the only effect is a coarse 500 under a rare write-write race. ST-6 soft-locking further reduces concurrent edits. Informational only."
+    },
+    {
+      "severity": "NOTE",
+      "category": "test-coverage assertion strength",
+      "file": "apps/api/src/docs/docs.controller.test.ts",
+      "line": "20",
+      "summary": "The controller test header claims 'AC4: ThrottleGuard attached at the decorator level (presence validated by metadata)', but no test actually asserts the guard metadata. ThrottleGuard attachment is verified only by reading the source.",
+      "why_it_matters": "The security property itself holds: docs.controller.ts attaches @UseGuards(ThrottleGuard) + @ThrottleLabel on BOTH write routes (lines 159-160 and 215-216), and ThrottleModule is imported by DocsModule (docs.module.ts:22). Similarly docs-module.test.ts only asserts imports/providers array lengths, not that AuthModule/ThrottleModule are specifically present. These are weak-assertion / overstated-doc-comment gaps, not defects - the throttle and wiring are correct in source. Recommend a small metadata-reflection test (Reflector.get(THROTTLE_ROUTE_LABEL, handler)) to make AC4 self-verifying."
+    }
+  ],
+  "test_sufficiency_summary": [
+    "PASS for the authorization seam: assertDocWriteAccess unit tests cover null/undefined/'user' -> 403, moderator/admin -> pass, deny-by-default on unknown scope, the DocsPageEntity overload, and that it routes through AuthorizationService.hasGlobalRole. Controller tests assert the seam is invoked BEFORE the service write (invocationCallOrder) and that 401 (resolveSession throw) precedes 403, for both routes.",
+    "PASS for input validation / oracle parity: slug charset/length, title length, missing-parent 400, path_hash collision 409, and addRevision nonexistent/deleted -> identical 404 (PAGE_NOT_FOUND_MESSAGE) are all covered.",
+    "PARTIAL for P10 transactional atomicity: the real-schema integration tests (createPage, duplicate-rejection, addRevision) DO exercise the real manager.transaction and the unique index, but they only run under SFUS_DB_INTEGRATION=1 (skipped in CI), and the dedicated mid-sequence-failure rollback test (WARNING finding) uses a fake manager that proves nothing about rollback. The rollback property is implemented correctly in product code but is not demonstrated by an executed test.",
+    "Throttle attachment and module wiring are correct in source but only weakly asserted by tests (NOTE findings)."
+  ],
+  "documentation_sufficiency_summary": [
+    "SUFFICIENT. docs/features/documents.md adds a complete Write API contract: single-gate authorization, 401-before-403 ordering, moderator/admin requirement, write-path oracle parity (404), slug/title validation rules, both throttle labels, P10 transactional atomicity, full request/response/error tables, and module wiring.",
+    "docs/features/authorization.md adds DocsService.assertDocWriteAccess to the gate table (moderator/admin for site scope, extensible for project scope) and reiterates 'gate before any data operation; 401 no session, 403 insufficient role'.",
+    "No documentation defects. The docs accurately describe the implemented behavior and the security contract."
+  ]
+}

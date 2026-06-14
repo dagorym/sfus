@@ -9,7 +9,8 @@
  *  AC1 - /admin is gated: uses resolveProtectedSession + hasGlobalRole("admin");
  *        redirects unauthenticated users; surfaces "Admin access required" for non-admin.
  *  AC2 - Dashboard renders labelled links with short descriptions to
- *        /admin/blog, /admin/pages, /admin/navigation, and /admin/forums.
+ *        /admin/blog, /admin/pages, /admin/navigation, /admin/forums, and /docs
+ *        (Documents). Includes ST-10: Documents card at /docs.
  *  AC3 - Styling reuses apps/web/app/auth-shell.module.css (no new CSS file).
  */
 
@@ -97,6 +98,11 @@ describe("admin-dashboard page (AC2) — section links", () => {
     expect(source).toContain('"/admin/forums"');
   });
 
+  it("links to /docs (Documents)", async () => {
+    const source = await readAppFile("app/admin/page.tsx");
+    expect(source).toContain('"/docs"');
+  });
+
   it("labels the Blog section", async () => {
     const source = await readAppFile("app/admin/page.tsx");
     expect(source).toMatch(/label.*Blog|Blog.*label/s);
@@ -117,11 +123,23 @@ describe("admin-dashboard page (AC2) — section links", () => {
     expect(source).toMatch(/label.*Forums|Forums.*label/s);
   });
 
+  it("labels the Documents section", async () => {
+    const source = await readAppFile("app/admin/page.tsx");
+    expect(source).toMatch(/label.*Documents|Documents.*label/s);
+  });
+
   it("includes a short description for each section (description field present)", async () => {
     const source = await readAppFile("app/admin/page.tsx");
     const descriptionCount = (source.match(/description:/g) ?? []).length;
-    // Four sections each with a description property
-    expect(descriptionCount).toBeGreaterThanOrEqual(4);
+    // Five sections each with a description property (Blog, Pages, Navigation, Forums, Documents)
+    expect(descriptionCount).toBeGreaterThanOrEqual(5);
+  });
+
+  it("Documents section description mentions wiki pages and relevant actions", async () => {
+    const source = await readAppFile("app/admin/page.tsx");
+    // Must mention wiki pages and at least one management action (create/edit/lock/roll back)
+    expect(source).toMatch(/wiki pages/i);
+    expect(source).toMatch(/create|edit|lock|roll back/i);
   });
 
   it("renders sections via a map over an adminSections array", async () => {

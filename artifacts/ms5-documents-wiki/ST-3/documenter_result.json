@@ -1,0 +1,17 @@
+{
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/ST-3/documenter_report.md",
+    "artifacts/ms5-documents-wiki/ST-3/documenter_result.json",
+    "artifacts/ms5-documents-wiki/ST-3/verifier_prompt.txt"
+  ],
+  "branch_name": "ms5-st3-documenter-20260610",
+  "documentation_commit_hash": "eb6c4e2",
+  "documentation_files_changed": [
+    "docs/features/documents.md (verified accurate \u2014 no changes needed)",
+    "docs/features/authorization.md (verified accurate \u2014 no changes needed)",
+    "docs/development/testing.md (verified accurate \u2014 no changes needed)"
+  ],
+  "pass_label": "remediation",
+  "status": "success",
+  "task_id": "ST-3"
+}

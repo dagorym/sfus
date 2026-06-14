@@ -1,0 +1,60 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST-7 Remediation pass 1: implementer fixed nested doc page path encoding in getDocPageByPath (docs-client.ts) so multi-segment paths resolve correctly against GET /api/docs/*path. Fix: path.split('/').map(encodeURIComponent).join('/') replacing bare encodeURIComponent(path). Also removed redundant session !== undefined guard in DocsIndexPage (page.tsx). Tester replaced inadequate source-text URL-encoding assertion with 4 behavioral mock-fetch tests covering AC1/AC2/AC3 and added stricter source-audit test for split/map/join pattern.
+
+Acceptance criteria validated:
+- AC1 (PASS): getDocPageByPath constructs URL with literal '/' separators for multi-segment paths — behavioral mock-fetch test asserts 'getting-started/installation' -> /api/docs/getting-started/installation, NOT %2F-encoded
+- AC2 (PASS): Single-segment root-level paths continue to work — mock-fetch test confirms 'introduction' -> /api/docs/introduction unchanged
+- AC3 (PASS): Reserved characters within a segment are percent-encoded — 'my page?v=1' -> 'my%20page%3Fv%3D1'; nested path with reserved chars encodes per segment while preserving literal '/'
+- AC4 (PASS): All pre-existing ST-7 ACs satisfied — docs-index.spec.ts, docs-page.spec.ts, and pre-existing docs-client.spec.ts all pass; lint clean; build passes on installed-module environment
+
+Implementation branch or worktree context:
+- Tester branch: ms5-st7-tester-20260611 (branched from ms5-st7-implementer-20260611)
+- Implementer branch: ms5-st7-implementer-20260611
+- Worktree path: /home/tstephen/repos/worktrees/ms5-st7-tester-20260611
+- Comparison base: ms5 branch (main milestone branch)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/docs/docs-client.ts (implementer: per-segment encodeURIComponent fix at line 129 — split/map/join instead of bare encodeURIComponent)
+- apps/web/app/docs/page.tsx (implementer: removed redundant && session !== undefined guard at line ~55, simplified to session != null)
+- apps/web/app/docs/docs-client.spec.ts (tester: replaced source-text URL-encoding assertion with 4 mock-fetch behavioral tests; added vi import; updated file header comment)
+
+Test commit:
+- 92d5543
+
+Commands executed:
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/worktrees/ms5-st7-tester-20260611 --filter @sfus/web exec vitest run --reporter=verbose
+- npx --yes pnpm@10.0.0 -C /home/tstephen/repos/sfus --filter @sfus/web exec eslint app components --ext .ts,.tsx --max-warnings=0
+- /home/tstephen/repos/sfus/apps/web/node_modules/.bin/next build /home/tstephen/repos/sfus/apps/web
+
+Final test outcomes:
+- 644 tests pass across 17 suites (vitest run in worktree)
+- 2 suites blocked by ERR_MODULE_NOT_FOUND (react) — pre-existing worktree environment artifact unrelated to ST-7 changes
+- AC1 (CRITICAL): mock-fetch test confirms 'getting-started/installation' yields URL /api/docs/getting-started/installation (literal slash, not %2F)
+- AC2: mock-fetch test confirms single-segment 'introduction' yields /api/docs/introduction
+- AC3: mock-fetch test confirms 'my page?v=1' encodes to 'my%20page%3Fv%3D1'; nested path with reserved chars: segments encoded, '/' preserved
+- AC4: docs-index.spec.ts (13 tests), docs-page.spec.ts (35 tests), all pre-existing docs-client.spec.ts tests — all pass
+- Lint: 0 warnings, 0 errors on main repo (node_modules installed)
+- Build: passes on main repo (ms5 branch + docs routes); worktree build blocked by React context mismatch due to symlinked node_modules (worktree environment artifact)
+
+Documentation context:
+- docs/features/documents.md covers the public docs browse/render surface (ST-7 scope)
+- The fix confirms correct URL routing behavior for nested doc paths — the doc spec may need to note that multi-segment paths (e.g. 'getting-started/installation') correctly map to GET /api/docs/getting-started/installation
+- The session guard simplification in DocsIndexPage is a code-only cleanup with no user-visible behavioral change; no documentation update needed for that change
+
+Plan and diff context:
+- Plan: plans/ms5-documents-wiki-plan.md (ST-7 subtask — Public docs browse/render, web)
+- Base branch for diff: ms5 (assumption — main coordination branch for this milestone)
+- Prior tester artifacts for context: artifacts/ms5-documents-wiki/ST-7/ (this directory)
+
+Startup behavior:
+- If Tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-7
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.

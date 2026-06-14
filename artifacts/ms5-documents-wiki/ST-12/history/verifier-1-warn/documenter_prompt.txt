@@ -1,0 +1,57 @@
+Your role is 'documenter'. Your task is as follows:
+
+Task summary:
+- ST-12 refreshed the landing page (apps/web/app/page.tsx) from Milestone 4 to Milestone 5 (Documents wiki): updated hero, highlights, what's-new, explore, and scope copy; added RecentDocActivity component consuming GET /api/docs/recent via getRecentDocEdits; added /docs explore link and wiki highlight card.
+- Tester added public-shell.spec.ts updates (MS5 copy assertions, no-MS4-label guard, /docs link and RecentDocActivity assertions) and a new recent-doc-activity.spec.ts (17 source-contract tests). All 927 tests pass; lint and build pass.
+
+Acceptance criteria validated:
+- AC1: Hero, highlights, what's-new, explore, and scope text describe Milestone 5; NO stale "Milestone 4" labels remain in page.tsx.
+- AC2: /docs explore link and wiki highlight card are present.
+- AC3: RecentDocActivity renders recent published document edits from GET /api/docs/recent, with loading/empty/error/populated states consistent with RecentForumActivity.
+- AC4: next build and lint pass.
+
+Implementation branch or worktree context:
+- Implementer branch: ms5-st12-implementer-20260611 (merged to ms5)
+- Tester branch: ms5-st12-tester-20260611
+- Base branch for comparison: ms5 (before commit 7647ba5)
+
+Files modified by Implementer and Tester to inspect for documentation impact:
+- apps/web/app/page.tsx (Implementer — full MS5 rewrite)
+- apps/web/components/recent-doc-activity.tsx (Implementer — new file)
+- apps/web/components/recent-doc-activity.module.css (Implementer — new file)
+- apps/web/app/public-shell.spec.ts (Tester — updated)
+- apps/web/components/recent-doc-activity.spec.ts (Tester — new file)
+
+Test commit:
+- 3bb5474
+
+Commands executed:
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec vitest run --reporter=verbose
+- npx --yes pnpm@10.0.0 lint
+- npx --yes pnpm@10.0.0 --filter @sfus/web exec next build
+
+Final test outcomes:
+- 927/927 tests pass across 23 test files; lint clean; next build successful with no type errors.
+- Approved behavior change: public-shell.spec.ts Milestone 4 positive assertion updated to Milestone 5 (MS4 page copy was intentionally replaced by MS5 copy in ST-12).
+
+Documentation context:
+- docs/features/web-shell.md may need updating to reflect the MS5 landing page content and RecentDocActivity in the what's-new grid.
+- docs/features/documents.md may reference the getRecentDocEdits / GET /api/docs/recent integration on the landing page.
+- Check if the web shell doc references a specific milestone for the landing page copy.
+- The RecentDocActivity component mirrors RecentForumActivity in pattern; docs may note both feed components in the landing page section.
+
+Plan and diff context:
+- Plan file: plans/ms5-documents-wiki-plan.md
+- Subtask: ST-12 (Landing page refresh to Milestone 5)
+- Comparison base: ms5 branch before commit 7647ba5 (feat(web): ST-12 - refresh landing page to Milestone 5 with docs wiki)
+
+Startup behavior:
+- If tester branch/worktree context and enough story and diff context are present, begin documentation work immediately and continue in the same run.
+- Infer missing plan-path, comparison-base, artifact-path, or documentation-convention details from repository context when repository evidence is sufficient, and label those choices as assumptions instead of treating them as blockers.
+- Do not stop after activation, scope confirmation, documentation discovery, or diff review when documentation work can proceed.
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/ST-12
+
+Completion gate:
+- Do not report success unless all required artifacts exist and all changes are committed.
