@@ -419,3 +419,146 @@ describe("DocsEditPage (app/docs/edit/[...path]/page.tsx) — export constraints
     expect(source).not.toContain("dangerouslySetInnerHTML");
   });
 });
+
+// ---------------------------------------------------------------------------
+// AC3/AC5 (a): Post-save re-fetch crash regression tests
+//
+// These source-analysis tests pin the exact structural contract that prevented
+// the crash: after addDocRevision returns a DocWriteResultShape (no .lock),
+// the page must call getDocPageByPath to re-fetch the full DocsPageShape before
+// calling setPage. Setting page state directly from the partial write result
+// was the crash trigger (page.lock.isLocked undefined).
+// ---------------------------------------------------------------------------
+
+describe("DocsEditPage — post-save re-fetch contract (AC3/AC5/a, crash regression)", () => {
+  it("calls getDocPageByPath after addDocRevision (not setPage with partial write result)", async () => {
+    const source = await readAppFile(FILE);
+    const handleSubmitBlock = source.slice(
+      source.indexOf("const handleSubmit"),
+      source.indexOf("// ------------------------------------------------------------------\n  // Render: loading")
+    );
+    // getDocPageByPath must appear in handleSubmit (the re-fetch call)
+    expect(handleSubmitBlock).toContain("getDocPageByPath(");
+    // The result of the write is a DocWriteResultShape; the page path is extracted
+    // from it, then getDocPageByPath is called with that path
+    expect(handleSubmitBlock).toContain("lastWriteResult.path");
+  });
+
+  it("uses the path from write result to call getDocPageByPath (finalPath pattern)", async () => {
+    const source = await readAppFile(FILE);
+    const handleSubmitBlock = source.slice(
+      source.indexOf("const handleSubmit"),
+      source.indexOf("// ------------------------------------------------------------------\n  // Render: loading")
+    );
+    // finalPath is extracted from the write result and passed to getDocPageByPath
+    expect(handleSubmitBlock).toContain("finalPath");
+    expect(handleSubmitBlock).toContain("getDocPageByPath(finalPath)");
+  });
+
+  it("calls setPage with the result of getDocPageByPath (full DocsPageShape), not write result", async () => {
+    const source = await readAppFile(FILE);
+    const handleSubmitBlock = source.slice(
+      source.indexOf("const handleSubmit"),
+      source.indexOf("// ------------------------------------------------------------------\n  // Render: loading")
+    );
+    // setPage is called with refreshed (result of getDocPageByPath), not lastWriteResult
+    expect(handleSubmitBlock).toContain("setPage(refreshed)");
+    // Should NOT call setPage directly with lastWriteResult (which would cause the crash)
+    expect(handleSubmitBlock).not.toMatch(/setPage\(lastWriteResult\)/);
+  });
+
+  it("re-baselines form fields from the refreshed full page after save", async () => {
+    const source = await readAppFile(FILE);
+    const handleSubmitBlock = source.slice(
+      source.indexOf("const handleSubmit"),
+      source.indexOf("// ------------------------------------------------------------------\n  // Render: loading")
+    );
+    // After refreshed setPage, the form fields are re-seeded from refreshed data
+    expect(handleSubmitBlock).toContain("setTitle(refreshed.title)");
+    expect(handleSubmitBlock).toContain("setOriginalTitle(refreshed.title)");
+    expect(handleSubmitBlock).toContain("setOriginalSlug(");
+  });
+
+  it("sets saveSuccess=true even when the re-fetch fails (non-fatal re-fetch error path)", async () => {
+    const source = await readAppFile(FILE);
+    const handleSubmitBlock = source.slice(
+      source.indexOf("const handleSubmit"),
+      source.indexOf("// ------------------------------------------------------------------\n  // Render: loading")
+    );
+    // setSaveSuccess(true) must be reachable even when the inner try/catch for
+    // getDocPageByPath fires — the save itself succeeded
+    const refetchCatchEnd = handleSubmitBlock.indexOf("setSaveSuccess(true)");
+    const refetchTry = handleSubmitBlock.indexOf("try {", handleSubmitBlock.indexOf("getDocPageByPath(finalPath)") - 100);
+    // setSaveSuccess(true) appears after the re-fetch try/catch block
+    expect(refetchCatchEnd).toBeGreaterThan(refetchTry);
+    expect(handleSubmitBlock).toContain("setSaveSuccess(true)");
+  });
+
+  it("surfaces a non-fatal error message when re-fetch fails after save", async () => {
+    const source = await readAppFile(FILE);
+    const handleSubmitBlock = source.slice(
+      source.indexOf("const handleSubmit"),
+      source.indexOf("// ------------------------------------------------------------------\n  // Render: loading")
+    );
+    // The catch block after getDocPageByPath sets an error without crashing
+    expect(handleSubmitBlock).toContain("Revision saved, but the page could not be reloaded");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC5 (b): Rename-then-save: path-change → getDocPageByPath with new path +
+//          router.replace to new edit URL
+// ---------------------------------------------------------------------------
+
+describe("DocsEditPage — rename then save: new-path re-fetch and router.replace (AC5/b)", () => {
+  it("computes finalPath from the addDocRevision write result", async () => {
+    const source = await readAppFile(FILE);
+    const handleSubmitBlock = source.slice(
+      source.indexOf("const handleSubmit"),
+      source.indexOf("// ------------------------------------------------------------------\n  // Render: loading")
+    );
+    // finalPath is taken from lastWriteResult.path (set by addDocRevision)
+    expect(handleSubmitBlock).toContain("lastWriteResult.path");
+    expect(handleSubmitBlock).toContain("const finalPath = lastWriteResult.path");
+  });
+
+  it("calls router.replace with new edit URL when the path changed after rename", async () => {
+    const source = await readAppFile(FILE);
+    const handleSubmitBlock = source.slice(
+      source.indexOf("const handleSubmit"),
+      source.indexOf("// ------------------------------------------------------------------\n  // Render: loading")
+    );
+    // When finalPath !== fullPath, router.replace is called with the new edit path
+    expect(handleSubmitBlock).toContain("finalPath !== fullPath");
+    expect(handleSubmitBlock).toContain('router.replace(`/docs/edit/${finalPath}`)');
+  });
+
+  it("imports router from next/navigation (useRouter) for the replace call", async () => {
+    const source = await readAppFile(FILE);
+    expect(source).toContain("useRouter");
+    expect(source).toContain('from "next/navigation"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC4 (null-safe lock access): activeForeignLock and lock render are null-safe
+// ---------------------------------------------------------------------------
+
+describe("DocsEditPage — null-safe lock access (AC4)", () => {
+  it("activeForeignLock checks p.lock?.isLocked (optional chaining)", async () => {
+    const source = await readAppFile(FILE);
+    const lockFn = source.slice(
+      source.indexOf("const activeForeignLock"),
+      source.indexOf("// ------------------------------------------------------------------\n  // Authorization check")
+    );
+    // Optional chaining on lock prevents crash when lock is absent
+    expect(lockFn).toContain("p.lock?.isLocked");
+    expect(lockFn).toContain("p.lock?.lockExpiresAt");
+  });
+
+  it("render-side lock access uses optional chaining (page.lock?.lockExpiresAt)", async () => {
+    const source = await readAppFile(FILE);
+    // In the render, page.lock?.lockExpiresAt is used rather than page.lock.lockExpiresAt
+    expect(source).toContain("page.lock?.lockExpiresAt");
+  });
+});

@@ -330,3 +330,69 @@ describe("DocsHistoryPage — module-level constraints (AC4)", () => {
     expect(source).toContain('from "../../docs.module.css"');
   });
 });
+
+// ---------------------------------------------------------------------------
+// AC6 (d): handleRollback re-fetches full page via getDocPageByPath
+//
+// Crash regression: rollbackDocPage returns a partial DocWriteResultShape
+// (no .lock / .currentRevision / .breadcrumbs). If handleRollback called
+// setPage with that partial result, render code accessing page.lock.isLocked
+// would crash. The fix re-fetches the full page first.
+// ---------------------------------------------------------------------------
+
+describe("DocsHistoryPage — rollback re-fetches full page via getDocPageByPath (AC6/d)", () => {
+  it("handleRollback calls getDocPageByPath after rollbackDocPage (not setPage with partial result)", async () => {
+    const source = await readAppFile(PAGE_FILE);
+    const rollbackFn = source.slice(source.indexOf("const handleRollback"));
+    // getDocPageByPath must be called inside handleRollback (the re-fetch step)
+    expect(rollbackFn).toContain("getDocPageByPath(");
+  });
+
+  it("handleRollback passes the path from writeResult to getDocPageByPath (finalPath pattern)", async () => {
+    const source = await readAppFile(PAGE_FILE);
+    const rollbackFn = source.slice(source.indexOf("const handleRollback"));
+    // The path is derived from the write result, not from the stale page state
+    expect(rollbackFn).toContain("writeResult.path");
+    expect(rollbackFn).toContain("finalPath");
+    expect(rollbackFn).toContain("getDocPageByPath(finalPath)");
+  });
+
+  it("calls setPage with the result of getDocPageByPath (full DocsPageShape), not write result", async () => {
+    const source = await readAppFile(PAGE_FILE);
+    const rollbackFn = source.slice(source.indexOf("const handleRollback"));
+    // setPage must be called with refreshed (full page), never with writeResult
+    expect(rollbackFn).toContain("setPage(refreshed)");
+    expect(rollbackFn).not.toMatch(/setPage\(writeResult\)/);
+  });
+
+  it("imports getDocPageByPath from docs-client (used in both page-load and rollback)", async () => {
+    const source = await readAppFile(PAGE_FILE);
+    // getDocPageByPath is imported for use in rollback re-fetch
+    expect(source).toContain("getDocPageByPath");
+    expect(source).toContain('from "../../docs-client"');
+  });
+
+  it("rollbackDocPage is imported from docs-client and called with page.id and revisionNumber", async () => {
+    const source = await readAppFile(PAGE_FILE);
+    const rollbackFn = source.slice(source.indexOf("const handleRollback"));
+    expect(rollbackFn).toContain("rollbackDocPage(page.id, revisionNumber)");
+  });
+
+  it("DocWriteResultShape is referenced as the return type of rollbackDocPage call (not DocsPageShape)", async () => {
+    const source = await readAppFile(PAGE_FILE);
+    // The rollback write result variable stores a DocWriteResultShape
+    const rollbackFn = source.slice(source.indexOf("const handleRollback"));
+    // The variable holding the write result is assigned from rollbackDocPage (not cast to DocsPageShape)
+    expect(rollbackFn).toContain("writeResult");
+    expect(rollbackFn).toContain("rollbackDocPage");
+    // Must NOT call setPage(writeResult) — that's the crash pattern
+    expect(rollbackFn).not.toMatch(/setPage\(writeResult\)/);
+  });
+
+  it("rollback still reloads history (getDocHistory) after re-fetching the page", async () => {
+    const source = await readAppFile(PAGE_FILE);
+    const rollbackFn = source.slice(source.indexOf("const handleRollback"));
+    // After re-fetching full page, history is also reloaded
+    expect(rollbackFn).toContain("getDocHistory");
+  });
+});

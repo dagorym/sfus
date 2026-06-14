@@ -630,3 +630,161 @@ describe("docs-client.ts — write helpers use encodeURIComponent on pageId (ST-
     }
   );
 });
+
+// ---------------------------------------------------------------------------
+// AC1 (e): DocWriteResultShape — required fields and excluded fields
+// ---------------------------------------------------------------------------
+
+describe("docs-client.ts — DocWriteResultShape interface (AC1/e)", () => {
+  it("exports DocWriteResultShape as an interface", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    expect(source).toContain("export interface DocWriteResultShape");
+  });
+
+  it("includes id field (string)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const ifaceBlock = source.slice(
+      source.indexOf("export interface DocWriteResultShape"),
+      source.indexOf("/** Full page response shape")
+    );
+    expect(ifaceBlock).toContain("id: string");
+  });
+
+  it("includes title field (string)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const ifaceBlock = source.slice(
+      source.indexOf("export interface DocWriteResultShape"),
+      source.indexOf("/** Full page response shape")
+    );
+    expect(ifaceBlock).toContain("title: string");
+  });
+
+  it("includes path field (string)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const ifaceBlock = source.slice(
+      source.indexOf("export interface DocWriteResultShape"),
+      source.indexOf("/** Full page response shape")
+    );
+    expect(ifaceBlock).toContain("path: string");
+  });
+
+  it("includes depth field", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const ifaceBlock = source.slice(
+      source.indexOf("export interface DocWriteResultShape"),
+      source.indexOf("/** Full page response shape")
+    );
+    expect(ifaceBlock).toContain("depth:");
+  });
+
+  it("includes parentId field (nullable)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const ifaceBlock = source.slice(
+      source.indexOf("export interface DocWriteResultShape"),
+      source.indexOf("/** Full page response shape")
+    );
+    expect(ifaceBlock).toContain("parentId:");
+  });
+
+  it("includes currentRevisionId field", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const ifaceBlock = source.slice(
+      source.indexOf("export interface DocWriteResultShape"),
+      source.indexOf("/** Full page response shape")
+    );
+    expect(ifaceBlock).toContain("currentRevisionId:");
+  });
+
+  it("includes revisionNumber field", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const ifaceBlock = source.slice(
+      source.indexOf("export interface DocWriteResultShape"),
+      source.indexOf("/** Full page response shape")
+    );
+    expect(ifaceBlock).toContain("revisionNumber:");
+  });
+
+  it("includes createdAt and updatedAt fields (string dates)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const ifaceBlock = source.slice(
+      source.indexOf("export interface DocWriteResultShape"),
+      source.indexOf("/** Full page response shape")
+    );
+    expect(ifaceBlock).toContain("createdAt: string");
+    expect(ifaceBlock).toContain("updatedAt: string");
+  });
+
+  it("does NOT include lock field (full-page-only field)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const ifaceBlock = source.slice(
+      source.indexOf("export interface DocWriteResultShape"),
+      source.indexOf("/** Full page response shape")
+    );
+    // The write result shape deliberately omits lock
+    expect(ifaceBlock).not.toContain("lock:");
+  });
+
+  it("does NOT include currentRevision field (full-page-only field)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const ifaceBlock = source.slice(
+      source.indexOf("export interface DocWriteResultShape"),
+      source.indexOf("/** Full page response shape")
+    );
+    expect(ifaceBlock).not.toContain("currentRevision:");
+  });
+
+  it("does NOT include breadcrumbs field (full-page-only field)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const ifaceBlock = source.slice(
+      source.indexOf("export interface DocWriteResultShape"),
+      source.indexOf("/** Full page response shape")
+    );
+    expect(ifaceBlock).not.toContain("breadcrumbs:");
+  });
+
+  it("does NOT include visibility field (full-page-only field)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const ifaceBlock = source.slice(
+      source.indexOf("export interface DocWriteResultShape"),
+      source.indexOf("/** Full page response shape")
+    );
+    expect(ifaceBlock).not.toContain("visibility:");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC2 (f): Write helpers typed to return DocWriteResultShape
+// ---------------------------------------------------------------------------
+
+describe("docs-client.ts — write helpers return DocWriteResultShape (AC2/f)", () => {
+  const writeHelperReturnTypes = [
+    "addDocRevision",
+    "renameDocPage",
+    "rollbackDocPage",
+    "createDocPage",
+  ];
+
+  it.each(writeHelperReturnTypes)(
+    "%s declares return type Promise<DocWriteResultShape>",
+    async (fnName) => {
+      const source = await readAppFile("app/docs/docs-client.ts");
+      const block = extractFn(source, fnName);
+      expect(block).toContain("Promise<DocWriteResultShape>");
+    }
+  );
+
+  it("addDocRevision returns data.page typed as DocWriteResultShape (not DocsPageShape)", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    const block = extractFn(source, "addDocRevision");
+    // The result envelope uses DocWriteResultShape, not DocsPageShape
+    expect(block).toContain("DocWriteResultShape");
+    expect(block).toContain("data.page");
+  });
+
+  it("rollbackDocPage is exported as an async function returning DocWriteResultShape", async () => {
+    const source = await readAppFile("app/docs/docs-client.ts");
+    expect(source).toContain("export async function rollbackDocPage");
+    const block = extractFn(source, "rollbackDocPage");
+    expect(block).toContain("Promise<DocWriteResultShape>");
+  });
+});
