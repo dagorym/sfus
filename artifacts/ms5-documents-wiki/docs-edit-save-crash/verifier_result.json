@@ -1,0 +1,32 @@
+{
+  "status": "SUCCESS",
+  "task_id": "docs-edit-save-crash",
+  "branch_name": "ms5-docsedit-verifier-20260613",
+  "verdict": "PASS",
+  "blocking_finding_count": 0,
+  "warning_finding_count": 0,
+  "note_finding_count": 0,
+  "test_sufficiency_summary": [
+    "37 new tests added across three test files covering all acceptance-criteria scenarios",
+    "DocWriteResultShape: 13 tests verify exactly the required 9 fields and assert absence of lock, currentRevision, breadcrumbs, visibility",
+    "Write-helper return types: 6 tests confirm all four helpers declare Promise<DocWriteResultShape>",
+    "Edit page re-fetch contract: 6 source-audit tests pin the structural contract",
+    "Rename-then-save path change: 3 tests confirm router.replace with new edit URL when slug changes",
+    "Null-safe lock access: 2 tests confirm optional chaining in activeForeignLock and render side",
+    "History rollback re-fetch: 7 tests confirm handleRollback uses getDocPageByPath then setPage with full DocsPageShape",
+    "Full web suite 981 tests pass (0 fail); combined web+API 2287 tests pass (0 fail)",
+    "Coverage is adequate: crash regression fully covered structurally; behavioral mock-fetch tests also present"
+  ],
+  "documentation_accuracy_summary": [
+    "DocWriteResultShape section (docs/features/documents.md line 282): exactly 9 required fields; no lock, currentRevision, breadcrumbs, or visibility",
+    "API response lines ~178, ~205, ~237, ~446 all state { page: DocWriteResultShape } unchanged from ms5 base",
+    "DocsEditPage Save prose (lines 680-685): states editor re-fetches full page via getDocPageByPath after successful save",
+    "DocsHistoryPage Rollback prose (lines 727-729): states rollback re-fetches full DocsPageShape via getDocPageByPath",
+    "Write-helpers table (lines 757-761): addDocRevision, renameDocPage, rollbackDocPage all show Returns DocWriteResultShape",
+    "Documentation is accurate and consistent with the implemented fix; no stale references found"
+  ],
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/docs-edit-save-crash/verifier_report.md",
+    "artifacts/ms5-documents-wiki/docs-edit-save-crash/verifier_result.json"
+  ]
+}
