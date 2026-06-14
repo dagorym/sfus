@@ -257,8 +257,14 @@ export default function DocsHistoryPage() {
     setRollbackError(null);
     setRollbackSuccess(null);
     try {
-      const updated = await rollbackDocPage(page.id, revisionNumber);
-      setPage(updated);
+      // rollbackDocPage returns a partial DocWriteResultShape; re-fetch the
+      // full page (with lock, breadcrumbs, currentRevision) by current path.
+      const writeResult = await rollbackDocPage(page.id, revisionNumber);
+      const finalPath = writeResult.path;
+      const refreshed = await getDocPageByPath(finalPath);
+      if (refreshed) {
+        setPage(refreshed);
+      }
       // Reload history to reflect the new rollback revision
       const hist = await getDocHistory(page.id);
       setHistory(hist);

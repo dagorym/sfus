@@ -56,6 +56,24 @@ export interface DocsLockState {
   lockExpiresAt: string | null;
 }
 
+/**
+ * Lightweight write-result shape returned by POST /api/docs,
+ * POST /api/docs/:id/revisions, PATCH /api/docs/:id, and
+ * POST /api/docs/:id/rollback. Does NOT include lock, currentRevision,
+ * breadcrumbs, or visibility — re-fetch via getDocPageByPath for those.
+ */
+export interface DocWriteResultShape {
+  id: string;
+  title: string;
+  path: string;
+  depth: number;
+  parentId: string | null;
+  currentRevisionId: string | null;
+  revisionNumber: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Full page response shape from GET /api/docs/*path. */
 export interface DocsPageShape {
   id: string;
@@ -173,7 +191,7 @@ export interface CreateDocPageInput {
 }
 
 export interface CreateDocPageResult {
-  page: DocsPageShape;
+  page: DocWriteResultShape;
 }
 
 /**
@@ -181,7 +199,7 @@ export interface CreateDocPageResult {
  *
  * Throws on any error, including 403 (not staff) and 409 (path collision).
  */
-export async function createDocPage(input: CreateDocPageInput): Promise<DocsPageShape> {
+export async function createDocPage(input: CreateDocPageInput): Promise<DocWriteResultShape> {
   const response = await fetch(`${apiBase}/docs`, {
     method: "POST",
     credentials: "include",
@@ -203,7 +221,7 @@ export interface AddDocRevisionInput {
 }
 
 export interface AddDocRevisionResult {
-  page: DocsPageShape;
+  page: DocWriteResultShape;
 }
 
 /**
@@ -211,7 +229,7 @@ export interface AddDocRevisionResult {
  *
  * Throws on any error, including 403 (not staff) and 409 (active foreign lock).
  */
-export async function addDocRevision(pageId: string, input: AddDocRevisionInput): Promise<DocsPageShape> {
+export async function addDocRevision(pageId: string, input: AddDocRevisionInput): Promise<DocWriteResultShape> {
   const response = await fetch(`${apiBase}/docs/${encodeURIComponent(pageId)}/revisions`, {
     method: "POST",
     credentials: "include",
@@ -245,7 +263,7 @@ export interface RenameDocPageInput {
  *
  * Throws on any error, including 403 (not staff) and 409 (active foreign lock).
  */
-export async function renameDocPage(pageId: string, input: RenameDocPageInput): Promise<DocsPageShape> {
+export async function renameDocPage(pageId: string, input: RenameDocPageInput): Promise<DocWriteResultShape> {
   const response = await fetch(`${apiBase}/docs/${encodeURIComponent(pageId)}`, {
     method: "PATCH",
     credentials: "include",
@@ -256,7 +274,7 @@ export async function renameDocPage(pageId: string, input: RenameDocPageInput): 
     const payload = (await response.json().catch(() => null)) as ErrorEnvelope;
     throw new Error(extractErrorMessage(payload, "Failed to rename document."));
   }
-  const data = (await response.json()) as { page: DocsPageShape };
+  const data = (await response.json()) as { page: DocWriteResultShape };
   return data.page;
 }
 
@@ -434,7 +452,7 @@ export async function getDocDiff(
 export async function rollbackDocPage(
   pageId: string,
   revisionNumber: number
-): Promise<DocsPageShape> {
+): Promise<DocWriteResultShape> {
   const response = await fetch(
     `${apiBase}/docs/${encodeURIComponent(pageId)}/rollback`,
     {
@@ -448,6 +466,6 @@ export async function rollbackDocPage(
     const payload = (await response.json().catch(() => null)) as ErrorEnvelope;
     throw new Error(extractErrorMessage(payload, "Failed to roll back document."));
   }
-  const data = (await response.json()) as { page: DocsPageShape };
+  const data = (await response.json()) as { page: DocWriteResultShape };
   return data.page;
 }

@@ -35,6 +35,7 @@ import {
   releaseDocLock,
   isLockConflictError,
   type DocsPageShape,
+  type DocWriteResultShape,
   type LockConflictDetails
 } from "../../docs-client";
 import { MarkdownEditor } from "../../../../components/markdown-editor";
@@ -75,8 +76,8 @@ export default function DocsEditPage() {
 
   const activeForeignLock = useCallback(
     (p: DocsPageShape, myUserId?: string): boolean => {
-      if (!p.lock.isLocked) return false;
-      if (!p.lock.lockExpiresAt) return false;
+      if (!p.lock?.isLocked) return false;
+      if (!p.lock?.lockExpiresAt) return false;
       if (new Date(p.lock.lockExpiresAt) <= new Date()) return false;
       if (myUserId && p.lock.lockedByUserId === myUserId) return false;
       return true;
@@ -197,24 +198,48 @@ export default function DocsEditPage() {
       // The server will also apply the lock check.
       const titleChanged = title.trim() !== originalTitle;
       const slugChanged = slug.trim() !== originalSlug;
+      let lastWriteResult: DocWriteResultShape | null = null;
       if (titleChanged || slugChanged) {
-        const renamed = await renameDocPage(page.id, {
+        lastWriteResult = await renameDocPage(page.id, {
           title: titleChanged ? title.trim() : undefined,
           slug: slugChanged ? slug.trim() : undefined
         });
-        setPage(renamed);
         // Update the originals so re-submit detects no further rename
         setOriginalTitle(title.trim());
         setOriginalSlug(slug.trim());
       }
 
       // Add revision (POST /api/docs/:id/revisions)
-      const updated = await addDocRevision(page.id, {
+      lastWriteResult = await addDocRevision(page.id, {
         title: title.trim(),
         body,
         summary: summary.trim() || undefined
       });
-      setPage(updated);
+
+      // Re-fetch the full page (with lock, breadcrumbs, currentRevision)
+      // using the final path from the write result.
+      const finalPath = lastWriteResult.path;
+      try {
+        const refreshed = await getDocPageByPath(finalPath);
+        if (refreshed) {
+          setPage(refreshed);
+          // Re-baseline form fields from the refreshed page
+          setTitle(refreshed.title);
+          setSlug(refreshed.path.split("/").at(-1) ?? "");
+          setBody(refreshed.currentRevision?.body ?? "");
+          setSummary(refreshed.currentRevision?.summary ?? "");
+          setOriginalTitle(refreshed.title);
+          setOriginalSlug(refreshed.path.split("/").at(-1) ?? "");
+          // If the path changed (slug rename), update the browser URL
+          if (finalPath !== fullPath) {
+            router.replace(`/docs/edit/${finalPath}`);
+          }
+        }
+      } catch {
+        // Re-fetch failed — page was saved but we cannot refresh state.
+        // Surface a non-fatal error; the save itself succeeded.
+        setError("Revision saved, but the page could not be reloaded. Please refresh.");
+      }
       setSaveSuccess(true);
     } catch (err) {
       if (isLockConflictError(err)) {
@@ -298,7 +323,7 @@ export default function DocsEditPage() {
           <span className={styles.lockIcon} aria-hidden="true">&#128274;</span>
           <span>
             This document is locked by another user.
-            {page.lock.lockExpiresAt ? (
+            {page.lock?.lockExpiresAt ? (
               <> Lock expires {new Date(page.lock.lockExpiresAt).toLocaleString()}.</>
             ) : null}
           </span>
