@@ -677,7 +677,12 @@ seeded from the current revision. The editor uses the shared `MarkdownEditor` co
 (`renameDocPage`) is sent before the revision is saved. Changing the slug rewrites the
 page URL and all descendant paths.
 
-**Save:** adds a new revision via `addDocRevision` (POST `/api/docs/:id/revisions`).
+**Save:** adds a new revision via `addDocRevision` (POST `/api/docs/:id/revisions`). After
+a successful save — and after any preceding rename — the editor re-fetches the full page
+via `getDocPageByPath` (GET `/api/docs/<path>`), so `lock`, `breadcrumbs`, and
+`currentRevision` are always populated from the authoritative read endpoint. The write
+endpoints return only the lightweight `DocWriteResultShape`, which does not include those
+fields.
 
 **Lock UX:**
 
@@ -719,8 +724,10 @@ shows a friendly "too large to compare" message rather than crashing.
 moderators and admins (tested via `hasGlobalRole(session.user, "moderator")`). Clicking
 it calls `rollbackDocPage`, which posts to `POST /api/docs/:id/rollback`. Rollback is
 non-destructive: the server creates a new highest-numbered revision and preserves all
-existing revisions. After a successful rollback the history list is reloaded and the diff
-selectors are updated to show the rolled-back result. Non-staff users see the history and
+existing revisions. After a successful rollback the page is re-fetched via
+`getDocPageByPath` (GET `/api/docs/<path>`) to repopulate the full `DocsPageShape`
+(including `lock`, `breadcrumbs`, and `currentRevision`), then the history list is
+reloaded and the diff selectors are updated to show the rolled-back result. Non-staff users see the history and
 diff but no rollback button. The server is the authoritative authorization boundary;
 client gating is defense-in-depth only.
 
@@ -747,11 +754,11 @@ All six use the shared error-envelope read pattern (`payload.error.message` →
 | Function | API endpoint | Notes |
 |---|---|---|
 | `createDocPage(input)` | `POST /api/docs` | Throws on 403 (not staff) or 409 (path collision) |
-| `addDocRevision(pageId, input)` | `POST /api/docs/:id/revisions` | Throws `LockConflictError` on 409 with holder details |
-| `renameDocPage(pageId, input)` | `PATCH /api/docs/:id` | Throws on 403, 409 |
+| `addDocRevision(pageId, input)` | `POST /api/docs/:id/revisions` | Returns `DocWriteResultShape`; throws `LockConflictError` on 409 with holder details |
+| `renameDocPage(pageId, input)` | `PATCH /api/docs/:id` | Returns `DocWriteResultShape`; throws on 403, 409 |
 | `acquireDocLock(pageId)` | `POST /api/docs/:id/lock` | Throws `LockConflictError` on 409 with holder details |
 | `releaseDocLock(pageId)` | `DELETE /api/docs/:id/lock` | Throws on 403 |
-| `rollbackDocPage(pageId, revisionNumber)` | `POST /api/docs/:id/rollback` | Returns updated `DocsPageShape`; throws on 403, 404, 409 |
+| `rollbackDocPage(pageId, revisionNumber)` | `POST /api/docs/:id/rollback` | Returns `DocWriteResultShape`; throws on 403, 404, 409 |
 
 **Lock-conflict error handling:** `acquireDocLock` and `addDocRevision` parse a `409`
 response and throw a `LockConflictError` (an `Error` with `lockConflict:
