@@ -1,0 +1,90 @@
+Your role is 'verifier'. Your task is as follows:
+
+Task summary:
+- docs-edit-save-crash: Fix for the edit-page and rollback-page crash where the web
+  client stored a partial DocWriteResultShape into page state typed as DocsPageShape,
+  causing page.lock undefined crashes on render. Fix: DocWriteResultShape added to
+  docs-client.ts and the write helpers (addDocRevision, renameDocPage, rollbackDocPage,
+  createDocPage) retyped to return it; the edit and history pages now re-fetch the full
+  page via getDocPageByPath after every write instead of calling setPage with the partial
+  result. Tester added 37 regression tests; all 2287 web tests pass.
+
+Base branch:
+- ms5
+
+Implementer branch/commit:
+- ms5-docsedit-implementer-20260613 (code commit: cea1fb6)
+
+Tester branch/commit:
+- ms5-docsedit-tester-20260613 (test commit: 6fbaf6c)
+
+Documenter branch/commit:
+- ms5-docsedit-documenter-20260613 (documentation commit: 832aa5e27bf9ac256d376a9468f17a20235e7512)
+
+Files modified across all stages (all are in scope for Verifier review):
+  Implementer:
+  - apps/web/app/docs/docs-client.ts
+  - apps/web/app/docs/edit/[...path]/page.tsx
+  - apps/web/app/docs/history/[...path]/page.tsx
+  Tester:
+  - apps/web/app/docs/docs-client.spec.ts
+  - apps/web/app/docs/docs-edit-page.spec.ts
+  - apps/web/app/docs/docs-history-page.spec.ts
+  Documenter:
+  - docs/features/documents.md
+
+Shared artifact directory:
+- artifacts/ms5-documents-wiki/docs-edit-save-crash
+
+Verification criteria:
+
+(a) Web client adds DocWriteResultShape and retypes write helpers:
+    - docs-client.ts exports DocWriteResultShape interface with exactly:
+      id, title, path, depth, parentId, currentRevisionId, revisionNumber, createdAt, updatedAt
+      and does NOT include lock, currentRevision, breadcrumbs, or visibility.
+    - addDocRevision, renameDocPage, rollbackDocPage, createDocPage are all typed to return
+      DocWriteResultShape (not DocsPageShape).
+
+(b) Edit and history pages re-fetch full page after writes:
+    - apps/web/app/docs/edit/[...path]/page.tsx handleSubmit calls getDocPageByPath(finalPath)
+      after a successful save (and after any rename), and calls setPage with the full DocsPageShape
+      result — not with the DocWriteResultShape from the write response.
+    - Lock access on page state is null-safe (page.lock?.isLocked, page.lock?.lockExpiresAt).
+    - apps/web/app/docs/history/[...path]/page.tsx handleRollback calls getDocPageByPath(finalPath)
+      after rollbackDocPage returns, and calls setPage with the full DocsPageShape result.
+    - Neither page calls setPage directly with a DocWriteResultShape.
+
+(c) 37 regression tests cover the crash scenarios and all pass:
+    - docs-client.spec.ts: DocWriteResultShape field coverage and write-helper return-type tests.
+    - docs-edit-page.spec.ts: post-save re-fetch, rename path-change, null-safe lock access.
+    - docs-history-page.spec.ts: rollback re-fetch via getDocPageByPath before setPage.
+    - Run: pnpm --filter @sfus/web run test from the documenter worktree and confirm 2287 pass,
+      0 fail, and that the 37 new tests are present.
+
+(d) docs/features/documents.md accurately reflects the implemented behavior:
+    - The DocWriteResultShape section (~line 282) lists exactly: id, title, path, depth, parentId,
+      currentRevisionId, revisionNumber, createdAt, updatedAt — and does NOT list lock,
+      currentRevision, breadcrumbs, or visibility.
+    - The write endpoint response lines for POST /api/docs/:id/revisions (~line 205),
+      PATCH /api/docs/:id (~line 237), POST /api/docs/:id/rollback (~line 446), and
+      POST /api/docs (~line 178) all state the response is DocWriteResultShape.
+      These response contract lines must be UNCHANGED from the ms5 base.
+    - The DocsEditPage Save section states that after a successful save the editor re-fetches
+      the full page via getDocPageByPath (GET /api/docs/<path>), so lock/breadcrumbs/currentRevision
+      are always populated from the authoritative read endpoint.
+    - The DocsHistoryPage Rollback section states that after a successful rollback the page is
+      re-fetched via getDocPageByPath before the history list is reloaded.
+    - The write-helpers table for docs-client.ts lists rollbackDocPage as returning DocWriteResultShape
+      (not DocsPageShape), and addDocRevision and renameDocPage as returning DocWriteResultShape.
+
+Startup behavior:
+- If the Documenter branch/commit and all files above are accessible, begin verification immediately
+  and continue in the same run. Do not stop after activation or scope restatement.
+- Infer the plan path, comparison base, and documentation conventions from repository context
+  when not explicitly provided; label those choices as assumptions.
+
+Completion gate:
+- Do not report success unless all four verification criteria (a)-(d) are confirmed against the
+  actual code, tests, and documentation on the Documenter branch.
+- All required artifacts (verifier_report.md, verifier_result.json) must be written and committed
+  to artifacts/ms5-documents-wiki/docs-edit-save-crash/ before reporting success.

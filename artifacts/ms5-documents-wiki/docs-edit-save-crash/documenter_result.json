@@ -1,0 +1,15 @@
+{
+  "status": "success",
+  "task_id": "docs-edit-save-crash",
+  "branch_name": "ms5-docsedit-documenter-20260613",
+  "documentation_commit_hash": "832aa5e27bf9ac256d376a9468f17a20235e7512",
+  "documentation_files_changed": [
+    "docs/features/documents.md"
+  ],
+  "pass_label": null,
+  "artifact_file_paths": [
+    "artifacts/ms5-documents-wiki/docs-edit-save-crash/documenter_report.md",
+    "artifacts/ms5-documents-wiki/docs-edit-save-crash/documenter_result.json",
+    "artifacts/ms5-documents-wiki/docs-edit-save-crash/verifier_prompt.txt"
+  ]
+}
