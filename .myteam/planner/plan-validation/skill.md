@@ -10,6 +10,7 @@ Load this skill only when the assembled plan content and implementer prompt bloc
 ## Tooling
 
 - Use the colocated tool `plan_lint.py` to validate required sections, subtask identifiers, prompt completeness, completion-gate presence, documentation-impact sections, and obvious contract violations.
+- The tool derives the subtask set from subtask **section headings** (`### <ID> — <title>`), not from every `word-number` token — cross-references such as `D-5`, `C-7`, or `G-3` are ignored. Keep each subtask a `### <ID> — <title>` heading paired with a `### <ID> prompt` block and a per-subtask `Documentation Impact` line so the structural checks map one-to-one to real subtasks.
 
 ## Required Actions
 

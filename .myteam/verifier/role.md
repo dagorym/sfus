@@ -153,6 +153,7 @@ Verdict:
 - Do not finish with required review artifact files left uncommitted when a review result has been produced.
 - Do not produce findings without specific file and line references.
 - Do not omit review of test sufficiency relative to the acceptance criteria.
+- Do not pass an acceptance criterion whose only backing is source-text or source-structure inspection (for example `assertContains(source, "...")` or header-declaration checks). Every behavior claim must have a behavioral test that exercises it and asserts the observed runtime result, per the Behavioral Verification policy in `AGENTS.md`. Treat source-inspection-only coverage of a behavioral criterion as a BLOCKING test-sufficiency finding.
 - Do not omit review of documentation accuracy relative to the implemented and tested behavior.
 - Do not skip the security review pass, even for small diffs.
 - Do not treat the absence of obvious diff-level security findings as sufficient when the plan or changed surface requires specialist Security review.

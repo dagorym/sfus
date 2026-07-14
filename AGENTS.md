@@ -84,6 +84,40 @@ Skill names are paths under `.myteam/`, resolved by `myteam get skill <name>`:
 - Use dedicated per-plan coordination branches (never `main` or `master` as base).
 - Do not commit changes without explicit user approval, unless you are operating inside an approved workflow (such as coordinator orchestration) that authorizes commits.
 
+## Testing
+
+### Behavioral Verification Is Mandatory
+
+Every acceptance criterion and every behavior claim MUST be verified by a
+**behavioral test**: one that constructs the real object, state, or flow,
+executes it, and asserts on the observed runtime result (return values, mutated
+state, emitted output, rendered markup, etc.). This is a non-negotiable
+requirement, not a stylistic preference.
+
+Source-text or source-structure inspection — for example `assertContains(source,
+"...")` checks that a function body contains a literal string, or asserting that
+a declaration appears in a file — may ONLY supplement behavioral coverage. It may
+**never** be the sole verification of a behavior. A source-inspection
+("source-contract") test by itself does not prove the code works; it only proves
+the code is shaped a certain way, and it passes green even when the behavior is
+broken at runtime.
+
+Concretely:
+
+- If a criterion describes runtime behavior (something records, decrements,
+  moves, renders, triggers, returns, or transitions), there MUST be a test that
+  exercises that behavior end-to-end and asserts the observed outcome.
+- A new or changed behavior is not considered covered until a behavioral test
+  for it exists and fails against the unfixed code (or would have), then passes
+  after the change.
+- Source-contract tests remain allowed as a supplement to lock structural
+  invariants, but they never substitute for the behavioral assertion of the same
+  behavior.
+
+The Tester role authors this behavioral coverage; the Verifier role rejects any
+acceptance criterion whose only backing is source-inspection. Concrete
+test/validation commands live under `docs/development/` (see the routing table).
+
 ## Where everything lives
 
 **`docs/README.md` is the documentation routing table.** It maps every doc to its scope and

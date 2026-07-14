@@ -12,6 +12,12 @@ PROMPT_PREFIX = "Your role is 'implementer'. Your task is as follows:"
 COMPLETION_GATE = "Do not report success unless all required artifacts exist and all changes are committed."
 PLACEHOLDER_PATTERNS = [r"\bTBD\b", r"choose one", r"decide later", r"to be determined"]
 
+# A subtask section heading looks like `### FU3-1 — <title>`: a stable id token
+# followed by a title separator. Prompt-block headings (`### FU3-1 prompt`) and
+# bare reference headings (`### PF-1`) are intentionally NOT subtasks.
+SUBTASK_HEADING_RE = re.compile(r"^#{2,4}\s+([A-Za-z][A-Za-z0-9]*-\d+)\b(.*)$")
+SUBTASK_TITLE_SEPARATORS = ("—", "–", "-", ":")  # em dash, en dash, hyphen, colon
+
 
 def load_text(path: str | None) -> str:
     if path:
@@ -20,7 +26,25 @@ def load_text(path: str | None) -> str:
 
 
 def find_subtask_ids(text: str) -> list[str]:
-    ids = re.findall(r"\b[A-Za-z]+-\d+\b", text)
+    """Detect subtask identifiers from subtask *section headings* only.
+
+    This deliberately excludes cross-references in prose/tables (``D-5``,
+    ``C-7``, ``axis-2``, ``G-3`` ...), the per-subtask prompt-block headings
+    (``### FU3-1 prompt``), and bare reference headings with no title
+    (``### PF-1``) — none of which are subtasks. If no conforming subtask
+    heading is found, fall back to the legacy whole-text scan so a
+    differently-formatted plan is not misreported as having no identifiers.
+    """
+    ids: list[str] = []
+    for line in text.splitlines():
+        match = SUBTASK_HEADING_RE.match(line)
+        if not match:
+            continue
+        remainder = match.group(2).lstrip()
+        if remainder[:1] in SUBTASK_TITLE_SEPARATORS:
+            ids.append(match.group(1))
+    if not ids:
+        ids = re.findall(r"\b[A-Za-z]+-\d+\b", text)
     return list(dict.fromkeys(ids))
 
 
@@ -47,7 +71,7 @@ def lint(text: str) -> list[dict[str, str]]:
         findings.append(
             {
                 "level": "error",
-                "message": f"Implementer prompt count ({prompt_count}) is lower than detected subtask id count ({len(subtask_ids)}).",
+                "message": f"Implementer prompt count ({prompt_count}) is lower than subtask count ({len(subtask_ids)}); each subtask heading needs its own implementer prompt block.",
             }
         )
 
